@@ -107,16 +107,26 @@ def on_startup():
         st.load_llm_settings()
 
         init_data_models()
+
+        # SKIP_RAG_STARTUP=1 → 시작 시 RAG 인덱스 빌드 건너뛰기 (메모리 절약)
+        # 나중에 /api/rag/reload 호출로 수동 빌드 가능
+        _skip_rag = os.environ.get("SKIP_RAG_STARTUP", "").strip() in ("1", "true", "yes")
         _k = st.OPENAI_API_KEY
-        if _k:
+        if _skip_rag:
+            st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
+        elif _k:
             rag_build_or_load_index(api_key=_k, force_rebuild=False)
         else:
             st.logger.info("RAG_SKIP_STARTUP no_env_api_key docs_dir=%s", st.RAG_DOCS_DIR)
 
         # ============================================================
         # LightRAG 인스턴스 초기화 + 워밍업 (콜드스타트 방지)
+        # SKIP_LIGHTRAG=1 환경변수로 비활성화 가능 (메모리 절약)
         # ============================================================
-        if LIGHTRAG_AVAILABLE and LIGHTRAG_STORE.get("ready"):
+        _skip_lightrag = os.environ.get("SKIP_LIGHTRAG", "").strip() in ("1", "true", "yes")
+        if _skip_lightrag:
+            st.logger.info("LIGHTRAG_STARTUP_SKIP env SKIP_LIGHTRAG=1")
+        elif LIGHTRAG_AVAILABLE and LIGHTRAG_STORE.get("ready"):
             st.logger.info("LIGHTRAG_STARTUP_INIT starting...")
             try:
                 # 인스턴스 초기화 (그래프/벡터DB 로드)

@@ -33,6 +33,7 @@ function SidebarContent({
     { card: 'from-sky-50/70 to-white/70 border-sky-200/70 border-l-sky-400', icon: Search },
     { card: 'from-cyan-50/70 to-white/70 border-cyan-200/70 border-l-cyan-400', icon: Users },
     { card: 'from-violet-50/70 to-white/70 border-violet-200/70 border-l-violet-400', icon: BarChart3 },
+    { card: 'from-emerald-50/70 to-white/70 border-emerald-200/70 border-l-emerald-400', icon: MessageSquare },
   ];
 
   function clickExample(q) {

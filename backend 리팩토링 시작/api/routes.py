@@ -4129,7 +4129,7 @@ def _guardian_ml_interpret(ml_result: dict, action: str, table: str, row_count: 
 
 # ── Guardian Agent (LangChain create_agent — v1.2+) ──
 
-def _guardian_tool_defs(conn_cursor, outer_row_count: int):
+def _guardian_tool_defs(conn, outer_row_count: int):
     """Guardian Agent용 Tool 함수들을 정의하고 반환"""
 
     def analyze_impact(table_name: str, row_count: int) -> str:
@@ -4145,7 +4145,7 @@ def _guardian_tool_defs(conn_cursor, outer_row_count: int):
 
     def get_user_pattern(user_id: str, current_row_count: int) -> str:
         """해당 사용자의 최근 30일 행동 패턴을 조회한다. 평소 작업량과 현재 편차를 반환."""
-        row = conn_cursor.execute("SELECT AVG(row_count) as avg_c, COUNT(*) as cnt, MAX(row_count) as mx FROM audit_log WHERE user_id=? AND action IN ('DELETE','UPDATE') AND timestamp > datetime('now','-30 days')", (user_id,)).fetchone()
+        row = conn.cursor().execute("SELECT AVG(row_count) as avg_c, COUNT(*) as cnt, MAX(row_count) as mx FROM audit_log WHERE user_id=? AND action IN ('DELETE','UPDATE') AND timestamp > datetime('now','-30 days')", (user_id,)).fetchone()
         if not row or not row["avg_c"]:
             return f"'{user_id}'의 최근 30일 이력 없음. 첫 작업."
         avg = row["avg_c"]
@@ -4159,7 +4159,7 @@ def _guardian_tool_defs(conn_cursor, outer_row_count: int):
 
     def search_similar(action: str, table_name: str) -> str:
         """과거 유사 사건을 검색한다. 실수 비율과 상세 내역을 반환."""
-        rows = conn_cursor.execute("SELECT * FROM incidents WHERE action=? AND row_count >= 50 ORDER BY ABS(row_count - ?) LIMIT 10", (action, outer_row_count)).fetchall()
+        rows = conn.cursor().execute("SELECT * FROM incidents WHERE action=? AND row_count >= 50 ORDER BY ABS(row_count - ?) LIMIT 10", (action, outer_row_count)).fetchall()
         if not rows:
             return "유사 사례 없음"
         mistakes = sum(1 for r in rows if r["was_mistake"])
@@ -4174,7 +4174,7 @@ def _guardian_tool_defs(conn_cursor, outer_row_count: int):
     return [analyze_impact, get_user_pattern, search_similar, execute_decision]
 
 
-def _recovery_tool_defs(conn_cursor):
+def _recovery_tool_defs(conn):
     """Recovery Agent용 Tool 함수들"""
 
     def search_audit_log(user_id: str = "", table_name: str = "", action: str = "DELETE") -> str:
@@ -4188,7 +4188,7 @@ def _recovery_tool_defs(conn_cursor):
             query += " AND table_name=?"
             params.append(table_name)
         query += " ORDER BY id DESC LIMIT 5"
-        rows = conn_cursor.execute(query, params).fetchall()
+        rows = conn.cursor().execute(query, params).fetchall()
         if not rows:
             return "해당 조건의 감사 로그 없음"
         return "\n".join([f"  - [{r['id']}] {r['timestamp'][:16]} {r['user_id']}: {r['action']} {r['table_name']} {r['row_count']}건 (₩{r['affected_amount']:,.0f}) [{r['status']}]" for r in rows])
@@ -4234,7 +4234,7 @@ def _run_guardian_agent(user_id: str, action: str, table: str, row_count: int, a
     from langchain_openai import ChatOpenAI
 
     conn = _guardian_conn()
-    tools = _guardian_tool_defs(conn.cursor(), row_count)
+    tools = _guardian_tool_defs(conn, row_count)
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
     graph = create_agent(
@@ -4262,7 +4262,7 @@ def _run_recovery_agent(message: str, api_key: str):
     from langchain_openai import ChatOpenAI
 
     conn = _guardian_conn()
-    tools = _recovery_tool_defs(conn.cursor())
+    tools = _recovery_tool_defs(conn)
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
     graph = create_agent(

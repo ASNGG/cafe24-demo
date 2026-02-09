@@ -24,5 +24,5 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 ENV KMP_DUPLICATE_LIB_OK=TRUE
 
-# 실행
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 실행 (Railway는 PORT 환경변수 자동 주입)
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

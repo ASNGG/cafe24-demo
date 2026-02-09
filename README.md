@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-[API 문서 (Swagger)](https://cafe24-api-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+[웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-api-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -1102,12 +1102,19 @@ restartPolicyType = "on_failure"
 
 ### Vercel 프론트엔드 배포
 
+- **Production URL**: https://cafe24-frontend.vercel.app/
+
 ```bash
 cd nextjs
-npx vercel
+npx vercel --prod
 ```
 
-환경변수: `BACKEND_INTERNAL_URL=https://cafe24-api-production.up.railway.app`
+환경변수: `BACKEND_INTERNAL_URL=https://cafe24-backend-production.up.railway.app`
+
+### Railway 백엔드 API
+
+- **Production URL**: https://cafe24-backend-production.up.railway.app
+- **Swagger 문서**: https://cafe24-backend-production.up.railway.app/docs
 
 ---
 

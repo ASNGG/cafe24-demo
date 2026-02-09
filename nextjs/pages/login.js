@@ -220,7 +220,7 @@ export default function LoginPage() {
 
         {/* 푸터 */}
         <p className="mt-6 text-center text-xs text-cookie-brown/40">
-          &copy; 2024 CAFE24 &middot; AI 운영 플랫폼
+          &copy; 2026 CAFE24 &middot; AI 운영 플랫폼
         </p>
       </motion.div>
     </div>

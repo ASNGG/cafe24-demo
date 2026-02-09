@@ -247,6 +247,7 @@ export default function AgentPanel({
     ];
   }, [selectedShop]);
 
+
   const shouldAutoScrollRef = useRef(true);
 
   const updateAutoScrollFlag = useCallback(() => {

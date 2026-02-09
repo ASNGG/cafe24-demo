@@ -2,6 +2,7 @@
 // Data Guardian Agent — AI 기반 데이터 보호 시스템
 
 import { useState, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
 import {
   Shield, AlertTriangle, RotateCcw, BarChart3, Play, Loader2,
@@ -515,8 +516,8 @@ function AnalysisResult({ result, form, auth, apiCall }) {
           {/* Agent 최종 판단 */}
           <div className="rounded-xl border border-indigo-200 bg-white/80 p-4">
             <p className="mb-2 text-xs font-bold text-indigo-600">Agent 최종 판단</p>
-            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-              {agent.output}
+            <div className="prose prose-sm max-w-none text-gray-700">
+              <ReactMarkdown>{agent.output}</ReactMarkdown>
             </div>
           </div>
 
@@ -694,8 +695,8 @@ function RecoverTab({ auth, apiCall }) {
           )}
 
           <div className="rounded-xl border border-emerald-200 bg-white/80 p-4">
-            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-              {result.output}
+            <div className="prose prose-sm max-w-none text-gray-700">
+              <ReactMarkdown>{result.output}</ReactMarkdown>
             </div>
           </div>
 

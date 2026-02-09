@@ -2323,7 +2323,7 @@ QUERY_INJECTION_RULES: List[Tuple[str, str]] = [
 # RAG-Fusion: Multi-Query Generation & Fusion (2025)
 # ============================================================
 RAG_FUSION_ENABLED = True  # RAG-Fusion 활성화 여부
-RAG_FUSION_NUM_QUERIES = 4 if RERANKER_AVAILABLE else 2  # 리랭커 없으면 2개로 절약
+RAG_FUSION_NUM_QUERIES = 2  # OOM 방지: 2개 쿼리로 충분
 
 # ============================================================
 # RAG-Fusion 최적화: 캐싱 & 단순 쿼리 스킵
@@ -2693,8 +2693,8 @@ def rag_search_hybrid(
                       original_query[:30], len(kg_entities),
                       kg_location_answer or "none")
 
-    # Reranker 사용 시 더 많은 후보 확보, 없으면 최소한으로
-    retrieval_k = k * 4 if use_reranking and RERANKER_AVAILABLE else k
+    # 메모리 절약: retrieval_k를 최소한으로
+    retrieval_k = k
 
     # ★ RAG-Fusion: 다중 쿼리 생성 및 검색
     if use_fusion and RAG_FUSION_ENABLED:

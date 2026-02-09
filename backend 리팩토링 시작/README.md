@@ -36,17 +36,17 @@
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 이커머스 플랫폼의 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **10개 ML 모델** + **8종 RAG 기법** + **92개 REST API**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: 2단계 라우터(키워드 + LLM) + 28개 도구 Tool Calling 방식으로 사용자 질의를 처리
-- **RAG 시스템**: FAISS + BM25 Hybrid Search, LightRAG 지식 그래프, K2RAG, Corrective RAG
-- **ML 파이프라인**: 셀러 이탈 예측(SHAP), 이상거래 탐지, 셀러 세그먼트, 매출 예측 등 10개 ML 모델 + Guardian 이상탐지 1개
-- **합성 데이터**: NumPy 기반 통계적 분포(로그정규, 베타, 포아송 등)로 현실적 이커머스 데이터 18개 CSV 자동 생성
-- **CS 자동화**: 문의 분류, RAG+LLM 답변 생성, n8n 워크플로우 기반 이메일 회신
-- **Data Guardian**: 룰엔진 + ML + AI Agent 3단계 쿼리 위험도 분석 시스템
-- **AI 프로세스 마이너**: 이벤트 로그 기반 프로세스 패턴 발견, 병목 분석, LLM 자동화 추천, ML 기반 다음 활동 예측 및 이상 프로세스 탐지
-- **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py → state.py → runner.py) + 프론트엔드 실시간 수정 (KaTeX 수식 지원)
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 7개 IntentCategory로 28개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 포함
+- **RAG 시스템 (8종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), CRAG([논문](https://arxiv.org/abs/2401.15884) 기반 검색 품질 자동 교정), Cross-Encoder Reranking
+- **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 10개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
+- **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
+- **CS 자동화**: ML 문의 분류(TF-IDF + RF, 9개 카테고리) -> RAG+LLM 답변 생성(SSE 스트리밍) -> n8n Cloud 워크플로우 -> Resend 이메일 발송. 신뢰도 >= 0.75 자동 처리, 미만 시 담당자 검토 분기
+- **Data Guardian**: 룰엔진(<1ms, O(1) 조건 분기) + IsolationForest ML(7개 피처) + LangChain `create_agent` AI Agent 3단계 쿼리 위험도 분석. 복구 SQL은 "제안만" (DBA 승인 필수)
+- **AI 프로세스 마이너**: 이벤트 로그(주문/CS/정산 3종) 기반 프로세스 패턴 발견(전이 행렬 + Mermaid), IQR 병목 분석, GPT-4o-mini 자동화 추천 + SOP 생성, RandomForest 다음 활동 예측(Top-3), IsolationForest 이상 프로세스 탐지
+- **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py -> state.py -> runner.py) + 프론트엔드 실시간 수정. `system_prompt.json` 영속화, KaTeX 수식 렌더링 지원
 
 ---
 
@@ -356,6 +356,8 @@ flowchart TB
 
 ## 6. AI 에이전트 시스템
 
+> **설계 기반**: Anthropic [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) - Routing, Tool Use, Agents 패턴을 실제 이커머스 운영에 적용. "빠른 규칙 우선 + AI fallback" 원칙을 프로젝트 전반(라우터, Guardian, CS 파이프라인)에 일관 적용.
+
 ### 6.1 아키텍처
 
 ```mermaid
@@ -433,11 +435,11 @@ LLM이 질문에 적합한 도구 선택 -> 실행 -> SSE 응답
 
 ### 6.4 2단계 인텐트 라우터
 
-> **출처**: [Anthropic - Building Effective Agents](https://www.anthropic.com/research/building-effective-agents)
+> **설계 출처**: Anthropic [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) - "For complex systems, rather than letting agents decide all tools, narrow the tool set by classifying the intent first" 패턴 적용
 
-**문제**: 28개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출)
+**문제**: 28개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
 
-**해결**: 2단계 Router 패턴으로 빠르고 정확한 분류
+**해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-4o-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(Data Guardian의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
 
 ```mermaid
 flowchart TB
@@ -645,7 +647,7 @@ flowchart TD
 ```python
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
-    next_agent: str           # 다음 에이전트 ("search"/"analysis"/"translation"/"end")
+    next_agent: str           # 다음 에이전트 ("search"/"analysis"/"cs"/"end")
     current_agent: str        # 현재 에이전트
     tool_calls_log: List[dict] # 도구 호출 이력
     iteration: int            # 반복 횟수 (최대 3회)
@@ -712,22 +714,56 @@ CONVERSATION_MEMORY = {
 }
 ```
 
+### 6.9 LLM 호출 모듈 (`agent/llm.py`)
+
+LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하는 래퍼 모듈입니다.
+
+**API 키 우선순위 체인 (`pick_api_key`):**
+```
+요청 헤더 api_key > state.OPENAI_API_KEY > 환경 변수 OPENAI_API_KEY
+```
+
+**자동 재시도 (`invoke_with_retry`):**
+- 최대 3회 재시도, 지수 백오프 (1초 sleep)
+- `RateLimitError`, `APIConnectionError` 등 일시적 오류 자동 복구
+- 3회 실패 시 마지막 예외를 상위로 전파
+
+**고급 LLM 파라미터:**
+
+| 파라미터 | 기본값 | 용도 |
+|----------|--------|------|
+| `temperature` | 0.7 | 응답 다양성 (0 = 결정적, 2 = 최대 랜덤) |
+| `max_tokens` | 4096 | 최대 응답 토큰 수 |
+| `top_p` | 1.0 | 누적 확률 기반 토큰 샘플링 (nucleus sampling) |
+| `presence_penalty` | 0.0 | 새로운 주제 도입 장려 (-2.0 ~ 2.0) |
+| `frequency_penalty` | 0.0 | 반복 억제 (-2.0 ~ 2.0) |
+| `seed` | None | 재현 가능한 응답을 위한 시드 값 |
+
+**GPT-5 호환성:**
+- `model.startswith("gpt-5")` 감지 시 `temperature` 파라미터 자동 제외 (API 호환성)
+
+**스트리밍 지원:**
+- `chunk_text()`: 스트리밍 응답에서 텍스트 청크 추출
+- `_tool_context_block()`: 도구 실행 결과를 구조화된 컨텍스트 블록으로 포매팅 (사용 원칙 포함)
+
 ---
 
 ## 7. RAG 시스템
 
-### 7.1 적용 기법 요약
+### 7.1 적용 기법 요약 (8종)
 
-| 기법 | 효과 | 런타임 추가 | 프론트엔드 상태 |
-|------|------|-------------|----------------|
-| **Hybrid Search** | 의미 + 키워드 검색 결합 | ~30ms | 활성 (인덱스 빌드 시) |
-| **Contextual Retrieval** | 검색 정확도 +20~35% | 인덱싱 시 | 미적용 |
-| **RAG-Fusion** | 다중 쿼리로 리콜 향상 | ~50ms (LLM) | 활성 |
-| **Cross-Encoder Reranking** | 정확도 +20~35% | ~80ms | 비활성 |
-| **Parent-Child Chunking** | 정밀 검색 + 충분한 컨텍스트 | 0ms | 활성 |
-| **Simple Knowledge Graph** | 엔티티-관계 추출 | ~50ms | 비활성 |
-| **LightRAG** | 경량 지식그래프 | ~100ms | 시험용 (비활성) |
-| **CRAG** | 검색 품질 자동 교정 | ~200ms (LLM) | 모듈 구현 완료 (미통합) |
+단일 RAG 기법만으로는 이커머스 도메인의 다양한 질문 유형(정책 조회, 개념 설명, 절차 안내 등)을 커버하기 어렵습니다. 키워드 매칭이 강한 BM25, 의미 검색이 강한 FAISS, 관계 추론이 강한 Knowledge Graph 등 각 기법의 강점을 조합하여 검색 품질을 극대화합니다.
+
+| # | 기법 | 효과 | 출처/논문 | 런타임 추가 | 프론트엔드 상태 |
+|---|------|------|-----------|-------------|----------------|
+| 1 | **Hybrid Search** (FAISS + BM25 + RRF) | 의미 + 키워드 검색 결합 | - | ~30ms | 활성 |
+| 2 | **RAG-Fusion** (Multi-Query) | 4개 변형 쿼리로 리콜 향상 | - | ~50ms (LLM) | 활성 |
+| 3 | **Parent-Child Chunking** | 정밀 검색(500자) + 충분한 컨텍스트(3,000자) | - | 0ms | 활성 |
+| 4 | **Contextual Retrieval** | 검색 정확도 +20~35% | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) | 인덱싱 시 | 미적용 |
+| 5 | **LightRAG** | 경량 지식그래프, 99% 토큰 절감 | [arXiv:2410.05779](https://arxiv.org/abs/2410.05779) | ~100ms | 시험용 |
+| 6 | **K2RAG** | KG + Hybrid + Corpus Summarization | [arXiv:2507.07695](https://arxiv.org/abs/2507.07695) | 가변 | 시험중 |
+| 7 | **CRAG** | 검색 품질 자동 교정 (Retrieval Grader + Query Rewriter) | [arXiv:2401.15884](https://arxiv.org/abs/2401.15884) | ~200ms (LLM) | 모듈 구현 완료 (미통합) |
+| 8 | **Cross-Encoder Reranking** | 정밀 재순위 정확도 향상 | - | ~80ms | 비활성 |
 
 ### 7.2 Hybrid Search (FAISS + BM25)
 
@@ -893,9 +929,14 @@ flowchart TB
 
 ### 8.0 왜 ML 모델을 만들었는가
 
-카페24 플랫폼 운영에서 반복적으로 발생하는 **수작업 분석/판단**을 자동화하기 위해 10개의 ML 모델을 개발했습니다. 각 모델은 실제 운영에서 직면하는 비즈니스 문제를 해결합니다.
+카페24 플랫폼 운영에서 반복적으로 발생하는 **수작업 분석/판단**을 자동화하기 위해 10개의 ML 모델 + 마케팅 최적화 메타휴리스틱 + Guardian 이상탐지 모델을 개발했습니다. 각 모델은 실제 운영에서 직면하는 구체적 비즈니스 문제를 해결합니다.
 
-**데이터 부재 해결**: 실제 카페24 데이터에 접근할 수 없으므로, `ml/train_models.py`에서 **NumPy 기반 통계적 분포**로 현실적 합성 데이터를 생성합니다 (Faker 미사용). 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인에 맞는 분포를 사용하여 실제 이커머스 패턴을 모사합니다.
+**핵심 설계 원칙:**
+- **AI 에이전트 통합**: 모든 ML 모델은 독립 실행이 아닌 AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 선택하여 결과를 자연어로 설명합니다.
+- **MLflow 추적**: 모든 학습 실험은 MLflow에 기록되어, 프론트엔드에서 모델 버전을 선택하면 실시간으로 state.py의 모델이 교체됩니다.
+- **Graceful Degradation**: LightGBM/XGBoost/SHAP 미설치 시 scikit-learn 기본 알고리즘으로 자동 대체됩니다.
+
+**데이터 부재 해결**: 실제 카페24 데이터에 접근할 수 없으므로, `ml/train_models.py`에서 **NumPy 기반 통계적 분포**로 현실적 합성 데이터를 생성합니다 (Faker 미사용). `np.random.default_rng(42)` 시드 고정으로 재현성을 보장하며, 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인에 맞는 분포를 사용하여 실제 이커머스 패턴을 모사합니다.
 
 ### 8.1 모델 개요
 
@@ -947,6 +988,13 @@ flowchart TB
 
 ### 8.2 셀러 이탈 예측 + SHAP 해석
 
+**비즈니스 문제**: 이커머스 플랫폼에서 셀러 이탈은 매출 직결 이슈입니다. 300명 중 약 12%가 churned 상태이며, 이탈 전 징후를 조기에 포착하면 선제적 리텐션 활동(쿠폰 발급, 전담 매니저 배정 등)이 가능합니다.
+
+**기술적 접근**:
+- **알고리즘**: RandomForest (`n_estimators=100`, `class_weight="balanced"`) -- 불균형 데이터(active 70% vs churned 12%)에서 소수 클래스 가중치 자동 조정
+- **피처 엔지니어링**: 셀러 상태(active/dormant/churned)를 이진 라벨로 변환, 9개 행동/거래 피처 사용
+- **모델 해석**: SHAP TreeExplainer로 개별 셀러의 이탈 원인을 피처 기여도로 분해
+
 **이탈 모델 설정** (`churn_model_config.json`):
 
 ```json
@@ -968,52 +1016,117 @@ flowchart TB
 }
 ```
 
+**성능 지표**:
+- **Accuracy**: 98.3% (test set 60명)
+- **F1-score**: 93.3% (class_weight="balanced"로 소수 클래스 성능 확보)
+- **Top 3 피처 중요도**: total_orders (35.7%) > total_revenue (30.4%) > days_since_last_login (18.8%)
+
 **SHAP 출력 예시:**
 ```
 SEL0123 이탈 예측: 73% (high)
 
 피처                              SHAP     영향
 --------------------------------------------------
-days_since_last_login (14일)      +0.35   이탈 증가
+days_since_last_login (14일)      +0.35   이탈 증가 (가장 큰 기여)
 order_count (감소)                +0.22   이탈 증가
-total_gmv (높음)                  -0.12   이탈 감소
+total_gmv (높음)                  -0.12   이탈 감소 (방어 요인)
 ```
+
+**에이전트 연동**: `predict_seller_churn(seller_id)` Tool이 호출되면, 해당 셀러의 9개 피처를 추출하여 이탈 확률 + SHAP 기여도를 JSON으로 반환합니다. LLM이 이를 자연어로 설명합니다.
 
 ### 8.3 셀러 세그먼트 (K-Means)
 
-| ID | 세그먼트 | 특징 |
-|----|----------|------|
-| 0 | 성장형 셀러 (Growing Seller) | 중간 매출, 성장 가능성 |
-| 1 | 휴면 셀러 (Dormant Seller) | 낮은 매출, 높은 환불률 (29%) |
-| 2 | 우수 셀러 (Excellent Seller) | 높은 GMV (2.1억), 낮은 환불률 (8%) |
-| 3 | 파워 셀러 (Power Seller) | 최고 GMV (2.7억), 최다 주문 (3,900+) |
-| 4 | 관리 필요 셀러 (At-Risk Seller) | 낮은 매출, 적은 상품 수 |
+**비즈니스 문제**: 300명의 셀러를 일괄적으로 관리하면 리소스 낭비가 발생합니다. 행동 패턴 기반으로 그룹화하여 세그먼트별 차별화된 운영 전략(파워 셀러에게 프리미엄 지원, 휴면 셀러에게 재활성화 프로모션 등)을 수립합니다.
+
+**기술적 접근**:
+- **피처**: total_orders, total_revenue, product_count, refund_rate, avg_response_time, days_since_last_login (6개)
+- **전처리**: StandardScaler 정규화 (피처 스케일 차이 제거)
+- **K=5 선정**: Silhouette Score 기반으로 최적 클러스터 수 결정
+- **세그먼트 이름 자동 부여**: 센트로이드의 total_revenue를 기준으로 내림차순 정렬하여 의미 있는 이름 매핑
+
+| ID | 세그먼트 | 특징 | 운영 전략 |
+|----|----------|------|-----------|
+| 0 | 성장형 셀러 (Growing Seller) | 중간 매출, 성장 가능성 | 교육 프로그램, 성장 가이드 |
+| 1 | 휴면 셀러 (Dormant Seller) | 낮은 매출, 높은 환불률 (29%) | 재활성화 쿠폰, 원인 분석 |
+| 2 | 우수 셀러 (Excellent Seller) | 높은 GMV (2.1억), 낮은 환불률 (8%) | 전담 매니저, 마케팅 지원 |
+| 3 | 파워 셀러 (Power Seller) | 최고 GMV (2.7억), 최다 주문 (3,900+) | VIP 프로그램, 수수료 우대 |
+| 4 | 관리 필요 셀러 (At-Risk Seller) | 낮은 매출, 적은 상품 수 | 긴급 개입, 이탈 방지 |
 
 ### 8.4 마케팅 최적화 (P-PSO)
 
-마케팅 예산 제약 하에서 GMV 증가 최대화:
+**비즈니스 문제**: 마케팅 예산이 제한된 상황에서, 6개 광고 채널에 예산을 어떻게 배분해야 ROAS/매출이 최대화되는지를 결정하는 연속 최적화 문제입니다. 각 채널은 포화점(saturation point)이 있어 투자 대비 수익이 체감하므로, 단순 비례 배분이 아닌 메타휴리스틱 알고리즘을 사용합니다.
+
+**기술적 접근**:
+- **1단계 (매출 예측)**: `RevenuePredictor`(LightGBM)로 현재 셀러의 다음 달 매출 베이스라인을 예측
+- **2단계 (최적화)**: mealpy 라이브러리의 P-PSO (Phasor Particle Swarm Optimization)로 6개 채널 예산 비율을 연속 변수(`FloatVar`)로 탐색
+- **목적함수**: 3가지 목표 모드에 따라 ROAS 가중 / 매출 가중 / 균형 목적함수를 선택
 
 ```mermaid
 flowchart TB
-    subgraph Step1["1단계: 사전 계산"]
-        A["모든 마케팅 채널 옵션 생성<br/>(광고/프로모션/쿠폰)"]
-        B["LightGBM으로 매출 변화 예측"]
+    subgraph Input["입력"]
+        A["셀러 ID + 총 예산 + 목표 모드"]
     end
 
-    subgraph Step2["2단계: 조합 최적화"]
-        C["P-PSO: 예산 제약 내<br/>최적 조합 탐색"]
+    subgraph Step1["1단계: 매출 베이스라인"]
+        B["RevenuePredictor(LightGBM)<br/>다음달 매출 예측"]
     end
 
-    A --> B --> C --> D["마케팅 추천 (최대 10개)"]
+    subgraph Step2["2단계: 채널 최적화"]
+        C["6개 채널 × FloatVar(0~max_ratio)<br/>P-PSO 연속 변수 탐색"]
+        D["수익 체감 모델(diminishing returns)<br/>포화점 이후 log-scale 적용"]
+    end
+
+    subgraph Fallback["실패 시"]
+        F["Heuristic Fallback<br/>ROAS 순 탐욕 배분"]
+    end
+
+    A --> B --> C
+    C --> D --> E["채널별 예산 배분 + 예상 ROAS"]
+    C -->|"P-PSO 실패"| F --> E
 ```
 
-| 파라미터 | 값 |
-|----------|-----|
-| `epoch` | 200 |
-| `pop_size` | 50 |
-| `bounds` | BinaryVar (0/1) |
+**6개 마케팅 채널** (`ml/marketing_optimizer.py`):
+
+| 채널 | 기대 ROAS | 포화점 (saturation) | 매출 상승 계수 | 최대 예산 비율 |
+|------|-----------|---------------------|---------------|---------------|
+| **검색 광고** (search_ads) | 4.5x | 300만원 | 0.15 | 40% |
+| **디스플레이 광고** (display_ads) | 2.8x | 500만원 | 0.08 | 30% |
+| **소셜 미디어** (social_media) | 3.2x | 200만원 | 0.12 | 35% |
+| **이메일 마케팅** (email_marketing) | 6.0x | 100만원 | 0.05 | 15% |
+| **인플루언서** (influencer) | 2.5x | 400만원 | 0.10 | 25% |
+| **콘텐츠 마케팅** (content_marketing) | 3.8x | 150만원 | 0.07 | 20% |
+
+**수익 체감 모델 (Diminishing Returns)**:
+```
+예산 <= 포화점: revenue_uplift = budget × uplift_coefficient  (선형 구간)
+예산 >  포화점: revenue_uplift = saturation_rev × (1 + log(budget / saturation_point))  (체감 구간)
+```
+포화점 이전에는 투자 금액에 비례하여 매출이 증가하지만, 포화점을 넘으면 로그 스케일로 체감합니다.
+
+**3가지 최적화 목표 모드**:
+
+| 모드 | 목적함수 | 적합한 상황 |
+|------|---------|------------|
+| `maximize_roas` | `total_revenue / total_cost` 최대화 (ROAS 가중 1.5) | 예산 효율 중시, 소규모 셀러 |
+| `maximize_revenue` | `total_revenue` 최대화 (매출 가중 1.5) | 공격적 성장, 파워 셀러 |
+| `balanced` | `revenue × roas` 균형 최적화 | 일반적 상황 (기본값) |
+
+**P-PSO 파라미터:**
+
+| 파라미터 | 값 | 설명 |
+|----------|-----|------|
+| `epoch` | 200 | 최적화 반복 횟수 |
+| `pop_size` | 50 | 입자 수 (탐색 다양성) |
+| `bounds` | `FloatVar` (0.0 ~ max_ratio) | 각 채널 예산 비율 (연속 변수) |
+| `penalty` | 예산 초과 시 -999999 | 제약 조건 위반 패널티 |
+
+**Graceful Degradation**:
+- P-PSO 최적화 실패 시 → Heuristic Fallback: ROAS 내림차순으로 채널을 정렬하여 탐욕적(greedy) 배분
+- 예산이 최소 채널 비용 미만 시 → Limited Budget Mode: ROAS 최상위 채널 1개에 집중 배분
 
 ### 8.5 MLflow 실험 추적
+
+**도입 목적**: 10개 ML 모델의 학습 파라미터, 성능 메트릭, 모델 아티팩트를 체계적으로 관리하여, 모델 재학습 시 이전 실험과 비교하고 최적 버전을 선택할 수 있도록 합니다.
 
 ```mermaid
 flowchart LR
@@ -1037,23 +1150,122 @@ flowchart LR
     A --> Registry
 ```
 
+**기술 스택:**
+- **저장소**: 로컬 파일 기반 (`file:./mlruns`) -- 별도 서버 불필요
+- **실험명**: `cafe24-ops-ai` (단일 실험에 모든 모델 Run 집중)
+- **선택적 의존성**: MLflow 미설치 시 실험 추적을 건너뛰고 joblib 직렬화만 수행
+
 **`ml/mlflow_tracker.py` 주요 API:**
 
 | 함수/클래스 | 설명 |
 |------------|------|
-| `init_mlflow()` | MLflow 초기화, 실험 생성 |
-| `start_run(run_name, tags)` | 새 실험 Run 시작 |
-| `log_params(params)` | 파라미터 로깅 |
-| `log_metrics(metrics)` | 메트릭 로깅 |
-| `log_model_sklearn(model, path)` | sklearn 모델 로깅 및 등록 |
-| `load_model_from_registry(name, version)` | 레지스트리에서 모델 로드 |
-| `MLflowExperiment` | 컨텍스트 매니저 (with 구문 지원) |
+| `init_mlflow()` | MLflow 초기화 + 실험 생성/조회 + `MlflowClient` 반환 |
+| `start_run(run_name, tags)` | 새 실험 Run 시작 (model_type, domain 등 태그 기록) |
+| `log_params(params)` | 하이퍼파라미터 로깅 (n_estimators, max_depth 등) |
+| `log_metrics(metrics)` | 성능 메트릭 로깅 (accuracy, f1_score, r2_score 등) |
+| `log_model_sklearn(model, path, model_name)` | sklearn 모델 아티팩트 로깅 + 레지스트리 등록 |
+| `load_model_from_registry(name, version)` | 레지스트리에서 특정 버전 모델 로드 |
+| `get_latest_model_version(name)` | 등록된 모델의 최신 버전 번호 조회 |
+| `MLflowExperiment` | 컨텍스트 매니저 (`with` 구문으로 Run 자동 시작/종료) |
 
-**프론트엔드 연동:**
-- ML모델 패널에서 실험/모델 목록 조회
-- 모델 버전 선택 시 `POST /api/mlflow/models/select`
-- 선택된 모델이 실시간으로 state.py에 로드됨
-- 서버 재시작 후에도 선택 상태 유지 (`load_selected_mlflow_models()`)
+**프론트엔드 연동 (실시간 모델 교체):**
+
+```mermaid
+sequenceDiagram
+    participant FE as 프론트엔드
+    participant BE as FastAPI
+    participant ML as MLflow Registry
+    participant ST as state.py
+
+    FE->>BE: GET /api/mlflow/experiments
+    BE-->>FE: 실험 목록 + Run 메트릭
+
+    FE->>BE: GET /api/mlflow/models
+    BE-->>FE: 등록 모델 + 버전 목록
+
+    FE->>BE: POST /api/mlflow/models/select
+    Note over BE: {model_key: "churn", version: "2"}
+    BE->>ML: load_model_from_registry()
+    ML-->>BE: 모델 객체
+    BE->>ST: SELLER_CHURN_MODEL = 새 모델
+    BE-->>FE: 교체 완료
+
+    Note over BE,ST: 서버 재시작 시 load_selected_mlflow_models()로 선택 복원
+```
+
+- 프론트엔드 ML모델 패널에서 실험/모델 목록을 조회하고 버전을 선택
+- 선택 즉시 state.py의 글로벌 모델 변수가 교체되어 다음 API 호출부터 새 모델 적용
+- 선택 상태는 파일에 영속화되어 서버 재시작 후에도 유지
+
+### 8.6 매출 예측 모듈 상세 (RevenuePredictor)
+
+`ml/revenue_model.py`의 `RevenuePredictor` 클래스는 개별 쇼핑몰의 다음 달 매출을 예측하는 독립 모듈입니다. 마케팅 최적화(8.4)의 베이스라인 매출 계산에도 사용됩니다.
+
+**핵심 설계:**
+- **싱글턴 패턴**: `get_predictor()` 함수로 전역 인스턴스를 1회만 생성하여, 서버 전체에서 동일한 모델 객체를 재사용합니다
+- **Auto-Training**: 서버 시작 시 `data/loader.py`에서 `shop_performance.csv`가 존재하면 자동으로 학습을 수행합니다
+- **MLflow 연동**: 학습 완료 시 자동으로 MLflow에 등록되어 프론트엔드에서 버전 관리가 가능합니다
+
+**7개 입력 피처:**
+
+| # | 피처 | 설명 | 데이터 증강 시 영향 가중치 |
+|---|------|------|--------------------------|
+| 1 | `monthly_revenue` | 현재 월 매출 | 0.30 |
+| 2 | `monthly_orders` | 월간 주문 수 | 0.25 |
+| 3 | `monthly_visitors` | 월간 방문자 수 | 0.15 |
+| 4 | `avg_order_value` | 평균 주문 금액 | 0.20 |
+| 5 | `customer_retention_rate` | 고객 재구매율 | 0.25 |
+| 6 | `conversion_rate` | 전환율 | 0.20 |
+| 7 | `review_score` | 리뷰 평점 | 0.10 |
+
+**합성 데이터 증강 전략** (`_generate_synthetic_data()`):
+```
+target_revenue = sum(feature[i] × impact_weight[i]) × (1 + noise)
+noise ~ Uniform(-0.1, +0.1)
+```
+각 피처에 도메인 기반 영향 가중치를 적용하여 현실적인 매출 타겟을 생성합니다. 이 방식으로 실제 데이터가 부족한 상황에서도 모델 학습이 가능합니다.
+
+**모델 사양:**
+- **알고리즘**: LightGBM Regressor (`n_estimators=100`, `max_depth=4`, `learning_rate=0.1`)
+- **검증**: 5-Fold Cross-Validation (R2 score)
+- **배치 예측**: `predict_batch(df)` 메서드로 전체 쇼핑몰 일괄 예측 지원
+
+### 8.7 에이전트 도구 레지스트리 (26개 Tool)
+
+모든 ML 모델은 `agent/tools.py`의 `AVAILABLE_TOOLS` 딕셔너리에 등록되어, AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 Semantic Router가 적절한 도구를 선택합니다.
+
+| 카테고리 | 도구명 | ML 모델 | 설명 |
+|---------|--------|---------|------|
+| **쇼핑몰** | `get_shop_info` | - | 쇼핑몰 정보 + 성과 KPI 조인 조회 |
+| | `list_shops` | - | 카테고리/플랜/지역 필터링 목록 |
+| | `get_shop_services` | - | 쇼핑몰별 이용 서비스 조회 |
+| | `get_shop_performance` | - | 쇼핑몰 성과 KPI 상세 |
+| **카테고리** | `get_category_info` | - | 상품 카테고리 정보 (ID/이름 검색) |
+| | `list_categories` | - | 전체 카테고리 목록 |
+| **CS** | `auto_reply_cs` | - | CS 자동 응답 초안 생성 (LLM 연계) |
+| | `check_cs_quality` | RandomForest | CS 티켓 우선순위 예측 + 권장사항 |
+| | `get_cs_statistics` | - | CS 카테고리별 통계 집계 |
+| | `get_ecommerce_glossary` | - | 이커머스 용어 검색 (부분 매칭) |
+| **셀러 분석** | `analyze_seller` | - | 셀러 운영 데이터 종합 분석 |
+| | `get_seller_segment` | K-Means | 셀러 세그먼트 분류 (ID 또는 피처) |
+| | `detect_fraud` | IsolationForest | 이상거래 탐지 (기록 조회 + 실시간) |
+| | `get_segment_statistics` | K-Means | 세그먼트별 평균 매출/주문/환불률 |
+| | `get_fraud_statistics` | - | 전체 이상거래 유형별 통계 |
+| **운영 로그** | `get_order_statistics` | - | 이벤트 유형별 통계 + 일별 추이 |
+| | `get_seller_activity_report` | - | 셀러 활동 리포트 (2개 데이터소스 폴백) |
+| **문의 분류** | `classify_inquiry` | TF-IDF + RF | CS 문의 텍스트 자동 분류 (Top-3 확률) |
+| **RAG** | `search_platform` | - | FAISS 벡터 검색 |
+| | `search_platform_lightrag` | - | LightRAG 듀얼 레벨 검색 |
+| **대시보드** | `get_dashboard_summary` | - | 플랫폼 전체 운영 현황 종합 |
+| **예측 분석** | `get_churn_prediction` | RandomForest+SHAP | 이탈 위험 셀러 목록 + SHAP 요인 분석 |
+| | `get_gmv_prediction` | - | 월간 GMV 예측 + 플랜별 매출 분포 |
+| | `get_cohort_analysis` | - | 코호트 리텐션 분석 (와이드 포맷) |
+| | `get_trend_analysis` | - | KPI 트렌드 + 상관관계 분석 |
+| **ML 예측** | `predict_seller_churn` | RandomForest+SHAP | 개별 셀러 이탈 확률 + SHAP 해석 |
+| | `predict_shop_revenue` | LightGBM | 쇼핑몰 다음달 매출 예측 + 성과 분석 |
+| | `optimize_marketing` | P-PSO | 마케팅 예산 최적 배분 (6채널) |
+
+**Heuristic Fallback 패턴**: `predict_seller_churn`은 ML 모델 미로드 시 규칙 기반 스코어링(접속 경과일, 주문수, 매출, 환불률, CS 건수 가중합)으로 대체 작동합니다.
 
 ---
 
@@ -1061,7 +1273,7 @@ flowchart LR
 
 ### 9.1 합성 데이터 생성 (train_models.py)
 
-프로젝트는 실제 카페24 데이터에 접근할 수 없으므로, **NumPy 기반 통계적 분포**로 현실적인 합성 데이터를 자동 생성합니다. Faker 등 외부 라이브러리는 사용하지 않으며, `np.random.default_rng(42)` (시드 고정)로 재현 가능한 데이터를 생성합니다.
+> 데이터 생성의 배경과 설계 원칙은 [8.0 왜 ML 모델을 만들었는가](#80-왜-ml-모델을-만들었는가) 참조. 이 섹션에서는 생성되는 CSV 파일 스펙과 데이터 분포 규칙을 상세 기술합니다.
 
 ```bash
 python ml/train_models.py
@@ -1162,10 +1374,14 @@ python ml/train_models.py
 |--------|----------|------|
 | GET | `/api/sellers` | 셀러 목록 |
 | GET | `/api/sellers/search` | 셀러 검색 |
+| GET | `/api/sellers/autocomplete` | 자동완성 검색 (seller_id + shop_name 매칭, 최대 10건) |
 | GET | `/api/sellers/analyze/{id}` | 셀러 종합 분석 |
+| GET | `/api/sellers/{id}/activity` | 셀러 활동 이력 (최근 주문/CS/로그인) |
+| GET | `/api/sellers/performance` | 셀러 성과 순위 (Top 100, GMV/주문수 기준) |
 | POST | `/api/sellers/segment` | 세그먼트 예측 |
 | POST | `/api/sellers/fraud` | 이상거래 탐지 |
 | GET | `/api/sellers/segments/statistics` | 세그먼트 통계 |
+| GET | `/api/users/segments/{name}/details` | 세그먼트 드릴다운 (소속 셀러 목록 + 개별 지표) |
 
 ### 분석
 
@@ -1176,6 +1392,8 @@ python ml/train_models.py
 | GET | `/api/analysis/prediction/churn/seller/{id}` | 개별 이탈 예측 |
 | GET | `/api/analysis/cohort/retention` | 코호트 리텐션 |
 | GET | `/api/analysis/trend/kpis` | KPI 트렌드 |
+| GET | `/api/analysis/correlation` | Pearson 상관관계 행렬 (KPI 간 상관계수 히트맵) |
+| GET | `/api/analysis/anomaly` | 이상치 분석 (IsolationForest 기반 이상 메트릭 탐지) |
 
 ### CS
 
@@ -1250,7 +1468,8 @@ sequenceDiagram
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | GET | `/api/dashboard/summary` | 대시보드 KPI |
-| GET | `/api/dashboard/insights` | AI 인사이트 |
+| GET | `/api/dashboard/insights` | AI 인사이트 (트렌드/리텐션/CS품질/이상치 4종 동적 생성) |
+| GET | `/api/dashboard/alerts` | 실시간 알림 (이상치 기반 자동 경고, severity 3단계) |
 | GET | `/api/stats/summary` | 통계 요약 |
 
 ### RAG
@@ -1260,7 +1479,9 @@ sequenceDiagram
 | POST | `/api/rag/search` | 벡터 검색 |
 | POST | `/api/rag/search/hybrid` | Hybrid Search |
 | GET | `/api/rag/status` | RAG 상태 |
+| GET | `/api/rag/files` | 업로드된 RAG 문서 목록 조회 |
 | POST | `/api/rag/upload` | 문서 업로드 |
+| POST | `/api/rag/delete` | RAG 문서 삭제 |
 | POST | `/api/rag/reload` | 인덱스 재빌드 |
 
 ### LightRAG
@@ -1271,6 +1492,7 @@ sequenceDiagram
 | POST | `/api/lightrag/search-dual` | 듀얼 검색 (모든 모드) |
 | POST | `/api/lightrag/build` | 지식 그래프 빌드 |
 | GET | `/api/lightrag/status` | LightRAG 상태 |
+| POST | `/api/lightrag/clear` | 지식 그래프 초기화 (전체 삭제) |
 
 ### K2RAG
 
@@ -1280,6 +1502,7 @@ sequenceDiagram
 | GET | `/api/k2rag/status` | K2RAG 상태 |
 | POST | `/api/k2rag/config` | K2RAG 설정 업데이트 |
 | POST | `/api/k2rag/load` | 기존 RAG 데이터 로드 |
+| POST | `/api/k2rag/summarize` | 문서 요약 (Longformer LED 기반 Corpus Summarization) |
 
 ### AI 에이전트
 
@@ -1338,14 +1561,17 @@ data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 | GET | `/api/mlflow/experiments` | 실험 목록 |
 | GET | `/api/mlflow/models` | 모델 레지스트리 |
 | POST | `/api/mlflow/models/select` | 모델 선택/적용 |
+| GET | `/api/mlflow/models/selected` | 현재 선택된 모델 버전 조회 |
 
 ### 설정
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET/POST | `/api/settings/llm` | LLM 설정 (모델, temperature, maxTokens) |
+| GET/POST | `/api/settings/llm` | LLM 설정 (모델, temperature, maxTokens, top_p, presence_penalty, frequency_penalty, seed) |
+| GET | `/api/settings/default` | 기본 설정 조회 (활성 시스템 프롬프트 포함) |
 | GET/POST | `/api/settings/prompt` | 시스템 프롬프트 |
 | POST | `/api/settings/prompt/reset` | 프롬프트 초기화 |
+| POST | `/api/settings/llm/reset` | LLM 설정 초기화 (admin 전용) |
 
 ### 프로세스 마이너
 
@@ -1359,6 +1585,41 @@ data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 | POST | `/api/process-miner/predict` | 다음 활동 예측 (RandomForest, Top-3 확률) |
 | POST | `/api/process-miner/anomalies` | 이상 프로세스 탐지 (IsolationForest, 경로 기반) |
 | GET | `/api/process-miner/dashboard` | 3개 프로세스(주문/CS/정산) 요약 대시보드 |
+
+### OCR
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/api/ocr/extract` | 이미지 텍스트 추출 (EasyOCR, 선택적 RAG 연동으로 추출 텍스트 기반 문서 검색) |
+| GET | `/api/ocr/status` | OCR 모듈 사용 가능 여부 (EasyOCR 설치 상태 확인) |
+
+### 데이터 내보내기
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/export/csv` | CSV 내보내기 (`StreamingResponse`, sellers/shops/products/cs 지원) |
+| GET | `/api/export/excel` | Excel 내보내기 (openpyxl, 다중 시트 + 서식 적용) |
+
+### 마케팅 최적화
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/marketing/seller/{seller_id}` | 셀러별 마케팅 현황 (채널별 ROI, 예산 배분) |
+| POST | `/api/marketing/optimize` | P-PSO 기반 마케팅 예산 최적화 (mealpy 라이브러리) |
+| GET | `/api/marketing/status` | 최적화 작업 상태 조회 (비동기 실행 결과) |
+
+### 사용자 관리 (RBAC)
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/users` | 사용자 목록 (admin 전용) |
+| POST | `/api/users` | 사용자 생성 (admin 전용, 역할: admin/manager/viewer) |
+
+### 도구/유틸리티
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/tools` | 사용 가능한 AI 도구 목록 (28개 도구 메타데이터) |
 
 ### Pydantic 요청 모델
 
@@ -1437,7 +1698,7 @@ flowchart LR
     B3 --> B2 --> F2
 ```
 
-### 11.2 워크플로우 노드
+### 11.2 워크플로우 노드 (10개)
 
 | # | 노드 | 타입 | 역할 |
 |---|------|------|------|
@@ -1451,6 +1712,58 @@ flowchart LR
 | 8 | 이메일 결과 병합 | Code | 개별 응답 수집 -> 메타데이터 병합 |
 | 9 | 결과 기록 | Code | 최종 로그 생성 |
 | 10 | Respond to Webhook | Respond | JSON 응답 반환 |
+
+#### 11.2.1 노드별 상세
+
+**노드 1: Webhook 트리거** (`n8n-nodes-base.webhook` v2)
+- HTTP Method: `POST`
+- Path: `/cs-reply`
+- Response Mode: `responseNode` (마지막 Respond 노드에서 응답)
+- 입력 Payload: `{ job_id, inquiries[], channels[] }`
+
+**노드 2: 답변 검증** (`n8n-nodes-base.code` v2)
+- `raw.body || raw`로 webhook body 추출 (n8n 버전 호환)
+- `inquiries` 배열에서 `answer_text`가 비어있는 항목 필터링
+- 출력: `{ job_id, inquiries: validated[], validated_count }`
+- 검증 실패 시 Error throw (`Invalid payload`)
+
+**노드 3: 채널 분기** (`n8n-nodes-base.code` v2)
+- `channels[]` 배열을 순회하며 `channelMap` 객체 생성
+- 각 채널(email/kakao/sms/inapp)에 해당 문의를 매핑
+- 문의의 `channels` 필드와 요청의 `channels` 필드를 교차 매칭
+
+**노드 4: 채널별 발송** (`n8n-nodes-base.code` v2)
+- **이메일 채널**: Markdown -> HTML 변환 (`**bold**` -> `<strong>`, `\n` -> `<br>`), 반응형 HTML 이메일 템플릿 생성 (gradient 헤더, 문의/답변 블록, 푸터)
+- **카카오/SMS/인앱 채널**: 상태만 `sent`로 기록 (실제 발송은 각 채널 API 연동 필요)
+- 출력: `{ results[], emailItems[], hasEmail }`
+
+**노드 5: 이메일 있는지 확인** (`n8n-nodes-base.if` v2.2)
+- 조건: `hasEmail === true` (loose type validation)
+- True -> 이메일 분리 노드로 진행
+- False -> 결과 기록 노드로 바로 이동 (이메일 발송 스킵)
+
+**노드 6: 이메일 분리** (`n8n-nodes-base.code` v2)
+- `emailItems[]` 배열을 **개별 n8n 아이템**으로 분리
+- n8n의 아이템 기반 처리 방식을 활용하여 다음 HTTP Request 노드가 건별로 실행되도록 함
+- 빈 배열 시 `{ _skip: true }` 반환
+
+**노드 7: Resend 이메일 발송** (`n8n-nodes-base.httpRequest` v4.2)
+- URL: `https://api.resend.com/emails`
+- Authentication: Header Auth (`Authorization: Bearer re_...`)
+- Body: `{ from, to[], subject, html }` -- 건별 JSON
+- 노드 6에서 분리된 아이템 수만큼 반복 호출
+
+**노드 8: 이메일 결과 병합** (`n8n-nodes-base.code` v2)
+- Resend API 응답(email_id, status)을 수집
+- 원본 메타데이터(job_id, 채널별 결과)와 병합
+
+**노드 9: 결과 기록** (`n8n-nodes-base.code` v2)
+- 최종 처리 로그 생성 (채널별 발송 건수, 성공/실패 집계)
+- FastAPI 콜백 URL로 결과 전송 준비
+
+**노드 10: Respond to Webhook** (`n8n-nodes-base.respondToWebhook`)
+- 최종 JSON 응답을 Webhook 호출자(FastAPI)에게 반환
+- 응답에 job_id, 처리 결과, 채널별 상태 포함
 
 ### 11.3 Resend 이메일 발송
 
@@ -1502,7 +1815,7 @@ event: done  ->  { total: 2, channels: ["email"] }
 |------|--------|
 | `selectedModel` | `gpt-4o-mini` |
 | `temperature` | `0.3` |
-| `maxTokens` | `4000` |
+| `maxTokens` | `8000` |
 | `timeoutMs` | `30000` |
 
 ### RAG 설정
@@ -1516,7 +1829,7 @@ event: done  ->  { total: 2, channels: ["email"] }
 
 ### Startup 초기화 순서
 
-서버 시작 시 `@app.on_event("startup")`에서 실행되는 초기화 순서:
+서버 시작 시 `@app.on_event("startup")`에서 실행되는 초기화 순서입니다. 실패 허용 단계(RAG, LightRAG)와 필수 단계(데이터/모델)를 구분하여, RAG 인덱스가 없어도 서버는 정상 기동됩니다.
 
 ```mermaid
 flowchart LR
@@ -1529,18 +1842,22 @@ flowchart LR
 | 단계 | 함수 | 설명 | 실패 시 |
 |------|------|------|---------|
 | 1 | `setup_logging()` | 로거 설정, PID 기록 | 서버 중단 |
-| 2 | `load_system_prompt()` + `load_llm_settings()` | 시스템 프롬프트/LLM 설정 로드 | 기본값 사용 |
-| 3 | `init_data_models()` | CSV 18개 + ML 모델 10개 + SHAP + 스케일러/인코더 로드 + MLflow 모델 선택 복원 | 서버 중단 |
-| 4 | `rag_build_or_load_index()` | FAISS 인덱스 생성/로드 | 경고 후 계속 |
-| 5 | LightRAG 초기화 | 인스턴스 로드 (워밍업은 rate limit 방지로 스킵) | 경고 후 계속 |
+| 2 | `load_system_prompt()` + `load_llm_settings()` | `system_prompt.json` / `llm_settings.json`에서 복원 | 기본값 사용 |
+| 3 | `init_data_models()` | CSV 18개 + ML 모델 10개 + SHAP + 스케일러/인코더 + Guardian 모델 로드 | **서버 중단** (핵심 데이터) |
+| 4 | `rag_build_or_load_index()` | FAISS 인덱스 생성/로드 (rag_docs/ PDF -> 청킹 -> 임베딩) | 경고 후 계속 |
+| 5 | LightRAG 초기화 | 인스턴스 로드 (워밍업은 OpenAI rate limit 방지로 스킵) | 경고 후 계속 |
 
 **데이터 로더 상세** (`data/loader.py` - `load_all_data()`):
-1. CSV 데이터 로드 (18개 파일)
-2. ML 모델 로드 (핵심 6개 + 신규 4개 + SHAP + 공용 도구)
-3. 매출 예측 모델 초기화 (데이터 있으면 자동 학습)
-4. 캐시 구성 (쇼핑몰별 서비스 매핑)
-5. 시스템 상태 업데이트
-6. MLflow 모델 선택 상태 복원
+| 단계 | 내용 | 수량 | 비고 |
+|------|------|------|------|
+| 1. CSV 데이터 | 기본 9종 + 분석 7종 | **17개** | `operation_logs`는 `nrows=30000` 메모리 제한 |
+| 2. ML 모델 | 핵심 6개 + 신규 5개 | **11개** pkl | `load_model_safe()`로 파일 없어도 None 반환 |
+| 3. 공용 도구 | TF-IDF 2개 + Scaler 1개 + LabelEncoder 4개 | **7개** pkl | |
+| 4. 매출 예측 | `RevenuePredictor` 싱글턴 auto-training | 1개 | `shop_performance.csv` 기반 LightGBM |
+| 5. 마케팅 최적화 | `MarketingOptimizer` import 확인 | 1개 | `mealpy` 없으면 비활성화 |
+| 6. 캐시 구성 | `build_caches()` 쇼핑몰-서비스 매핑 | - | |
+| 7. 시스템 상태 | `SYSTEM_STATUS` 업데이트 | - | 11개 모델 중 1+ 로드 시 `True` |
+| 8. MLflow 복원 | 프론트엔드 선택 모델 버전 재적용 | - | YAML 영속화, Windows/Linux 감지 |
 
 ---
 
@@ -1640,10 +1957,6 @@ flowchart LR
 | `extract_top_k_from_text(text)` | "상위 10개", "top 5" 등에서 k 추출 (최대 MAX_TOPN) |
 | `parse_date_range_from_text(text)` | "2024-01-01부터 2024-03-31까지" 날짜 범위 파싱 |
 | `extract_user_id(text)` | `U0001` 패턴 유저 ID 추출 |
-| `extract_cookie_id(text)` | `CK001` 패턴 쿠키 ID 추출 |
-| `extract_kingdom_id(text)` | `KD001` 패턴 왕국 ID 추출 |
-| `extract_cookie_grade_from_text(text)` | 쿠키 등급 추출 (커먼~에인션트) |
-| `extract_language_from_text(text)` | 번역 대상 언어 추출 (영어, 일본어 등 10개 언어) |
 | `_norm_key(s)` | 문자열 정규화 (공백 제거, 소문자) |
 
 ---
@@ -1743,6 +2056,34 @@ combined_score = anomaly_score * 0.6 + user_deviation * 0.4
 | 0.4 ~ 0.7 | warn |
 | <= 0.4 | pass |
 
+**SHAP 기반 위험 요인 분석** (`risk_factors`):
+
+ML 이상 점수만으로는 "왜 이상인가?"를 설명할 수 없으므로, SHAP `TreeExplainer`를 사용하여 각 피처의 이상 기여도를 분해합니다.
+
+```python
+# IsolationForest는 SHAP 음수 = 이상이므로 부호 반전
+contribution = -shap_values[feature_idx]  # 양수 = 이상에 기여
+```
+
+| 피처 라벨 | 해석 예시 | severity 기준 |
+|-----------|----------|--------------|
+| 작업 위험도 | "DELETE 작업" | contribution > 0.05 → high |
+| 핵심 테이블 | "orders은 핵심 테이블" | contribution > 0.01 → medium |
+| 대상 행 수 | "347건" | |
+| 추정 금액 | "₩23,422,500" | |
+| 시간대 | "03시" | |
+| 야간 여부 | "야간 작업 (03시)" | |
+
+**z-score 폴백**: SHAP 라이브러리 미설치 시, StandardScaler의 z-score `|z| > 0.8`인 피처를 위험 요인으로 추출합니다.
+
+**LLM 해석 (`_guardian_ml_interpret`)**: ML 점수 + risk_factors를 GPT-4o-mini에 전달하여, 비전문가도 이해할 수 있는 1~2문장 자연어 해석을 생성합니다.
+
+```
+입력: "종합 이상 점수: 82.3/100, 이상 점수(모델): 75.1%, 사용자 이탈도: 920.0%"
+출력: "평소 대비 극단적으로 많은 347건 삭제 시도이며, 핵심 테이블(orders)에 대한
+       야간 작업으로 데이터 사고 위험이 매우 높습니다."
+```
+
 **감시 모드 (`mode` 파라미터):**
 
 | 모드 | 설명 |
@@ -1771,7 +2112,9 @@ combined_score = anomaly_score * 0.6 + user_deviation * 0.4
 
 ### 14.7 복구 Agent
 
-별도의 Recovery Agent가 자연어 복구 요청을 처리한다:
+별도의 Recovery Agent가 자연어 복구 요청을 처리합니다. Guardian Agent와 동일한 `create_agent` 패턴을 사용하되, 복구 전용 Tool 2개만 바인딩합니다.
+
+**설계 원칙**: 복구 SQL은 **"제안"만** 하고 **자동 실행은 하지 않습니다**. 복구 SQL 자동 실행은 2차 사고(잘못된 복구로 추가 데이터 손상)의 위험이 있으므로, 반드시 DBA의 수동 승인을 거치도록 설계했습니다.
 
 ```mermaid
 flowchart TD
@@ -1781,6 +2124,13 @@ flowchart TD
 
     style D fill:#fef3c7,stroke:#d97706
 ```
+
+**Recovery Agent Tools:**
+
+| Tool | 입력 | 동작 | 출력 |
+|------|------|------|------|
+| `search_audit_log` | 키워드 (테이블명, 날짜, 작업 유형) | SQLite audit_log에서 관련 기록 검색 | 매칭된 감사 로그 목록 |
+| `generate_restore_sql` | 테이블명, 행 수, 조건 | 복구 SQL 문을 생성 | `INSERT INTO ... SELECT ...` 또는 `UPDATE ... SET ...` 형태의 SQL 제안 |
 
 ### 14.8 DBA 알림 시스템
 
@@ -1825,31 +2175,66 @@ SQLite (`guardian.db`) -- 서버 시작 시 자동 생성:
 
 ### 14.12 개발 과정에서 해결한 기술적 이슈
 
-#### Issue 1: LangChain 1.2+ API 호환성
+#### Issue 1: LangChain 1.2+ API 호환성 (Breaking Change 대응)
 
+**문제**:
 ```
 cannot import name 'AgentExecutor' from 'langchain.agents'
 ```
 
-LangChain 1.2.7에서 기존 `AgentExecutor` + `create_openai_tools_agent` 패턴이 제거됨.
+LangChain 1.2.7에서 기존 `AgentExecutor` + `create_openai_tools_agent` 패턴이 완전히 제거됨. 이 변경은 LangChain의 LangGraph 기반 아키텍처 전환에 따른 것으로, 기존 에이전트 코드가 모두 동작 불능 상태가 됨.
 
-**해결**: `create_agent(model, tools, system_prompt)` -> `CompiledStateGraph` 패턴으로 전환. Tool 함수도 `@tool` 데코레이터 대신 plain function으로 정의하고 `create_agent`가 자동 변환하도록 변경.
+**해결 과정**:
+1. 공식 마이그레이션 가이드 확인: `AgentExecutor` -> `create_agent` (LangGraph 기반 `CompiledStateGraph` 반환)
+2. Tool 정의 방식 변경: `@tool` 데코레이터 기반 -> plain function 정의 후 `create_agent`가 자동 변환
+3. 결과 추출 방식 변경: `AgentExecutor.invoke()` 결과 딕셔너리 -> `CompiledStateGraph.invoke()` 메시지 리스트
 
-#### Issue 2: SQLite 스레드 안전성
+**변경 전:**
+```python
+from langchain.agents import AgentExecutor, create_openai_tools_agent
+agent = create_openai_tools_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools)
+result = executor.invoke({"input": query})
+```
 
+**변경 후:**
+```python
+from langchain.agents import create_agent
+graph = create_agent(model=llm, tools=tools, prompt=system_prompt)
+result = graph.invoke({"messages": [HumanMessage(content=query)]})
+```
+
+#### Issue 2: SQLite 스레드 안전성 (비동기 환경)
+
+**문제**:
 ```
 SQLite objects created in a thread can only be used in that same thread
 ```
 
-`create_agent`가 내부적으로 Tool 함수를 다른 스레드에서 실행하면서 발생.
+`create_agent`가 내부적으로 Tool 함수를 별도 스레드에서 실행하면서 발생. FastAPI의 비동기 이벤트 루프와 LangGraph의 동기 Tool 실행 간 스레드 경계 충돌.
 
-**해결**: `sqlite3.connect(path, check_same_thread=False)` -- Guardian 전용 DB이므로 동시 쓰기 충돌 위험이 낮아 허용.
+**해결**: `sqlite3.connect(path, check_same_thread=False)` 적용.
 
-#### Issue 3: 레이턴시 최적화
+**리스크 평가**: Guardian 전용 DB(`guardian.db`)이므로 동시 쓰기 충돌 위험이 낮음. 감사 로그 INSERT는 단일 요청 내에서만 발생하며, 동시 다수 요청은 실 서비스 규모에서나 문제가 됨. 프로덕션 환경에서는 PostgreSQL 전환을 권장.
 
-전체 쿼리에 LLM을 호출하면 최소 1~3초 레이턴시가 발생하여 실시간 차단이 불가능.
+#### Issue 3: 레이턴시 최적화 (실시간 차단 요구사항)
 
-**해결**: 2레이어 아키텍처 -- 룰엔진이 99%의 정상 쿼리를 <1ms에 통과시키고, 고위험 쿼리만 Agent 호출. 평균 응답 시간: pass 0.009ms, block+Agent 3~8초.
+**문제**: 전체 쿼리에 LLM을 호출하면 최소 1~3초 레이턴시가 발생하여 실시간 차단이 불가능. 데이터베이스 쿼리 실행 전에 위험 판단이 완료되어야 하므로, 밀리초 단위 응답이 필수.
+
+**해결**: 2레이어 아키텍처 설계
+
+| 레이어 | 대상 | 응답시간 | 처리 비율 |
+|--------|------|----------|-----------|
+| 룰엔진 | 전체 쿼리 | **< 1ms** | ~99% (정상 통과 + 명확한 차단) |
+| AI Agent | 고위험 쿼리만 | 3~8초 | ~1% (룰엔진 block 판정분) |
+
+**성능 측정 결과**:
+- `pass` (정상 통과): 평균 **0.009ms**
+- `warn` (경고): 평균 **0.012ms**
+- `block` + Agent 상세 분석: **3~8초** (GPT-4o-mini 호출 포함)
+- 전체 요청 중 Agent 호출 비율: 약 1~2% (대부분 룰엔진에서 처리 완료)
+
+**핵심 인사이트**: "모든 쿼리에 AI를 적용"하는 것보다, "AI가 필요한 쿼리만 선별하여 적용"하는 2레이어 구조가 실시간 시스템에 적합. 이는 프로젝트 전체 아키텍처(2단계 라우터, LLM fallback 패턴)에서 일관되게 적용된 설계 원칙.
 
 ---
 
@@ -1857,15 +2242,17 @@ SQLite objects created in a thread can only be used in that same thread
 
 ### 15.1 개발 배경
 
-카페24 우대사항 중 **"다양한 AI 도구를 활용한 개발 생산성 향상, 프로세스 자동화, 성능개선 경험"** 에 직접 부합하는 기능으로, 이커머스 운영 프로세스(주문/CS/정산)의 이벤트 로그를 분석하여:
+카페24 우대사항 중 **"다양한 AI 도구를 활용한 개발 생산성 향상, 프로세스 자동화, 성능개선 경험"** 에 직접 부합하는 기능입니다. 이커머스 플랫폼에서 주문/CS/정산 프로세스는 수백 개의 케이스가 다양한 경로로 진행되며, 수작업으로 병목을 식별하거나 비정상 패턴을 탐지하기 어렵습니다.
 
-1. **프로세스 패턴 발견** — 어떤 경로로 업무가 진행되는지 시각화
-2. **병목 지점 식별** — 어디서 시간이 가장 많이 소요되는지 통계 분석
-3. **AI 자동화 추천** — LLM이 데이터를 분석하여 자동화 방안 + SOP 문서 생성
-4. **다음 활동 예측** — ML 모델이 현재 상태에서 다음 활동을 확률적으로 예측
-5. **이상 프로세스 탐지** — 비정상적 경로의 케이스를 자동 식별
+**프로세스 마이닝(Process Mining)** 기법을 적용하여 이벤트 로그로부터:
 
-을 수행합니다. 기존 52개 도구(쇼핑몰/CS/AI예측/KPI/셀러분석/Guardian/RAG 등)와 완전히 독립된 별도 모듈입니다.
+1. **프로세스 패턴 발견** — 어떤 경로로 업무가 진행되는지 전이 행렬과 Mermaid 다이어그램으로 시각화
+2. **병목 지점 식별** — IQR 기반 통계적 이상치 탐지로 어디서 시간이 가장 많이 소요되는지 분석
+3. **AI 자동화 추천** — GPT-4o-mini가 패턴/병목 데이터를 종합 분석하여 자동화 방안 + SOP 문서 생성
+4. **다음 활동 예측 (Predictive Process Mining)** — RandomForest가 현재 상태에서 다음 활동을 확률적으로 예측 (Top-3)
+5. **이상 프로세스 탐지** — IsolationForest가 정상 경로에서 벗어난 비정상 케이스를 자동 식별
+
+을 수행합니다. 기존 에이전트 시스템(28개 도구)과 완전히 독립된 별도 패키지로, `main.py`에 2줄 추가만으로 통합됩니다.
 
 ### 15.2 설계 철학
 
@@ -1919,7 +2306,7 @@ flowchart TD
 
 #### 15.4.1 이벤트 로그 생성 (`event_generator.py`, 266줄)
 
-카페24 운영 시나리오 기반 현실적 데모 이벤트 로그를 생성합니다.
+카페24 운영 시나리오 기반 현실적 데모 이벤트 로그를 생성합니다. 외부 DB나 CSV에 의존하지 않고, `random.Random(seed=42)` 기반으로 동일 파라미터 시 동일 결과를 보장합니다.
 
 **프로세스 유형 3종:**
 
@@ -2103,10 +2490,13 @@ flowchart TD
 - Fallback 모드: 최빈 패턴 기반 단계별 SOP 자동 생성 (`_generate_fallback_sop`)
 
 **JSON 파싱 안전장치 (`_parse_llm_json`):**
-1. ` ```json ... ``` ` 블록 추출 시도
-2. 직접 `json.loads()` 시도
-3. 첫 `{` ~ 마지막 `}` 구간 추출 후 재시도
-4. 모두 실패 시 → 규칙 기반 fallback
+
+LLM 출력은 프롬프트에 "순수 JSON만 출력"을 지시해도 마크다운 코드 블록이나 설명 텍스트가 섞일 수 있습니다. 3단계 파싱 전략으로 안정성을 확보합니다:
+
+1. ` ```json ... ``` ` 마크다운 코드 블록 추출 시도
+2. 직접 `json.loads()` 시도 (순수 JSON인 경우)
+3. 첫 `{` ~ 마지막 `}` 구간 추출 후 재시도 (앞뒤 텍스트 제거)
+4. 모두 실패 시 -> 규칙 기반 fallback 결과 반환 (서비스 중단 없음)
 
 #### 15.4.5 다음 활동 예측 (`predictor.py`, 261줄)
 
@@ -2300,22 +2690,34 @@ flowchart TD
 
 ### 15.6 기술적 특징 요약
 
-| 특징 | 설명 |
-|------|------|
-| **Process Mining** | Counter 기반 패턴 빈도 분석, 전이 확률 행렬 |
-| **통계적 이상치 탐지** | IQR (Interquartile Range) 기반 Upper Fence |
-| **백분위수 계산** | 선형 보간 방식 (numpy 없이 순수 Python) |
-| **LLM 구조화 출력** | 프롬프트 엔지니어링 + 3단계 JSON 파싱 안전장치 |
-| **Graceful Degradation** | API 키 유무/LLM 실패 상관없이 항상 결과 반환 |
-| **Mermaid 자동 생성** | `<br/>` 줄바꿈 사용 (Mermaid에서 `\n` 미지원) |
-| **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률) |
-| **Path-based Anomaly Detection** | IsolationForest 기반 경로 이상 탐지 (bottleneck의 시간 기반 IQR과 상호보완) |
-| **시드 기반 재현성** | `random.Random(seed=42)` — 동일 파라미터 시 동일 결과 |
+| 특징 | 설명 | 관련 모듈 |
+|------|------|-----------|
+| **Process Mining** | Counter 기반 패턴 빈도 분석, 전이 확률 행렬 | `miner.py` |
+| **통계적 이상치 탐지** | IQR (Interquartile Range) 기반 Upper Fence | `bottleneck.py` |
+| **백분위수 계산** | 선형 보간 방식 (numpy 없이 순수 Python으로 P50/P95 계산) | `bottleneck.py` |
+| **LLM 구조화 출력** | 프롬프트 엔지니어링 + 3단계 JSON 파싱 안전장치 | `recommender.py` |
+| **Graceful Degradation** | API 키 유무/LLM 실패 상관없이 항상 결과 반환 (규칙 기반 fallback) | `recommender.py` |
+| **Mermaid 자동 생성** | `<br/>` 줄바꿈 사용 (Mermaid에서 `\n` 미지원), 한국어 노드 ID 자동 매핑 | `miner.py` |
+| **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률, 매 호출마다 재학습) | `predictor.py` |
+| **Path-based Anomaly Detection** | IsolationForest 기반 경로 이상 탐지 (bottleneck의 시간 기반 IQR과 상호보완) | `anomaly_detector.py` |
+| **시드 기반 재현성** | `random.Random(seed=42)` -- 동일 파라미터 시 동일 결과 (데모 안정성) | `event_generator.py` |
+| **독립 패키지** | 기존 코드(routes.py 4000줄)와 분리, `main.py`에 2줄 추가로 통합 | `process_miner/` |
+
+### 15.7 프로세스 마이너 vs 기존 ML 모델 비교
+
+| 구분 | 기존 ML 모델 (8장) | 프로세스 마이너 (15장) |
+|------|---------------------|----------------------|
+| **분석 대상** | 셀러/쇼핑몰 개체(Entity) | 프로세스 경로(Sequence) |
+| **데이터** | 합성 CSV (train_models.py) | 자체 생성 이벤트 로그 (event_generator.py) |
+| **에이전트 연동** | Tool Calling으로 호출 | 별도 API 엔드포인트 (/api/process-miner/*) |
+| **ML 기법** | 지도/비지도 학습 (분류, 회귀, 클러스터링) | 전이 행렬, 통계 분석, 예측, 이상탐지 |
+| **LLM 활용** | 에이전트가 결과를 자연어로 설명 | 추천 엔진이 직접 GPT-4o-mini 호출 |
+| **시각화** | 프론트엔드 차트 | Mermaid 다이어그램 + 프론트엔드 차트 |
 
 ---
 
 <div align="center">
 
-**Version 7.3.0** | 2026-02-10
+**Version 7.5.0** | 2026-02-10
 
 </div>

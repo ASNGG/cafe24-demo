@@ -1,0 +1,14 @@
+{
+  "algorithm": "LightGBM",
+  "features": [
+    "total_revenue",
+    "txn_count",
+    "unique_customers",
+    "avg_order_value",
+    "revenue_growth_rate",
+    "industry_encoded",
+    "region_encoded"
+  ],
+  "mae": 14103206.643220456,
+  "r2_score": 0.9593098375321583
+}

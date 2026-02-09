@@ -11,6 +11,7 @@
 # 허용: 코드 파일만 포함
 !.gitignore
 !README.md
+!PORTFOLIO.md
 !requirements.txt
 !nextjs/**
 !backend 리팩토링 시작/**

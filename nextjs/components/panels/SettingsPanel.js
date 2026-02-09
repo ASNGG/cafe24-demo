@@ -109,7 +109,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     topP: settings?.topP ?? 1.0,
     presencePenalty: settings?.presencePenalty ?? 0.0,
     frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
-    maxTokens: settings?.maxTokens ?? 4000,
+    maxTokens: settings?.maxTokens ?? 8000,
     seed: settings?.seed ?? "",
     timeoutMs: settings?.timeoutMs ?? 30000,
     retries: settings?.retries ?? 2,
@@ -121,7 +121,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   const selectedModel = (draftLLM?.selectedModel || "gpt-4o-mini").trim();
   const isGpt5 = selectedModel.toLowerCase().startsWith("gpt-5");
   const isMiniModel = selectedModel.toLowerCase().includes("mini");
-  const maxTokensLimit = isMiniModel ? 16000 : 4500;
+  const maxTokensLimit = 16000;
 
   // settings.systemPrompt가 외부에서 변경되면 draftPrompt 동기화
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
       topP: settings?.topP ?? 1.0,
       presencePenalty: settings?.presencePenalty ?? 0.0,
       frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
-      maxTokens: settings?.maxTokens ?? 4000,
+      maxTokens: settings?.maxTokens ?? 8000,
       seed: settings?.seed ?? "",
       timeoutMs: settings?.timeoutMs ?? 30000,
       retries: settings?.retries ?? 2,
@@ -174,7 +174,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
         topP: data?.topP ?? s?.topP ?? 1.0,
         presencePenalty: data?.presencePenalty ?? s?.presencePenalty ?? 0.0,
         frequencyPenalty: data?.frequencyPenalty ?? s?.frequencyPenalty ?? 0.0,
-        maxTokens: data?.maxTokens ?? s?.maxTokens ?? 4000,
+        maxTokens: data?.maxTokens ?? s?.maxTokens ?? 8000,
         seed: data?.seed ?? s?.seed ?? "",
         timeoutMs: data?.timeoutMs ?? s?.timeoutMs ?? 30000,
         retries: data?.retries ?? s?.retries ?? 2,
@@ -216,14 +216,10 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     }
   }, [apiCall, auth, setSettings]);
 
-  // 초기 로드 - localStorage 값 유지 (백엔드 API 호출 제거)
-  // Railway는 ephemeral 파일 시스템이라 백엔드 저장이 유지되지 않음
-  // 프론트엔드 localStorage에서만 설정 관리
+  // 초기 로드 - 백엔드에서 시스템 프롬프트를 가져와 localStorage에 캐시
   useEffect(() => {
-    // 백엔드 로드 제거 - localStorage 값 그대로 사용
-    // loadLLMSettingsFromBackend();
-    // loadPromptFromBackend();
-    setLlmSaved(true); // 로컬 저장 상태로 시작
+    loadPromptFromBackend();
+    setLlmSaved(true);
   }, []);
 
   // ============================================================
@@ -250,7 +246,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
           topP: settings?.topP ?? 1.0,
           presencePenalty: settings?.presencePenalty ?? 0.0,
           frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
-          maxTokens: settings?.maxTokens ?? 4000,
+          maxTokens: settings?.maxTokens ?? 8000,
           seed: settings?.seed || null,
           timeoutMs: settings?.timeoutMs ?? 30000,
           retries: settings?.retries ?? 2,
@@ -444,9 +440,9 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
             <div>
               <label className="text-sm text-cookie-brown/70">모델</label>
               <select
-                className="input mt-1"
+                className="input mt-1 opacity-60 cursor-not-allowed"
                 value={selectedModel}
-                onChange={(e) => handleLLMSettingChange("selectedModel", e.target.value)}
+                disabled
               >
                 {models.map((m) => (
                   <option key={m} value={m}>
@@ -550,15 +546,12 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm text-cookie-brown/70">Max Tokens {isMiniModel ? "(최대 16000)" : "(최대 4500)"}</label>
+                <label className="text-sm text-cookie-brown/70">Max Tokens (8000 고정)</label>
                 <input
-                  className="input mt-1"
+                  className="input mt-1 opacity-60 cursor-not-allowed"
                   type="number"
-                  step="100"
-                  min="100"
-                  max={maxTokensLimit}
-                  value={draftLLM?.maxTokens ?? (isMiniModel ? 8000 : 4000)}
-                  onChange={(e) => handleLLMSettingChange("maxTokens", clampNumber(e.target.value, 100, maxTokensLimit, isMiniModel ? 8000 : 4000))}
+                  value={8000}
+                  disabled
                 />
               </div>
 
@@ -644,30 +637,25 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
           </div>
         </div>
 
-        <div className="card opacity-60">
+        <div className="card">
           <div className="card-header flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>시스템 프롬프트</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">비활성화됨</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">백엔드 관리</span>
+              {loadingDefault && (
+                <span className="text-xs text-cookie-orange">로딩 중...</span>
+              )}
             </div>
           </div>
           <textarea
-            className="input cursor-not-allowed"
+            className="input cursor-not-allowed opacity-80"
             style={{ height: 280 }}
             value={draftPrompt}
-            placeholder="시스템 프롬프트 설정이 비활성화되었습니다"
+            placeholder="백엔드에서 시스템 프롬프트를 로드합니다..."
             disabled
           />
-          <div className="flex gap-2 mt-3">
-            <button
-              className="flex-1 btn-secondary opacity-50 cursor-not-allowed"
-              disabled
-            >
-              저장 (비활성화됨)
-            </button>
-          </div>
           <p className="text-xs text-cookie-brown/50 mt-2">
-            * 시스템 프롬프트 설정이 비활성화되어 있습니다. 활성화가 필요하면 관리자에게 문의하세요.
+            * 시스템 프롬프트는 백엔드에서 중앙 관리됩니다. 읽기 전용으로 표시됩니다.
           </p>
         </div>
       </div>

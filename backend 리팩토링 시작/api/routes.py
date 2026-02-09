@@ -3126,6 +3126,8 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
                 # 도구 실행 완료
                 elif kind == "on_tool_end":
+                    # 이벤트에서 직접 tool name 추출 (current_tool이 None인 경우 대비)
+                    end_tool_name = event.get("name") or current_tool or "unknown"
                     tool_output = data.get("output", {})
                     # ToolMessage 객체인 경우 content만 추출
                     if hasattr(tool_output, "content"):
@@ -3143,11 +3145,11 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                     elif not isinstance(tool_output, (str, dict, list, int, float, bool, type(None))):
                         tool_output = {"status": "SUCCESS", "data": safe_str(tool_output)}
                     tool_calls_log.append({
-                        "tool": current_tool or "unknown",
+                        "tool": end_tool_name,
                         "result": tool_output,
                     })
-                    st.logger.info("TOOL_END tool=%s", current_tool)
-                    yield sse_pack("tool_end", {"tool": current_tool, "status": "SUCCESS"})
+                    st.logger.info("TOOL_END tool=%s", end_tool_name)
+                    yield sse_pack("tool_end", {"tool": end_tool_name, "status": "SUCCESS"})
                     current_tool = None
 
                 # LLM 토큰 스트리밍

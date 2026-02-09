@@ -46,6 +46,8 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 
 **CAFE24 AI 운영 플랫폼**은 이커머스 플랫폼(카페24) 운영에 필요한 다양한 AI/ML 기능을 하나의 통합 플랫폼으로 제공합니다. 자연어 질의 기반의 AI 에이전트가 28개의 전문 도구를 활용하여 데이터 분석, 예측, CS 자동화를 수행합니다.
 
+> **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
+
 ### 해결하는 문제
 
 | 문제 | 기존 방식 | AI 플랫폼 솔루션 |
@@ -97,20 +99,31 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 
 ### ML 모델 (12개)
 
-| # | 모델명 | 알고리즘 | 용도 | 파일 |
-|---|--------|---------|------|------|
-| 1 | 셀러 이탈 예측 | RandomForest + SHAP | 이탈 위험 셀러 사전 식별 | `model_seller_churn.pkl` |
-| 2 | 이상거래 탐지 | Isolation Forest | 사기 거래/비정상 패턴 탐지 | `model_fraud_detection.pkl` |
-| 3 | 문의 자동 분류 | TF-IDF + RandomForest | 셀러 문의 9개 카테고리 분류 | `model_inquiry_classification.pkl` |
-| 4 | 셀러 세그먼트 | K-Means | 셀러 군집화 (5그룹) | `model_seller_segment.pkl` |
-| 5 | 매출 예측 | LightGBM | 쇼핑몰 매출 트렌드 예측 | `model_revenue_prediction.pkl` |
-| 6 | CS 응답 품질 | RandomForest | 자동 생성 CS 응답 품질 점수 예측 | `model_cs_quality.pkl` |
-| 7 | 고객 LTV 예측 | GradientBoosting | 고객 생애 가치 예측 | `model_customer_ltv.pkl` |
-| 8 | 리뷰 감성 분석 | TF-IDF + LogisticRegression | 상품 리뷰 긍정/부정 분류 | `model_review_sentiment.pkl` |
-| 9 | 상품 수요 예측 | XGBoost | 상품별 수요량 예측 | `model_demand_forecast.pkl` |
-| 10 | 정산 이상 탐지 | DBSCAN | 정산 이상 패턴 클러스터링 | `model_settlement_anomaly.pkl` |
+> 모든 모델의 학습 데이터는 **합성 데이터**(numpy/pandas 랜덤 생성 + 카페24 도메인 상수)로 생성됩니다. 실제 카페24 데이터는 사용하지 않으며, `ml/train_models.py` 실행 시 18개 CSV와 10개 모델이 자동 생성됩니다.
+
+| # | 모델명 | 알고리즘 | 비즈니스 목적 | 파일 |
+|---|--------|---------|-------------|------|
+| 1 | 셀러 이탈 예측 | RandomForest + SHAP | 이탈 위험 셀러를 사전 식별하여 선제적 리텐션 전략 수립 | `model_seller_churn.pkl` |
+| 2 | 이상거래 탐지 | Isolation Forest | 허위 주문/리뷰 조작/비정상 환불 등 사기 거래 패턴 자동 탐지 | `model_fraud_detection.pkl` |
+| 3 | 문의 자동 분류 | TF-IDF + RandomForest | CS 문의를 9개 카테고리로 자동 분류하여 처리 효율화 | `model_inquiry_classification.pkl` |
+| 4 | 셀러 세그먼트 | K-Means (5 클러스터) | 셀러 행동 패턴 기반 군집화로 맞춤형 운영 지원 | `model_seller_segment.pkl` |
+| 5 | 매출 예측 | LightGBM | 쇼핑몰 과거 매출 패턴 분석으로 다음 달 예상 매출 예측 | `model_revenue_prediction.pkl` |
+| 6 | CS 응답 품질 | RandomForest | CS 문의 긴급도 자동 예측으로 우선 처리 대상 선별 | `model_cs_quality.pkl` |
+| 7 | 고객 LTV 예측 | GradientBoosting | 고객 미래 기대 수익(LTV) 예측으로 VIP 관리 및 마케팅 전략 수립 | `model_customer_ltv.pkl` |
+| 8 | 리뷰 감성 분석 | TF-IDF + LogisticRegression | 상품 리뷰 감성 자동 분류로 셀러 품질 모니터링 | `model_review_sentiment.pkl` |
+| 9 | 상품 수요 예측 | XGBoost | 상품별 수요량 예측으로 재고 관리 및 프로모션 기획 지원 | `model_demand_forecast.pkl` |
+| 10 | 정산 이상 탐지 | DBSCAN | 정산 금액/주기 이상 패턴 탐지로 정산 오류 및 부정 거래 방지 | `model_settlement_anomaly.pkl` |
 | 11 | 다음 활동 예측 | RandomForest Classifier | 프로세스 현재 활동 기준 다음 활동 Top-3 예측 | `process_miner/predictor.py` |
 | 12 | 이상 프로세스 탐지 | Isolation Forest | 경로 기반 이상 프로세스 케이스 탐지 | `process_miner/anomaly_detector.py` |
+
+#### 데이터 생성 방법
+
+`ml/train_models.py`의 PART 2에서 numpy/pandas 랜덤 생성기(`np.random.default_rng(42)`)와 카페24 도메인 상수(업종, 지역, 플랜, 상품명 등)를 조합하여 18개 CSV를 생성합니다.
+
+- **쇼핑몰/셀러 데이터**: 플랜 등급(Basic 35%, Standard 30%, Premium 25%, Enterprise 10%), 8개 업종, 8개 지역 가중 분포
+- **운영 로그**: 주문/정산/환불/CS/마케팅 등 이벤트 타입별 시계열 데이터 (3만건 제한)
+- **셀러 행동 데이터**: 주문 수, 매출, 반품률, 응답 시간, 마지막 접속일 등 이탈 관련 피처
+- **상품 데이터**: 업종별 실제 상품명 템플릿 (패션 15종, 뷰티 15종, 식품 15종 등)
 
 ---
 
@@ -303,8 +316,11 @@ flowchart TD
 | **차트** | Plotly.js (react-plotly.js) | 대시보드 시각화 |
 | **애니메이션** | Framer Motion 11.0+ | 트랜지션, 아코디언 |
 | **SSE** | @microsoft/fetch-event-source | 에이전트 스트리밍 |
-| **마크다운** | react-markdown | 에이전트 응답 렌더링 |
+| **마크다운** | react-markdown + remark-gfm | 에이전트 응답 렌더링 (GFM 지원) |
+| **수학 수식** | KaTeX + remark-math + rehype-katex | 수학 수식 렌더링 ($...$, $$...$$) |
 | **상태 관리** | SWR 2.2+ | 서버 상태 캐싱 |
+| **워크플로우** | @xyflow/react (React Flow) | n8n 워크플로우 시각화 |
+| **차트 (보조)** | Recharts 3.7+ | 추가 차트 시각화 |
 | **아이콘** | lucide-react | UI 아이콘 |
 | **토스트** | react-hot-toast | 알림 |
 
@@ -337,7 +353,7 @@ flowchart TD
 │   ├── README.md                          # 백엔드 상세 문서
 │   │
 │   ├── api/                               # REST API 라우트
-│   │   └── routes.py                      # 90+ 엔드포인트 정의 (Pydantic 모델 포함)
+│   │   └── routes.py                      # 83개 엔드포인트 정의 (Pydantic 모델 포함)
 │   │
 │   ├── agent/                             # AI 에이전트 시스템
 │   │   ├── runner.py                      # Tool Calling 실행기 (동기/스트리밍/멀티 에이전트 모드)
@@ -392,7 +408,7 @@ flowchart TD
 │   ├── rag_faiss/                         # FAISS 벡터 인덱스
 │   ├── lightrag_data/                     # LightRAG 지식 그래프 데이터
 │   │
-│   ├── *.csv (17개)                       # 이커머스 시뮬레이션 데이터
+│   ├── *.csv (18개)                       # 이커머스 시뮬레이션 데이터
 │   │   ├── shops.csv                      #   쇼핑몰 정보
 │   │   ├── sellers.csv                    #   셀러 정보
 │   │   ├── products.csv                   #   상품 리스팅
@@ -434,7 +450,7 @@ flowchart TD
 │   └── revenue_model_config.json          # 매출 모델 설정
 │
 └── nextjs/                                # === Next.js 프론트엔드 ===
-    ├── package.json                       # Node 의존성 (v1.1.0)
+    ├── package.json                       # Node 의존성 (v4.0.0)
     ├── next.config.js                     # API 프록시 rewrite 설정
     ├── tailwind.config.js                 # Tailwind CSS 설정
     ├── postcss.config.js                  # PostCSS 설정
@@ -665,7 +681,7 @@ LangGraph 기반 멀티 에이전트 시스템으로, Coordinator가 질의를 �
 
 ### 모델 학습 (`ml/train_models.py`)
 
-`train_models.py`를 실행하면 18개 CSV 데이터를 생성하고 12개 ML 모델을 학습합니다:
+`train_models.py`를 실행하면 18개 CSV 데이터를 생성하고 10개 ML 모델을 학습합니다 (나머지 2개는 프로세스 마이너에서 실시간 학습):
 
 ```bash
 cd "backend 리팩토링 시작"
@@ -707,7 +723,7 @@ python ml/train_models.py
 
 ## 9. API 엔드포인트
 
-### 엔드포인트 전체 목록 (90+)
+### 엔드포인트 전체 목록 (89개)
 
 모든 엔드포인트는 `/api` 프리픽스를 사용합니다.
 
@@ -898,9 +914,9 @@ python ml/train_models.py
 |------|------|------|-----------|
 | **AI 에이전트** | `AgentPanel.js` | 채팅 인터페이스, SSE 스트리밍, 도구 실행 결과, 마크다운 렌더링 | 전체 |
 | **대시보드** | `DashboardPanel.js` | KPI 카드, Plotly 차트 (Pie, Bar, Area) | 전체 |
-| **상세 분석** | `AnalysisPanel.js` | 6개 서브탭 (셀러/세그먼트/이상탐지/예측/코호트/트렌드) | 관리자, 분석가, 사용자 |
+| **상세 분석** | `AnalysisPanel.js` | 9개 서브탭 (셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅) | 관리자, 분석가, 사용자 |
 | **모델 관리** | `ModelsPanel.js` | MLflow 실험/런 조회, 모델 선택/교체 | 관리자 |
-| **RAG 관리** | `RagPanel.js` | 문서 업로드/삭제, 인덱스 리빌드, LightRAG/K2RAG 관리 | 관리자 |
+| **RAG 관리** | `RagPanel.js` | RAG 인덱스 관리, 모드 선택 (Hybrid/LightRAG/K²RAG/Auto), 기능 상태 모니터링 | 관리자 |
 | **실험실** | `LabPanel.js` | CS 자동화 5단계 파이프라인 | 관리자, 분석가, 사용자 |
 | **Guardian** | `GuardianPanel.js` | DB 보안 3탭 (실시간 감시/복구/대시보드), 프리셋 시나리오 | 관리자, 분석가, 사용자 |
 | **설정** | `SettingsPanel.js` | 시스템 프롬프트, LLM 파라미터 (모델, temperature, topP 등) | 관리자 |
@@ -922,6 +938,13 @@ async rewrites() {
   ];
 }
 ```
+
+**Next.js API Routes** (SSE 프록시, 5개):
+- `pages/api/agent/stream.js` - 에이전트 스트리밍 프록시
+- `pages/api/cs/pipeline-answer.js` - CS 파이프라인 RAG+LLM 답변
+- `pages/api/cs/send-reply.js` - CS 회신 전송 SSE
+- `pages/api/cs/stream.js` - CS 스트리밍 프록시
+- `pages/api/cs/callback.js` - n8n 콜백 프록시
 
 ### 테스트 계정
 
@@ -1090,9 +1113,9 @@ npx vercel
 
 ## 14. 데이터
 
-### CSV 데이터 (17개)
+### CSV 데이터 (18개)
 
-`ml/train_models.py` 실행 시 자동 생성되는 시뮬레이션 데이터입니다:
+`ml/train_models.py` 실행 시 자동 생성되는 시뮬레이션 데이터입니다 (numpy/pandas 랜덤 생성 + 카페24 도메인 상수 조합):
 
 | 파일 | 설명 | 주요 컬럼 |
 |------|------|-----------|
@@ -1135,13 +1158,13 @@ npx vercel
 - **셀러 지역**: 서울, 경기, 인천, 부산, 대구, 대전, 광주, 제주
 - **결제 수단**: 카드, 간편결제, 계좌이체, 가상계좌, 휴대폰결제
 - **주문 상태**: 주문완료, 결제완료, 배송준비, 배송중, 배송완료, 교환요청, 환불요청, 취소
-- **이커머스 핵심 용어**: GMV, CVR, AOV, ROAS, SKU, LTV, CAC, ARPU, MAU 등 14개 용어 정의
+- **이커머스 핵심 용어**: GMV, CVR, AOV, ROAS, SKU, LTV, CAC, ARPU, MAU 등 15개 용어 정의
 
 ### 데이터 로딩 프로세스 (`data/loader.py`)
 
 앱 시작 시 `init_data_models()` 함수가 호출되어 아래 순서로 로딩합니다:
 
-1. CSV 데이터 로드 (17개 파일)
+1. CSV 데이터 로드 (18개 파일)
 2. ML 모델 로드 (10개 `.pkl` 파일)
 3. SHAP Explainer 로드
 4. TF-IDF 벡터라이저 로드 (2종)
@@ -1157,6 +1180,9 @@ npx vercel
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 7.5.0 | 2026-02-10 | README 전면 리뉴얼: 백엔드/프론트엔드/루트 README 코드 기준 정확성 검증 및 ML 모델 비즈니스 목적·데이터 생성 방법 문서화 |
+| 7.4.0 | 2026-02-10 | KaTeX 수학 렌더링 지원 (remark-math + rehype-katex), 시스템 프롬프트 통합 (constants.py 단일 소스), CAFE24 로고/브랜딩 통일, 프론트엔드 v4.0.0 |
+| 7.3.0 | 2026-02-10 | RAG 패널 UI 리뉴얼: 인덱스 재빌드 활성화(관리자), RAG 모드 선택 (Hybrid 활성/LightRAG 시험용/K²RAG 시험중/Auto 비활성), 기능 상태 모니터링 (Contextual Retrieval 미적용, Hybrid Search, Reranking·Simple KG 비활성), 문서 업로드·OCR·삭제 비활성화 |
 | 7.2.0 | 2026-02-09 | 프로세스 마이너 ML 확장: 다음 활동 예측 (RandomForest Top-3), 이상 프로세스 탐지 (IsolationForest 경로 기반) |
 | 7.1.0 | 2026-02-09 | AI 프로세스 마이너 (이벤트 로그 기반 패턴 발견 + 병목 분석 + LLM 자동화 추천/SOP 생성) |
 | 6.9.3 | 2026-02-09 | Guardian ML 이상탐지 (Isolation Forest + 사용자 이탈도), 감시 모드 선택 (룰/ML/룰+ML), 프리셋 시나리오 8개 |
@@ -1180,6 +1206,9 @@ npx vercel
 - [ ] 에이전트 응답 품질 평가
 - [ ] 프론트엔드 질문-도구 매핑 정합성 검증
 - [x] n8n 워크플로우 시각화 (React Flow) + SSE 연동
+- [x] KaTeX 수학 렌더링 지원
+- [x] 시스템 프롬프트 통합 (constants.py 단일 소스)
+- [x] CAFE24 로고/브랜딩 통일
 - [ ] n8n Cloud 연동 테스트
 
 ---

@@ -3,6 +3,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import EmptyState from '@/components/EmptyState';
@@ -127,11 +130,16 @@ function useRemarkGfm() {
 
 function MarkdownMessage({ content }) {
   const remarkGfm = useRemarkGfm();
-  const remarkPlugins = useMemo(() => (remarkGfm ? [remarkGfm] : []), [remarkGfm]);
+  const remarkPlugins = useMemo(() => {
+    const plugins = [remarkMath];
+    if (remarkGfm) plugins.push(remarkGfm);
+    return plugins;
+  }, [remarkGfm]);
 
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
+      rehypePlugins={[rehypeKatex]}
       components={{
         table: ({ node, ...props }) => (
           <div className="overflow-x-auto -mx-1 my-2">

@@ -32,43 +32,49 @@ nextjs/
 ├── pages/                          # Next.js 페이지 라우팅
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크)
-│   ├── login.js                    # 로그인 페이지
+│   ├── login.js                    # 로그인 페이지 (CAFE24 SVG 로고)
 │   ├── app.js                      # 메인 앱 (탭 기반 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   └── stream.js           # SSE 프록시 (백엔드 → 클라이언트)
 │       └── cs/
 │           ├── pipeline-answer.js  # CS 파이프라인 답변 SSE 프록시
-│           └── send-reply.js       # CS 회신 전송 프록시 (n8n SSE)
+│           ├── send-reply.js       # CS 회신 전송 프록시 (n8n SSE)
+│           ├── stream.js           # CS 회신 SSE 스트리밍 (job_id 기반)
+│           └── callback.js         # CS 콜백 프록시 (POST)
 │
 ├── components/                     # React 컴포넌트
-│   ├── Layout.js                   # 12-column 그리드 레이아웃
-│   ├── Sidebar.js                  # 예시 질문, 셀러 정보
-│   ├── Topbar.js                   # 사용자 정보, 로그아웃
+│   ├── Layout.js                   # 12-column 그리드 레이아웃 (Noto Sans KR)
+│   ├── Sidebar.js                  # 예시 질문, 셀러 정보, CAFE24 SVG 로고
+│   ├── Topbar.js                   # 사용자 정보, 로그아웃, CAFE24 SVG 로고
 │   ├── Tabs.js                     # 탭 네비게이션
 │   ├── KpiCard.js                  # KPI 지표 카드
+│   ├── SectionHeader.js            # 섹션 제목 + 액션 버튼
 │   ├── EmptyState.js               # 빈 상태 UI
+│   ├── Skeleton.js                 # 로딩 스켈레톤 (SkeletonCard 포함)
 │   │
 │   └── panels/                     # 기능별 패널 (메인 콘텐츠)
-│       ├── AgentPanel.js           # AI 에이전트 채팅
-│       ├── DashboardPanel.js       # 대시보드 (KPI, 차트)
+│       ├── AgentPanel.js           # AI 에이전트 채팅 (KaTeX 수학 렌더링)
+│       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, AI 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (9개 탭)
 │       ├── ModelsPanel.js          # MLflow 모델 관리
-│       ├── RagPanel.js             # RAG 문서 관리
-│       ├── SettingsPanel.js        # LLM/시스템 설정
+│       ├── RagPanel.js             # RAG 문서 관리 (모드 선택, 기능 모니터링)
+│       ├── SettingsPanel.js        # LLM/시스템 설정 (프롬프트 읽기전용)
 │       ├── UsersPanel.js           # 셀러 관리
 │       ├── LogsPanel.js            # 활동 로그 뷰어
-│       ├── LabPanel.js             # ★ 실험실 - CS 자동화 파이프라인
-│       ├── GuardianPanel.js        # ★ 실험실 - DB 보안 감시
-│       └── ProcessMinerPanel.js    # ★ 실험실 - 프로세스 마이닝 & ML 분석
+│       ├── LabPanel.js             # 실험실 - CS 자동화 파이프라인
+│       ├── GuardianPanel.js        # 실험실 - DB 보안 감시
+│       └── ProcessMinerPanel.js    # 실험실 - 프로세스 마이닝 & ML 분석
 │
 ├── lib/                            # 유틸리티 함수
 │   ├── api.js                      # API 호출 (Basic Auth, 타임아웃)
 │   ├── storage.js                  # 로컬/세션 스토리지 관리
-│   └── cn.js                       # 클래스명 병합
+│   ├── cn.js                       # 클래스명 병합
+│   ├── utils.js                    # 공통 유틸리티
+│   └── progress.js                 # NProgress 페이지 전환 설정
 │
 ├── styles/
-│   ├── globals.css                 # 전역 스타일 (Tailwind + 커스텀)
+│   ├── globals.css                 # 전역 스타일 (Tailwind + CAFE24 토큰)
 │   └── nprogress.css               # 페이지 전환 진행바
 │
 ├── next.config.js                  # Next.js 설정 (API 프록시)
@@ -80,14 +86,23 @@ nextjs/
 
 ## 2. 패널 (11개)
 
+### 접근 권한 체계
+
+| 역할 | 접근 가능 패널 | 탭 수 |
+|------|---------------|-------|
+| **관리자** | 11개 전부 | 11 |
+| **비관리자** (운영자/분석가/사용자) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner | 6 |
+
+---
+
 ### 2.1 AgentPanel (AI 에이전트)
 
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/AgentPanel.js` |
-| **역할** | AI 에이전트와 실시간 채팅, 도구 호출 결과 표시 |
+| **역할** | AI 에이전트와 실시간 채팅, 도구 호출 결과 표시, 수학 수식 렌더링 |
 | **API** | `POST /api/agent/stream` (SSE) |
-| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm` |
+| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `katex` |
 
 ```mermaid
 flowchart TB
@@ -95,19 +110,20 @@ flowchart TB
     Mode["RAG 모드 선택"]
     SSE["/api/agent/stream"]
     R1["토큰 단위 실시간 표시"]
-    R2["마크다운 + GFM 테이블 렌더링"]
+    R2["마크다운 + GFM 테이블<br/>+ KaTeX 수학 렌더링"]
     R3["도구 호출 결과 (접이식)"]
 
     Q --> Mode --> SSE --> R1 & R2 & R3
 ```
 
-**RAG 모드 선택** (Settings에서 설정):
+**RAG 모드 선택** (RagPanel에서 설정):
 
-| 모드 | 설명 | 특징 |
-|------|------|------|
-| `hybrid` | FAISS + BM25 + RRF | 싱글홉 질문에 최적 |
-| `lightrag` | 지식 그래프 기반 | 멀티홉 질문에 최적 |
-| `auto` | AI가 자동 선택 | 두 RAG 도구 모두 제공 |
+| 모드 | 설명 | 특징 | 상태 |
+|------|------|------|------|
+| `rag` | FAISS + BM25 | 싱글홉 질문에 최적 | **활성** (기본값) |
+| `lightrag` | 지식 그래프 기반 | 멀티홉 질문에 최적 | 시험용 (비활성) |
+| `k2rag` | KG + Sub-Q + Hybrid | 고정밀 검색 | 시험중 (비활성) |
+| `auto` | AI가 자동 선택 | 두 RAG 도구 모두 제공 | 비활성 |
 
 **예시 질문 카테고리:**
 
@@ -122,9 +138,10 @@ flowchart TB
 **UI 특징:**
 - CAFE24 블루 테마
 - 진행 표시 애니메이션
-- 도구 실행 결과 접이식 표시
-- 응답 복사 버튼
-- GFM 테이블 지원 (마크다운)
+- 도구 실행 결과 접이식 표시 (tool_start/tool_end 실시간 상태)
+- 응답 복사 버튼, 다시 질문 버튼
+- GFM 테이블 + KaTeX 수학 수식 지원
+- 스트리밍 중단 버튼
 
 ---
 
@@ -133,16 +150,18 @@ flowchart TB
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/DashboardPanel.js` |
-| **역할** | 전체 플랫폼 KPI 및 통계 시각화 |
-| **API** | `GET /api/dashboard/summary` |
+| **역할** | 전체 플랫폼 KPI 및 통계 시각화, AI 인사이트, 알림 |
+| **API** | `GET /api/dashboard/summary`, `GET /api/dashboard/insights`, `GET /api/dashboard/alerts`, `GET /api/users/segments/{name}/details` |
 | **라이브러리** | `recharts` (PieChart, BarChart, AreaChart) |
 
 | 섹션 | 내용 | 차트 |
 |------|------|------|
 | **쇼핑몰 통계** | 플랜별 분포 | PieChart |
-| **셀러 통계** | 세그먼트별 분포 | RadialBarChart |
+| **셀러 통계** | 세그먼트별 분포 (드릴다운) | RadialBarChart |
 | **주문 통계** | 유형별 분포 | PieChart |
 | **GMV 추이** | 7일간 GMV | AreaChart |
+| **AI 인사이트** | 자동 생성 운영 인사이트 | 카드 |
+| **알림** | 최근 알림 5건 | 리스트 |
 
 ---
 
@@ -185,7 +204,7 @@ flowchart TB
 |------|------|
 | **파일** | `components/panels/ModelsPanel.js` |
 | **역할** | MLflow 모델 레지스트리 조회 및 버전 선택 |
-| **API** | `/api/mlflow/models`, `/api/mlflow/experiments` |
+| **API** | `/api/mlflow/models`, `/api/mlflow/experiments`, `/api/mlflow/models/selected`, `POST /api/mlflow/models/select` |
 | **권한** | 관리자 전용 |
 
 **표시 모델:**
@@ -205,21 +224,42 @@ flowchart TB
 
 ---
 
-### 2.5 RagPanel (RAG 문서 관리)
+### 2.5 RagPanel (RAG 관리)
 
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/RagPanel.js` |
-| **역할** | 플랫폼 지식 문서 관리 (업로드, 삭제, 인덱스) |
-| **API** | `/api/rag/*` |
+| **역할** | RAG 인덱스 관리, 모드 선택, LightRAG 빌드, 기능 상태 모니터링 |
+| **API** | `GET /api/rag/status`, `GET /api/rag/files`, `POST /api/rag/reload`, `POST /api/rag/upload`, `POST /api/rag/delete`, `GET /api/lightrag/status`, `POST /api/lightrag/build`, `POST /api/ocr/extract` |
 | **권한** | 관리자 전용 |
 
-| 기능 | API |
-|------|-----|
-| **파일 업로드** | `POST /api/rag/upload` |
-| **문서 삭제** | `DELETE /api/rag/files/{filename}` |
-| **재인덱싱** | `POST /api/rag/reindex` |
-| **LightRAG 빌드** | `POST /api/lightrag/build` |
+**RAG 모드 선택 UI:**
+
+```mermaid
+flowchart LR
+    R["RAG<br/>(FAISS + BM25)<br/>활성"] ~~~ L["LightRAG<br/>(지식 그래프)<br/>시험용"]
+    L ~~~ K["K2RAG<br/>(KG + Sub-Q)<br/>시험중"]
+    K ~~~ A["자동 선택<br/>(AI 판단)<br/>비활성"]
+```
+
+**RAG 기능 상태 모니터링:**
+
+| 기능 | 상태 |
+|------|------|
+| **Contextual Retrieval** | 미적용 |
+| **Hybrid Search** (BM25 + Vector) | 인덱스 빌드 시 활성 |
+| **Reranking** (Cross-Encoder) | 비활성 |
+| **Simple KG** | 비활성 |
+
+**관리 기능:**
+
+| 기능 | API | 상태 |
+|------|-----|------|
+| **인덱스 재빌드** | `POST /api/rag/reload` | 활성 (관리자) |
+| **LightRAG 빌드** | `POST /api/lightrag/build` | 활성 (관리자) |
+| **파일 업로드** | `POST /api/rag/upload` | 비활성 |
+| **문서 삭제** | `POST /api/rag/delete` | 비활성 |
+| **OCR 업로드** | `POST /api/ocr/extract` | 비활성 |
 
 ---
 
@@ -228,24 +268,49 @@ flowchart TB
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/SettingsPanel.js` |
-| **역할** | LLM 모델 및 파라미터 설정 |
-| **API** | `/api/settings/llm`, `/api/settings/prompt` |
+| **역할** | LLM 모델 및 파라미터 설정, 시스템 프롬프트 (읽기 전용) |
+| **API** | `GET/POST /api/settings/llm`, `GET/POST /api/settings/prompt`, `POST /api/settings/llm/reset`, `POST /api/settings/prompt/reset` |
 | **권한** | 관리자 전용 |
 
-| 설정 | 타입 | 기본값 |
-|------|------|--------|
-| **selectedModel** | select | `gpt-4o-mini` |
-| **temperature** | slider | `0.3` |
-| **maxTokens** | number | `4000` |
-| **timeoutMs** | number | `30000` |
+**LLM 설정 항목:**
+
+| 설정 | 타입 | 기본값 | 비고 |
+|------|------|--------|------|
+| **selectedModel** | select | `gpt-4o-mini` | 읽기 전용 (UI 비활성) |
+| **customModel** | text | 빈 값 | 비활성 |
+| **temperature** | slider (0~2) | `0.3` | |
+| **topP** | slider (0~1) | `1.0` | |
+| **presencePenalty** | slider (-2~2) | `0.0` | |
+| **frequencyPenalty** | slider (-2~2) | `0.0` | |
+| **maxTokens** | number | `8000` | 고정 (UI 비활성) |
+| **seed** | number | 빈 값 | 선택 |
+| **timeoutMs** | number (1000~120000) | `30000` | |
+| **retries** | number (0~10) | `2` | |
+| **stream** | checkbox | `true` | |
+| **apiKey** | password | 빈 값 | 로컬 전용 |
+
+**모델 목록:**
+
+| 모델 |
+|------|
+| gpt-4o |
+| gpt-4o-mini |
+| gpt-4.1 |
+| gpt-4.1-mini |
+| gpt-4-turbo |
 
 **LLM 프리셋:**
 
-| 프리셋 | temperature | 설명 |
-|--------|-------------|------|
-| 정확한 응답 | 0.1 | 분석/데이터 작업 |
-| 균형잡힌 | 0.5 | 일반 대화 |
-| 창의적 | 0.9 | 아이디어/스토리텔링 |
+| 프리셋 | temperature | topP | presencePenalty | frequencyPenalty |
+|--------|-------------|------|-----------------|------------------|
+| 정확한 응답 | 0.1 | 0.9 | 0.0 | 0.0 |
+| 균형잡힌 | 0.5 | 1.0 | 0.0 | 0.0 |
+| 창의적 | 0.9 | 1.0 | 0.3 | 0.2 |
+
+**시스템 프롬프트:**
+- 백엔드에서 중앙 관리 (`GET /api/settings/prompt`)
+- UI에서는 **읽기 전용** (disabled textarea)으로 표시
+- "백엔드 관리" 배지 표시
 
 ---
 
@@ -255,6 +320,7 @@ flowchart TB
 |------|------|
 | **파일** | `components/panels/UsersPanel.js` |
 | **역할** | 플랫폼 셀러 계정 관리 |
+| **API** | `/api/users` |
 | **권한** | 관리자 전용 |
 
 ---
@@ -303,7 +369,7 @@ flowchart TB
     E <-.->|"DnD"| F
 ```
 
-DnD: HTML5 Drag and Drop으로 문의를 자동 처리 ↔ 담당자 검토 간 이동
+DnD: HTML5 Drag and Drop으로 문의를 자동 처리 <-> 담당자 검토 간 이동
 자동 처리: 접수(분류만) → 답변(RAG 일괄 생성) → 회신 (검토 스킵)
   - Step 1(접수)에서는 DnD 분류만 수행, 답변 생성은 Step 3(답변)에서 수행
   - 체크박스 선택 → "선택 답변 생성" 또는 "전체 답변 생성" (SSE 순차 호출)
@@ -324,7 +390,7 @@ DnD: HTML5 Drag and Drop으로 문의를 자동 처리 ↔ 담당자 검토 간 
 **UI 구성:**
 - 접수함 테이블 (5건, 셀러 등급 배지, 희망 채널 배지, 분류 결과 인라인 표시)
 - 신뢰도 임계값 슬라이더 (50%~95%, 기본 75%)
-- HTML5 DnD 2열 분기 (드래그로 자동 처리 ↔ 담당자 검토 이동)
+- HTML5 DnD 2열 분기 (드래그로 자동 처리 <-> 담당자 검토 이동)
 - DraggableCard 컴포넌트 (draggable 카드, 드롭존 하이라이트, 카테고리 배지)
 - 자동 처리: 접수에서는 DnD 분류만, 답변(StepAnswer)에서 체크박스 선택 → 일괄 답변 생성
 - 일괄 답변 결과: StepAnswer 인라인 수정 (수정 버튼 → textarea → 저장/취소) + StepReply에서도 수정 가능
@@ -334,7 +400,7 @@ DnD: HTML5 Drag and Drop으로 문의를 자동 처리 ↔ 담당자 검토 간 
 - 자동 처리: per-inquiry 채널 할당 (고객 선호 채널 기반 초기화, 운영자가 조정 가능)
 - 수동 처리: 고객 희망 채널 표시 + '희망' 배지, "어느 방식이든 상관없음" 안내
 - SSE 스트리밍 답변 표시 + 편집 가능 textarea
-- React Flow n8n 워크플로우 다이어그램 (8노드: webhook→검증→분기→채널×4→기록)
+- React Flow n8n 워크플로우 다이어그램 (8노드: webhook→검증→분기→채널x4→기록)
 - 전송 클릭 → SSE 스트리밍으로 노드 순차 활성화 (idle→running→completed 애니메이션)
 - 미선택 채널 노드 자동 비활성(disabled), 활성 엣지 animated
 - 이메일 채널 선택 시 수신자 이메일 입력 필드 (auto/manual)
@@ -347,7 +413,7 @@ DnD: HTML5 Drag and Drop으로 문의를 자동 처리 ↔ 담당자 검토 간 
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/GuardianPanel.js` |
-| **역할** | DB 쿼리 실시간 감시 — 룰엔진 + ML 이상탐지(Isolation Forest) + AI Agent 3단계 분석으로 위험 쿼리 차단 |
+| **역할** | DB 쿼리 실시간 감시 -- 룰엔진 + ML 이상탐지(Isolation Forest) + AI Agent 3단계 분석으로 위험 쿼리 차단 |
 | **API** | `POST /api/guardian/analyze`, `POST /api/guardian/recover`, `POST /api/guardian/notify-dba`, `GET /api/guardian/logs`, `GET /api/guardian/stats` |
 | **권한** | 전체 사용자 |
 
@@ -375,7 +441,7 @@ flowchart LR
 | 2 | **복구 요청** | 차단된 쿼리 복구 SQL 생성 (Recovery Agent) |
 | 3 | **대시보드** | 감사 로그, 차단 이력, KPI 통계 |
 
-**실시간 감시 탭 — 입력 폼:**
+**실시간 감시 탭 -- 입력 폼:**
 
 | 필드 | 타입 | 설명 |
 |------|------|------|
@@ -385,9 +451,9 @@ flowchart LR
 | 대상 행 수 | number | 영향받는 행 수 |
 
 **분석 결과 표시:**
-- **감시 모드 셀렉터**: 3버튼 토글 (룰 + ML / 룰엔진만 / ML만) — 모드에 따라 결과 섹션 조건부 표시
+- **감시 모드 셀렉터**: 3버튼 토글 (룰 + ML / 룰엔진만 / ML만) -- 모드에 따라 결과 섹션 조건부 표시
 - **룰엔진 결과**: pass(녹색) / warn(주황) / block(빨강) + 사유 목록 + 응답 시간
-- **ML 이상탐지 결과**: anomaly_score + user_deviation 프로그레스 바 + combined_score 종합 점수 (색상: >70 빨강, >40 주황, ≤40 초록)
+- **ML 이상탐지 결과**: anomaly_score + user_deviation 프로그레스 바 + combined_score 종합 점수 (색상: >70 빨강, >40 주황, <=40 초록)
 - **Agent 출력**: Tool 호출 단계별 표시 (접이식) + 최종 판단 텍스트
 - **액션 버튼**: "차단 유지" / "그래도 실행 (DBA 승인 필요)"
 - **DBA 알림**: 이메일 입력 → Resend API로 차단 내역 + Agent 분석 결과 전송
@@ -412,7 +478,7 @@ flowchart LR
 - 전체 감사 로그 테이블 (최근 20건, 상태별 색상 배지)
 
 **데이터 저장소:**
-- SQLite (`guardian.db`) — 감사 로그 (`audit_log`) + 유사 사건 (`incidents`)
+- SQLite (`guardian.db`) -- 감사 로그 (`audit_log`) + 유사 사건 (`incidents`)
 - 서버 시작 시 시드 데이터 200건 자동 생성 (테이블 비었을 때만)
 - 실제 분석/차단 결과는 실시간 기록
 
@@ -423,7 +489,7 @@ flowchart LR
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/ProcessMinerPanel.js` |
-| **역할** | 이커머스 프로세스 마이닝 — 프로세스 발견 + ML 다음 활동 예측 + 병목 분석 + ML 이상 프로세스 탐지 + AI 자동화 추천 |
+| **역할** | 이커머스 프로세스 마이닝 -- 프로세스 발견 + ML 다음 활동 예측 + 병목 분석 + ML 이상 프로세스 탐지 + AI 자동화 추천 |
 | **API** | `POST /api/process-miner/discover`, `POST /api/process-miner/predict`, `POST /api/process-miner/bottlenecks`, `POST /api/process-miner/anomalies`, `POST /api/process-miner/recommend` |
 | **권한** | 전체 사용자 |
 
@@ -445,7 +511,7 @@ flowchart LR
 | `cs` | CS 문의 프로세스 |
 | `settlement` | 정산 프로세스 |
 
-**ML 기능 1 — 다음 활동 예측 (프로세스 발견 탭):**
+**ML 기능 1 -- 다음 활동 예측 (프로세스 발견 탭):**
 
 | 항목 | 내용 |
 |------|------|
@@ -455,14 +521,14 @@ flowchart LR
 | **부가 정보** | 모델 정확도 배지, 피처 중요도 차트 (접기/펼치기) |
 | **스타일** | Brain 아이콘, indigo 그라데이션 |
 
-**ML 기능 2 — 이상 프로세스 탐지 (병목 분석 탭):**
+**ML 기능 2 -- 이상 프로세스 탐지 (병목 분석 탭):**
 
 | 항목 | 내용 |
 |------|------|
 | **API** | `POST /api/process-miner/anomalies` |
 | **요약 카드** | 전체 케이스 수, 이상 케이스 수, 이상 비율 |
 | **정상 패턴** | 정상 프로세스 요약 텍스트 (emerald 박스) |
-| **이상 케이스** | 최대 10건 표시 — 시퀀스 화살표, 예외 활동 빨간색 하이라이트, anomaly_score, 루프 배지 |
+| **이상 케이스** | 최대 10건 표시 -- 시퀀스 화살표, 예외 활동 빨간색 하이라이트, anomaly_score, 루프 배지 |
 | **부가 정보** | 피처 중요도 차트 (접기/펼치기) |
 | **스타일** | AlertTriangle 아이콘, red-to-orange 그라데이션 |
 
@@ -483,19 +549,26 @@ flowchart LR
 
 | 컴포넌트 | 파일 | 설명 |
 |----------|------|------|
-| **Layout** | `Layout.js` | 12-column 그리드 (Sidebar 3열 + Main 9열) |
-| **Sidebar** | `Sidebar.js` | 예시 질문, 셀러 정보 |
-| **Topbar** | `Topbar.js` | 사용자명, 역할, 로그아웃 버튼 |
+| **Layout** | `Layout.js` | 12-column 그리드 (Sidebar 3열 + Main 9열), Noto Sans KR 폰트 |
+| **Sidebar** | `Sidebar.js` | CAFE24 SVG 로고, 예시 질문 아코디언, 셀러 정보, 환영 팝업 |
+| **Topbar** | `Topbar.js` | CAFE24 SVG 로고, 사용자명, 로그아웃 버튼 |
 | **Tabs** | `Tabs.js` | 역할별 필터링된 탭 네비게이션 |
+
+### CAFE24 로고/브랜딩
+
+Sidebar, Topbar, Login 페이지에 CAFE24 공식 SVG 로고 적용:
+```
+https://img.echosting.cafe24.com/imgcafe24com/images/common/cafe24.svg
+```
 
 ### UI 컴포넌트
 
 | 컴포넌트 | Props | 설명 |
 |----------|-------|------|
 | **KpiCard** | `title, value, icon, color, trend` | KPI 지표 카드 |
-| **SectionHeader** | `title, subtitle, action` | 섹션 제목 + 액션 버튼 |
-| **EmptyState** | `icon, title, message` | 데이터 없음 상태 |
-| **Skeleton** | `width, height, className` | 로딩 스켈레톤 |
+| **SectionHeader** | `title, subtitle, right` | 섹션 제목 + 우측 액션 |
+| **EmptyState** | `icon, title, desc` | 데이터 없음 상태 |
+| **Skeleton** | `width, height, className` | 로딩 스켈레톤 (SkeletonCard 포함) |
 
 ---
 
@@ -540,13 +613,15 @@ await fetchEventSource('/api/agent/stream', {
 });
 ```
 
-**SSE 프록시:**
+**SSE 프록시 (5개):**
 
 | 프록시 파일 | 타깃 백엔드 | 용도 |
 |------------|-----------|------|
 | `pages/api/agent/stream.js` | `/api/agent/stream` | AI 에이전트 스트리밍 |
 | `pages/api/cs/pipeline-answer.js` | `/api/cs/pipeline/answer` | CS 파이프라인 답변 스트리밍 |
 | `pages/api/cs/send-reply.js` | `/api/cs/send-reply` | CS 회신 전송 (n8n SSE) |
+| `pages/api/cs/stream.js` | `/api/cs/stream?job_id=` | CS 회신 SSE 스트리밍 (job_id 기반) |
+| `pages/api/cs/callback.js` | `/api/cs/callback` | CS 콜백 프록시 (POST) |
 
 | 설정 | 설명 |
 |------|------|
@@ -560,8 +635,8 @@ await fetchEventSource('/api/agent/stream', {
 |--------|------|-----------|
 | `tool_start` | 도구 실행 시작 | `{"tool": "search_platform"}` |
 | `tool_end` | 도구 실행 완료 | `{"tool": "...", "result": {...}}` |
-| `delta` | 토큰 스트리밍 | `{"content": "이탈"}` |
-| `done` | 응답 완료 | `{"full_response": "...", "tool_calls": [...]}` |
+| `delta` | 토큰 스트리밍 | `{"delta": "이탈"}` |
+| `done` | 응답 완료 | `{"ok": true, "final": "...", "tool_calls": [...]}` |
 | `error` | 오류 발생 | `{"message": "..."}` |
 
 ### 4.3 Next.js API 프록시
@@ -571,8 +646,9 @@ await fetchEventSource('/api/agent/stream', {
 async rewrites() {
   const backend = process.env.BACKEND_INTERNAL_URL || 'http://127.0.0.1:8001';
   return [
+    // SSE 스트리밍은 Next API Route로 처리
     { source: '/api/agent/stream', destination: '/api/agent/stream' },
-    { source: '/api/cs/pipeline-answer', destination: '/api/cs/pipeline-answer' },
+    // 나머지 /api/* 는 전부 백엔드로 프록시
     { source: '/api/:path*', destination: `${backend}/api/:path*` },
   ];
 }
@@ -590,17 +666,22 @@ const [auth, setAuth] = useState(null);
 
 // 데이터
 const [shops, setShops] = useState([]);
+const [categories, setCategories] = useState([]);
 const [selectedShop, setSelectedShop] = useState(null);
 
 // LLM 설정
 const [settings, setSettings] = useState({
+  apiKey: '',
   selectedModel: 'gpt-4o-mini',
+  maxTokens: 8000,
   temperature: 0.3,
-  ragMode: 'lightrag',  // 'hybrid' | 'lightrag' | 'auto'
+  systemPrompt: '',
+  ragMode: 'rag',  // 'rag' | 'lightrag' | 'k2rag' | 'auto'
 });
 
 // AI 에이전트
 const [agentMessages, setAgentMessages] = useState([]);
+const [totalQueries, setTotalQueries] = useState(0);
 ```
 
 ### 5.2 스토리지 키
@@ -611,6 +692,7 @@ const [agentMessages, setAgentMessages] = useState([]);
 | `cafe24_settings` | localStorage | LLM 설정 (영구) |
 | `cafe24_agent_messages` | localStorage | 채팅 히스토리 |
 | `cafe24_activity_log` | localStorage | 활동 로그 |
+| `cafe24_total_queries` | localStorage | 총 쿼리 수 |
 
 ---
 
@@ -621,13 +703,33 @@ const [agentMessages, setAgentMessages] = useState([]);
 ```javascript
 // tailwind.config.js
 colors: {
+  cafe24: {
+    blue: '#5B9BF5',     // CAFE24 블루 (primary)
+    navy: '#4A8AE5',     // CAFE24 네이비
+    dark: '#1A1A2E',     // CAFE24 다크
+    light: '#F5F7FA',    // CAFE24 라이트
+    gray: '#E8ECF0',     // CAFE24 그레이
+    accent: '#00C853',   // 성공/액센트
+    warning: '#FF9800',  // 경고
+    error: '#F44336',    // 에러
+  },
+  // 호환성 매핑 (cookie-* 클래스)
   cookie: {
-    yellow: '#1B6FF0',   // CAFE24 블루
-    orange: '#0D47A1',   // CAFE24 네이비
-    brown: '#1A1A2E',    // CAFE24 다크
-    cream: '#F5F7FA',    // CAFE24 라이트
-    beige: '#E8ECF0',    // CAFE24 베이지
-  }
+    yellow: '#7CB9F7',   // 밝은 블루
+    orange: '#5B9BF5',   // CAFE24 블루
+    brown: '#1A1A2E',    // 다크
+    cream: '#F5F7FA',    // 라이트
+    beige: '#E8ECF0',    // 베이지
+  },
+  // 셀러 등급별 컬러
+  grade: {
+    common: '#9CA3AF',
+    rare: '#42A5F5',
+    superrare: '#7C3AED',
+    epic: '#AB47BC',
+    legendary: '#1B6FF0',
+    ancient: '#0D47A1',
+  },
 }
 ```
 
@@ -640,12 +742,17 @@ colors: {
   --panel: #ffffff;
   --text: #1A1A2E;
   --muted: #64748B;
-  --cookie-yellow: #1B6FF0;
-  --cookie-orange: #0D47A1;
+
+  --cookie-yellow: #7CB9F7;
+  --cookie-orange: #5B9BF5;
   --cookie-brown: #1A1A2E;
-  --primary: #1B6FF0;
-  --success: #5CB97A;
-  --danger: #D96B6B;
+  --cookie-cream: #F5F7FA;
+  --cookie-beige: #E8ECF0;
+
+  --primary: #5B9BF5;
+  --primary2: #4A8AE5;
+  --success: #00C853;
+  --danger: #F44336;
 }
 ```
 
@@ -653,20 +760,27 @@ colors: {
 
 ```css
 /* 버튼 */
-.btn { /* CAFE24 블루 그라데이션 */ }
+.btn { /* CAFE24 블루 그라데이션 (#7CB9F7 → #5B9BF5) */ }
 .btn-secondary { /* 흰색 배경 */ }
 .btn-ghost { /* 투명 배경 */ }
+.btn-green { /* 성공 그라데이션 */ }
 
 /* 카드 */
 .card { /* 흰색 배경, 라운드 16px */ }
+.cookie-card { /* CAFE24 호버 효과 카드 */ }
 
 /* 배지 */
 .badge-success { /* 녹색 */ }
 .badge-danger { /* 빨간색 */ }
+.badge-orange { /* CAFE24 블루 */ }
+.badge-common / .badge-rare / .badge-epic / .badge-legendary / .badge-ancient { /* 셀러 등급별 */ }
 
 /* 채팅 버블 */
-.chat-bubble-user { /* 블루 배경 */ }
+.chat-bubble-user { /* 라이트 블루 배경 */ }
 .chat-bubble-ai { /* 흰색 배경 */ }
+
+/* 그라데이션 텍스트 */
+.cookie-text { /* CAFE24 블루 그라데이션 텍스트 */ }
 ```
 
 ### 6.4 애니메이션
@@ -675,8 +789,11 @@ colors: {
 |--------|------|
 | `.fade-in` | 페이드 인 (0.3s) |
 | `.slide-in` | 슬라이드 인 (0.25s) |
-| `.float` | 플로팅 (3s) |
+| `.cookie-float` | 플로팅 (3s) |
 | `.pulse-soft` | 부드러운 펄스 (2s) |
+| `.cookie-spin` | 회전 (8s) |
+| `.cookie-bounce` | 바운스 (0.5s) |
+| `.cookie-glow` | 글로우 효과 |
 
 ### 6.5 반응형 브레이크포인트
 
@@ -723,7 +840,17 @@ npm start
 | **Framer Motion** | 11.0 | 애니메이션 |
 | **Lucide React** | 0.452 | 아이콘 |
 | **react-markdown** | 9.0 | 마크다운 렌더링 |
+| **remark-gfm** | 4.0 | GFM 마크다운 |
+| **remark-math** | 6.0 | 수학 수식 파싱 |
+| **rehype-katex** | 7.0 | KaTeX rehype 플러그인 |
+| **katex** | 0.16 | 수학 수식 렌더링 |
 | **@microsoft/fetch-event-source** | 2.0 | SSE 스트리밍 |
+| **@xyflow/react** | 12.10 | React Flow 다이어그램 (LabPanel) |
+| **react-hot-toast** | 2.4 | 토스트 알림 |
+| **clsx** | 2.1 | 클래스명 조건부 결합 |
+| **tailwind-merge** | 2.5 | Tailwind 클래스 병합 |
+| **nprogress** | 0.2 | 페이지 전환 진행바 |
+| **swr** | 2.2 | 데이터 페칭 |
 
 ---
 
@@ -786,6 +913,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 6.9.4** · Last Updated 2026-02-09
+**Version 7.5.0** · Last Updated 2026-02-10
 
 </div>

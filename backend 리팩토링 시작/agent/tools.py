@@ -676,41 +676,44 @@ def tool_get_fraud_statistics() -> dict:
     df = st.FRAUD_DETAILS_DF
     total_records = len(df)
 
-    # 이상거래 집계
-    fraud_records = df[df["is_fraud"] == True]
-    fraud_count = len(fraud_records)
-    fraud_rate = (fraud_count / total_records * 100) if total_records > 0 else 0
+    # fraud_details.csv 컬럼: seller_id, anomaly_score, anomaly_type, detected_date, details
+    # 모든 레코드가 이미 탐지된 이상거래
 
     # 이상거래 유형별 분포
-    fraud_type_dist = {}
-    if "fraud_type" in df.columns and not fraud_records.empty:
-        fraud_type_dist = fraud_records["fraud_type"].value_counts().to_dict()
+    anomaly_type_dist = {}
+    if "anomaly_type" in df.columns:
+        anomaly_type_dist = df["anomaly_type"].value_counts().to_dict()
 
     # 이상 점수 통계
-    avg_anomaly_score = safe_float(df["anomaly_score"].mean()) if "anomaly_score" in df.columns else 0
+    avg_score = safe_float(df["anomaly_score"].mean()) if "anomaly_score" in df.columns else 0
+    max_score = safe_float(df["anomaly_score"].max()) if "anomaly_score" in df.columns else 0
+    min_score = safe_float(df["anomaly_score"].min()) if "anomaly_score" in df.columns else 0
 
-    # 이상거래 셀러 샘플 (최대 10건)
+    # 고위험 (anomaly_score >= 0.9)
+    high_risk_count = len(df[df["anomaly_score"] >= 0.9]) if "anomaly_score" in df.columns else 0
+    unique_sellers = df["seller_id"].nunique() if "seller_id" in df.columns else 0
+
+    # 위험도 높은 순 샘플 (최대 10건)
+    sorted_df = df.sort_values("anomaly_score", ascending=False) if "anomaly_score" in df.columns else df
     fraud_samples = []
-    for _, row in fraud_records.head(10).iterrows():
+    for _, row in sorted_df.head(10).iterrows():
         fraud_samples.append({
-            "fraud_id": safe_str(row.get("fraud_id")),
             "seller_id": safe_str(row.get("seller_id")),
-            "order_amount": safe_int(row.get("order_amount")),
-            "fraud_type": safe_str(row.get("fraud_type")),
             "anomaly_score": safe_float(row.get("anomaly_score")),
+            "anomaly_type": safe_str(row.get("anomaly_type")),
             "detected_date": safe_str(row.get("detected_date")),
+            "details": safe_str(row.get("details")),
         })
 
     return {
         "status": "SUCCESS",
-        "total_records": total_records,
-        "fraud_count": fraud_count,
-        "fraud_rate": round(fraud_rate, 2),
-        "risk_summary": "HIGH" if fraud_rate > 5 else "MEDIUM" if fraud_rate > 2 else "LOW",
-        "fraud_type_distribution": fraud_type_dist,
-        "avg_anomaly_score": avg_anomaly_score,
-        "fraud_samples": fraud_samples,
-        "recommendation": f"전체 {total_records}건 중 {fraud_count}건({fraud_rate:.1f}%)이 이상거래로 탐지되었습니다. 상세 모니터링을 권장합니다.",
+        "total_anomalies": total_records,
+        "unique_sellers": unique_sellers,
+        "high_risk_count": high_risk_count,
+        "high_risk_rate": round(high_risk_count / total_records * 100, 1) if total_records > 0 else 0,
+        "anomaly_type_distribution": anomaly_type_dist,
+        "anomaly_score_stats": {"avg": avg_score, "max": max_score, "min": min_score},
+        "top_anomalies": fraud_samples,
     }
 
 
@@ -1090,7 +1093,6 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
                 "predicted_churn_rate": churn_rate,
             },
             "top_factors": top_factors,
-            "insight": f"총 {original_total}명 셀러 중 {high_risk}명({churn_rate}%)이 이탈 고위험군입니다. '{top_factor_name}'이(가) 가장 큰 이탈 요인입니다."
         }
 
         # 특정 위험 등급 필터 적용 시 상세 정보 추가
@@ -1101,7 +1103,6 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
                 "count": len(df),
                 "sellers": filtered_sellers
             }
-            result["insight"] = f"{level_names.get(risk_level, risk_level)} 셀러 {len(df)}명 조회됨. '{top_factor_name}'이(가) 주요 이탈 요인입니다."
 
         return result
     except Exception as e:
@@ -1155,29 +1156,12 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
             vals = pd.to_numeric(df[wc], errors="coerce").dropna()
             avg_retention[wc] = round(vals.mean(), 1) if len(vals) > 0 else 0
 
-        # 인사이트
-        w1 = avg_retention.get("week1", 0)
-        w4 = avg_retention.get("week4", 0)
-        insight_parts = [f"Week 1 평균 리텐션 {w1}%, Week 4 평균 리텐션 {w4}%."]
-
-        cohort_months = df["cohort_month"].tolist()
-        if len(cohort_months) >= 2:
-            recent_w1 = safe_float(df.iloc[-1].get("week1"))
-            older_w1 = safe_float(df.iloc[0].get("week1"))
-            if recent_w1 > older_w1:
-                insight_parts.append("최신 코호트가 이전 대비 리텐션이 개선되고 있습니다.")
-            elif recent_w1 < older_w1:
-                insight_parts.append("최신 코호트의 리텐션이 이전 대비 하락하여 주의가 필요합니다.")
-
         return {
             "status": "SUCCESS",
             "analysis_type": "셀러 코호트 리텐션 분석",
             "total_cohorts": len(retention),
             "retention": retention,
             "avg_retention": {k: f"{v}%" for k, v in avg_retention.items()},
-            "avg_week1_retention": f"{w1}%",
-            "avg_week4_retention": f"{w4}%",
-            "insight": " ".join(insight_parts),
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
@@ -1344,7 +1328,6 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
                 "세션수": {"current": sessions_curr, "previous": sessions_prev, "change": format_change(sessions_change)},
             },
             "correlations": correlations,
-            "insight": " ".join(insight_parts)
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}
@@ -1460,7 +1443,6 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
                 "conversion_rate": f"{avg_conversion}%",
             },
             "tier_distribution": tier_distribution,
-            "insight": f"예상 월 GMV {format_revenue(monthly_gmv)}, 전월 대비 {growth_str} 변화. 활성 셀러 {avg_active_sellers}명, 평균 주문 금액 ₩{avg_order_value:,}."
         }
     except Exception as e:
         return {"status": "FAILED", "error": str(e)}

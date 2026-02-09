@@ -268,114 +268,8 @@ def run_agent(req, username: str) -> dict:
         else:
             llm_with_tools = llm  # GENERAL 카테고리: 도구 없이 대화
 
-        # 시스템 프롬프트 구성 (할루시네이션 방지 규칙을 맨 앞에 배치)
-        base_prompt = safe_str(req.system_prompt).strip() or DEFAULT_SYSTEM_PROMPT
-
-        # 시스템 프롬프트 구성
-        system_prompt = base_prompt + """
-
----
-
-## 필수 키워드-도구 매핑 (반드시 준수!)
-
-다음 키워드가 포함되면 **반드시** 해당 도구를 호출하세요:
-
-| 키워드 | 필수 도구 |
-|--------|----------|
-| "부정행위 탐지", "이상 셀러", "비정상 셀러" | `detect_fraud` |
-| "세그먼트 통계", "셀러 분포" | `get_segment_statistics` |
-| "CS 통계", "상담 품질" | `get_cs_statistics` |
-| "대시보드", "전체 현황" | `get_dashboard_summary` |
-| "이탈 예측", "이탈 확률", "이탈 위험" | `predict_seller_churn` |
-| "성과 분석", "쇼핑몰 성과", "쇼핑몰 매출" | `get_shop_performance` |
-| "마케팅 추천", "마케팅 최적화", "광고 추천" | `optimize_marketing` |
-| "코호트 분석", "리텐션 분석", "잔존율" | `get_cohort_analysis` |
-| "트렌드 분석", "KPI 분석", "DAU" | `get_trend_analysis` |
-| "매출 예측", "GMV 분석", "ARPU", "거래액" | `get_gmv_prediction` |
-| "이탈 현황", "이탈 통계", "고위험 셀러" | `get_churn_prediction` |
-
-## 병렬 도구 호출 규칙 (매우 중요!)
-
-사용자 요청에 **여러 키워드가 있으면 해당 도구를 모두 동시에 호출**하세요.
-
-### 예시:
-| 사용자 질문 | 호출할 도구들 |
-|------------|-------------|
-| "셀러 세그먼트 통계랑 이상 셀러 보여줘" | `get_segment_statistics` + `get_fraud_statistics` (동시 호출) |
-| "CS 통계랑 대시보드 요약 보여줘" | `get_cs_statistics` + `get_dashboard_summary` (동시 호출) |
-| "SEL0001 이탈 예측하고 마케팅 추천해줘" | `predict_seller_churn` + `optimize_marketing` (동시 호출) |
-
-### 핵심:
-- 요청에 포함된 **모든 키워드에 해당하는 도구를 빠짐없이 호출**
-- "~하고", "~와", "~그리고" 등 여러 요청은 **병렬 호출**
-
-## 도구 선택 규칙 (반드시 준수)
-
-### 핵심 규칙:
-- 쇼핑몰 정보 요청 → `get_shop_info`, `list_shops`, `get_shop_services`
-- 카테고리 정보 요청 → `get_category_info`, `list_categories`
-- CS 관련 요청 → `auto_reply_cs`, `check_cs_quality`, `get_ecommerce_glossary`
-- 셀러 분석 요청 → `analyze_seller`, `get_seller_segment`, `detect_fraud`
-- 플랫폼 지식 검색 → `search_platform` (RAG 검색)
-- **이탈 예측 요청** → `predict_seller_churn` (ML 모델 사용)
-- **성과 분석 요청** → `get_shop_performance`, `predict_shop_revenue` (ML 모델 사용)
-- **마케팅 최적화 요청** → `optimize_marketing` (P-PSO 알고리즘 사용)
-- **코호트/리텐션 분석** → `get_cohort_analysis` (주간 리텐션율)
-- **트렌드/KPI 분석** → `get_trend_analysis` (활성 셀러, ARPU 등)
-- **매출/GMV 예측** → `get_gmv_prediction` (ARPU, 셀러 티어별 거래 분포)
-- **전체 이탈 현황** → `get_churn_prediction` (고위험/중위험/저위험 통계)
-
-### 예시:
-| 사용자 질문 | 올바른 도구 |
-|------------|-----------|
-| "S0001 쇼핑몰 정보 알려줘" | get_shop_info(shop_id="S0001") |
-| "패션 카테고리 쇼핑몰 목록" | list_shops(category="패션") |
-| "SEL0001 셀러 분석해줘" | analyze_seller(seller_id="SEL0001") |
-| "카페24 정산 주기가 뭐야?" | search_platform(query="카페24 정산 주기") |
-| "세그먼트별 셀러 통계" | get_segment_statistics() |
-| "SEL0001 이탈 확률 예측해줘" | predict_seller_churn(seller_id="SEL0001") |
-| "S0001 쇼핑몰 성과 어때?" | get_shop_performance(shop_id="S0001") |
-| "SEL0001 마케팅 추천해줘" | optimize_marketing(seller_id="SEL0001") |
-| "코호트 리텐션 분석" | get_cohort_analysis() |
-| "트렌드 분석 보여줘" | get_trend_analysis() |
-| "GMV 예측해줘" | get_gmv_prediction() |
-| "이탈 현황 분석" | get_churn_prediction() |
-
-## RAG 검색 결과 해석 규칙 (매우 중요!)
-
-`search_platform` 도구로 검색한 결과를 해석할 때 **반드시 다음 규칙을 따르세요**:
-
-### 핵심 원칙:
-1. **RAG 결과 전체를 꼼꼼히 읽으세요** - 원하는 정확한 섹션명이 없어도 관련 정보가 다른 섹션에 있을 수 있습니다
-2. **유사한 표현을 찾으세요** - "정산 주기" → "정산 일정", "결제 주기" 등 비슷한 의미의 섹션을 확인
-3. **숫자와 수치를 주목하세요** - 수수료율, 기간, 금액 등의 구체적 수치에 주의
-4. **"모르겠다"고 답하기 전에** - RAG 결과에 관련 정보가 정말 없는지 다시 확인하세요
-
-### 금지 사항:
-- RAG 결과에 정보가 있는데 "모르겠습니다", "확인할 수 없습니다"라고 답변하지 마세요
-- 섹션명이 정확히 일치하지 않는다고 관련 정보를 무시하지 마세요
-- **⚠️ RAG 결과에 없는 정보를 절대 지어내지 마세요!** - 검색 결과에 없는 수수료율이나 정책을 만들어내면 안 됩니다. 이것은 할루시네이션입니다!
-
-### 숫자 질문 답변 규칙:
-- "몇 개야?", "얼마야?" 등 수치를 묻는 질문에는 **RAG 결과에서 실제로 나열된 항목을 세어서** 답하세요
-- **RAG 결과에 해당 정보가 없으면** → "RAG 문서에서 해당 정보를 찾을 수 없습니다"라고 솔직히 답하세요
-
-## 대화 맥락 유지 규칙 (매우 중요!)
-
-이전 대화에서 **특정 쇼핑몰이나 셀러를 언급했다면**, 후속 질문도 그 대상에 대한 것으로 가정하세요.
-
-### 예시:
-| 이전 대화 | 현재 질문 | 올바른 해석 |
-|----------|----------|------------|
-| "S0001 쇼핑몰 성과 분석해줘" | "마케팅 추천도 해줘" | **S0001 쇼핑몰 관련 셀러**의 마케팅 추천 |
-| "SEL0001 셀러 분석해줘" | "이탈 확률은?" | **SEL0001 셀러**의 이탈 확률 |
-| "패션 카테고리 쇼핑몰 목록" | "프리미엄 티어만 보여줘" | **패션 카테고리 프리미엄 티어** 쇼핑몰 |
-
-### 핵심:
-- 이전 대화에서 쇼핑몰/셀러가 나왔으면 **맥락 유지**
-- 새로운 대상이 언급될 때까지 **이전 대상 기준**으로 답변
-- RAG 검색 시에도 이전 맥락을 쿼리에 **포함**
-"""
+        # 시스템 프롬프트 구성 — constants.py의 DEFAULT_SYSTEM_PROMPT를 단일 소스로 사용
+        system_prompt = safe_str(req.system_prompt).strip() or DEFAULT_SYSTEM_PROMPT
 
         # 메시지 구성 (이전 대화 기록 포함)
         messages: List = [
@@ -536,7 +430,7 @@ def run_agent(req, username: str) -> dict:
                     result_str = safe_str(fr["result"])
                 forced_context += f"### {fr['tool']} 결과:\n```json\n{result_str}\n```\n\n"
 
-            forced_context += "위 결과를 종합하여 사용자에게 친절하고 전문적인 답변을 작성하세요."
+            forced_context += "위 결과를 종합하여 사용자에게 답변을 작성하세요. 단순히 숫자를 나열하지 말고, 데이터에서 발견되는 추세·이상값·패턴을 분석하고 실행 가능한 인사이트와 구체적인 제안을 반드시 포함하세요."
 
             # 메시지에 도구 결과 컨텍스트 추가
             messages.append(HumanMessage(content=forced_context))

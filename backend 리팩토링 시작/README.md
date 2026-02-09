@@ -41,10 +41,12 @@
 **핵심 기능:**
 - **AI 에이전트**: 2단계 라우터(키워드 + LLM) + 28개 도구 Tool Calling 방식으로 사용자 질의를 처리
 - **RAG 시스템**: FAISS + BM25 Hybrid Search, LightRAG 지식 그래프, K2RAG, Corrective RAG
-- **ML 파이프라인**: 셀러 이탈 예측(SHAP), 이상거래 탐지, 셀러 세그먼트, 매출 예측 등 11개 모델
+- **ML 파이프라인**: 셀러 이탈 예측(SHAP), 이상거래 탐지, 셀러 세그먼트, 매출 예측 등 10개 ML 모델 + Guardian 이상탐지 1개
+- **합성 데이터**: NumPy 기반 통계적 분포(로그정규, 베타, 포아송 등)로 현실적 이커머스 데이터 18개 CSV 자동 생성
 - **CS 자동화**: 문의 분류, RAG+LLM 답변 생성, n8n 워크플로우 기반 이메일 회신
 - **Data Guardian**: 룰엔진 + ML + AI Agent 3단계 쿼리 위험도 분석 시스템
 - **AI 프로세스 마이너**: 이벤트 로그 기반 프로세스 패턴 발견, 병목 분석, LLM 자동화 추천, ML 기반 다음 활동 예측 및 이상 프로세스 탐지
+- **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py → state.py → runner.py) + 프론트엔드 실시간 수정 (KaTeX 수식 지원)
 
 ---
 
@@ -110,7 +112,7 @@ backend 리팩토링 시작/
 ├── requirements.txt                 # Python 의존성 목록
 │
 ├── api/
-│   └── routes.py                    # REST API 엔드포인트 (90+ 라우트, SSE 스트리밍)
+│   └── routes.py                    # REST API 엔드포인트 (83개 라우트, SSE 스트리밍)
 │
 ├── agent/                           # AI 에이전트 시스템
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
@@ -129,7 +131,7 @@ backend 리팩토링 시작/
 │   └── k2rag.py                     # K2RAG (KG + Hybrid + Corpus Summarization)
 │
 ├── ml/
-│   ├── train_models.py              # 합성 데이터 생성 + 11개 모델 학습
+│   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 10개 ML 모델 학습 + Guardian 이상탐지
 │   ├── revenue_model.py             # 매출 예측 (LightGBM 회귀)
 │   ├── marketing_optimizer.py       # 마케팅 최적화 (P-PSO 알고리즘, mealpy)
 │   ├── mlflow_tracker.py            # MLflow 실험 추적 유틸리티
@@ -152,7 +154,7 @@ backend 리팩토링 시작/
 │   └── routes.py                    # 전용 API 라우터 (/api/process-miner/*)
 │
 ├── data/
-│   └── loader.py                    # 데이터 로더 (CSV 17개 + ML 모델 11개 + 스케일러/인코더)
+│   └── loader.py                    # 데이터 로더 (CSV 18개 + ML 모델 10개 + 스케일러/인코더 + Guardian 모델)
 │
 ├── n8n/                             # n8n 워크플로우 정의
 │   └── cs_reply_workflow.json       # CS 회신 자동화 워크플로우
@@ -165,16 +167,23 @@ backend 리팩토링 시작/
 ├── revenue_model_config.json        # 매출 예측 모델 설정
 │
 └── [데이터/모델 파일]
-    ├── shops.csv, categories.csv     # 쇼핑몰/카테고리 (50개, 8개)
-    ├── sellers.csv, seller_analytics.csv # 셀러 (1,000명)
-    ├── operation_logs.csv             # 운영 로그 (~200만 행, 로딩 시 3만건 제한)
-    ├── seller_activity.csv            # 셀러 일별 활동 (90일 x 1,000명)
-    ├── daily_metrics.csv              # 일별 KPI (GMV, 활성셀러, 주문수)
+    ├── shops.csv, categories.csv     # 쇼핑몰/카테고리 (300개, 8개)
+    ├── sellers.csv, seller_analytics.csv # 셀러 (300명, 쇼핑몰과 1:1)
+    ├── products.csv                   # 상품 (~7,500개, 쇼핑몰당 10~40개)
+    ├── services.csv                   # 서비스 (~1,200건)
+    ├── operation_logs.csv             # 운영 로그 (~30,000행)
+    ├── seller_activity.csv            # 셀러 일별 활동 (90일 x 300명 = 27,000건)
+    ├── seller_products.csv            # 셀러-상품 매핑 (~7,500건)
+    ├── seller_resources.csv           # 셀러 리소스 (300건)
+    ├── daily_metrics.csv              # 일별 KPI (GMV, 활성셀러, 주문수, 90일)
     ├── cohort_retention.csv           # 코호트 리텐션 (2024-07 ~ 2024-12)
-    ├── shop_performance.csv           # 쇼핑몰 성과 (매출, 전환율)
-    ├── cs_stats.csv                   # CS 문의/응답 데이터
-    ├── fraud_details.csv              # 이상거래 상세
-    └── model_*.pkl, shap_*.pkl        # ML 모델 + SHAP (20개+)
+    ├── conversion_funnel.csv          # 전환 퍼널 (6개월)
+    ├── shop_performance.csv           # 쇼핑몰 성과 (매출, 전환율, 300개)
+    ├── cs_stats.csv                   # CS 문의/응답 데이터 (9개 카테고리)
+    ├── fraud_details.csv              # 이상거래 상세 (~15건)
+    ├── platform_docs.csv              # 플랫폼 문서 (12건)
+    ├── ecommerce_glossary.csv         # 이커머스 용어 (14건)
+    └── model_*.pkl, shap_*.pkl        # ML 모델 + SHAP + 스케일러 (20개+)
 ```
 
 ---
@@ -241,7 +250,7 @@ docker run -d -p 8001:8001 -e OPENAI_API_KEY=your_key cafe24-backend
 ```mermaid
 flowchart TB
     subgraph State["state.py"]
-        subgraph Data["DataFrame (17개 CSV)"]
+        subgraph Data["DataFrame (18개 CSV)"]
             SHOPS[SHOPS_DF]
             SELLERS[SELLERS_DF]
             ANALYTICS[SELLER_ANALYTICS_DF]
@@ -271,6 +280,7 @@ flowchart TB
         subgraph Config["설정"]
             API[OPENAI_API_KEY]
             LLM[CUSTOM_LLM_SETTINGS]
+            PROMPT[CUSTOM_SYSTEM_PROMPT]
             RAG[RAG_STORE]
             LIGHTRAG[LIGHTRAG_CONFIG]
         end
@@ -285,22 +295,22 @@ flowchart TB
 
 | 변수 | CSV 파일 | 행 수 | 설명 |
 |------|----------|-------|------|
-| `SHOPS_DF` | `shops.csv` | 50 | 쇼핑몰 정보 (ID, 이름, 플랜, 카테고리, 지역) |
-| `CATEGORIES_DF` | `categories.csv` | 8 | 상품 카테고리 |
-| `SERVICES_DF` | `services.csv` | 20 | 플랫폼 서비스 |
-| `PRODUCTS_DF` | `products.csv` | ~500 | 상품 정보 |
-| `SELLERS_DF` | `sellers.csv` | 1,000 | 셀러 기본 정보 |
-| `SELLER_ANALYTICS_DF` | `seller_analytics.csv` | 1,000 | 셀러 분석 (세그먼트, 이탈확률) |
-| `SELLER_ACTIVITY_DF` | `seller_activity.csv` | 90,000 | 셀러 일별 활동 |
+| `SHOPS_DF` | `shops.csv` | 300 | 쇼핑몰 정보 (ID, 이름, 플랜, 카테고리, 지역, 상태) |
+| `CATEGORIES_DF` | `categories.csv` | 8 | 상품 카테고리 (패션~스포츠) |
+| `SERVICES_DF` | `services.csv` | ~1,200 | 쇼핑몰별 서비스 (호스팅/결제/배송/마케팅) |
+| `PRODUCTS_DF` | `products.csv` | ~7,500 | 상품 정보 (쇼핑몰당 10~40개) |
+| `SELLERS_DF` | `sellers.csv` | 300 | 셀러 기본 정보 (쇼핑몰과 1:1 매핑) |
+| `SELLER_ANALYTICS_DF` | `seller_analytics.csv` | 300 | 셀러 분석 (세그먼트, 이탈확률, SHAP) |
+| `SELLER_ACTIVITY_DF` | `seller_activity.csv` | 27,000 | 셀러 일별 활동 (90일 x 300명) |
 | `OPERATION_LOGS_DF` | `operation_logs.csv` | 30,000 (제한) | 운영 이벤트 로그 |
-| `SHOP_PERFORMANCE_DF` | `shop_performance.csv` | 50 | 쇼핑몰 성과 KPI |
+| `SHOP_PERFORMANCE_DF` | `shop_performance.csv` | 300 | 쇼핑몰 성과 KPI |
 | `DAILY_METRICS_DF` | `daily_metrics.csv` | 90 | 일별 플랫폼 KPI |
-| `CS_STATS_DF` | `cs_stats.csv` | ~500 | CS 문의/응답 데이터 |
-| `FRAUD_DETAILS_DF` | `fraud_details.csv` | ~260 | 이상거래 상세 |
-| `COHORT_RETENTION_DF` | `cohort_retention.csv` | 16 | 코호트 리텐션 (2024-07~12) |
-| `CONVERSION_FUNNEL_DF` | `conversion_funnel.csv` | - | 전환 퍼널 |
-| `PLATFORM_DOCS_DF` | `platform_docs.csv` | ~50 | 플랫폼 문서 메타 |
-| `ECOMMERCE_GLOSSARY_DF` | `ecommerce_glossary.csv` | ~40 | 이커머스 용어 사전 |
+| `CS_STATS_DF` | `cs_stats.csv` | 9 | CS 카테고리별 통계 |
+| `FRAUD_DETAILS_DF` | `fraud_details.csv` | ~15 | 이상거래 상세 (랜덤 추출 셀러) |
+| `COHORT_RETENTION_DF` | `cohort_retention.csv` | 6 | 코호트 리텐션 (2024-07~12) |
+| `CONVERSION_FUNNEL_DF` | `conversion_funnel.csv` | 6 | 전환 퍼널 (등록→활성→참여→전환→잔존) |
+| `PLATFORM_DOCS_DF` | `platform_docs.csv` | 12 | 플랫폼 문서 메타 |
+| `ECOMMERCE_GLOSSARY_DF` | `ecommerce_glossary.csv` | 14 | 이커머스 용어 사전 |
 
 ### ML 모델 상세
 
@@ -336,6 +346,7 @@ flowchart TB
 |------|------|
 | `OPENAI_API_KEY` | API 키 (환경변수 > 파일) |
 | `CUSTOM_LLM_SETTINGS` | 모델, temperature, maxTokens, timeoutMs |
+| `CUSTOM_SYSTEM_PROMPT` | 사용자 수정 시스템 프롬프트 (`system_prompt.json` 영속화) |
 | `LIGHTRAG_CONFIG` | top_k, context_max_chars |
 | `CONVERSATION_MEMORY` | 세션별 대화 기록 (최대 10턴) |
 | `CHURN_MODEL_CONFIG` | 이탈 모델 설정 (피처, SHAP, 정확도) |
@@ -399,11 +410,14 @@ flowchart TB
 
 프론트엔드 설정에서 AI 에이전트의 플랫폼 지식 검색 방식을 선택합니다.
 
-| 모드 | 도구 | 설명 |
-|------|------|------|
-| `hybrid` | `search_platform` | FAISS + BM25 + RRF 융합 |
-| `lightrag` | `search_platform_lightrag` | 지식 그래프 기반 검색 |
-| `auto` | 둘 다 | AI가 질문에 맞게 자동 선택 |
+| 모드 | 도구 | 설명 | 프론트엔드 상태 |
+|------|------|------|----------------|
+| `hybrid` | `search_platform` | FAISS + BM25 + RRF 융합 | **활성** (기본값) |
+| `lightrag` | `search_platform_lightrag` | 지식 그래프 기반 검색 | 시험용 (비활성) |
+| `k2rag` | - | KG + Sub-Q + Hybrid | 시험중 (비활성) |
+| `auto` | 둘 다 | AI가 질문에 맞게 자동 선택 | 비활성 |
+
+> **현재 상태**: 프론트엔드에서 `hybrid` 모드만 선택 가능. LightRAG(시험용), K²RAG(시험중), 자동 선택은 UI에서 비활성화됨.
 
 **백엔드 처리 흐름:**
 ```
@@ -704,15 +718,16 @@ CONVERSATION_MEMORY = {
 
 ### 7.1 적용 기법 요약
 
-| 기법 | 효과 | 런타임 추가 |
-|------|------|-------------|
-| **Hybrid Search** | 의미 + 키워드 검색 결합 | ~30ms |
-| **Contextual Retrieval** | 검색 정확도 +20~35% | 인덱싱 시 |
-| **RAG-Fusion** | 다중 쿼리로 리콜 향상 | ~50ms (LLM) |
-| **Cross-Encoder Reranking** (비활성) | 정확도 +20~35% | ~80ms |
-| **Parent-Child Chunking** | 정밀 검색 + 충분한 컨텍스트 | 0ms |
-| **LightRAG** | 경량 지식그래프 | ~100ms |
-| **CRAG** | 검색 품질 자동 교정 | ~200ms (LLM) |
+| 기법 | 효과 | 런타임 추가 | 프론트엔드 상태 |
+|------|------|-------------|----------------|
+| **Hybrid Search** | 의미 + 키워드 검색 결합 | ~30ms | 활성 (인덱스 빌드 시) |
+| **Contextual Retrieval** | 검색 정확도 +20~35% | 인덱싱 시 | 미적용 |
+| **RAG-Fusion** | 다중 쿼리로 리콜 향상 | ~50ms (LLM) | 활성 |
+| **Cross-Encoder Reranking** | 정확도 +20~35% | ~80ms | 비활성 |
+| **Parent-Child Chunking** | 정밀 검색 + 충분한 컨텍스트 | 0ms | 활성 |
+| **Simple Knowledge Graph** | 엔티티-관계 추출 | ~50ms | 비활성 |
+| **LightRAG** | 경량 지식그래프 | ~100ms | 시험용 (비활성) |
+| **CRAG** | 검색 품질 자동 교정 | ~200ms (LLM) | 모듈 구현 완료 (미통합) |
 
 ### 7.2 Hybrid Search (FAISS + BM25)
 
@@ -876,21 +891,59 @@ flowchart TB
 
 ## 8. ML 모델
 
+### 8.0 왜 ML 모델을 만들었는가
+
+카페24 플랫폼 운영에서 반복적으로 발생하는 **수작업 분석/판단**을 자동화하기 위해 10개의 ML 모델을 개발했습니다. 각 모델은 실제 운영에서 직면하는 비즈니스 문제를 해결합니다.
+
+**데이터 부재 해결**: 실제 카페24 데이터에 접근할 수 없으므로, `ml/train_models.py`에서 **NumPy 기반 통계적 분포**로 현실적 합성 데이터를 생성합니다 (Faker 미사용). 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인에 맞는 분포를 사용하여 실제 이커머스 패턴을 모사합니다.
+
 ### 8.1 모델 개요
 
-| 모델 | 알고리즘 | 용도 | 출력 | 성능 |
-|------|---------|------|------|------|
-| **셀러 이탈 예측** | RandomForest + SHAP | 셀러 이탈 확률 | 확률 (0~1) + SHAP | Acc=0.983, F1=0.933 |
-| **이상거래 탐지** | Isolation Forest | 사기 거래 탐지 | 정상(1)/이상(-1) | - |
-| **문의 자동 분류** | TF-IDF + RF | 셀러 문의 카테고리 분류 | 9개 카테고리 | - |
-| **셀러 세그먼트** | K-Means (5) | 셀러 유형 분류 | 클러스터 ID (0~4) | - |
-| **매출 예측** | LightGBM | 쇼핑몰 매출 예측 | 금액 (원) | CV R2 기준 |
-| **CS 응답 품질** | RandomForest | CS 응답 우선순위 | 긴급/보통/낮음 | - |
-| **고객 LTV 예측** | GradientBoosting | 고객 생애가치 | 금액 (원) | - |
-| **리뷰 감성 분석** | TF-IDF + LogisticRegression | 긍정/부정/중립 | 감성 라벨 | - |
-| **상품 수요 예측** | XGBoost | 다음주 주문량 | 수량 | - |
-| **정산 이상 탐지** | DBSCAN | 정산 이상 패턴 | 정상/이상 클러스터 | - |
-| **마케팅 최적화** | P-PSO (mealpy) | GMV 증가 최대화 | 채널별 투자 추천 | - |
+| # | 모델 | 알고리즘 | 비즈니스 문제 | 출력 |
+|---|------|---------|-------------|------|
+| 1 | **셀러 이탈 예측** | RandomForest + SHAP | 이탈 위험 셀러를 사전 식별하여 선제적 리텐션 조치 | 확률 (0~1) + SHAP 원인 분석 |
+| 2 | **이상거래 탐지** | Isolation Forest | 허위 주문, 리뷰 조작 등 비정상 패턴의 자동 감지 | 정상(1)/이상(-1) + 이상 점수 |
+| 3 | **문의 자동 분류** | TF-IDF + RF | CS 담당자 수동 분류 업무를 자동화 (9개 카테고리) | 카테고리 + 신뢰도 |
+| 4 | **셀러 세그먼트** | K-Means (5) | 셀러 행동 패턴별 맞춤 운영 전략 수립 | 클러스터 ID (0~4) |
+| 5 | **매출 예측** | LightGBM | 다음 달 매출을 예측하여 리소스 배분/KPI 설정 지원 | 금액 (원) |
+| 6 | **CS 응답 품질** | RandomForest | CS 문의 긴급도를 자동 판단하여 우선 처리 대상 선별 | urgent/high/normal/low |
+| 7 | **고객 LTV 예측** | GradientBoosting | 고객 생애가치를 예측하여 VIP 관리/마케팅 전략 수립 | 금액 (원) |
+| 8 | **리뷰 감성 분석** | TF-IDF + LogisticRegression | 상품 리뷰 감성 자동 분류로 셀러 품질 모니터링 | 긍정/부정/중립 |
+| 9 | **상품 수요 예측** | XGBoost | 다음 주 주문량을 예측하여 재고 관리/프로모션 기획 | 수량 |
+| 10 | **정산 이상 탐지** | DBSCAN | 정산 금액/주기의 이상 패턴을 탐지하여 오류/부정 방지 | 정상/이상 클러스터 |
+| + | **마케팅 최적화** | P-PSO (mealpy) | 예산 제약 내 GMV 증가를 최대화하는 채널 조합 탐색 | 채널별 투자 추천 |
+
+### 8.1.1 모델별 데이터 생성 방법
+
+모든 학습 데이터는 `ml/train_models.py`에서 **NumPy random** (`np.random.default_rng(42)`)으로 생성합니다. 외부 라이브러리(Faker 등)는 사용하지 않습니다.
+
+| # | 모델 | 학습 데이터 | 생성 방법 | 데이터 규모 |
+|---|------|-----------|----------|-----------|
+| 1 | 셀러 이탈 예측 | `seller_analytics_df` | 셀러 상태(active/dormant/churned)를 label로, 9개 피처(주문수, 매출, 환불률, 로그인 경과일 등)를 beta/exponential 분포로 생성 | 300명 (churned ~12%) |
+| 2 | 이상거래 탐지 | `seller_analytics_df` (비지도) | 정상 셀러 데이터에서 StandardScaler 정규화 후 비지도 학습, contamination=5% | 300명 |
+| 3 | 문의 자동 분류 | `CS_INQUIRY_TEMPLATES` | 9개 카테고리(배송~기타) x 10개 템플릿 x 20개 노이즈 변형 = 1,800건. TF-IDF(1000, ngram 1~2) 벡터화 | ~1,800건 |
+| 4 | 셀러 세그먼트 | `seller_analytics_df` (비지도) | 6개 피처를 StandardScaler 정규화 후 K-Means(k=5) 클러스터링. 센트로이드 매출 기준으로 이름 자동 부여 | 300명 |
+| 5 | 매출 예측 | 셀러별 매출 + 성장률 | `total_revenue * (1 + growth_rate) + noise`로 다음달 매출 타겟 생성. 업종/지역을 정수 인코딩 | 300건 |
+| 6 | CS 응답 품질 | 합성 CS 티켓 | 7개 카테고리 x 4등급 x 6피처를 규칙 기반으로 생성 (환불+부정감성 → urgent 확률 상승 등) | 2,000건 |
+| 7 | 고객 LTV | 합성 고객 데이터 | 구매횟수(Poisson), 주문금액(LogNormal), 가입일수 등으로 LTV 공식 적용 (`total * log(count) * (1-return_rate)`) | 3,000명 |
+| 8 | 리뷰 감성 분석 | `REVIEW_TEMPLATES_*` | 긍정/부정/중립 각 15개 템플릿 x 30개 노이즈 변형 = 1,200건. TF-IDF(1000, ngram 1~2) 벡터화 | ~1,200건 |
+| 9 | 상품 수요 예측 | 합성 주간 주문 데이터 | 4주 주문량(Poisson) + 추세/프로모션 효과로 다음주 수요 산출 | 2,000건 |
+| 10 | 정산 이상 탐지 | 합성 정산 데이터 | 정상 ~950건(LogNormal 금액) + 이상 50건(고액/고수수료/장기정산) 결합 후 DBSCAN | ~1,000건 |
+
+### 8.1.2 알고리즘 선택 근거
+
+| 모델 | 알고리즘 | 선택 이유 |
+|------|---------|----------|
+| 셀러 이탈 예측 | RandomForest | 피처 중요도 해석 가능 + SHAP 호환성이 좋고, 불균형 데이터에 class_weight 적용 용이 |
+| 이상거래 탐지 | Isolation Forest | 라벨 없는 비지도 학습에 적합, 고차원 데이터에서 이상치를 효율적으로 분리 |
+| 문의 자동 분류 | TF-IDF + RF | 한국어 텍스트의 n-gram 패턴 포착 + 다중 클래스 분류 성능이 우수 |
+| 셀러 세그먼트 | K-Means | 구현 단순, 해석 용이 (센트로이드 비교로 세그먼트 특성 파악 가능) |
+| 매출 예측 | LightGBM | 범주형 피처 네이티브 지원, 빠른 학습 속도, 회귀 성능 우수 (미설치 시 GradientBoosting 대체) |
+| CS 응답 품질 | RandomForest | 소규모 피처(6개)에서 안정적 성능, class_weight로 불균형 처리 |
+| 고객 LTV | GradientBoosting | 비선형 관계 포착, 회귀 문제에 강건한 앙상블 |
+| 리뷰 감성 분석 | LogisticRegression | TF-IDF 고차원 희소 행렬에 효율적, 다중 클래스(OvR) 지원 |
+| 상품 수요 예측 | XGBoost | 시계열적 피처(주간 주문량)와 정적 피처(가격, 카테고리) 동시 처리 (미설치 시 GradientBoosting 대체) |
+| 정산 이상 탐지 | DBSCAN | 클러스터 수를 사전 지정할 필요 없음, noise(-1)로 자연스럽게 이상치 분리 |
 
 ### 8.2 셀러 이탈 예측 + SHAP 해석
 
@@ -1008,56 +1061,76 @@ flowchart LR
 
 ### 9.1 합성 데이터 생성 (train_models.py)
 
-프로젝트는 실제 데이터 없이도 동작하도록 **합성 데이터**를 생성합니다.
+프로젝트는 실제 카페24 데이터에 접근할 수 없으므로, **NumPy 기반 통계적 분포**로 현실적인 합성 데이터를 자동 생성합니다. Faker 등 외부 라이브러리는 사용하지 않으며, `np.random.default_rng(42)` (시드 고정)로 재현 가능한 데이터를 생성합니다.
 
 ```bash
 python ml/train_models.py
+# PART 1: 설정 및 환경
+# PART 2: 데이터 생성 (18개 CSV)
+# PART 3: 모델 학습 (10개 ML 모델)
+# PART 4: 저장 및 테스트 (+ Guardian 이상탐지 모델)
 ```
 
-### 9.2 생성되는 CSV 파일
+### 9.2 생성되는 CSV 파일 (18개)
 
-| 파일명 | 행 수 | 설명 |
-|--------|-------|------|
-| `shops.csv` | 50 | 쇼핑몰 정보 (이름, 플랜, 카테고리, 개설일) |
-| `categories.csv` | 8 | 상품 카테고리 정보 |
-| `services.csv` | 20 | 플랫폼 서비스 정보 |
-| `products.csv` | ~500 | 상품 정보 (이름, 가격, 카테고리) |
-| `sellers.csv` | 1,000 | 셀러 기본 정보 (ID, 닉네임, 등급, 가입일) |
-| `seller_analytics.csv` | 1,000 | 셀러 분석 결과 (세그먼트, 이상치, 이탈확률) |
-| `seller_activity.csv` | 90,000 | 셀러 일별 활동 (90일 x 1,000명) |
-| `seller_products.csv` | ~5,000 | 셀러별 등록 상품 |
-| `seller_resources.csv` | 1,000 | 셀러 리소스 (잔액, 포인트, 쿠폰) |
-| `operation_logs.csv` | ~2,000,000 | 운영 이벤트 로그 |
-| `daily_metrics.csv` | 90 | 일별 KPI (GMV, 활성셀러, 주문수) |
-| `shop_performance.csv` | 50 | 쇼핑몰 성과 (매출, 전환율, 방문수) |
-| `cohort_retention.csv` | 16 | 코호트 리텐션 |
-| `fraud_details.csv` | ~260 | 이상거래 상세 |
-| `cs_stats.csv` | ~500 | CS 문의/응답 데이터 |
-| `platform_docs.csv` | ~50 | 플랫폼 문서 메타데이터 |
-| `ecommerce_glossary.csv` | ~40 | 이커머스 용어 사전 |
+| # | 파일명 | 행 수 | 설명 | 주요 분포/규칙 |
+|---|--------|-------|------|---------------|
+| 1 | `shops.csv` | 300 | 쇼핑몰 정보 (이름, 플랜, 카테고리, 지역, 상태) | active 70% / dormant 18% / churned 12% |
+| 2 | `categories.csv` | 8 | 상품 카테고리 (패션~스포츠) | 고정 데이터 |
+| 3 | `services.csv` | ~1,200 | 쇼핑몰별 서비스 (호스팅/결제/배송/마케팅) | 쇼핑몰당 2~6개 |
+| 4 | `products.csv` | ~7,500 | 상품 정보 (이름, 가격, 카테고리) | 가격: LogNormal, 쇼핑몰당 10~40개 |
+| 5 | `sellers.csv` | 300 | 셀러 기본 정보 (쇼핑몰과 1:1 매핑) | `S0001` → `SEL0001` |
+| 6 | `operation_logs.csv` | ~30,000 | 운영 이벤트 로그 (8종 이벤트) | 셀러 상태별 로그 수 차등 |
+| 7 | `seller_analytics.csv` | 300 | 셀러 분석 (세그먼트, 이탈확률, SHAP) | 모델 학습 후 예측값 기록 |
+| 8 | `shop_performance.csv` | 300 | 쇼핑몰 성과 (매출, 전환율, 방문수) | 상태별 차등 분포 |
+| 9 | `daily_metrics.csv` | 90 | 일별 플랫폼 KPI (90일간) | 주말 효과 1.12배 |
+| 10 | `cs_stats.csv` | 9 | CS 카테고리별 통계 | 9개 카테고리 집계 |
+| 11 | `fraud_details.csv` | ~15 | 이상거래 상세 (랜덤 추출 셀러) | 4종 이상 유형 |
+| 12 | `cohort_retention.csv` | 6 | 코호트 리텐션 (2024-07~12) | Week1~12 감쇠 패턴 |
+| 13 | `conversion_funnel.csv` | 6 | 전환 퍼널 (등록→활성→참여→전환→잔존) | 단계별 이탈률 반영 |
+| 14 | `seller_activity.csv` | 27,000 | 셀러 일별 활동 (300명 x 90일) | 상태별 활동 승수 적용 |
+| 15 | `platform_docs.csv` | 12 | 플랫폼 문서 메타데이터 | 고정 데이터 |
+| 16 | `ecommerce_glossary.csv` | 14 | 이커머스 용어 사전 | 고정 데이터 |
+| 17 | `seller_products.csv` | ~7,500 | 셀러-상품 매핑 | products.csv 기반 |
+| 18 | `seller_resources.csv` | 300 | 셀러 리소스 (스토리지, API 호출, 마케팅 예산) | 플랜별 쿼터 차등 |
 
 ### 9.3 데이터 생성 규칙
 
-#### 셀러 피처 (정규분포 기반)
+#### 쇼핑몰/셀러 상태별 데이터 분포
 
-| 피처 | 분포 | 설명 |
-|------|------|------|
-| `total_orders` | N(500, 200) | 총 주문 수 |
-| `total_gmv` | N(5000000, 2000000) | 총 거래액 (원) |
-| `product_count` | N(30, 15) | 등록 상품 수 |
-| `ad_spend` | N(500000, 300000) | 광고비 (원) |
-| `cs_tickets` | N(50, 30) | CS 문의 수 |
+셀러 데이터는 쇼핑몰 상태(active/dormant/churned)에 따라 현실적 차등을 적용합니다:
 
-#### 이상거래 생성
+| 피처 | active | dormant | churned |
+|------|--------|---------|---------|
+| `total_orders` | 100~5,000 | 50~800 | 5~200 |
+| `total_revenue` | 주문수 x 25,000~120,000 | 주문수 x 20,000~90,000 | 주문수 x 15,000~80,000 |
+| `last_login` 경과 | 0~7일 | 14~60일 | 가입일+α (오래 전) |
+| `refund_rate` | Beta(2,20) 평균 ~9% | Beta(3,10) 평균 ~23% | Beta(3,10) |
+| `avg_response_time` | Exponential(4)+0.5 | 동일 | 동일 |
 
-전체 셀러의 **~26%**를 이상거래로 설정:
+#### 이벤트 로그 분포 (8종)
 
-| 이상 유형 | 비율 | 특징 |
-|----------|------|------|
-| 허위 주문 의심 | 10% | orders > 1500, 비정상적 패턴 |
-| 가격 조작 의심 | 8% | 평균가 급변, 할인율 > 80% |
-| 리뷰 조작 의심 | 5% | reviews > 300, 구매대비 비정상 비율 |
-| 결제 사기 의심 | 3% | refund_rate > 50%, chargebacks 급증 |
+| 이벤트 | 가중치 | 설명 |
+|--------|--------|------|
+| `order_received` | 25% | 주문 접수 |
+| `cs_ticket` | 15% | CS 문의 |
+| `payment_settled` | 13% | 결제 정산 |
+| `product_listed` | 12% | 상품 등록 |
+| `product_updated` | 10% | 상품 수정 |
+| `login` | 10% | 로그인 |
+| `refund_processed` | 8% | 환불 처리 |
+| `marketing_campaign` | 7% | 마케팅 캠페인 |
+
+#### 이상거래 데이터
+
+전체 300명 중 15명을 랜덤 추출하여 이상거래 플래그 부여:
+
+| 이상 유형 | 설명 |
+|----------|------|
+| `high_refund` | 환불률 급증 |
+| `fake_review` | 비정상 리뷰 패턴 |
+| `price_manipulation` | 가격 이상 변동 |
+| `unusual_volume` | 주문량 급변 |
 
 ---
 
@@ -1457,13 +1530,13 @@ flowchart LR
 |------|------|------|---------|
 | 1 | `setup_logging()` | 로거 설정, PID 기록 | 서버 중단 |
 | 2 | `load_system_prompt()` + `load_llm_settings()` | 시스템 프롬프트/LLM 설정 로드 | 기본값 사용 |
-| 3 | `init_data_models()` | CSV 17개 + ML 모델 11개 + 스케일러/인코더 로드 + MLflow 모델 선택 복원 | 서버 중단 |
+| 3 | `init_data_models()` | CSV 18개 + ML 모델 10개 + SHAP + 스케일러/인코더 로드 + MLflow 모델 선택 복원 | 서버 중단 |
 | 4 | `rag_build_or_load_index()` | FAISS 인덱스 생성/로드 | 경고 후 계속 |
 | 5 | LightRAG 초기화 | 인스턴스 로드 (워밍업은 rate limit 방지로 스킵) | 경고 후 계속 |
 
 **데이터 로더 상세** (`data/loader.py` - `load_all_data()`):
-1. CSV 데이터 로드 (17개 파일)
-2. ML 모델 로드 (핵심 6개 + 신규 4개 + 공용 도구)
+1. CSV 데이터 로드 (18개 파일)
+2. ML 모델 로드 (핵심 6개 + 신규 4개 + SHAP + 공용 도구)
 3. 매출 예측 모델 초기화 (데이터 있으면 자동 학습)
 4. 캐시 구성 (쇼핑몰별 서비스 매핑)
 5. 시스템 상태 업데이트
@@ -1495,6 +1568,48 @@ flowchart LR
 | `CS_SYSTEM_PROMPT` | CS 응답 전용 프롬프트 |
 | `SUMMARY_TRIGGERS` | 요약 트리거 키워드 |
 | `RAG_DOCUMENTS` | RAG 문서 키워드 매핑 |
+
+#### 13.1.1 시스템 프롬프트 통합 아키텍처
+
+백엔드에서 시스템 프롬프트를 중앙 관리하고, 프론트엔드에서 실시간 수정할 수 있는 구조입니다.
+
+```mermaid
+flowchart LR
+    subgraph Backend["Backend"]
+        C["constants.py<br/>DEFAULT_SYSTEM_PROMPT"]
+        S["state.py<br/>CUSTOM_SYSTEM_PROMPT<br/>(system_prompt.json 영속화)"]
+        G["get_active_system_prompt()<br/>custom 있으면 custom,<br/>없으면 default 반환"]
+        R["runner.py<br/>SystemMessage(content=prompt)"]
+    end
+
+    subgraph API["REST API"]
+        A1["GET /api/settings/prompt<br/>현재 프롬프트 조회"]
+        A2["POST /api/settings/prompt<br/>프롬프트 수정"]
+        A3["POST /api/settings/prompt/reset<br/>기본값 복원"]
+    end
+
+    subgraph Frontend["Frontend"]
+        F["프롬프트 에디터<br/>(실시간 수정)"]
+    end
+
+    C --> G
+    S --> G
+    G --> R
+    G --> A1
+    A2 --> S
+    A3 --> S
+    F --> A1 & A2 & A3
+```
+
+**흐름:**
+
+1. **기본 프롬프트**: `constants.py`의 `DEFAULT_SYSTEM_PROMPT`에 도구 매핑 규칙, KaTeX 수식 규칙, 분석 가이드라인 등을 정의
+2. **커스텀 프롬프트**: `state.py`의 `CUSTOM_SYSTEM_PROMPT`에 사용자 수정 프롬프트 저장 (변경 시 `system_prompt.json`에 영속화)
+3. **프롬프트 선택**: `get_active_system_prompt()` — 커스텀이 있으면 커스텀, 없으면 기본 프롬프트 반환
+4. **에이전트 적용**: `runner.py`에서 `SystemMessage(content=prompt)`로 LLM에 전달
+5. **서버 재시작 복원**: `main.py` startup에서 `load_system_prompt()` 호출하여 `system_prompt.json`에서 복원
+
+**KaTeX 수식 지원**: `DEFAULT_SYSTEM_PROMPT`에 KaTeX 렌더링 규칙이 포함되어 있어, AI 응답에서 `$...$` (인라인), `$$...$$` (블록) 수식을 사용할 수 있습니다. 프론트엔드의 KaTeX 렌더러와 연동됩니다.
 
 ### 13.2 utils.py
 
@@ -2201,6 +2316,6 @@ flowchart TD
 
 <div align="center">
 
-**Version 7.1.0** | 2026-02-09
+**Version 7.3.0** | 2026-02-10
 
 </div>

@@ -2323,7 +2323,7 @@ QUERY_INJECTION_RULES: List[Tuple[str, str]] = [
 # RAG-Fusion: Multi-Query Generation & Fusion (2025)
 # ============================================================
 RAG_FUSION_ENABLED = True  # RAG-Fusion 활성화 여부
-RAG_FUSION_NUM_QUERIES = 4  # 생성할 쿼리 변형 수 (원본 포함)
+RAG_FUSION_NUM_QUERIES = 4 if RERANKER_AVAILABLE else 2  # 리랭커 없으면 2개로 절약
 
 # ============================================================
 # RAG-Fusion 최적화: 캐싱 & 단순 쿼리 스킵
@@ -2693,8 +2693,8 @@ def rag_search_hybrid(
                       original_query[:30], len(kg_entities),
                       kg_location_answer or "none")
 
-    # Reranker 사용 시 더 많은 후보 확보
-    retrieval_k = k * 4 if use_reranking and RERANKER_AVAILABLE else k * 2
+    # Reranker 사용 시 더 많은 후보 확보, 없으면 최소한으로
+    retrieval_k = k * 4 if use_reranking and RERANKER_AVAILABLE else k
 
     # ★ RAG-Fusion: 다중 쿼리 생성 및 검색
     if use_fusion and RAG_FUSION_ENABLED:
@@ -2721,9 +2721,9 @@ def rag_search_hybrid(
                 return [(doc, score / 100.0) for doc, score in bm25_res]
             return []
 
-        # ★ ThreadPoolExecutor로 병렬 검색 (4개 쿼리 동시 실행)
+        # ★ ThreadPoolExecutor로 병렬 검색
         all_combined_results: List[List[Tuple[Dict, float]]] = []
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=len(fusion_queries)) as executor:
             futures = [executor.submit(_search_and_fuse, fq) for fq in fusion_queries]
             for future in as_completed(futures):
                 try:

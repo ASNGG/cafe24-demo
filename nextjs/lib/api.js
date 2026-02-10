@@ -58,6 +58,6 @@ export async function apiCall({
     return json;
   } catch (e) {
     clearTimeout(t);
-    return { status: 'FAILED', error: String(e?.message || e) };
+    return { status: 'error', message: String(e?.message || e) };
   }
 }

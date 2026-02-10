@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import StatCard from '@/components/common/StatCard';
 import {
   GitBranch, Timer, Sparkles, Play, Loader2, ChevronDown, ChevronRight,
   ArrowRight, AlertTriangle, CheckCircle2, Zap, Brain, Bot, BarChart3,
@@ -26,7 +27,7 @@ const CASE_OPTIONS = [100, 200, 500];
 
 // API 응답 성공 여부 (SUCCESS 또는 OK)
 function isSuccess(res) {
-  return res?.status === 'SUCCESS' || res?.status === 'OK';
+  return res?.status === 'success' || res?.status === 'ok';
 }
 
 function getErrorMsg(res) {
@@ -90,13 +91,16 @@ export default function ProcessMinerPanel({ auth, apiCall }) {
   return (
     <div className="space-y-4">
       {/* 서브탭 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="tablist" aria-label="Process Miner 탭">
         {TABS.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.key;
           return (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={active}
+              tabIndex={active ? 0 : -1}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
                 active
@@ -241,9 +245,9 @@ function DiscoverTab({ auth, apiCall, processType, nCases }) {
         <>
           {/* 요약 카드 */}
           <div className="grid grid-cols-3 gap-3">
-            <SummaryCard icon={BarChart3} label="총 케이스" value={formatNumber(result.total_cases)} color="teal" />
-            <SummaryCard icon={GitBranch} label="고유 패턴" value={formatNumber(result.unique_patterns)} color="indigo" />
-            <SummaryCard icon={Clock} label="평균 처리시간" value={result.avg_duration_minutes != null ? formatMinutes(result.avg_duration_minutes) : result.total_avg_process_hours != null ? formatMinutes(result.total_avg_process_hours * 60) : '-'} color="amber" />
+            <StatCard icon={BarChart3} label="총 케이스" value={formatNumber(result.total_cases)} color="teal" />
+            <StatCard icon={GitBranch} label="고유 패턴" value={formatNumber(result.unique_patterns)} color="indigo" />
+            <StatCard icon={Clock} label="평균 처리시간" value={result.avg_duration_minutes != null ? formatMinutes(result.avg_duration_minutes) : result.total_avg_process_hours != null ? formatMinutes(result.total_avg_process_hours * 60) : '-'} color="amber" />
           </div>
 
           {/* 프로세스 플로우 */}
@@ -807,9 +811,9 @@ function BottleneckTab({ auth, apiCall, processType, nCases }) {
           <div className="space-y-3">
             {/* 요약 카드 */}
             <div className="grid grid-cols-3 gap-3">
-              <SummaryCard icon={BarChart3} label="전체 케이스" value={formatNumber(anomalyResult.total_cases)} color="teal" />
-              <SummaryCard icon={AlertTriangle} label="이상 케이스" value={formatNumber(anomalyResult.anomaly_count)} color="amber" />
-              <SummaryCard icon={ShieldAlert} label="이상 비율" value={formatPercent(anomalyResult.anomaly_ratio)} color="amber" />
+              <StatCard icon={BarChart3} label="전체 케이스" value={formatNumber(anomalyResult.total_cases)} color="teal" />
+              <StatCard icon={AlertTriangle} label="이상 케이스" value={formatNumber(anomalyResult.anomaly_count)} color="amber" />
+              <StatCard icon={ShieldAlert} label="이상 비율" value={formatPercent(anomalyResult.anomaly_ratio)} color="amber" />
             </div>
 
             {/* 정상 패턴 요약 */}
@@ -1287,22 +1291,3 @@ function FeatureImportanceChart({ features, color = 'indigo' }) {
   );
 }
 
-// 요약 카드
-function SummaryCard({ icon: Icon, label, value, color }) {
-  const colors = {
-    teal: 'border-teal-200 bg-teal-50/50 text-teal-600',
-    indigo: 'border-indigo-200 bg-indigo-50/50 text-indigo-600',
-    amber: 'border-amber-200 bg-amber-50/50 text-amber-600',
-    emerald: 'border-emerald-200 bg-emerald-50/50 text-emerald-600',
-    red: 'border-red-200 bg-red-50/50 text-red-600',
-  };
-  return (
-    <div className={`rounded-2xl border p-4 ${colors[color]}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <Icon size={16} />
-        <span className="text-xs font-medium text-gray-500">{label}</span>
-      </div>
-      <p className="text-xl font-bold">{value}</p>
-    </div>
-  );
-}

@@ -25,6 +25,47 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 
+_KOREAN_CHAR_RE = re.compile(r'[가-힣]')
+
+
+def _tokenize_korean(text: str) -> List[str]:
+    """
+    한국어 토큰화 (정규식 기반, 외부 패키지 불필요)
+
+    1. 공백 기준 토큰 분리
+    2. 한글 토큰은 2-gram으로도 분리하여 부분 매칭 지원
+    3. 한글 조사/어미 패턴 제거 (간이 형태소 분석)
+    """
+    if not text:
+        return []
+
+    tokens = text.lower().split()
+    result = []
+
+    # 간이 한국어 조사/어미 제거 패턴
+    suffix_pattern = re.compile(
+        r'(은|는|이|가|을|를|에|에서|으로|로|와|과|의|도|만|까지|부터|에게|한테|께)$'
+    )
+
+    for tok in tokens:
+        result.append(tok)
+
+        # 한글이 포함된 토큰 처리
+        if _KOREAN_CHAR_RE.search(tok):
+            # 조사 제거 버전도 추가
+            stripped = suffix_pattern.sub('', tok)
+            if stripped and stripped != tok and len(stripped) >= 2:
+                result.append(stripped)
+
+            # 2-gram 생성 (부분 매칭 지원)
+            if len(tok) >= 2:
+                for i in range(len(tok) - 1):
+                    bigram = tok[i:i + 2]
+                    if _KOREAN_CHAR_RE.search(bigram):
+                        result.append(bigram)
+
+    return result
+
 import state as st
 from core.utils import safe_str
 
@@ -379,8 +420,8 @@ def hybrid_search(
     # 2. Sparse Search (BM25)
     if sparse_store is not None and chunk_texts:
         try:
-            # 한국어 토큰화 (간단한 공백 분리)
-            query_tokens = query.split()
+            # 한국어 토큰화 (정규식 기반 형태소 분석)
+            query_tokens = _tokenize_korean(query)
             bm25_scores = sparse_store.get_scores(query_tokens)
 
             # 상위 결과만 추가
@@ -534,7 +575,7 @@ async def k2rag_search(
 
     Returns:
         {
-            "status": "SUCCESS",
+            "status": "success",
             "answer": "...",
             "context": "...",
             "kg_results": "...",
@@ -553,8 +594,8 @@ async def k2rag_search(
         # 로드 실패 시 에러 반환
         if not K2RAG_STATE.get("chunk_texts"):
             return {
-                "status": "FAILED",
-                "error": "K²RAG 데이터가 없습니다. 먼저 /api/rag/reload를 호출하세요.",
+                "status": "error",
+                "message": "K²RAG 데이터가 없습니다. 먼저 /api/rag/reload를 호출하세요.",
                 "query": query,
                 "answer": "",
                 "context": "",
@@ -564,7 +605,7 @@ async def k2rag_search(
             }
 
     result = {
-        "status": "SUCCESS",
+        "status": "success",
         "query": query,
         "answer": "",
         "context": "",
@@ -669,15 +710,29 @@ async def k2rag_search(
 
     except Exception as e:
         st.logger.error("K2RAG_SEARCH_FAIL err=%s", safe_str(e))
-        result["status"] = "FAILED"
-        result["error"] = safe_str(e)
+        result["status"] = "error"
+        result["message"] = safe_str(e)
 
     return result
 
 
 def k2rag_search_sync(query: str, top_k: int = 10, use_kg: bool = True, use_summary: bool = True) -> Dict[str, Any]:
-    """동기 버전의 K²RAG 검색"""
-    return asyncio.run(k2rag_search(query, top_k, use_kg, use_summary))
+    """동기 버전의 K²RAG 검색 (전용 이벤트 루프 사용, FastAPI 충돌 방지)"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        # FastAPI 등 이벤트 루프 안에서 호출된 경우 → 별도 스레드에서 실행
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                lambda: asyncio.run(k2rag_search(query, top_k, use_kg, use_summary))
+            )
+            return future.result(timeout=300)
+    else:
+        return asyncio.run(k2rag_search(query, top_k, use_kg, use_summary))
 
 
 # ============================================================
@@ -700,7 +755,7 @@ def index_documents(
         use_summarization: 요약 사용 여부
 
     Returns:
-        {"status": "SUCCESS", "chunks": count, "elapsed_s": ...}
+        {"status": "success", "chunks": count, "elapsed_s": ...}
     """
     st.logger.info("K2RAG_INDEX_START docs=%d summarize=%s", len(documents), use_summarization)
     start_time = time.time()
@@ -759,8 +814,8 @@ def index_documents(
         # 4. Sparse Vector Store (BM25)
         if BM25_AVAILABLE and chunk_texts:
             try:
-                # 한국어 토큰화 (간단한 공백 분리)
-                tokenized = [text.split() for text in chunk_texts]
+                # 한국어 토큰화 (정규식 기반 형태소 분석)
+                tokenized = [_tokenize_korean(text) for text in chunk_texts]
                 sparse_store = BM25Okapi(tokenized)
                 K2RAG_STATE["sparse_store"] = sparse_store
                 st.logger.info("K2RAG_SPARSE_STORE_CREATED")
@@ -773,7 +828,7 @@ def index_documents(
         st.logger.info("K2RAG_INDEX_DONE chunks=%d elapsed=%.1fs", len(all_chunks), elapsed)
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "chunks": len(all_chunks),
             "documents": len(documents),
             "elapsed_s": round(elapsed, 1)
@@ -782,8 +837,8 @@ def index_documents(
     except Exception as e:
         st.logger.error("K2RAG_INDEX_FAIL err=%s", safe_str(e))
         return {
-            "status": "FAILED",
-            "error": safe_str(e)
+            "status": "error",
+            "message": safe_str(e)
         }
 
 
@@ -878,7 +933,7 @@ def update_config(config_updates: Dict[str, Any]) -> Dict[str, Any]:
             st.logger.info("K2RAG_CONFIG_UPDATED %s=%s", key, value)
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "config": {
             "hybrid_lambda": K2RAG_CONFIG.hybrid_lambda,
             "top_k": K2RAG_CONFIG.top_k,

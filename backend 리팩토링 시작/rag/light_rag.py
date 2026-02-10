@@ -238,6 +238,7 @@ LIGHTRAG_STORE: Dict[str, Any] = {
 # - TTL: 5분 후 만료 → 데이터 신선도 유지
 # ============================================================
 _LIGHTRAG_SEARCH_CACHE: Dict[str, Tuple[Dict[str, Any], float]] = {}  # {key: (result, timestamp)}
+_LIGHTRAG_SEARCH_CACHE_LOCK = threading.Lock()  # 캐시 동시 접근 방지
 _LIGHTRAG_CACHE_MAX_SIZE = 100  # 최대 캐시 항목 수
 _LIGHTRAG_CACHE_TTL = 300  # 캐시 TTL (초) - 5분
 
@@ -259,45 +260,45 @@ def _get_cache_key(query: str, mode: str, top_k: int) -> str:
 
 
 def _get_cached_result(query: str, mode: str, top_k: int) -> Optional[Dict[str, Any]]:
-    """캐시에서 검색 결과 조회 (TTL 확인)"""
+    """캐시에서 검색 결과 조회 (TTL 확인, thread-safe)"""
     key = _get_cache_key(query, mode, top_k)
-    cached = _LIGHTRAG_SEARCH_CACHE.get(key)
 
-    if cached is None:
-        return None
+    with _LIGHTRAG_SEARCH_CACHE_LOCK:
+        cached = _LIGHTRAG_SEARCH_CACHE.get(key)
 
-    result, timestamp = cached
+        if cached is None:
+            return None
 
-    # TTL 확인
-    if time.time() - timestamp > _LIGHTRAG_CACHE_TTL:
-        # 만료된 캐시 삭제
-        del _LIGHTRAG_SEARCH_CACHE[key]
-        st.logger.debug("LIGHTRAG_CACHE_EXPIRED key=%s", key[:50])
-        return None
+        result, timestamp = cached
 
-    return result
+        # TTL 확인
+        if time.time() - timestamp > _LIGHTRAG_CACHE_TTL:
+            # 만료된 캐시 삭제
+            del _LIGHTRAG_SEARCH_CACHE[key]
+            st.logger.debug("LIGHTRAG_CACHE_EXPIRED key=%s", key[:50])
+            return None
+
+        return result
 
 
 def _cache_result(query: str, mode: str, top_k: int, result: Dict[str, Any]) -> None:
-    """검색 결과를 캐시에 저장 (타임스탬프 포함)"""
-    global _LIGHTRAG_SEARCH_CACHE
+    """검색 결과를 캐시에 저장 (타임스탬프 포함, thread-safe)"""
+    with _LIGHTRAG_SEARCH_CACHE_LOCK:
+        # 캐시 크기 제한 + 만료 항목 정리
+        if len(_LIGHTRAG_SEARCH_CACHE) >= _LIGHTRAG_CACHE_MAX_SIZE:
+            _cleanup_expired_cache_unlocked()
 
-    # 캐시 크기 제한 + 만료 항목 정리
-    if len(_LIGHTRAG_SEARCH_CACHE) >= _LIGHTRAG_CACHE_MAX_SIZE:
-        _cleanup_expired_cache()
+        # 여전히 가득 차면 가장 오래된 항목 삭제
+        if len(_LIGHTRAG_SEARCH_CACHE) >= _LIGHTRAG_CACHE_MAX_SIZE:
+            oldest_key = min(_LIGHTRAG_SEARCH_CACHE, key=lambda k: _LIGHTRAG_SEARCH_CACHE[k][1])
+            del _LIGHTRAG_SEARCH_CACHE[oldest_key]
 
-    # 여전히 가득 차면 가장 오래된 항목 삭제
-    if len(_LIGHTRAG_SEARCH_CACHE) >= _LIGHTRAG_CACHE_MAX_SIZE:
-        oldest_key = min(_LIGHTRAG_SEARCH_CACHE, key=lambda k: _LIGHTRAG_SEARCH_CACHE[k][1])
-        del _LIGHTRAG_SEARCH_CACHE[oldest_key]
-
-    key = _get_cache_key(query, mode, top_k)
-    _LIGHTRAG_SEARCH_CACHE[key] = (result, time.time())
+        key = _get_cache_key(query, mode, top_k)
+        _LIGHTRAG_SEARCH_CACHE[key] = (result, time.time())
 
 
-def _cleanup_expired_cache() -> int:
-    """만료된 캐시 항목 정리"""
-    global _LIGHTRAG_SEARCH_CACHE
+def _cleanup_expired_cache_unlocked() -> int:
+    """만료된 캐시 항목 정리 (lock 없이 - 호출자가 lock 보유 필요)"""
     now = time.time()
     expired_keys = [k for k, (_, ts) in _LIGHTRAG_SEARCH_CACHE.items() if now - ts > _LIGHTRAG_CACHE_TTL]
     for k in expired_keys:
@@ -305,11 +306,18 @@ def _cleanup_expired_cache() -> int:
     return len(expired_keys)
 
 
+def _cleanup_expired_cache() -> int:
+    """만료된 캐시 항목 정리 (thread-safe)"""
+    with _LIGHTRAG_SEARCH_CACHE_LOCK:
+        return _cleanup_expired_cache_unlocked()
+
+
 def clear_lightrag_cache() -> int:
-    """LightRAG 검색 캐시 초기화 (반환: 삭제된 항목 수)"""
+    """LightRAG 검색 캐시 초기화 (반환: 삭제된 항목 수, thread-safe)"""
     global _LIGHTRAG_SEARCH_CACHE
-    count = len(_LIGHTRAG_SEARCH_CACHE)
-    _LIGHTRAG_SEARCH_CACHE = {}
+    with _LIGHTRAG_SEARCH_CACHE_LOCK:
+        count = len(_LIGHTRAG_SEARCH_CACHE)
+        _LIGHTRAG_SEARCH_CACHE = {}
     st.logger.info("LIGHTRAG_CACHE_CLEARED count=%d", count)
     return count
 
@@ -469,10 +477,10 @@ async def lightrag_index_documents(
     global LIGHTRAG_STORE
 
     if not LIGHTRAG_AVAILABLE:
-        return {"status": "FAILED", "error": "LightRAG not available"}
+        return {"status": "error", "message": "LightRAG not available"}
 
     if not documents:
-        return {"status": "FAILED", "error": "No documents provided"}
+        return {"status": "error", "message": "No documents provided"}
 
     try:
         # 해시 계산 (변경 감지)
@@ -483,7 +491,7 @@ async def lightrag_index_documents(
         if not force_rebuild and LIGHTRAG_STORE.get("doc_hash") == new_hash:
             st.logger.info("LIGHTRAG_INDEX_CACHED hash=%s", new_hash)
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "message": "Index already up-to-date",
                 "cached": True,
                 "doc_hash": new_hash,
@@ -494,7 +502,7 @@ async def lightrag_index_documents(
         # LightRAG 인스턴스 (async 초기화 포함)
         rag = await get_lightrag_instance_async(force_new=force_rebuild)
         if rag is None:
-            return {"status": "FAILED", "error": "Failed to create LightRAG instance"}
+            return {"status": "error", "message": "Failed to create LightRAG instance"}
 
         # 문서 인덱싱
         indexed_count = 0
@@ -537,7 +545,7 @@ async def lightrag_index_documents(
         st.logger.info("LIGHTRAG_INDEX_DONE indexed=%d errors=%d", indexed_count, len(errors))
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "indexed_count": indexed_count,
             "doc_hash": new_hash,
             "errors": errors[:5] if errors else [],  # 최대 5개 에러만
@@ -546,7 +554,7 @@ async def lightrag_index_documents(
     except Exception as e:
         st.logger.exception("LIGHTRAG_INDEX_FAIL err=%s", safe_str(e))
         LIGHTRAG_STORE["error"] = safe_str(e)
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 def lightrag_index_documents_sync(
@@ -559,7 +567,7 @@ def lightrag_index_documents_sync(
         return run_in_lightrag_loop(lightrag_index_documents(documents, doc_names, force_rebuild))
     except Exception as e:
         st.logger.warning("LIGHTRAG_INDEX_SYNC_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 # ============================================================
@@ -623,7 +631,7 @@ async def lightrag_search(
     if _is_simple_query(query):
         st.logger.info("LIGHTRAG_SIMPLE_QUERY_SKIP query=%s", query[:30])
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "query": query,
             "mode": mode,
             "context": "",
@@ -640,10 +648,10 @@ async def lightrag_search(
         return {**cached, "cached": True}
 
     if not LIGHTRAG_AVAILABLE:
-        return {"status": "FAILED", "error": "LightRAG not available"}
+        return {"status": "error", "message": "LightRAG not available"}
 
     if not LIGHTRAG_STORE.get("ready"):
-        return {"status": "FAILED", "error": "LightRAG index not ready"}
+        return {"status": "error", "message": "LightRAG index not ready"}
 
     # 인스턴스가 없으면 자동으로 로드 (재시작 후 복원)
     rag = LIGHTRAG_STORE.get("instance")
@@ -651,7 +659,7 @@ async def lightrag_search(
         st.logger.info("LIGHTRAG_INSTANCE_RESTORE attempting to restore instance...")
         rag = await get_lightrag_instance_async(force_new=False)
         if rag is None:
-            return {"status": "FAILED", "error": "LightRAG instance not found"}
+            return {"status": "error", "message": "LightRAG instance not found"}
 
     try:
         st.logger.info("LIGHTRAG_SEARCH query=%s mode=%s top_k=%d", query[:50], mode, top_k)
@@ -675,7 +683,7 @@ async def lightrag_search(
             st.logger.info("LIGHTRAG_CONTEXT_TRUNCATED original=%d truncated=%d", original_len, max_chars)
 
         result = {
-            "status": "SUCCESS",
+            "status": "success",
             "query": query,
             "mode": mode,
             "context": context,  # 검색된 컨텍스트 (truncated)
@@ -691,7 +699,7 @@ async def lightrag_search(
 
     except Exception as e:
         st.logger.exception("LIGHTRAG_SEARCH_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 def lightrag_search_sync(
@@ -704,7 +712,7 @@ def lightrag_search_sync(
         return run_in_lightrag_loop(lightrag_search(query, mode, top_k))
     except Exception as e:
         st.logger.warning("LIGHTRAG_SEARCH_SYNC_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 # ============================================================
@@ -737,14 +745,14 @@ async def lightrag_search_dual(
         top_k = st.LIGHTRAG_CONFIG.get("top_k_dual", 4)
 
     if not LIGHTRAG_AVAILABLE:
-        return {"status": "FAILED", "error": "LightRAG not available"}
+        return {"status": "error", "message": "LightRAG not available"}
 
     if not LIGHTRAG_STORE.get("ready"):
-        return {"status": "FAILED", "error": "LightRAG index not ready"}
+        return {"status": "error", "message": "LightRAG index not ready"}
 
     rag = LIGHTRAG_STORE.get("instance")
     if rag is None:
-        return {"status": "FAILED", "error": "LightRAG instance not found"}
+        return {"status": "error", "message": "LightRAG instance not found"}
 
     try:
         # 공통 파라미터 (속도 최적화)
@@ -766,7 +774,7 @@ async def lightrag_search_dual(
         )
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "query": query,
             "local_result": local_result if not isinstance(local_result, Exception) else str(local_result),
             "global_result": global_result if not isinstance(global_result, Exception) else str(global_result),
@@ -776,7 +784,7 @@ async def lightrag_search_dual(
 
     except Exception as e:
         st.logger.exception("LIGHTRAG_DUAL_SEARCH_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 def lightrag_search_dual_sync(query: str, top_k: int = None) -> Dict[str, Any]:
@@ -785,7 +793,7 @@ def lightrag_search_dual_sync(query: str, top_k: int = None) -> Dict[str, Any]:
         return run_in_lightrag_loop(lightrag_search_dual(query, top_k))
     except Exception as e:
         st.logger.warning("LIGHTRAG_DUAL_SEARCH_SYNC_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 # ============================================================
@@ -799,7 +807,7 @@ def build_lightrag_from_rag_docs(force_rebuild: bool = False) -> Dict[str, Any]:
 
     rag_docs_dir = Path(st.RAG_DOCS_DIR)
     if not rag_docs_dir.exists():
-        return {"status": "FAILED", "error": f"RAG docs directory not found: {rag_docs_dir}"}
+        return {"status": "error", "message": f"RAG docs directory not found: {rag_docs_dir}"}
 
     try:
         documents = []
@@ -828,7 +836,7 @@ def build_lightrag_from_rag_docs(force_rebuild: bool = False) -> Dict[str, Any]:
                     st.logger.warning("LIGHTRAG_TEXT_FAIL file=%s err=%s", text_file.name, safe_str(e))
 
         if not documents:
-            return {"status": "FAILED", "error": "No documents found in RAG docs directory"}
+            return {"status": "error", "message": "No documents found in RAG docs directory"}
 
         st.logger.info("LIGHTRAG_DOCS_LOADED count=%d", len(documents))
 
@@ -837,7 +845,7 @@ def build_lightrag_from_rag_docs(force_rebuild: bool = False) -> Dict[str, Any]:
 
     except Exception as e:
         st.logger.exception("LIGHTRAG_BUILD_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 def _extract_text_from_pdf(pdf_path: str) -> str:
@@ -940,11 +948,11 @@ def clear_lightrag():
         }
 
         st.logger.info("LIGHTRAG_CLEARED")
-        return {"status": "SUCCESS", "message": "LightRAG cleared"}
+        return {"status": "success", "message": "LightRAG cleared"}
 
     except Exception as e:
         st.logger.warning("LIGHTRAG_CLEAR_FAIL err=%s", safe_str(e))
-        return {"status": "FAILED", "error": safe_str(e)}
+        return {"status": "error", "message": safe_str(e)}
 
 
 # ============================================================

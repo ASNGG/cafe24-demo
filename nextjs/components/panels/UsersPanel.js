@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const VISIBLE_COLUMNS = ['id', 'user_id', 'name', 'role', 'created_at'];
+
 export default function UsersPanel({ auth, apiCall }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -14,7 +16,7 @@ export default function UsersPanel({ auth, apiCall }) {
     setLoading(true);
     const res = await apiCall({ endpoint: '/api/users', auth, timeoutMs: 30000 });
     setLoading(false);
-    if (res?.status === 'SUCCESS' && Array.isArray(res.data)) setUsers(res.data);
+    if (res?.status === 'success' && Array.isArray(res.data)) setUsers(res.data);
     else setUsers([]);
   }
 
@@ -34,7 +36,7 @@ export default function UsersPanel({ auth, apiCall }) {
       timeoutMs: 30000,
     });
 
-    if (res?.status === 'SUCCESS') {
+    if (res?.status === 'success') {
       setMsg(`${newName} 추가됨`);
       setNewId('');
       setNewName('');
@@ -62,7 +64,7 @@ export default function UsersPanel({ auth, apiCall }) {
           <table className="table">
             <thead>
               <tr>
-                {users?.length ? Object.keys(users[0]).map((k) => (
+                {users?.length ? VISIBLE_COLUMNS.filter((k) => k in users[0]).map((k) => (
                   <th key={k}>{k}</th>
                 )) : <th>-</th>}
               </tr>
@@ -70,7 +72,7 @@ export default function UsersPanel({ auth, apiCall }) {
             <tbody>
               {users?.length ? users.map((u, idx) => (
                 <tr key={idx}>
-                  {Object.keys(users[0]).map((k) => (
+                  {VISIBLE_COLUMNS.filter((k) => k in users[0]).map((k) => (
                     <td key={k}>{String(u[k])}</td>
                   ))}
                 </tr>

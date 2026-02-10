@@ -32,34 +32,8 @@ from core.constants import (
     CS_TICKET_CATEGORIES,
     CS_PRIORITY_GRADES,
 )
+from core.utils import safe_str, safe_int, safe_float
 import state as st
-
-
-# ============================================================
-# 유틸리티 함수
-# ============================================================
-def safe_str(val, default: str = "") -> str:
-    if val is None or (isinstance(val, float) and np.isnan(val)):
-        return default
-    return str(val)
-
-
-def safe_int(val, default: int = 0) -> int:
-    try:
-        if val is None or (isinstance(val, float) and np.isnan(val)):
-            return default
-        return int(float(val))
-    except (ValueError, TypeError):
-        return default
-
-
-def safe_float(val, default: float = 0.0) -> float:
-    try:
-        if val is None or (isinstance(val, float) and np.isnan(val)):
-            return default
-        return float(val)
-    except (ValueError, TypeError):
-        return default
 
 
 # ============================================================
@@ -68,7 +42,7 @@ def safe_float(val, default: float = 0.0) -> float:
 def tool_get_shop_info(shop_id: str) -> dict:
     """쇼핑몰 정보를 조회합니다. shop_id 또는 쇼핑몰명으로 검색 가능합니다."""
     if st.SHOPS_DF is None:
-        return {"status": "FAILED", "error": "쇼핑몰 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "쇼핑몰 데이터가 로드되지 않았습니다."}
 
     shop = st.SHOPS_DF[st.SHOPS_DF["shop_id"] == shop_id]
     if shop.empty:
@@ -77,7 +51,7 @@ def tool_get_shop_info(shop_id: str) -> dict:
         shop = st.SHOPS_DF[st.SHOPS_DF[name_col].str.contains(shop_id, na=False)]
 
     if shop.empty:
-        return {"status": "FAILED", "error": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
 
     row = shop.iloc[0]
 
@@ -90,7 +64,7 @@ def tool_get_shop_info(shop_id: str) -> dict:
 
     name_col = "shop_name" if "shop_name" in row.index else "name"
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "shop_id": safe_str(row.get("shop_id")),
         "name": safe_str(row.get(name_col)),
         "plan_tier": safe_str(row.get("plan_tier")),
@@ -127,7 +101,7 @@ def tool_list_shops(
 ) -> dict:
     """쇼핑몰 목록을 조회합니다. 업종/플랜/지역으로 필터링 가능합니다."""
     if st.SHOPS_DF is None:
-        return {"status": "FAILED", "error": "쇼핑몰 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "쇼핑몰 데이터가 로드되지 않았습니다."}
 
     # tier와 plan_tier 둘 다 지원
     effective_tier = plan_tier or tier
@@ -164,7 +138,7 @@ def tool_list_shops(
         })
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "total": len(shops),
         "filters": {"category": category, "plan_tier": effective_tier, "region": region},
         "shops": shops,
@@ -176,11 +150,11 @@ def tool_get_shop_services(shop_id: str) -> dict:
     if not st.SHOP_SERVICE_MAP:
         # SERVICES_DF에서 직접 조회
         if st.SERVICES_DF is None:
-            return {"status": "FAILED", "error": "서비스 데이터가 로드되지 않았습니다."}
+            return {"status": "error", "message": "서비스 데이터가 로드되지 않았습니다."}
 
         services = st.SERVICES_DF[st.SERVICES_DF["shop_id"] == shop_id]
         if services.empty:
-            return {"status": "FAILED", "error": f"쇼핑몰 '{shop_id}'의 서비스 정보를 찾을 수 없습니다."}
+            return {"status": "error", "message": f"쇼핑몰 '{shop_id}'의 서비스 정보를 찾을 수 없습니다."}
 
         service_list = []
         for _, row in services.iterrows():
@@ -194,7 +168,7 @@ def tool_get_shop_services(shop_id: str) -> dict:
             })
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "shop_id": shop_id,
             "total_services": len(service_list),
             "services": service_list,
@@ -202,11 +176,11 @@ def tool_get_shop_services(shop_id: str) -> dict:
 
     # 캐시된 매핑에서 조회
     if shop_id not in st.SHOP_SERVICE_MAP:
-        return {"status": "FAILED", "error": f"쇼핑몰 '{shop_id}'의 서비스 정보를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"쇼핑몰 '{shop_id}'의 서비스 정보를 찾을 수 없습니다."}
 
     shop_services = st.SHOP_SERVICE_MAP[shop_id]
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "shop_id": shop_id,
         "total_services": len(shop_services) if isinstance(shop_services, list) else 1,
         "services": shop_services if isinstance(shop_services, list) else [shop_services],
@@ -219,7 +193,7 @@ def tool_get_shop_services(shop_id: str) -> dict:
 def tool_get_category_info(category_id: str) -> dict:
     """상품 카테고리 정보를 조회합니다."""
     if st.CATEGORIES_DF is None:
-        return {"status": "FAILED", "error": "카테고리 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "카테고리 데이터가 로드되지 않았습니다."}
 
     # cat_id 또는 category_id 컬럼 지원
     id_col = "cat_id" if "cat_id" in st.CATEGORIES_DF.columns else "category_id"
@@ -231,14 +205,14 @@ def tool_get_category_info(category_id: str) -> dict:
         category = st.CATEGORIES_DF[st.CATEGORIES_DF[name_col].str.contains(category_id, na=False, case=False)]
 
     if category.empty:
-        return {"status": "FAILED", "error": f"카테고리 '{category_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"카테고리 '{category_id}'를 찾을 수 없습니다."}
 
     row = category.iloc[0]
     parent_col = "parent_cat" if "parent_cat" in row.index else "parent_id"
     desc_col = "description_ko" if "description_ko" in row.index else "description"
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "category_id": safe_str(row.get(id_col)),
         "name": safe_str(row.get(name_col)),
         "name_en": safe_str(row.get("name_en", "")),
@@ -251,7 +225,7 @@ def tool_get_category_info(category_id: str) -> dict:
 def tool_list_categories() -> dict:
     """모든 상품 카테고리 목록을 조회합니다."""
     if st.CATEGORIES_DF is None:
-        return {"status": "FAILED", "error": "카테고리 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "카테고리 데이터가 로드되지 않았습니다."}
 
     id_col = "cat_id" if "cat_id" in st.CATEGORIES_DF.columns else "category_id"
     name_col = "name_ko" if "name_ko" in st.CATEGORIES_DF.columns else "name"
@@ -269,7 +243,7 @@ def tool_list_categories() -> dict:
         })
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "total": len(categories),
         "categories": categories,
     }
@@ -311,7 +285,7 @@ def tool_auto_reply_cs(
     }
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "action": "CS_AUTO_REPLY",
         "context": cs_context,
         "message": f"'{inquiry_text[:50]}...' 문의에 대한 자동 응답을 생성합니다. 카테고리: {inquiry_category}, 셀러 등급: {seller_tier}.",
@@ -328,7 +302,7 @@ def tool_check_cs_quality(
 ) -> dict:
     """CS 티켓의 우선순위/긴급도를 예측합니다."""
     if st.CS_QUALITY_MODEL is None:
-        return {"status": "FAILED", "error": "CS 품질 예측 모델이 로드되지 않았습니다."}
+        return {"status": "error", "message": "CS 품질 예측 모델이 로드되지 않았습니다."}
 
     # 피처 인코딩
     try:
@@ -361,7 +335,7 @@ def tool_check_cs_quality(
         grade_info = CS_PRIORITY_GRADES.get(priority_grade, {})
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "ticket_category": ticket_category,
             "seller_tier": seller_tier,
             "predicted_priority": priority_grade,
@@ -371,7 +345,7 @@ def tool_check_cs_quality(
             "recommendations": _get_cs_recommendations(priority_grade, is_repeat_issue, ticket_category),
         }
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def _get_cs_recommendations(priority: str, is_repeat: bool, category: str) -> List[str]:
@@ -441,10 +415,10 @@ def tool_get_ecommerce_glossary(term: Optional[str] = None) -> dict:
             })
 
     if not terms:
-        return {"status": "FAILED", "error": f"'{term}' 관련 용어를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"'{term}' 관련 용어를 찾을 수 없습니다."}
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "total": len(terms),
         "search_term": term,
         "terms": terms,
@@ -457,16 +431,16 @@ def tool_get_ecommerce_glossary(term: Optional[str] = None) -> dict:
 def tool_analyze_seller(seller_id: str) -> dict:
     """셀러의 운영 데이터 및 성과를 분석합니다."""
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "FAILED", "error": "셀러 분석 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "셀러 분석 데이터가 로드되지 않았습니다."}
 
     seller = st.SELLER_ANALYTICS_DF[st.SELLER_ANALYTICS_DF["seller_id"] == seller_id]
     if seller.empty:
-        return {"status": "FAILED", "error": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
 
     row = seller.iloc[0]
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "seller_id": seller_id,
         "performance": {
             "total_orders": safe_int(row.get("total_orders")),
@@ -499,11 +473,11 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
     if isinstance(seller_id_or_features, str):
         seller_id = seller_id_or_features
         if st.SELLER_ANALYTICS_DF is None:
-            return {"status": "FAILED", "error": "셀러 분석 데이터가 로드되지 않았습니다."}
+            return {"status": "error", "message": "셀러 분석 데이터가 로드되지 않았습니다."}
 
         seller = st.SELLER_ANALYTICS_DF[st.SELLER_ANALYTICS_DF["seller_id"] == seller_id]
         if seller.empty:
-            return {"status": "FAILED", "error": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
+            return {"status": "error", "message": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
 
         row = seller.iloc[0]
 
@@ -512,7 +486,7 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
             cluster = int(row["cluster"])
             segment_name = safe_str(row.get("segment_name", "")) or _get_segment_name(cluster)
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "seller_id": seller_id,
                 "segment": {
                     "cluster": cluster,
@@ -527,7 +501,7 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
         seller_id = None
 
     if st.SELLER_SEGMENT_MODEL is None:
-        return {"status": "FAILED", "error": "셀러 세그먼트 모델이 로드되지 않았습니다."}
+        return {"status": "error", "message": "셀러 세그먼트 모델이 로드되지 않았습니다."}
 
     try:
         X = pd.DataFrame([seller_features])[FEATURE_COLS_SELLER_SEGMENT].fillna(0)
@@ -535,7 +509,7 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
         cluster = int(st.SELLER_SEGMENT_MODEL.predict(X_scaled)[0])
 
         result = {
-            "status": "SUCCESS",
+            "status": "success",
             "segment": {
                 "cluster": cluster,
                 "name": _get_segment_name(cluster),
@@ -545,13 +519,13 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
             result["seller_id"] = seller_id
         return result
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Optional[dict] = None) -> dict:
     """이상거래를 탐지합니다. 셀러 ID 또는 거래 피처를 기반으로 분석합니다."""
     if st.FRAUD_DETECTION_MODEL is None:
-        return {"status": "FAILED", "error": "이상거래 탐지 모델이 로드되지 않았습니다."}
+        return {"status": "error", "message": "이상거래 탐지 모델이 로드되지 않았습니다."}
 
     try:
         # 셀러 ID로 기존 이상거래 데이터 조회
@@ -571,7 +545,7 @@ def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Opt
                     })
                 max_score = max(r["anomaly_score"] for r in records)
                 return {
-                    "status": "SUCCESS",
+                    "status": "success",
                     "seller_id": seller_id,
                     "fraud_records": records,
                     "total_flags": len(records),
@@ -590,22 +564,22 @@ def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Opt
             is_fraud = pred == -1
 
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "is_fraud": is_fraud,
                 "anomaly_score": score,
                 "risk_level": "HIGH" if is_fraud and score < -0.2 else "MEDIUM" if is_fraud else "LOW",
                 "recommendation": "비정상 거래 패턴이 감지되었습니다. 해당 셀러의 거래 내역을 상세 조사하세요." if is_fraud else "정상적인 거래 패턴입니다.",
             }
 
-        return {"status": "FAILED", "error": "seller_id 또는 transaction_features를 제공해주세요."}
+        return {"status": "error", "message": "seller_id 또는 transaction_features를 제공해주세요."}
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_segment_statistics() -> dict:
     """셀러 세그먼트별 통계를 조회합니다."""
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "FAILED", "error": "셀러 분석 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "셀러 분석 데이터가 로드되지 않았습니다."}
 
     try:
         df = st.SELLER_ANALYTICS_DF.copy()
@@ -630,7 +604,7 @@ def tool_get_segment_statistics() -> dict:
                 })
 
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "total_sellers": len(df),
                 "segments": stats,
             }
@@ -658,20 +632,20 @@ def tool_get_segment_statistics() -> dict:
                 })
 
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "total_sellers": len(df),
                 "segments": stats,
             }
 
-        return {"status": "FAILED", "error": "세그먼트 분류 데이터 또는 모델이 없습니다."}
+        return {"status": "error", "message": "세그먼트 분류 데이터 또는 모델이 없습니다."}
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_fraud_statistics() -> dict:
     """전체 이상거래 통계를 조회합니다."""
     if st.FRAUD_DETAILS_DF is None:
-        return {"status": "FAILED", "error": "이상거래 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "이상거래 데이터가 로드되지 않았습니다."}
 
     df = st.FRAUD_DETAILS_DF
     total_records = len(df)
@@ -706,7 +680,7 @@ def tool_get_fraud_statistics() -> dict:
         })
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "total_anomalies": total_records,
         "unique_sellers": unique_sellers,
         "high_risk_count": high_risk_count,
@@ -723,7 +697,7 @@ def tool_get_fraud_statistics() -> dict:
 def tool_get_order_statistics(event_type: Optional[str] = None, days: int = 30) -> dict:
     """주문/운영 이벤트 통계를 조회합니다."""
     if st.OPERATION_LOGS_DF is None:
-        return {"status": "FAILED", "error": "운영 로그 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "운영 로그 데이터가 로드되지 않았습니다."}
 
     df = st.OPERATION_LOGS_DF.copy()
     # CSV 컬럼: log_id, seller_id, event_type, event_date, details_json
@@ -773,7 +747,7 @@ def tool_get_order_statistics(event_type: Optional[str] = None, days: int = 30) 
     seller_event_counts = df["seller_id"].value_counts().head(10).to_dict() if "seller_id" in df.columns else {}
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "period": f"최근 {days}일",
         "total_events": len(df),
         "total_amount": total_amount,
@@ -787,14 +761,14 @@ def tool_get_order_statistics(event_type: Optional[str] = None, days: int = 30) 
 def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
     """특정 셀러의 활동 리포트를 생성합니다."""
     if st.SELLER_ACTIVITY_DF is None and st.OPERATION_LOGS_DF is None:
-        return {"status": "FAILED", "error": "셀러 활동 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "셀러 활동 데이터가 로드되지 않았습니다."}
 
     # SELLER_ACTIVITY_DF 우선 사용
     # CSV 컬럼: seller_id, date, orders_processed, products_updated, cs_handled, revenue
     if st.SELLER_ACTIVITY_DF is not None:
         df = st.SELLER_ACTIVITY_DF[st.SELLER_ACTIVITY_DF["seller_id"] == seller_id].copy()
         if df.empty:
-            return {"status": "FAILED", "error": f"셀러 '{seller_id}'의 활동 로그를 찾을 수 없습니다."}
+            return {"status": "error", "message": f"셀러 '{seller_id}'의 활동 로그를 찾을 수 없습니다."}
 
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
         cutoff = df["date"].max() - pd.Timedelta(days=days)
@@ -812,7 +786,7 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
         }
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "seller_id": seller_id,
             "period": f"최근 {days}일",
             "total_events": total_orders + total_cs,
@@ -826,7 +800,7 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
     # CSV 컬럼: log_id, seller_id, event_type, event_date, details_json
     df = st.OPERATION_LOGS_DF[st.OPERATION_LOGS_DF["seller_id"] == seller_id].copy()
     if df.empty:
-        return {"status": "FAILED", "error": f"셀러 '{seller_id}'의 활동 로그를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"셀러 '{seller_id}'의 활동 로그를 찾을 수 없습니다."}
 
     date_col = "event_date" if "event_date" in df.columns else "timestamp"
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
@@ -849,7 +823,7 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
                 pass
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "seller_id": seller_id,
         "period": f"최근 {days}일",
         "total_events": len(df),
@@ -866,7 +840,7 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
 def tool_classify_inquiry(text: str) -> dict:
     """CS 문의 텍스트를 카테고리별로 자동 분류합니다 (TF-IDF + RandomForest)."""
     if st.INQUIRY_CLASSIFICATION_MODEL is None or st.TFIDF_VECTORIZER is None:
-        return {"status": "FAILED", "error": "문의 분류 모델이 로드되지 않았습니다."}
+        return {"status": "error", "message": "문의 분류 모델이 로드되지 않았습니다."}
 
     try:
         X = st.TFIDF_VECTORIZER.transform([text])
@@ -888,14 +862,14 @@ def tool_classify_inquiry(text: str) -> dict:
                 })
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "text": text[:100] + "..." if len(text) > 100 else text,
             "predicted_category": category,
             "confidence": float(max(proba)),
             "top_categories": top_categories,
         }
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 # ============================================================
@@ -906,7 +880,7 @@ def tool_search_platform(query: str, top_k: int = 5) -> dict:
     # 실제 RAG 검색은 rag/service.py에서 처리
     # 여기서는 인터페이스만 정의
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "action": "RAG_SEARCH",
         "query": query,
         "top_k": top_k,
@@ -931,7 +905,7 @@ def tool_search_platform_lightrag(query: str, mode: str = "hybrid") -> dict:
         mode: 검색 모드 ("naive", "local", "global", "hybrid")
     """
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "action": "LIGHTRAG_SEARCH",
         "query": query,
         "mode": mode,
@@ -945,7 +919,7 @@ def tool_search_platform_lightrag(query: str, mode: str = "hybrid") -> dict:
 def tool_get_cs_statistics() -> dict:
     """CS 문의 통계를 조회합니다."""
     if st.CS_STATS_DF is None:
-        return {"status": "FAILED", "error": "CS 통계 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "CS 통계 데이터가 로드되지 않았습니다."}
 
     df = st.CS_STATS_DF
     # CSV 컬럼: category, total_tickets, avg_resolution_hours, satisfaction_score
@@ -973,7 +947,7 @@ def tool_get_cs_statistics() -> dict:
     avg_resolution = safe_float(df["avg_resolution_hours"].mean()) if "avg_resolution_hours" in df.columns else 0
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "total_tickets": total_tickets,
         "avg_satisfaction_score": round(avg_satisfaction, 2),
         "avg_resolution_hours": round(avg_resolution, 1),
@@ -992,7 +966,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
         limit: 상세 셀러 목록 반환 시 최대 개수 (기본값: 10)
     """
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "FAILED", "error": "셀러 분석 데이터가 없습니다."}
+        return {"status": "error", "message": "셀러 분석 데이터가 없습니다."}
 
     try:
         df = st.SELLER_ANALYTICS_DF.copy()
@@ -1003,7 +977,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
         if risk_level:
             risk_level = risk_level.lower()
             if risk_level not in ['high', 'medium', 'low']:
-                return {"status": "FAILED", "error": "risk_level은 'high', 'medium', 'low' 중 하나여야 합니다."}
+                return {"status": "error", "message": "risk_level은 'high', 'medium', 'low' 중 하나여야 합니다."}
 
             if 'churn_risk_level' in df.columns:
                 if risk_level == 'medium' and 'churn_probability' in df.columns:
@@ -1083,7 +1057,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
         top_factor_name = top_factors[0]['factor'] if top_factors else '활동 감소'
 
         result = {
-            "status": "SUCCESS",
+            "status": "success",
             "prediction_type": "셀러 이탈 예측",
             "summary": {
                 "total_sellers": original_total,
@@ -1106,7 +1080,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
 
         return result
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
@@ -1119,7 +1093,7 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
         month: 특정 월 필터 (예: "2024-11", "2025-01")
     """
     if st.COHORT_RETENTION_DF is None:
-        return {"status": "FAILED", "error": "코호트 리텐션 데이터가 없습니다."}
+        return {"status": "error", "message": "코호트 리텐션 데이터가 없습니다."}
 
     try:
         df = st.COHORT_RETENTION_DF.copy()
@@ -1135,7 +1109,7 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
             df = df[df['cohort_month'].astype(str).str.contains(filter_month, case=False, na=False)]
             if len(df) == 0:
                 available = st.COHORT_RETENTION_DF['cohort_month'].tolist()
-                return {"status": "FAILED", "error": f"'{filter_month}' 코호트를 찾을 수 없습니다. 사용 가능: {available}"}
+                return {"status": "error", "message": f"'{filter_month}' 코호트를 찾을 수 없습니다. 사용 가능: {available}"}
 
         # 와이드 포맷(week1,week2,week4,...) 컬럼 감지
         week_cols = [c for c in df.columns if c.startswith("week")]
@@ -1157,14 +1131,14 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
             avg_retention[wc] = round(vals.mean(), 1) if len(vals) > 0 else 0
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "analysis_type": "셀러 코호트 리텐션 분석",
             "total_cohorts": len(retention),
             "retention": retention,
             "avg_retention": {k: f"{v}%" for k, v in avg_retention.items()},
         }
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: int = None) -> dict:
@@ -1176,7 +1150,7 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
         days: 최근 N일 분석 (start_date/end_date 대신 사용 가능)
     """
     if st.DAILY_METRICS_DF is None:
-        return {"status": "FAILED", "error": "일별 지표 데이터가 없습니다."}
+        return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
         df = st.DAILY_METRICS_DF.copy()
@@ -1211,7 +1185,7 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
             recent = df.tail(mid)
             previous = df.head(mid)
         else:
-            return {"status": "FAILED", "error": "데이터가 충분하지 않습니다."}
+            return {"status": "error", "message": "데이터가 충분하지 않습니다."}
 
         def calc_change(curr, prev):
             if prev == 0:
@@ -1314,7 +1288,7 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
             insight_parts.append(f"CS 해결률 {format_change(cs_rate_change)} 개선.")
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "analysis_type": "플랫폼 트렌드 분석",
             "period": f"최근 {len(recent)}일 vs 이전 {len(previous)}일",
             "kpis": {
@@ -1330,7 +1304,7 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
             "correlations": correlations,
         }
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: str = None) -> dict:
@@ -1342,7 +1316,7 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
         end_date: 종료 날짜 (YYYY-MM-DD 형식)
     """
     if st.DAILY_METRICS_DF is None:
-        return {"status": "FAILED", "error": "일별 지표 데이터가 없습니다."}
+        return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
         metrics_df = st.DAILY_METRICS_DF.copy()
@@ -1429,7 +1403,7 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
         growth_str = f"+{growth_rate}%" if growth_rate > 0 else f"{growth_rate}%"
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "prediction_type": "GMV 예측",
             "monthly_forecast": {
                 "predicted_gmv": format_revenue(monthly_gmv),
@@ -1445,14 +1419,14 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
             "tier_distribution": tier_distribution,
         }
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def tool_get_dashboard_summary() -> dict:
     """대시보드 요약 정보를 조회합니다. 플랫폼 전체 운영 현황을 반환합니다."""
 
     summary = {
-        "status": "SUCCESS",
+        "status": "success",
     }
 
     # 쇼핑몰 통계 (프론트엔드: shop_stats.total, shop_stats.by_tier)
@@ -1580,12 +1554,12 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
     SELLER_CHURN_MODEL(RandomForest)과 SHAP Explainer를 사용하여 예측 및 설명을 제공합니다.
     """
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "FAILED", "error": "셀러 분석 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "셀러 분석 데이터가 로드되지 않았습니다."}
 
     # 셀러 데이터 조회
     seller = st.SELLER_ANALYTICS_DF[st.SELLER_ANALYTICS_DF["seller_id"] == seller_id]
     if seller.empty:
-        return {"status": "FAILED", "error": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"셀러 '{seller_id}'를 찾을 수 없습니다."}
 
     row = seller.iloc[0]
 
@@ -1616,7 +1590,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         risk_level = "HIGH" if churn_score > 0.6 else "MEDIUM" if churn_score > 0.3 else "LOW"
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "seller_id": seller_id,
             "churn_probability": round(churn_score * 100, 1),
             "risk_level": risk_level,
@@ -1696,7 +1670,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         total_revenue = safe_int(row.get("total_revenue", 0))
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "seller_id": seller_id,
             "churn_probability": round(churn_prob * 100, 1),
             "risk_level": risk_level,
@@ -1707,7 +1681,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         }
 
     except Exception as e:
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 def _get_seller_churn_recommendation(risk_level: str, days_since_last: int, total_revenue: int) -> str:
@@ -1729,7 +1703,7 @@ def tool_predict_shop_revenue(shop_id: str) -> dict:
     REVENUE_PREDICTION_MODEL(LightGBM)을 사용합니다.
     """
     if st.SHOP_PERFORMANCE_DF is None:
-        return {"status": "FAILED", "error": "쇼핑몰 성과 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "쇼핑몰 성과 데이터가 로드되지 않았습니다."}
 
     # 쇼핑몰 검색
     shop = st.SHOP_PERFORMANCE_DF[st.SHOP_PERFORMANCE_DF["shop_id"] == shop_id]
@@ -1737,7 +1711,7 @@ def tool_predict_shop_revenue(shop_id: str) -> dict:
         shop = st.SHOP_PERFORMANCE_DF[st.SHOP_PERFORMANCE_DF["name"].str.contains(shop_id, na=False)]
 
     if shop.empty:
-        return {"status": "FAILED", "error": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
 
     row = shop.iloc[0]
 
@@ -1786,7 +1760,7 @@ def tool_predict_shop_revenue(shop_id: str) -> dict:
             return f"₩{val:,}"
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "shop_id": safe_str(row.get("shop_id")),
         "name": safe_str(row.get("name")),
         "category": safe_str(row.get("category")),
@@ -1859,7 +1833,7 @@ def tool_get_shop_performance(shop_id: str) -> dict:
     특정 쇼핑몰의 성과 KPI를 조회합니다.
     """
     if st.SHOP_PERFORMANCE_DF is None:
-        return {"status": "FAILED", "error": "쇼핑몰 성과 데이터가 로드되지 않았습니다."}
+        return {"status": "error", "message": "쇼핑몰 성과 데이터가 로드되지 않았습니다."}
 
     # 쇼핑몰 검색
     shop = st.SHOP_PERFORMANCE_DF[st.SHOP_PERFORMANCE_DF["shop_id"] == shop_id]
@@ -1867,7 +1841,7 @@ def tool_get_shop_performance(shop_id: str) -> dict:
         shop = st.SHOP_PERFORMANCE_DF[st.SHOP_PERFORMANCE_DF["name"].str.contains(shop_id, na=False)]
 
     if shop.empty:
-        return {"status": "FAILED", "error": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
+        return {"status": "error", "message": f"쇼핑몰 '{shop_id}'를 찾을 수 없습니다."}
 
     row = shop.iloc[0]
 
@@ -1882,7 +1856,7 @@ def tool_get_shop_performance(shop_id: str) -> dict:
             return f"₩{val:,}"
 
     return {
-        "status": "SUCCESS",
+        "status": "success",
         "shop_id": safe_str(row.get("shop_id")),
         "name": safe_str(row.get("name")),
         "category": safe_str(row.get("category")),
@@ -1949,7 +1923,7 @@ def tool_optimize_marketing(
             result = optimizer.optimize(max_iterations=200)
 
             if "error" in result:
-                return {"status": "FAILED", "error": result["error"]}
+                return {"status": "error", "message": result["error"]}
 
             # optimizer allocation → 프론트엔드 recommendations 변환
             recommendations = []
@@ -1979,7 +1953,7 @@ def tool_optimize_marketing(
                 })
 
             return {
-                "status": "SUCCESS",
+                "status": "success",
                 "seller_id": seller_id,
                 "goal": goal,
                 "total_cvr_gain": round(total_cvr_gain, 1),
@@ -1993,11 +1967,11 @@ def tool_optimize_marketing(
                 "budget_usage": result.get("budget_usage", {}),
             }
         else:
-            return {"status": "FAILED", "error": "마케팅 최적화 모듈이 로드되지 않았습니다."}
+            return {"status": "error", "message": "마케팅 최적화 모듈이 로드되지 않았습니다."}
 
     except Exception as e:
         st.logger.exception("마케팅 최적화 실패")
-        return {"status": "FAILED", "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 
 # ============================================================

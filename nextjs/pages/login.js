@@ -31,7 +31,7 @@ export default function LoginPage() {
 
     setLoading(false);
 
-    if (res?.status === 'SUCCESS') {
+    if (res?.status === 'success') {
       const auth = {
         username,
         password,

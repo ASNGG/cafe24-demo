@@ -2,8 +2,6 @@
 // LLM 설정 및 시스템 프롬프트는 백엔드에서 중앙 관리됩니다.
 import { useEffect, useMemo, useState, useCallback } from "react";
 
-const DEFAULT_FALLBACK_SYSTEM_PROMPT = "[프롬프트를 설정할 수 있습니다]";
-
 const clampNumber = (v, min, max, fallback) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
@@ -92,14 +90,12 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   // 프롬프트 관련 상태
   const [loadingDefault, setLoadingDefault] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState(settings?.systemPrompt || "");
-  const [promptSaved, setPromptSaved] = useState(true);
-  const [isCustomPrompt, setIsCustomPrompt] = useState(false);
+
+
 
   // LLM 설정 관련 상태
-  const [llmSaving, setLlmSaving] = useState(false);
   const [llmSaved, setLlmSaved] = useState(true);
   const [isCustomLLM, setIsCustomLLM] = useState(false);
-  const [promptSaving, setPromptSaving] = useState(false);
 
   // LLM 설정 임시 상태 (저장 버튼 누르기 전까지 여기에만 저장)
   const [draftLLM, setDraftLLM] = useState({
@@ -126,7 +122,6 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   // settings.systemPrompt가 외부에서 변경되면 draftPrompt 동기화
   useEffect(() => {
     setDraftPrompt(settings?.systemPrompt || "");
-    setPromptSaved(true);
   }, [settings?.systemPrompt]);
 
   // settings가 외부에서 변경되면 draftLLM 동기화
@@ -148,44 +143,6 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     setLlmSaved(true);
   }, []);
 
-  // ============================================================
-  // 백엔드에서 LLM 설정 로드
-  // ============================================================
-  const loadLLMSettingsFromBackend = useCallback(async () => {
-    if (typeof apiCall !== "function") return;
-
-    try {
-      const res = await apiCall({
-        endpoint: "/api/settings/llm",
-        method: "GET",
-        auth,
-        timeoutMs: 30000,
-      });
-
-      const data = res?.data || res || {};
-      setIsCustomLLM(Boolean(data?.isCustom));
-
-      // 설정값 병합
-      setSettings((s) => ({
-        ...s,
-        selectedModel: data?.selectedModel || s?.selectedModel || "gpt-4o-mini",
-        customModel: data?.customModel || s?.customModel || "",
-        temperature: data?.temperature ?? s?.temperature ?? 0.3,
-        topP: data?.topP ?? s?.topP ?? 1.0,
-        presencePenalty: data?.presencePenalty ?? s?.presencePenalty ?? 0.0,
-        frequencyPenalty: data?.frequencyPenalty ?? s?.frequencyPenalty ?? 0.0,
-        maxTokens: data?.maxTokens ?? s?.maxTokens ?? 8000,
-        seed: data?.seed ?? s?.seed ?? "",
-        timeoutMs: data?.timeoutMs ?? s?.timeoutMs ?? 30000,
-        retries: data?.retries ?? s?.retries ?? 2,
-        stream: data?.stream ?? s?.stream ?? true,
-      }));
-      setLlmSaved(true);
-    } catch (e) {
-      console.error("LLM 설정 로드 실패:", e);
-    }
-  }, [apiCall, auth, setSettings]);
-
   // 백엔드에서 시스템 프롬프트 로드
   const loadPromptFromBackend = useCallback(async () => {
     if (typeof apiCall !== "function") return;
@@ -201,9 +158,6 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
       const data = res?.data || res || {};
       const prompt = String(data?.systemPrompt || data?.system_prompt || "").trim();
-      const isCustom = Boolean(data?.isCustom);
-
-      setIsCustomPrompt(isCustom);
 
       if (prompt.length > 0) {
         setSettings((s) => ({ ...s, systemPrompt: prompt }));
@@ -221,167 +175,6 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     loadPromptFromBackend();
     setLlmSaved(true);
   }, []);
-
-  // ============================================================
-  // 백엔드에 LLM 설정 저장
-  // ============================================================
-  const saveLLMSettingsToBackend = useCallback(async () => {
-    if (typeof apiCall !== "function") {
-      // 백엔드 연결 없으면 로컬만 저장
-      setLlmSaved(true);
-      if (addLog) addLog("LLM 설정 변경", "로컬 저장됨 (백엔드 연결 없음)");
-      return;
-    }
-
-    setLlmSaving(true);
-    try {
-      const res = await apiCall({
-        endpoint: "/api/settings/llm",
-        method: "POST",
-        auth,
-        body: {
-          selectedModel: settings?.selectedModel || "gpt-4o-mini",
-          customModel: settings?.customModel || "",
-          temperature: settings?.temperature ?? 0.3,
-          topP: settings?.topP ?? 1.0,
-          presencePenalty: settings?.presencePenalty ?? 0.0,
-          frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
-          maxTokens: settings?.maxTokens ?? 8000,
-          seed: settings?.seed || null,
-          timeoutMs: settings?.timeoutMs ?? 30000,
-          retries: settings?.retries ?? 2,
-          stream: settings?.stream ?? true,
-        },
-        timeoutMs: 30000,
-      });
-
-      if (res?.status === "SUCCESS") {
-        setLlmSaved(true);
-        setIsCustomLLM(true);
-        if (addLog) addLog("LLM 설정 변경", `백엔드에 저장됨 (모델: ${settings?.selectedModel})`);
-      } else {
-        throw new Error(res?.message || "저장 실패");
-      }
-    } catch (e) {
-      console.error("LLM 설정 저장 실패:", e);
-      // 저장 실패 시 사용자에게 알림
-      const errorMsg = e?.message || "알 수 없는 오류";
-      alert(`❌ LLM 설정 저장 실패: ${errorMsg}\n\n관리자(admin) 계정으로 로그인했는지 확인하세요.`);
-      setLlmSaved(false); // 저장 실패 상태 유지
-      if (addLog) addLog("LLM 설정 저장 실패", errorMsg);
-    } finally {
-      setLlmSaving(false);
-    }
-  }, [apiCall, auth, settings, addLog]);
-
-  // LLM 설정 초기화
-  const resetLLMSettingsToDefault = useCallback(async () => {
-    if (typeof apiCall !== "function") return;
-
-    setLlmSaving(true);
-    try {
-      const res = await apiCall({
-        endpoint: "/api/settings/llm/reset",
-        method: "POST",
-        auth,
-        timeoutMs: 30000,
-      });
-
-      if (res?.status === "SUCCESS") {
-        const data = res?.data || {};
-        setSettings((s) => ({
-          ...s,
-          selectedModel: data?.selectedModel || "gpt-4o-mini",
-          customModel: data?.customModel || "",
-          temperature: data?.temperature ?? 0.3,
-          topP: data?.topP ?? 1.0,
-          presencePenalty: data?.presencePenalty ?? 0.0,
-          frequencyPenalty: data?.frequencyPenalty ?? 0.0,
-          maxTokens: data?.maxTokens ?? 4000,
-          seed: data?.seed ?? "",
-          timeoutMs: data?.timeoutMs ?? 30000,
-          retries: data?.retries ?? 2,
-          stream: data?.stream ?? true,
-        }));
-        setLlmSaved(true);
-        setIsCustomLLM(false);
-        if (addLog) addLog("LLM 설정 초기화", "기본값으로 초기화됨");
-      }
-    } catch (e) {
-      console.error("LLM 설정 초기화 실패:", e);
-      if (addLog) addLog("LLM 설정 초기화", `실패: ${e.message}`);
-    } finally {
-      setLlmSaving(false);
-    }
-  }, [apiCall, auth, setSettings, addLog]);
-
-  // 백엔드에 시스템 프롬프트 저장
-  const savePromptToBackend = useCallback(async () => {
-    if (typeof apiCall !== "function") {
-      // 백엔드 연결 없으면 로컬만 저장
-      setSettings((s) => ({ ...s, systemPrompt: draftPrompt }));
-      setPromptSaved(true);
-      if (addLog) addLog("프롬프트 변경", "로컬 저장됨 (백엔드 연결 없음)");
-      return;
-    }
-
-    setPromptSaving(true);
-    try {
-      const res = await apiCall({
-        endpoint: "/api/settings/prompt",
-        method: "POST",
-        auth,
-        body: { systemPrompt: draftPrompt },
-        timeoutMs: 30000,
-      });
-
-      if (res?.status === "SUCCESS") {
-        setSettings((s) => ({ ...s, systemPrompt: draftPrompt }));
-        setPromptSaved(true);
-        setIsCustomPrompt(true);
-        if (addLog) addLog("프롬프트 변경", "백엔드에 저장됨");
-      } else {
-        throw new Error(res?.message || "저장 실패");
-      }
-    } catch (e) {
-      console.error("프롬프트 저장 실패:", e);
-      // 백엔드 저장 실패해도 로컬에는 저장
-      setSettings((s) => ({ ...s, systemPrompt: draftPrompt }));
-      setPromptSaved(true);
-      if (addLog) addLog("프롬프트 변경", `로컬 저장됨 (백엔드 오류: ${e.message})`);
-    } finally {
-      setPromptSaving(false);
-    }
-  }, [apiCall, auth, draftPrompt, setSettings, addLog]);
-
-  // 기본값으로 초기화
-  const resetPromptToDefault = useCallback(async () => {
-    if (typeof apiCall !== "function") return;
-
-    setPromptSaving(true);
-    try {
-      const res = await apiCall({
-        endpoint: "/api/settings/prompt/reset",
-        method: "POST",
-        auth,
-        timeoutMs: 30000,
-      });
-
-      if (res?.status === "SUCCESS") {
-        const defaultPrompt = res?.data?.systemPrompt || DEFAULT_FALLBACK_SYSTEM_PROMPT;
-        setSettings((s) => ({ ...s, systemPrompt: defaultPrompt }));
-        setDraftPrompt(defaultPrompt);
-        setPromptSaved(true);
-        setIsCustomPrompt(false);
-        if (addLog) addLog("프롬프트 초기화", "기본값으로 초기화됨");
-      }
-    } catch (e) {
-      console.error("프롬프트 초기화 실패:", e);
-      if (addLog) addLog("프롬프트 초기화", `실패: ${e.message}`);
-    } finally {
-      setPromptSaving(false);
-    }
-  }, [apiCall, auth, setSettings, addLog]);
 
   // LLM 설정 변경 감지 - draft에만 저장 (저장 버튼 누르기 전)
   const handleLLMSettingChange = useCallback((key, value) => {

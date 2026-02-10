@@ -1,5 +1,6 @@
 import math
-from typing import Any, Dict
+import re
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -116,3 +117,30 @@ def normalize_model_name(model_name: str) -> str:
     if ml.startswith("gpt-4"):
         return m
     return "gpt-4o-mini"
+
+
+# ============================================================
+# ID 추출 유틸리티
+# ============================================================
+def extract_seller_id(text: str) -> Optional[str]:
+    """텍스트에서 셀러 ID를 추출합니다 (SEL0001 ~ SEL000001 형식, 1~6자리)."""
+    if not text:
+        return None
+    match = re.search(r'SEL\d{1,6}', text.upper())
+    return match.group() if match else None
+
+
+def extract_shop_id(text: str) -> Optional[str]:
+    """텍스트에서 쇼핑몰 ID를 추출합니다 (S0001 형식, 4~6자리)."""
+    if not text:
+        return None
+    match = re.search(r'S\d{4,6}', text.upper())
+    return match.group() if match else None
+
+
+def extract_order_id(text: str) -> Optional[str]:
+    """텍스트에서 주문 ID를 추출합니다 (O0001 형식, 4~8자리)."""
+    if not text:
+        return None
+    match = re.search(r'O\d{4,8}', text.upper())
+    return match.group() if match else None

@@ -7,11 +7,11 @@ export default function ToastProvider() {
       toastOptions={{
         duration: 2600,
         style: {
-          background: 'rgba(255,255,255,0.92)',
-          color: '#0f172a',
-          border: '1px solid rgba(15,23,42,0.10)',
+          background: 'var(--panel2)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
           borderRadius: '14px',
-          boxShadow: '0 18px 32px rgba(15,23,42,0.10)',
+          boxShadow: 'var(--shadowHover)',
         },
       }}
     />

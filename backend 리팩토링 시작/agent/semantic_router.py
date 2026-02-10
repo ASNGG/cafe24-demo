@@ -61,7 +61,7 @@ ROUTE_EXAMPLES: Dict[IntentCategory, List[str]] = {
         "정산 현황",
     ],
 
-    IntentCategory.WORLDVIEW: [
+    IntentCategory.PLATFORM: [
         # 플랫폼/정책
         "카페24 정산 정책 알려줘",
         "정산 주기가 어떻게 돼?",
@@ -89,7 +89,7 @@ ROUTE_EXAMPLES: Dict[IntentCategory, List[str]] = {
         "CS 가이드라인",
     ],
 
-    IntentCategory.COOKIE: [
+    IntentCategory.SHOP: [
         # 쇼핑몰 정보
         "S0001 쇼핑몰 정보",
         "이 쇼핑몰 알려줘",
@@ -117,7 +117,7 @@ ROUTE_EXAMPLES: Dict[IntentCategory, List[str]] = {
         "전체 쇼핑몰 보여줘",
     ],
 
-    IntentCategory.USER: [
+    IntentCategory.SELLER: [
         # 특정 셀러 분석
         "SEL0001 셀러 분석해줘",
         "이 셀러 정보 알려줘",
@@ -139,7 +139,7 @@ ROUTE_EXAMPLES: Dict[IntentCategory, List[str]] = {
         "셀러 이탈 확률",
     ],
 
-    IntentCategory.TRANSLATE: [
+    IntentCategory.CS: [
         # CS 응답
         "이 문의에 답변해줘",
         "CS 자동 응답 생성",

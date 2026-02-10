@@ -80,7 +80,7 @@ async def pm_discover(body: PMDiscoverRequest):
             len(result.get("top_patterns", [])),
         )
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "process_type": ptype,
             "n_cases": body.n_cases,
             "data": json_sanitize(result),
@@ -89,7 +89,7 @@ async def pm_discover(body: PMDiscoverRequest):
         st.logger.exception("PM_DISCOVER error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )
 
 
@@ -111,7 +111,7 @@ async def pm_bottlenecks(body: PMBottleneckRequest):
             len(result.get("bottlenecks", [])),
         )
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "process_type": ptype,
             "n_cases": body.n_cases,
             "data": json_sanitize(result),
@@ -120,7 +120,7 @@ async def pm_bottlenecks(body: PMBottleneckRequest):
         st.logger.exception("PM_BOTTLENECK error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )
 
 
@@ -153,7 +153,7 @@ async def pm_recommend(body: PMRecommendRequest):
             recommendation.get("estimated_time_saving_percent", "?"),
         )
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "process_type": ptype,
             "n_cases": body.n_cases,
             "data": json_sanitize(recommendation),
@@ -162,7 +162,7 @@ async def pm_recommend(body: PMRecommendRequest):
         st.logger.exception("PM_RECOMMEND error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )
 
 
@@ -190,7 +190,7 @@ async def pm_predict(body: PMPredictRequest):
 
         st.logger.info("PM_PREDICT done case_id=%s", case_id)
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "process_type": ptype,
             "n_cases": body.n_cases,
             "data": json_sanitize(result),
@@ -199,7 +199,7 @@ async def pm_predict(body: PMPredictRequest):
         st.logger.exception("PM_PREDICT error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )
 
 
@@ -221,7 +221,7 @@ async def pm_anomalies(body: PMAnomalyRequest):
             len(result.get("anomalies", [])),
         )
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "process_type": ptype,
             "n_cases": body.n_cases,
             "data": json_sanitize(result),
@@ -230,7 +230,7 @@ async def pm_anomalies(body: PMAnomalyRequest):
         st.logger.exception("PM_ANOMALIES error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )
 
 
@@ -284,12 +284,12 @@ async def pm_dashboard():
 
         st.logger.info("PM_DASHBOARD done")
         return JSONResponse(content={
-            "status": "SUCCESS",
+            "status": "success",
             "data": json_sanitize(dashboard),
         })
     except Exception as e:
         st.logger.exception("PM_DASHBOARD error: %s", e)
         return JSONResponse(
             status_code=500,
-            content={"status": "FAILED", "error": str(e)},
+            content={"status": "error", "message": str(e)},
         )

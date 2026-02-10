@@ -70,56 +70,9 @@ def extract_user_id(text: str) -> Optional[str]:
     return m.group(1).upper()
 
 
-def extract_cookie_id(text: str) -> Optional[str]:
-    """텍스트에서 쿠키 ID 추출 (예: CK001)"""
-    t = text or ""
-    m = re.search(r"(?i)(?<![0-9a-zA-Z])(ck\d{3})(?!\d)", t)
-    if not m:
-        m = re.search(r"(?i)(ck\d{3})", t)
-        if not m:
-            return None
-    return m.group(1).upper()
-
-
-def extract_kingdom_id(text: str) -> Optional[str]:
-    """텍스트에서 왕국 ID 추출 (예: KD001)"""
-    t = text or ""
-    m = re.search(r"(?i)(?<![0-9a-zA-Z])(kd\d{3})(?!\d)", t)
-    if not m:
-        m = re.search(r"(?i)(kd\d{3})", t)
-        if not m:
-            return None
-    return m.group(1).upper()
-
-
 def _norm_key(s: Any) -> str:
     """문자열 정규화 (공백 제거, 소문자 변환)"""
     return re.sub(r"\s+", "", safe_str(s)).lower().strip()
-
-
-def extract_cookie_grade_from_text(user_text: str) -> Optional[str]:
-    """텍스트에서 쿠키 등급 추출"""
-    txt = safe_str(user_text).strip().lower()
-
-    grades = {
-        "커먼": "커먼",
-        "레어": "레어",
-        "슈퍼레어": "슈퍼레어",
-        "에픽": "에픽",
-        "레전더리": "레전더리",
-        "에인션트": "에인션트",
-        "common": "커먼",
-        "rare": "레어",
-        "super rare": "슈퍼레어",
-        "epic": "에픽",
-        "legendary": "레전더리",
-        "ancient": "에인션트",
-    }
-
-    for key, value in grades.items():
-        if key in txt:
-            return value
-    return None
 
 
 def extract_language_from_text(user_text: str) -> Optional[str]:

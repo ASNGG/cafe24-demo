@@ -385,8 +385,8 @@ def search_platform_lightrag(query: str, mode: str = "hybrid", top_k: int = 5) -
     status = get_lightrag_status()
     if not status.get("ready"):
         return {
-            "status": "FAILED",
-            "error": "LightRAG가 준비되지 않았습니다. 먼저 인덱스를 빌드해주세요.",
+            "status": "error",
+            "message": "LightRAG가 준비되지 않았습니다. 먼저 인덱스를 빌드해주세요.",
             "lightrag_status": status
         }
 

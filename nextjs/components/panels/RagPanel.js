@@ -1,25 +1,16 @@
 // components/panels/RagPanel.js
 import { useCallback, useEffect, useState } from 'react';
-import { Upload, FileText, Trash2, RefreshCw, CheckCircle, XCircle, AlertCircle, Image, ScanText, Zap, GitBranch, Search, Loader2, CheckSquare, Square, Sparkles } from 'lucide-react';
+import { Upload, FileText, Trash2, RefreshCw, CheckCircle, XCircle, AlertCircle, Image, ScanText, Zap, GitBranch, Search, Sparkles } from 'lucide-react';
+import toast from 'react-hot-toast';
 import SectionHeader from '../SectionHeader';
 
 export default function RagPanel({ auth, apiCall, addLog, settings, setSettings }) {
   const [files, setFiles] = useState([]);
   const [status, setStatus] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [selectedOcrFile, setSelectedOcrFile] = useState(null);
-  const [ocrUploading, setOcrUploading] = useState(false);
-  const [ocrResult, setOcrResult] = useState(null);
-  const [lightragBuilding, setLightragBuilding] = useState(false);
   const [lightragStatus, setLightragStatus] = useState(null);
-  const [showReindexTooltip, setShowReindexTooltip] = useState(false);
-  const [showUploadTooltip, setShowUploadTooltip] = useState(false);
   const [showOcrTooltip, setShowOcrTooltip] = useState(false);
   const [showDeleteTooltip, setShowDeleteTooltip] = useState(false);
-  const [selectedForDelete, setSelectedForDelete] = useState(new Set());
-  const [deleting, setDeleting] = useState(false);
 
   // RAG 상태 로드
   const loadStatus = useCallback(async () => {
@@ -33,7 +24,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
         auth,
       });
 
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         setStatus(res);
       }
 
@@ -44,7 +35,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
         auth,
       });
 
-      if (lightragRes?.status === 'SUCCESS') {
+      if (lightragRes?.status === 'success') {
         setLightragStatus(lightragRes);
       }
     } catch (e) {
@@ -65,7 +56,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
         auth,
       });
 
-      if (res?.status === 'SUCCESS' && Array.isArray(res.files)) {
+      if (res?.status === 'success' && Array.isArray(res.files)) {
         setFiles(res.files);
       }
     } catch (e) {
@@ -79,249 +70,8 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
     loadFiles();
   }, [loadStatus, loadFiles]);
 
-  // 파일 업로드 (다중 파일 지원 - 배치 업로드 후 한 번만 재빌드)
-  const handleFileUpload = useCallback(async () => {
-    if (selectedFiles.length === 0 || !auth) return;
-
-    setUploading(true);
-    const totalFiles = selectedFiles.length;
-    const results = { success: [], failed: [] };
-
-    // 1단계: 모든 파일 업로드 (skip_reindex=true로 재빌드 건너뛰기)
-    for (let i = 0; i < totalFiles; i++) {
-      const file = selectedFiles[i];
-      addLog?.('RAG 문서 업로드', `${file.name} (${i + 1}/${totalFiles})`);
-
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const base = process.env.NEXT_PUBLIC_API_BASE || '';
-        // 모든 파일에 skip_reindex=true 추가
-        const url = `${base}/api/rag/upload?skip_reindex=true`;
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${window.btoa(`${auth.username}:${auth.password}`)}`,
-          },
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'SUCCESS') {
-          results.success.push(file.name);
-        } else {
-          results.failed.push({ name: file.name, error: result.error || '알 수 없는 오류' });
-        }
-      } catch (e) {
-        results.failed.push({ name: file.name, error: e.message });
-      }
-    }
-
-    // 2단계: 업로드 성공한 파일이 있으면 인덱스 한 번만 재빌드
-    if (results.success.length > 0) {
-      addLog?.('RAG 인덱스 재빌드', `${results.success.length}개 파일 처리`);
-      try {
-        await apiCall({
-          endpoint: '/api/rag/reload',
-          method: 'POST',
-          auth,
-          data: { force: true },
-        });
-      } catch (e) {
-        console.error('인덱스 재빌드 실패:', e);
-      }
-    }
-
-    // 결과 알림
-    let message = '';
-    if (results.success.length > 0) {
-      message += `✅ ${results.success.length}개 파일 업로드 성공\n`;
-    }
-    if (results.failed.length > 0) {
-      message += `❌ ${results.failed.length}개 파일 업로드 실패\n`;
-      results.failed.forEach(f => {
-        message += `  - ${f.name}: ${f.error}\n`;
-      });
-    }
-    alert(message);
-
-    setSelectedFiles([]);
-
-    // 파일 목록 및 상태 새로고침
-    await loadFiles();
-    await loadStatus();
-
-    setUploading(false);
-  }, [selectedFiles, auth, addLog, loadFiles, loadStatus, apiCall]);
-
-  // 파일 삭제 (단일)
-  const handleFileDelete = useCallback(async (filename) => {
-    if (!confirm(`"${filename}" 파일을 삭제하시겠습니까?`)) return;
-    if (!auth) return;
-
-    addLog?.('RAG 문서 삭제', filename);
-
-    try {
-      const res = await apiCall({
-        endpoint: '/api/rag/delete',
-        method: 'POST',
-        auth,
-        data: { filename },
-      });
-
-      if (res?.status === 'SUCCESS') {
-        alert('파일이 삭제되었습니다.');
-        setSelectedForDelete(prev => {
-          const next = new Set(prev);
-          next.delete(filename);
-          return next;
-        });
-        await loadFiles();
-        await loadStatus();
-      } else {
-        alert(`삭제 실패: ${res.error || '알 수 없는 오류'}`);
-      }
-    } catch (e) {
-      alert(`삭제 실패: ${e.message}`);
-    }
-  }, [apiCall, auth, addLog, loadFiles, loadStatus]);
-
-  // 파일 다중 삭제
-  const handleMultiDelete = useCallback(async () => {
-    if (selectedForDelete.size === 0) return;
-    if (!confirm(`${selectedForDelete.size}개 파일을 삭제하시겠습니까?`)) return;
-    if (!auth) return;
-
-    setDeleting(true);
-    const totalFiles = selectedForDelete.size;
-    const results = { success: [], failed: [] };
-
-    // 1단계: 모든 파일 삭제 (skip_reindex=true로 재빌드 건너뛰기)
-    for (const filename of selectedForDelete) {
-      addLog?.('RAG 문서 삭제', `${filename} (${results.success.length + results.failed.length + 1}/${totalFiles})`);
-
-      try {
-        const res = await apiCall({
-          endpoint: '/api/rag/delete',
-          method: 'POST',
-          auth,
-          data: { filename, skip_reindex: true },
-        });
-
-        if (res?.status === 'SUCCESS') {
-          results.success.push(filename);
-        } else {
-          results.failed.push({ name: filename, error: res.error || '알 수 없는 오류' });
-        }
-      } catch (e) {
-        results.failed.push({ name: filename, error: e.message });
-      }
-    }
-
-    // 2단계: 삭제 성공한 파일이 있으면 인덱스 한 번만 재빌드
-    if (results.success.length > 0) {
-      addLog?.('RAG 인덱스 재빌드', `${results.success.length}개 파일 삭제 후 재빌드`);
-      try {
-        await apiCall({
-          endpoint: '/api/rag/reload',
-          method: 'POST',
-          auth,
-          data: { force: true },
-          timeoutMs: 300000, // 5분
-        });
-      } catch (e) {
-        console.error('인덱스 재빌드 실패:', e);
-      }
-    }
-
-    // 결과 알림
-    let message = '';
-    if (results.success.length > 0) {
-      message += `✅ ${results.success.length}개 파일 삭제 성공\n`;
-    }
-    if (results.failed.length > 0) {
-      message += `❌ ${results.failed.length}개 파일 삭제 실패\n`;
-      results.failed.forEach(f => {
-        message += `  - ${f.name}: ${f.error}\n`;
-      });
-    }
-    alert(message);
-
-    setSelectedForDelete(new Set());
-    await loadFiles();
-    await loadStatus();
-    setDeleting(false);
-  }, [selectedForDelete, apiCall, auth, addLog, loadFiles, loadStatus]);
-
-  // 삭제용 파일 선택 토글
-  const toggleFileForDelete = useCallback((filename) => {
-    setSelectedForDelete(prev => {
-      const next = new Set(prev);
-      if (next.has(filename)) {
-        next.delete(filename);
-      } else {
-        next.add(filename);
-      }
-      return next;
-    });
-  }, []);
-
-  // 전체 선택/해제
-  const toggleSelectAll = useCallback(() => {
-    if (selectedForDelete.size === files.length) {
-      setSelectedForDelete(new Set());
-    } else {
-      setSelectedForDelete(new Set(files.map(f => f.filename)));
-    }
-  }, [files, selectedForDelete]);
-
-  // OCR 업로드
-  const handleOcrUpload = useCallback(async () => {
-    if (!selectedOcrFile || !auth) return;
-
-    setOcrUploading(true);
-    setOcrResult(null);
-    addLog?.('OCR 이미지 업로드', selectedOcrFile.name);
-
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedOcrFile);
-      formData.append('save_to_rag', 'true');
-
-      const base = process.env.NEXT_PUBLIC_API_BASE || '';
-      const url = `${base}/api/ocr/extract`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${window.btoa(`${auth.username}:${auth.password}`)}`,
-        },
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.status === 'SUCCESS') {
-        setOcrResult(result);
-        setSelectedOcrFile(null);
-        await loadFiles();
-        await loadStatus();
-      } else {
-        alert(`OCR 실패: ${result.error || '알 수 없는 오류'}`);
-      }
-    } catch (e) {
-      alert(`OCR 실패: ${e.message}`);
-    } finally {
-      setOcrUploading(false);
-    }
-  }, [selectedOcrFile, auth, addLog, loadFiles, loadStatus]);
-
   // 인덱스 재빌드
   const handleReindex = useCallback(async () => {
-    if (!confirm('RAG 인덱스를 재빌드하시겠습니까?')) return;
     if (!auth) return;
 
     addLog?.('RAG 인덱스 재빌드', '');
@@ -333,50 +83,19 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
         method: 'POST',
         auth,
         data: { force: true },
-        timeoutMs: 300000, // 5분 (재빌드에 시간이 오래 걸릴 수 있음)
+        timeoutMs: 300000,
       });
 
-      if (res?.status === 'SUCCESS') {
-        alert('인덱스가 재빌드되었습니다.');
+      if (res?.status === 'success') {
+        toast.success('인덱스가 재빌드되었습니다.');
         await loadStatus();
       } else {
-        alert(`재빌드 실패: ${res.error || '알 수 없는 오류'}`);
+        toast.error(`재빌드 실패: ${res.message || '알 수 없는 오류'}`);
       }
     } catch (e) {
-      alert(`재빌드 실패: ${e.message}`);
+      toast.error(`재빌드 실패: ${e.message}`);
     } finally {
       setLoading(false);
-    }
-  }, [apiCall, auth, addLog, loadStatus]);
-
-  // LightRAG 빌드
-  const handleLightragBuild = useCallback(async () => {
-    if (!confirm('LightRAG 지식 그래프를 빌드하시겠습니까?\n(LLM API 호출 비용이 발생합니다)')) return;
-    if (!auth) return;
-
-    addLog?.('LightRAG 빌드', '');
-    setLightragBuilding(true);
-
-    try {
-      const res = await apiCall({
-        endpoint: '/api/lightrag/build',
-        method: 'POST',
-        auth,
-        data: { forceRebuild: false },
-        timeoutMs: 600000, // 10분
-      });
-
-      if (res?.status === 'SUCCESS') {
-        alert(res.message || 'LightRAG 빌드가 시작되었습니다.');
-        // 빌드 완료까지 주기적으로 상태 확인
-        setTimeout(() => loadStatus(), 10000);
-      } else {
-        alert(`LightRAG 빌드 실패: ${res.error || '알 수 없는 오류'}`);
-      }
-    } catch (e) {
-      alert(`LightRAG 빌드 실패: ${e.message}`);
-    } finally {
-      setLightragBuilding(false);
     }
   }, [apiCall, auth, addLog, loadStatus]);
 

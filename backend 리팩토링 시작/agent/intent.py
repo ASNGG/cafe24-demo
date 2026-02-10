@@ -9,7 +9,7 @@ import time
 from typing import Optional, Dict, Any, Tuple
 
 from core.constants import RAG_DOCUMENTS, SUMMARY_TRIGGERS
-from core.utils import safe_str
+from core.utils import safe_str, extract_seller_id, extract_shop_id, extract_order_id
 from agent.tools import (
     tool_get_shop_info,
     tool_list_shops,
@@ -155,57 +155,6 @@ def detect_intent(user_text: str) -> Dict[str, bool]:
 
 
 # ============================================================
-# 셀러 ID 추출 (SEL0001 패턴)
-# ============================================================
-def extract_seller_id(user_text: str) -> Optional[str]:
-    """텍스트에서 셀러 ID를 추출합니다."""
-    if not user_text:
-        return None
-
-    import re
-    pattern = r'SEL\d{1,6}'
-    match = re.search(pattern, user_text.upper())
-    if match:
-        return match.group()
-
-    return None
-
-
-# ============================================================
-# 쇼핑몰 ID 추출 (S0001 패턴)
-# ============================================================
-def extract_shop_id(user_text: str) -> Optional[str]:
-    """텍스트에서 쇼핑몰 ID를 추출합니다."""
-    if not user_text:
-        return None
-
-    import re
-    pattern = r'S\d{4,6}'
-    match = re.search(pattern, user_text.upper())
-    if match:
-        return match.group()
-
-    return None
-
-
-# ============================================================
-# 주문 ID 추출 (O 패턴)
-# ============================================================
-def extract_order_id(user_text: str) -> Optional[str]:
-    """텍스트에서 주문 ID를 추출합니다."""
-    if not user_text:
-        return None
-
-    import re
-    pattern = r'O\d{4,8}'
-    match = re.search(pattern, user_text.upper())
-    if match:
-        return match.group()
-
-    return None
-
-
-# ============================================================
 # CS 문의 카테고리 추출
 # ============================================================
 def extract_cs_category(user_text: str) -> Optional[str]:
@@ -298,7 +247,7 @@ def run_deterministic_tools(user_text: str, context_id: Optional[str] = None) ->
     if intents.get("want_cs_reply"):
         cs_category = extract_cs_category(user_text)
         results["cs_reply_context"] = {
-            "status": "SUCCESS",
+            "status": "success",
             "action": "CS_REPLY",
             "category": cs_category,
             "message": f"'{cs_category}' 카테고리 CS 응답을 준비합니다.",
@@ -330,7 +279,7 @@ def run_deterministic_tools(user_text: str, context_id: Optional[str] = None) ->
     # 문의 분류
     if intents.get("want_classify"):
         results["classify_context"] = {
-            "status": "SUCCESS",
+            "status": "success",
             "action": "CLASSIFY",
             "message": "문의 분류를 위해 분류할 텍스트를 입력해주세요.",
         }

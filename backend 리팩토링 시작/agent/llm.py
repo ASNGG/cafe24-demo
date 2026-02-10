@@ -2,6 +2,7 @@
 agent/llm.py - LangChain 기반 LLM 호출 / 스트리밍
 """
 import json
+import re
 import time
 import inspect
 from typing import Optional, List, Dict, Any
@@ -46,16 +47,31 @@ def _tool_context_block(tool_results: Dict[str, Any]) -> str:
     )
 
 
+# 내부 시스템 태그 패턴 (프롬프트 인젝션 방어)
+_INTERNAL_TAG_PATTERN = re.compile(
+    r'\[INTERNAL_TOOL_RESULTS\]',
+    re.IGNORECASE,
+)
+
+
+def _sanitize_user_input(text: str) -> str:
+    """사용자 입력에서 내부 시스템 태그를 제거하여 프롬프트 인젝션을 방어합니다."""
+    return _INTERNAL_TAG_PATTERN.sub('', text)
+
+
 def build_langchain_messages(system_prompt: str, username: str, user_text: str, tool_results: Dict[str, Any]) -> List[BaseMessage]:
     msgs: List[BaseMessage] = []
     msgs.append(SystemMessage(content=safe_str(system_prompt)))
     msgs.extend(_lc_from_memory(username))
 
+    # 사용자 입력 새니타이징 (내부 시스템 태그 제거)
+    sanitized_user_text = _sanitize_user_input(safe_str(user_text))
+
     context = _tool_context_block(tool_results) if isinstance(tool_results, dict) and len(tool_results) else ""
     if context:
-        final_user = f"{safe_str(user_text)}\n\n[INTERNAL_TOOL_RESULTS]\n{context}"
+        final_user = f"{sanitized_user_text}\n\n[INTERNAL_TOOL_RESULTS]\n{context}"
     else:
-        final_user = safe_str(user_text)
+        final_user = sanitized_user_text
 
     msgs.append(HumanMessage(content=final_user))
     return msgs
@@ -163,7 +179,7 @@ def invoke_with_retry(llm: ChatOpenAI, messages: List[BaseMessage], max_retries:
             last_exception = e
             st.logger.warning("LANGCHAIN_INVOKE_FAIL attempt=%d err=%s", attempt + 1, safe_str(e))
             if attempt < max_retries - 1:
-                time.sleep(1)
+                time.sleep(min(2 ** attempt, 16))
             else:
                 raise last_exception
     return ""

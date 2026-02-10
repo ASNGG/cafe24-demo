@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
+import StatCard from '@/components/common/StatCard';
 import {
   Shield, AlertTriangle, RotateCcw, BarChart3, Play, Loader2,
   CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronRight,
@@ -57,13 +58,16 @@ export default function GuardianPanel({ auth, apiCall }) {
   return (
     <div className="space-y-4">
       {/* 서브탭 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="tablist" aria-label="Guardian 탭">
         {TABS.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.key;
           return (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={active}
+              tabIndex={active ? 0 : -1}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
                 active
@@ -143,7 +147,7 @@ function MonitorTab({ auth, apiCall }) {
         data: { ...form, mode: guardMode },
         timeoutMs: 30000,
       });
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         setResult({ ...res, _mode: guardMode });
       } else {
         toast.error(res?.message || '분석 실패');
@@ -354,7 +358,7 @@ function AnalysisResult({ result, form, auth, apiCall }) {
         },
         timeoutMs: 15000,
       });
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         toast.success(res.message || '발송 완료');
         setShowEmailInput(false);
       } else {
@@ -633,7 +637,7 @@ function RecoverTab({ auth, apiCall }) {
         data: { message },
         timeoutMs: 30000,
       });
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         setResult(res);
       } else {
         toast.error(res?.message || '복구 요청 실패');
@@ -728,9 +732,9 @@ function DashboardTab({ auth, apiCall }) {
         apiCall({ endpoint: '/api/guardian/logs?limit=20', auth, timeoutMs: 5000 }),
         apiCall({ endpoint: '/api/guardian/logs?limit=10&status_filter=blocked', auth, timeoutMs: 5000 }),
       ]);
-      if (statsRes?.status === 'SUCCESS') setStats(statsRes);
-      if (logsRes?.status === 'SUCCESS') setLogs(logsRes.logs || []);
-      if (blockedRes?.status === 'SUCCESS') setBlockedLogs(blockedRes.logs || []);
+      if (statsRes?.status === 'success') setStats(statsRes);
+      if (logsRes?.status === 'success') setLogs(logsRes.logs || []);
+      if (blockedRes?.status === 'success') setBlockedLogs(blockedRes.logs || []);
     } catch (e) {
       toast.error('데이터 로드 실패');
     } finally {
@@ -832,25 +836,6 @@ function DashboardTab({ auth, apiCall }) {
           </table>
         </div>
       </div>
-    </div>
-  );
-}
-
-// 통계 카드
-function StatCard({ icon: Icon, label, value, color }) {
-  const colors = {
-    indigo: 'border-indigo-200 bg-indigo-50/50 text-indigo-600',
-    red: 'border-red-200 bg-red-50/50 text-red-600',
-    amber: 'border-amber-200 bg-amber-50/50 text-amber-600',
-    emerald: 'border-emerald-200 bg-emerald-50/50 text-emerald-600',
-  };
-  return (
-    <div className={`rounded-2xl border p-4 ${colors[color]}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <Icon size={16} />
-        <span className="text-xs font-medium text-gray-500">{label}</span>
-      </div>
-      <p className="text-xl font-bold">{value}</p>
     </div>
   );
 }

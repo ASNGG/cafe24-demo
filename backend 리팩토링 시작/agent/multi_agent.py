@@ -40,7 +40,7 @@ from agent.tool_schemas import (
     ALL_TOOLS,
 )
 from agent.llm import get_llm, pick_api_key
-from agent.intent import detect_intent
+from agent.router import _keyword_classify, IntentCategory
 from core.constants import DEFAULT_SYSTEM_PROMPT
 from core.utils import safe_str, format_openai_error, normalize_model_name, json_sanitize
 from core.memory import append_memory, memory_messages
@@ -158,20 +158,25 @@ def coordinator_node(state: AgentState, llm) -> dict:
             user_message = msg.content
             break
 
-    intents = detect_intent(user_message)
+    category = _keyword_classify(user_message)
     iteration = state.get("iteration", 0)
 
     if iteration >= 3:
         return {"next_agent": "end", "iteration": iteration + 1}
 
-    if intents.get("want_translate"):
-        return {"next_agent": "translation", "iteration": iteration + 1}
-    elif intents.get("want_analytics"):
-        return {"next_agent": "analysis", "iteration": iteration + 1}
-    elif intents.get("want_rag") or intents.get("want_cookie") or intents.get("want_kingdom"):
-        return {"next_agent": "search", "iteration": iteration + 1}
-    else:
-        return {"next_agent": "search", "iteration": iteration + 1}
+    # IntentCategory → 에이전트 매핑
+    _CATEGORY_AGENT_MAP = {
+        IntentCategory.CS: "translation",
+        IntentCategory.ANALYSIS: "analysis",
+        IntentCategory.SELLER: "analysis",
+        IntentCategory.DASHBOARD: "analysis",
+        IntentCategory.PLATFORM: "search",
+        IntentCategory.SHOP: "search",
+        IntentCategory.GENERAL: "search",
+    }
+
+    next_agent = _CATEGORY_AGENT_MAP.get(category, "search")
+    return {"next_agent": next_agent, "iteration": iteration + 1}
 
 
 def search_agent_node(state: AgentState, llm) -> dict:
@@ -238,10 +243,10 @@ def tool_executor_node(state: AgentState) -> dict:
             try:
                 result = tool_map[tool_name].invoke(tool_args)
             except Exception as e:
-                result = {"status": "FAILED", "error": safe_str(e)}
+                result = {"status": "error", "message": safe_str(e)}
                 st.logger.exception("TOOL_EXEC_FAIL tool=%s err=%s", tool_name, e)
         else:
-            result = {"status": "FAILED", "error": f"도구 '{tool_name}'을 찾을 수 없습니다."}
+            result = {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
 
         tool_calls_log.append({
             "agent": state.get("current_agent", "unknown"),
@@ -325,8 +330,8 @@ def run_multi_agent(req, username: str) -> dict:
     """LangGraph 기반 멀티 에이전트 실행"""
     if not LANGGRAPH_AVAILABLE:
         return {
-            "status": "FAILED",
-            "response": "langgraph를 설치하세요: pip install langgraph",
+            "status": "error",
+            "message": "langgraph를 설치하세요: pip install langgraph",
             "tool_calls": [],
             "log_file": st.LOG_FILE,
         }
@@ -342,7 +347,7 @@ def run_multi_agent(req, username: str) -> dict:
     if not api_key:
         msg = "OpenAI API Key가 없습니다."
         append_memory(username, user_text, msg)
-        return {"status": "FAILED", "response": msg, "tool_calls": [], "log_file": st.LOG_FILE}
+        return {"status": "error", "message": msg, "tool_calls": [], "log_file": st.LOG_FILE}
 
     try:
         user_temperature = req.temperature if req.temperature is not None else 0.3
@@ -397,7 +402,7 @@ def run_multi_agent(req, username: str) -> dict:
         )
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "response": final_response,
             "tool_calls": tool_calls_log,
             "log_file": st.LOG_FILE,
@@ -413,8 +418,8 @@ def run_multi_agent(req, username: str) -> dict:
         append_memory(username, user_text, msg)
 
         return {
-            "status": "FAILED",
-            "response": msg if req.debug else "처리 오류가 발생했습니다.",
+            "status": "error",
+            "message": msg if req.debug else "처리 오류가 발생했습니다.",
             "tool_calls": [],
             "log_file": st.LOG_FILE,
             "debug_error": err if req.debug else None,

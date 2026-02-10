@@ -296,7 +296,7 @@ export default function AppPage() {
         const res = await apiCall({ endpoint: '/api/shops', auth, timeoutMs: 30000 });
         if (!mounted) return;
 
-        if (res?.status === 'SUCCESS' && Array.isArray(res.shops)) {
+        if (res?.status === 'success' && Array.isArray(res.shops)) {
           setShops(res.shops);
           if (!selectedShop && res.shops.length > 0) {
             setSelectedShop(res.shops[0].id);
@@ -312,7 +312,7 @@ export default function AppPage() {
         const res = await apiCall({ endpoint: '/api/categories', auth, timeoutMs: 30000 });
         if (!mounted) return;
 
-        if (res?.status === 'SUCCESS' && Array.isArray(res.categories)) {
+        if (res?.status === 'success' && Array.isArray(res.categories)) {
           setCategories(res.categories);
         }
       } catch (e) {

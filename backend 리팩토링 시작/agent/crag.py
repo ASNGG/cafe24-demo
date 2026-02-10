@@ -377,7 +377,7 @@ class CRAGWorkflow:
         context_parts = []
 
         for i, result in enumerate(search_results):
-            if result.get("status") != "SUCCESS":
+            if result.get("status") != "success":
                 continue
 
             # 스니펫 추출
@@ -436,10 +436,10 @@ class CRAGWorkflow:
             search_result = self.search_func(current_query, top_k)
             all_search_results.append(search_result)
 
-            if search_result.get("status") != "SUCCESS":
+            if search_result.get("status") != "success":
                 st.logger.warning(
                     "CRAG_SEARCH_FAIL iteration=%d err=%s",
-                    iteration, search_result.get("error"),
+                    iteration, search_result.get("message"),
                 )
                 continue
 

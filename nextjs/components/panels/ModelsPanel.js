@@ -26,7 +26,7 @@ export default function ModelsPanel({ auth, apiCall }) {
           timeoutMs: 5000,
         });
 
-        if (res?.status === 'SUCCESS' && res.data) {
+        if (res?.status === 'success' && res.data) {
           // 서버에서 선택된 모델 상태 적용
           setSelectedModels(res.data);
           console.log('서버에서 모델 선택 상태 로드:', res.data);
@@ -52,7 +52,7 @@ export default function ModelsPanel({ auth, apiCall }) {
           timeoutMs: 10000,
         });
 
-        if (expRes?.status === 'SUCCESS' && expRes.data?.length > 0) {
+        if (expRes?.status === 'success' && expRes.data?.length > 0) {
           // CAFE24 관련 실험만 필터링 (한글/영어 모두 지원)
           const cafe24Exps = expRes.data.filter(exp => {
             const name = exp.name.toLowerCase();
@@ -83,7 +83,7 @@ export default function ModelsPanel({ auth, apiCall }) {
           timeoutMs: 10000,
         });
 
-        if (modelsRes?.status === 'SUCCESS' && modelsRes.data?.length > 0) {
+        if (modelsRes?.status === 'success' && modelsRes.data?.length > 0) {
           // 모든 모델 사용 (한글 이름: 셀러이탈예측, 이상거래탐지, 문의자동분류, 셀러세그먼트, 매출예측, CS응답품질, 고객LTV예측, 리뷰감성분석, 상품수요예측, 정산이상탐지)
           setRegisteredModels(modelsRes.data);
           gotRealData = true;
@@ -131,12 +131,12 @@ export default function ModelsPanel({ auth, apiCall }) {
 
       setSelecting(null);
 
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         // 해당 모델에 대해서만 버전 업데이트
         setSelectedModels(prev => ({ ...prev, [modelName]: version }));
         setMessage({ type: 'success', text: res.message || `${modelName} v${version} 모델이 로드되었습니다` });
       } else {
-        setMessage({ type: 'error', text: res?.error || '모델 로드 실패' });
+        setMessage({ type: 'error', text: res?.message || '모델 로드 실패' });
       }
     } catch (e) {
       setSelecting(null);
@@ -159,7 +159,7 @@ export default function ModelsPanel({ auth, apiCall }) {
         timeoutMs: 10000,
       });
 
-      if (expRes?.status === 'SUCCESS' && expRes.data?.length > 0) {
+      if (expRes?.status === 'success' && expRes.data?.length > 0) {
         // CAFE24 관련 실험만 필터링 (한글/영어 모두 지원)
         const cafe24Exps = expRes.data.filter(exp => {
           const name = exp.name.toLowerCase();
@@ -188,7 +188,7 @@ export default function ModelsPanel({ auth, apiCall }) {
         timeoutMs: 10000,
       });
 
-      if (modelsRes?.status === 'SUCCESS' && modelsRes.data?.length > 0) {
+      if (modelsRes?.status === 'success' && modelsRes.data?.length > 0) {
         // 모든 모델 사용 (한글 이름)
         setRegisteredModels(modelsRes.data);
         gotRealData = true;
@@ -353,7 +353,7 @@ export default function ModelsPanel({ auth, apiCall }) {
                         <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${
                           run.status === 'FINISHED' ? 'bg-green-100 text-green-700' :
                           run.status === 'RUNNING' ? 'bg-blue-100 text-blue-700 animate-pulse' :
-                          run.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                          run.status === 'error' ? 'bg-red-100 text-red-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
                           {run.status}

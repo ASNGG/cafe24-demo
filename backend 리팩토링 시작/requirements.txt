@@ -37,7 +37,7 @@ easyocr>=1.7
 
 # Advanced RAG (Hybrid Search + Reranking)
 rank-bm25>=0.2.2          # BM25 키워드 검색
-sentence-transformers>=2.2 # Cross-Encoder Reranking
+# sentence-transformers>=2.2 # Cross-Encoder Reranking (비활성 - 메모리 절약)
 faiss-cpu>=1.7            # 벡터 검색 (FAISS)
 
 # ML Explainability

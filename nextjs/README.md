@@ -14,6 +14,7 @@
 
 ## 목차
 
+0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
 2. [패널 (11개)](#2-패널-11개)
 3. [컴포넌트](#3-컴포넌트)
@@ -21,6 +22,23 @@
 5. [상태 관리](#5-상태-관리)
 6. [디자인 시스템](#6-디자인-시스템)
 7. [환경 설정](#7-환경-설정)
+8. [인증 및 라우팅](#8-인증-및-라우팅)
+9. [데이터 흐름](#9-데이터-흐름)
+10. [에러 핸들링](#10-에러-핸들링)
+11. [성능 최적화](#11-성능-최적화)
+
+---
+
+## 프로젝트 개요
+
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝 등 **11개 기능 패널**을 탭 기반 SPA로 제공한다.
+
+**UX 설계 원칙:**
+- **점진적 노출(Progressive Disclosure)**: 핵심 정보를 먼저 보여주고, 상세 데이터는 접이식/드릴다운으로 제공하여 인지 부하를 줄인다
+- **실시간 피드백**: SSE 스트리밍으로 AI 응답을 토큰 단위로 표시하고, 도구 호출 상태를 실시간 업데이트하여 대기 불안감을 해소한다
+- **직접 조작(Direct Manipulation)**: DnD로 CS 문의를 드래그하여 자동/수동 분기하고, 슬라이더로 신뢰도 임계값을 조정하는 등 직관적 인터랙션을 지원한다
+- **상태 가시성**: 로딩 스켈레톤, NProgress 전환 바, 토스트 알림으로 시스템 상태를 항상 투명하게 전달한다
+- **역할 기반 접근 제어**: 관리자/비관리자 역할에 따라 패널 접근을 자동으로 필터링한다
 
 ---
 
@@ -51,7 +69,8 @@ nextjs/
 │   ├── KpiCard.js                  # KPI 지표 카드
 │   ├── SectionHeader.js            # 섹션 제목 + 액션 버튼
 │   ├── EmptyState.js               # 빈 상태 UI
-│   ├── Skeleton.js                 # 로딩 스켈레톤 (SkeletonCard 포함)
+│   ├── Skeleton.js                 # 로딩 스켈레톤 (CSS shimmer 애니메이션)
+│   ├── ToastProvider.js             # 전역 토스트 알림 (react-hot-toast, top-right)
 │   │
 │   └── panels/                     # 기능별 패널 (메인 콘텐츠)
 │       ├── AgentPanel.js           # AI 에이전트 채팅 (KaTeX 수학 렌더링)
@@ -67,18 +86,19 @@ nextjs/
 │       └── ProcessMinerPanel.js    # 실험실 - 프로세스 마이닝 & ML 분석
 │
 ├── lib/                            # 유틸리티 함수
-│   ├── api.js                      # API 호출 (Basic Auth, 타임아웃)
-│   ├── storage.js                  # 로컬/세션 스토리지 관리
-│   ├── cn.js                       # 클래스명 병합
-│   ├── utils.js                    # 공통 유틸리티
-│   └── progress.js                 # NProgress 페이지 전환 설정
+│   ├── api.js                      # API 호출 (Basic Auth, AbortController 타임아웃)
+│   ├── storage.js                  # 로컬/세션 스토리지 관리 (SSR 안전)
+│   ├── cn.js                       # 클래스명 병합 (flat + filter)
+│   ├── utils.js                    # 공통 유틸리티 (cn 확장: 객체/배열 지원)
+│   └── progress.js                 # NProgress 중첩 카운터 (inflight 추적)
 │
 ├── styles/
-│   ├── globals.css                 # 전역 스타일 (Tailwind + CAFE24 토큰)
+│   ├── globals.css                 # 전역 스타일 (Tailwind + CAFE24 토큰 + 30+ 컴포넌트 클래스)
 │   └── nprogress.css               # 페이지 전환 진행바
 │
-├── next.config.js                  # Next.js 설정 (API 프록시)
-├── tailwind.config.js              # Tailwind 커스텀 설정
+├── next.config.js                  # Next.js 설정 (rewrites API 프록시)
+├── tailwind.config.js              # Tailwind 커스텀 설정 (CAFE24 테마, @tailwindcss/typography)
+├── postcss.config.js               # PostCSS 설정 (Tailwind + Autoprefixer)
 └── package.json
 ```
 
@@ -92,6 +112,8 @@ nextjs/
 |------|---------------|-------|
 | **관리자** | 11개 전부 | 11 |
 | **비관리자** (운영자/분석가/사용자) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner | 6 |
+
+> `pages/app.js`에서 `auth.role`을 기반으로 `Tabs` 컴포넌트가 자동으로 탭 목록을 필터링한다.
 
 ---
 
@@ -107,8 +129,8 @@ nextjs/
 ```mermaid
 flowchart TB
     Q["사용자 입력"]
-    Mode["RAG 모드 선택"]
-    SSE["/api/agent/stream"]
+    Mode["RAG 모드 선택<br/>(rag / lightrag / k2rag / auto)"]
+    SSE["/api/agent/stream (SSE)"]
     R1["토큰 단위 실시간 표시"]
     R2["마크다운 + GFM 테이블<br/>+ KaTeX 수학 렌더링"]
     R3["도구 호출 결과 (접이식)"]
@@ -116,7 +138,7 @@ flowchart TB
     Q --> Mode --> SSE --> R1 & R2 & R3
 ```
 
-**RAG 모드 선택** (RagPanel에서 설정):
+**RAG 모드 선택** (RagPanel에서 설정, `settings.ragMode`로 전달):
 
 | 모드 | 설명 | 특징 | 상태 |
 |------|------|------|------|
@@ -125,7 +147,7 @@ flowchart TB
 | `k2rag` | KG + Sub-Q + Hybrid | 고정밀 검색 | 시험중 (비활성) |
 | `auto` | AI가 자동 선택 | 두 RAG 도구 모두 제공 | 비활성 |
 
-**예시 질문 카테고리:**
+**예시 질문 카테고리** (Sidebar 아코디언에서 클릭 시 자동 입력):
 
 | 카테고리 | 예시 |
 |----------|------|
@@ -135,13 +157,13 @@ flowchart TB
 | **비즈니스 KPI** | "최근 7일 KPI 트렌드 분석해줘" |
 | **셀러 분석** | "우수 셀러 세그먼트 통계 알려줘" |
 
-**UI 특징:**
-- CAFE24 블루 테마
-- 진행 표시 애니메이션
-- 도구 실행 결과 접이식 표시 (tool_start/tool_end 실시간 상태)
-- 응답 복사 버튼, 다시 질문 버튼
-- GFM 테이블 + KaTeX 수학 수식 지원
-- 스트리밍 중단 버튼
+**인터랙션 패턴:**
+- SSE 스트리밍으로 토큰 단위 실시간 렌더링 (타이핑 효과)
+- `tool_start` 이벤트 수신 시 도구명 표시 + 로딩 스피너, `tool_end`에서 결과를 접이식 패널로 전환
+- 스트리밍 도중 **중단 버튼**으로 AbortController를 통한 즉시 중단
+- 완료된 응답에 **복사 버튼**, **다시 질문 버튼** 제공
+- GFM 테이블과 KaTeX 수학 수식(`$...$`, `$$...$$`) 혼합 렌더링
+- CAFE24 블루 테마 채팅 버블 (사용자: 라이트 블루, AI: 흰색)
 
 ---
 
@@ -152,41 +174,57 @@ flowchart TB
 | **파일** | `components/panels/DashboardPanel.js` |
 | **역할** | 전체 플랫폼 KPI 및 통계 시각화, AI 인사이트, 알림 |
 | **API** | `GET /api/dashboard/summary`, `GET /api/dashboard/insights`, `GET /api/dashboard/alerts`, `GET /api/users/segments/{name}/details` |
-| **라이브러리** | `recharts` (PieChart, BarChart, AreaChart) |
+| **라이브러리** | `recharts` (PieChart, BarChart, AreaChart, RadialBarChart) |
 
-| 섹션 | 내용 | 차트 |
-|------|------|------|
-| **쇼핑몰 통계** | 플랜별 분포 | PieChart |
-| **셀러 통계** | 세그먼트별 분포 (드릴다운) | RadialBarChart |
-| **주문 통계** | 유형별 분포 | PieChart |
-| **GMV 추이** | 7일간 GMV | AreaChart |
-| **AI 인사이트** | 자동 생성 운영 인사이트 | 카드 |
-| **알림** | 최근 알림 5건 | 리스트 |
+**대시보드 섹션 구성:**
+
+| 섹션 | 내용 | 차트 | 인터랙션 |
+|------|------|------|----------|
+| **쇼핑몰 통계** | 플랜별(Basic/Standard/Premium/Enterprise) 분포 | PieChart | 호버 시 툴팁 |
+| **셀러 통계** | 5개 세그먼트별 분포 | RadialBarChart | 세그먼트 클릭 시 드릴다운 상세 |
+| **주문 통계** | 유형별(일반/정기/취소/환불) 분포 | PieChart | 호버 시 건수 + 비율 |
+| **GMV 추이** | 최근 7일간 일별 GMV | AreaChart (gradient fill) | 날짜별 포인트 호버 |
+| **AI 인사이트** | 백엔드 자동 생성 운영 인사이트 | 카드 리스트 | 인사이트 유형별 아이콘 |
+| **알림** | 최근 알림 5건 (위험도별 색상) | 리스트 | 시간순 정렬 |
 
 ---
 
-### 2.3 AnalysisPanel (상세 분석)
+### 2.3 AnalysisPanel (상세 분석 -- 9개 탭)
 
 | 항목 | 내용 |
 |------|------|
 | **파일** | `components/panels/AnalysisPanel.js` |
-| **역할** | 셀러/쇼핑몰 데이터 심층 분석 |
+| **역할** | 셀러/쇼핑몰 데이터 심층 분석, ML 예측 결과 시각화, 마케팅 최적화 |
 | **탭 수** | 9개 |
-| **라이브러리** | `recharts` (LineChart, RadarChart, AreaChart, BarChart) |
+| **공통 기능** | 기간 필터(7일/30일/90일), LIVE/NO DATA 상태 배지, 커스텀 툴팁 |
+| **라이브러리** | `recharts` (LineChart, RadarChart, AreaChart, BarChart, ComposedChart, Scatter, PieChart) |
+
+> 페이지 진입 시 `/api/stats/summary`, `/api/analysis/anomaly`, `/api/analysis/prediction/churn`, `/api/analysis/cohort/retention`, `/api/analysis/trend/kpis` 를 병렬 호출하여 전 탭의 데이터를 미리 로드한다.
 
 | # | 탭 | 설명 | API | 차트 |
 |---|-----|------|-----|------|
-| 1 | **셀러 분석** | 개별 셀러 프로필 | `/api/sellers/search` | RadarChart |
-| 2 | **세그먼트** | 셀러 세그먼트별 통계 | `/api/sellers/segments/statistics` | BarChart |
-| 3 | **이상거래 탐지** | 이상 거래 목록, 점수 분포 | `/api/analysis/anomaly` | ScatterPlot |
-| 4 | **예측 분석** | 이탈/매출/LTV 예측 | `/api/analysis/prediction/*` | AreaChart |
-| 5 | **코호트** | 셀러 리텐션/LTV/전환율 | `/api/analysis/cohort/*` | HeatMap |
-| 6 | **트렌드** | GMV, 활성셀러 등 KPI 추이 | `/api/analysis/trend/kpis` | LineChart |
-| 7 | **쇼핑몰 분석** | 쇼핑몰별 매출, 전환율 | `/api/shops` | BarChart |
-| 8 | **CS 분석** | CS 응답 품질, 유형별 분포 | `/api/cs/statistics` | PieChart |
-| 9 | **마케팅 최적화** | 마케팅 채널별 ROI 최적화 | `/api/marketing/optimize` | Table |
+| 1 | **셀러 분석** | 개별 셀러 프로필 + ML 예측 | `/api/sellers/search`, `/api/sellers/autocomplete` | RadarChart, AreaChart |
+| 2 | **세그먼트** | 셀러 세그먼트별 통계 비교 | `/api/stats/summary` (segment_metrics) | BarChart |
+| 3 | **이상거래 탐지** | 이상 거래 목록, 유형별 분포, 추이 | `/api/analysis/anomaly` | ComposedChart + Scatter, BarChart |
+| 4 | **예측 분석** | 이탈/매출/인게이지먼트 (3 서브탭) | `/api/analysis/prediction/churn`, `/api/sellers/search` | AreaChart |
+| 5 | **코호트** | 셀러 리텐션/LTV/전환율 (3 서브탭) | `/api/analysis/cohort/retention` | HeatMap, BarChart, LineChart |
+| 6 | **트렌드** | GMV, 활성셀러 등 KPI 추이 + 예측 | `/api/analysis/trend/kpis` | LineChart, AreaChart |
+| 7 | **쇼핑몰 분석** | 쇼핑몰별 운영점수/전환율/인기도 | `/api/shops` | BarChart (플랜 등급별 색상) |
+| 8 | **CS 분석** | CS 채널별 건수/품질/미처리 | `/api/stats/summary` (cs_stats_detail) | PieChart, 테이블 |
+| 9 | **마케팅 최적화** | 셀러별 채널 ROI 최적화 추천 | `/api/marketing/seller/{id}`, `/api/marketing/optimize` | 테이블, 카드 |
 
-**세그먼트 정의:**
+#### 탭 1. 셀러 분석
+
+- **API**: `GET /api/sellers/search?q={id}&days={n}`, `GET /api/sellers/autocomplete?q={query}&limit=8`
+- **차트**: RadarChart (활동 지표 5축), AreaChart (일별 활동 트렌드)
+- **흐름**: 셀러 ID 입력 (자동완성 300ms debounce) 또는 빠른 선택(SEL0001 등) -> 프로필 카드(ID, 세그먼트, 등급, 지역, 이상감지) + KPI 4종(상품수, 주문수, 활동일수, CS건수) + ML 예측(이탈확률, 매출, 인게이지먼트)
+
+#### 탭 2. 세그먼트
+
+- **API**: `/api/stats/summary` (segment_metrics 필드)
+- **차트**: BarChart (세그먼트별 셀러수/평균매출/리텐션 비교)
+
+**세그먼트 정의 (KMeans 클러스터링):**
 
 | ID | 이름 | 특징 |
 |----|------|------|
@@ -195,6 +233,16 @@ flowchart TB
 | 2 | 우수 셀러 | 높은 GMV (2.1억), 낮은 환불률 (8%) |
 | 3 | 파워 셀러 | 최고 GMV (2.7억), 최다 주문 (3,900+) |
 | 4 | 관리 필요 셀러 | 낮은 매출, 적은 상품 수 |
+
+#### 탭 3~9 요약
+
+- **이상거래 탐지**: `GET /api/analysis/anomaly?days={n}` -- 요약 카드 + 유형별 BarChart + 최근 알림 리스트 + 일별 추이
+- **예측 분석**: 이탈/매출/인게이지먼트 3 서브탭 + 개별 셀러 검색으로 ML 예측(이탈확률, 예상매출, LTV) 확인
+- **코호트**: 리텐션 HeatMap (가입월 x 경과월, 색상 강도) / LTV BarChart / 전환율 LineChart
+- **트렌드**: KPI 요약 카드 + 일별 메트릭 LineChart + 상관관계 분석 + 예측 구간 AreaChart
+- **쇼핑몰 분석**: 상위 10개 쇼핑몰 BarChart (Enterprise=보라, Premium=금, Standard=파랑, Basic=회색)
+- **CS 분석**: 채널별 건수/품질/미처리를 PieChart + 테이블로 표시
+- **마케팅 최적화**: 예시 셀러 3종 또는 직접 입력 -> 셀러 현황 조회 -> 채널별 ROI 추천, 예산 배분, 예상 효과 테이블
 
 ---
 
@@ -207,20 +255,20 @@ flowchart TB
 | **API** | `/api/mlflow/models`, `/api/mlflow/experiments`, `/api/mlflow/models/selected`, `POST /api/mlflow/models/select` |
 | **권한** | 관리자 전용 |
 
-**표시 모델:**
+**등록 모델 10종:**
 
-| 모델명 | 알고리즘 |
-|--------|----------|
-| 셀러이탈예측 | RandomForest + SHAP |
-| 이상거래탐지 | IsolationForest |
-| 문의자동분류 | TF-IDF + RF |
-| 셀러세그먼트 | KMeans |
-| 매출예측 | LightGBM |
-| CS응답품질 | RandomForest |
-| 고객LTV예측 | GradientBoosting |
-| 리뷰감성분석 | LogisticRegression |
-| 상품수요예측 | XGBoost |
-| 정산이상탐지 | DBSCAN |
+| 모델명 | 알고리즘 | 용도 |
+|--------|----------|------|
+| 셀러이탈예측 | RandomForest + SHAP | 이탈 위험 셀러 사전 식별 |
+| 이상거래탐지 | IsolationForest | 비정상 거래 패턴 감지 |
+| 문의자동분류 | TF-IDF + RF | CS 문의 카테고리 자동 분류 |
+| 셀러세그먼트 | KMeans | 셀러 군집 분류 (5개 세그먼트) |
+| 매출예측 | LightGBM | 셀러별 매출 예측 |
+| CS응답품질 | RandomForest | CS 응답 품질 점수 예측 |
+| 고객LTV예측 | GradientBoosting | 셀러 생애가치 예측 |
+| 리뷰감성분석 | LogisticRegression | 리뷰 긍/부정 분류 |
+| 상품수요예측 | XGBoost | 상품별 수요 예측 |
+| 정산이상탐지 | DBSCAN | 정산 이상 패턴 탐지 |
 
 ---
 
@@ -299,13 +347,13 @@ flowchart LR
 | gpt-4.1-mini |
 | gpt-4-turbo |
 
-**LLM 프리셋:**
+**LLM 프리셋 3종** (원클릭 파라미터 적용):
 
-| 프리셋 | temperature | topP | presencePenalty | frequencyPenalty |
-|--------|-------------|------|-----------------|------------------|
-| 정확한 응답 | 0.1 | 0.9 | 0.0 | 0.0 |
-| 균형잡힌 | 0.5 | 1.0 | 0.0 | 0.0 |
-| 창의적 | 0.9 | 1.0 | 0.3 | 0.2 |
+| 프리셋 | temperature | topP | presencePenalty | frequencyPenalty | 적합한 용도 |
+|--------|-------------|------|-----------------|------------------|-------------|
+| 정확한 응답 | 0.1 | 0.9 | 0.0 | 0.0 | 수치 분석, 데이터 조회 |
+| 균형잡힌 | 0.5 | 1.0 | 0.0 | 0.0 | 일반 운영 질문 |
+| 창의적 | 0.9 | 1.0 | 0.3 | 0.2 | 마케팅 문안, 아이디어 |
 
 **시스템 프롬프트:**
 - 백엔드에서 중앙 관리 (`GET /api/settings/prompt`)
@@ -387,24 +435,53 @@ DnD: HTML5 Drag and Drop으로 문의를 자동 처리 <-> 담당자 검토 간 
 | 4 | PG사 이니시스 인증키 오류 + 네이버페이 정산 누락 | Premium | 무관 | 수동 |
 | 5 | 카페24 API 웹훅 콜백 간헐적 실패 | Enterprise | 이메일, SMS | 수동 |
 
-**UI 구성:**
-- 접수함 테이블 (5건, 셀러 등급 배지, 희망 채널 배지, 분류 결과 인라인 표시)
-- 신뢰도 임계값 슬라이더 (50%~95%, 기본 75%)
-- HTML5 DnD 2열 분기 (드래그로 자동 처리 <-> 담당자 검토 이동)
-- DraggableCard 컴포넌트 (draggable 카드, 드롭존 하이라이트, 카테고리 배지)
-- 자동 처리: 접수에서는 DnD 분류만, 답변(StepAnswer)에서 체크박스 선택 → 일괄 답변 생성
-- 일괄 답변 결과: StepAnswer 인라인 수정 (수정 버튼 → textarea → 저장/취소) + StepReply에서도 수정 가능
-- 자동 처리 플로우: 접수(분류만) → 답변(RAG 생성) → 회신 (검토만 스킵)
-- 담당자 검토: 문의 클릭 → 풀 파이프라인 실행 → Step 2~5 연결
-- 회신 채널 다중 선택 (복수 채널 동시 전송) + 고객 희망 채널(preferredChannels) 표시
-- 자동 처리: per-inquiry 채널 할당 (고객 선호 채널 기반 초기화, 운영자가 조정 가능)
-- 수동 처리: 고객 희망 채널 표시 + '희망' 배지, "어느 방식이든 상관없음" 안내
-- SSE 스트리밍 답변 표시 + 편집 가능 textarea
-- React Flow n8n 워크플로우 다이어그램 (8노드: webhook→검증→분기→채널x4→기록)
-- 전송 클릭 → SSE 스트리밍으로 노드 순차 활성화 (idle→running→completed 애니메이션)
-- 미선택 채널 노드 자동 비활성(disabled), 활성 엣지 animated
-- 이메일 채널 선택 시 수신자 이메일 입력 필드 (auto/manual)
-- 카테고리별 BarChart + KPI 카드 + 파이프라인 처리 이력 테이블
+**회신 채널 (4종):**
+
+| 채널 | 아이콘 | 색상 | 활성 상태 |
+|------|--------|------|----------|
+| 이메일 | `Mail` | blue | **활성** |
+| 카카오톡 | `MessageCircle` | yellow | 비활성 (데모) |
+| SMS | `Smartphone` | green | 비활성 (데모) |
+| 인앱 알림 | `Bell` | purple | 비활성 (데모) |
+
+> 자동 처리: per-inquiry 채널 할당 (고객 `preferredChannels` 기반 초기화, 운영자 조정 가능). 수동 처리: 고객 희망 채널 표시 + '희망' 배지.
+
+**Step 4 React Flow 워크플로우 (`@xyflow/react`):**
+
+```mermaid
+flowchart LR
+    W["Webhook<br/>수신"] --> V["입력 검증"]
+    V --> B{"채널 분기"}
+    B --> E["이메일 전송"]
+    B --> K["카카오톡"]
+    B --> S["SMS"]
+    B --> I["인앱 알림"]
+    E & K & S & I --> R["결과 기록"]
+```
+
+- 전송 클릭 시 SSE 스트리밍(`job_id` 기반)으로 노드 상태 순차 업데이트: `idle` → `running` (pulse 애니메이션) → `completed` (녹색)
+- 미선택 채널 노드: 자동 `disabled` (회색 처리), 활성 엣지만 `animated`
+- 이메일 채널 선택 시 수신자 이메일 입력 필드 표시
+
+**Step 5 개선 대시보드:**
+- 카테고리별 BarChart (`recharts`)
+- KPI 카드 (총 처리 건수, 자동 처리율, 평균 응답 시간)
+- 파이프라인 처리 이력 테이블 (시간, 문의 요약, 카테고리, 라우팅, 우선순위)
+
+**내부 컴포넌트:**
+
+| 컴포넌트 | 역할 |
+|----------|------|
+| `StepIndicator` | 5단계 진행 표시기 (완료/현재/미완료 상태, 클릭 이동) |
+| `StepClassify` | 접수함 테이블 + DnD 2열 분기 + 신뢰도 슬라이더 |
+| `StepReview` | 파이프라인 결과 상세 (분류/우선순위/라우팅) |
+| `StepAnswer` | SSE 스트리밍 답변 + 일괄 답변 생성 + 인라인 수정 |
+| `StepReply` | React Flow 워크플로우 + 채널 선택 + 전송 |
+| `StepImprove` | 카테고리 BarChart + KPI + 이력 테이블 |
+| `DraggableCard` | HTML5 DnD 카드 (드래그 핸들, 카테고리 배지, 드롭존 하이라이트) |
+
+**애니메이션 (Framer Motion):**
+- `AnimatePresence` + `motion.div`로 스텝 전환 시 슬라이드 인/아웃 (`x: 20 → 0 → -20`, 0.2s)
 
 ---
 
@@ -459,6 +536,30 @@ flowchart LR
 - **DBA 알림**: 이메일 입력 → Resend API로 차단 내역 + Agent 분석 결과 전송
 - **시나리오 프리셋 8개**: 신입 대량 삭제, 야간 데이터 수정, 정상 로그 정리, DDL 명령어, 전체 초기화, 정상 조회, 반복 소량 삭제, 신규 테이블 접근
 
+**작업별 위험도 (ACTION_META):**
+
+| 작업 | 위험도 | 행 수 관련 | 설명 |
+|------|--------|-----------|------|
+| `DROP` | **critical** | N/A | 테이블 삭제 |
+| `TRUNCATE` | **critical** | N/A | 전체 행 삭제 |
+| `DELETE` | high | 대상 행 수 | 행 삭제 |
+| `UPDATE` | high | 대상 행 수 | 행 수정 |
+| `ALTER` | medium | N/A | 스키마 변경 |
+| `INSERT` | low | 대상 행 수 | 행 추가 |
+| `SELECT` | none | 대상 행 수 | 조회 |
+
+**시뮬레이션 테이블 (TABLE_META, 7종):**
+
+| 테이블 | 행 수 | 핵심 데이터 |
+|--------|-------|-----------|
+| `orders` | 12,847 | O |
+| `payments` | 9,532 | O |
+| `users` | 3,210 | O |
+| `products` | 18,423 | O |
+| `shipments` | 7,891 | O |
+| `logs` | 54,320 | X |
+| `temp_reports` | 1,205 | X |
+
 **Agent Tool 호출 (LangChain `create_agent`):**
 
 | Tool | 설명 |
@@ -481,6 +582,16 @@ flowchart LR
 - SQLite (`guardian.db`) -- 감사 로그 (`audit_log`) + 유사 사건 (`incidents`)
 - 서버 시작 시 시드 데이터 200건 자동 생성 (테이블 비었을 때만)
 - 실제 분석/차단 결과는 실시간 기록
+
+**내부 컴포넌트:**
+
+| 컴포넌트 | 역할 |
+|----------|------|
+| `MonitorTab` | 실시간 감시 -- 입력 폼 + 감시 모드 토글 + 프리셋 + 분석 결과 표시 |
+| `RecoverTab` | 복구 요청 -- 차단 쿼리 선택 + Recovery Agent 복구 SQL 생성 |
+| `DashboardTab` | 대시보드 -- KPI 카드 + 차단 이력 + 감사 로그 테이블 |
+
+**라이브러리:** `react-markdown` (Agent 분석 결과 마크다운 렌더링)
 
 ---
 
@@ -532,14 +643,68 @@ flowchart LR
 | **부가 정보** | 피처 중요도 차트 (접기/펼치기) |
 | **스타일** | AlertTriangle 아이콘, red-to-orange 그라데이션 |
 
-**공통 컴포넌트:**
+**공통 컨트롤** (모든 탭 상단):
+- 프로세스 유형 select (`order` / `cs` / `settlement`)
+- 케이스 수 select (`100` / `200` / `500` 건)
 
-| 컴포넌트 | 설명 |
+**내부 컴포넌트:**
+
+| 컴포넌트 | 역할 |
 |----------|------|
-| `FeatureImportanceChart` | ML 피처 중요도 가로 막대 차트 (indigo/red/teal 색상) |
+| `DiscoverTab` | 프로세스 발견 -- 플로우 시각화 + Top 패턴 + 전이 행렬 + ML 예측 |
+| `BottleneckTab` | 병목 분석 -- 병목 구간 테이블 + ML 이상 프로세스 탐지 |
+| `RecommendTab` | AI 자동화 추천 -- 자동화 가능 구간 + ROI 분석 |
+| `ProcessFlowDiagram` | 프로세스 플로우 커스텀 렌더링 (위상 정렬 BFS + 노드 클릭 상세) |
+| `TransitionMatrix` | 전이 행렬 테이블 (활동 간 빈도/확률 매트릭스) |
+| `FeatureImportanceChart` | ML 피처 중요도 가로 막대 차트 (indigo/red/teal 색상 가변) |
+| `SummaryCard` | 요약 카드 (아이콘 + 라벨 + 값, 색상 가변) |
+| `SimpleMarkdown` | 간이 마크다운 렌더러 (h1~h3, 리스트, 볼드, 줄바꿈) |
 
-**아이콘 (lucide-react):**
-`GitBranch`, `Timer`, `Sparkles`, `Play`, `Loader2`, `ChevronDown`, `ChevronRight`, `ArrowRight`, `AlertTriangle`, `CheckCircle2`, `Zap`, `Brain`, `Bot`, `BarChart3`, `Clock`, `Activity`, `TrendingUp`, `FileText`, `Target`, `Search`, `ShieldAlert`, `RefreshCw`
+**유틸리티 함수:**
+
+| 함수 | 설명 |
+|------|------|
+| `formatMinutes(min)` | 분 → 초/분/시간/일 자동 변환 |
+| `formatNumber(n)` | 숫자 콤마 포맷 |
+| `formatPercent(n)` | 소수 → 백분율 변환 (예: 0.85 → "85.0%") |
+| `isSuccess(res)` | API 응답 성공 여부 (`SUCCESS` or `OK`) |
+
+---
+
+### 인터랙션 & 애니메이션 패턴
+
+전체 패널에 걸쳐 일관된 UX 패턴을 적용한다.
+
+**Framer Motion 애니메이션:**
+
+| 패턴 | 적용 위치 | 설정 |
+|------|----------|------|
+| 슬라이드 전환 | LabPanel 스텝 전환 | `AnimatePresence` + `x: 20→0→-20`, 0.2s |
+| 스프링 로고 | Login 페이지 CAFE24 로고 | `spring` 이징, 바운스 |
+| 플로팅 아이콘 | Login 배경 이커머스 아이콘 5개 | `y` 반복 애니메이션 |
+| 에러 메시지 | Login 에러 텍스트 | 페이드 인 + 슬라이드 |
+
+**CSS 애니메이션 (`globals.css`):**
+
+| 클래스 | 효과 | 지속시간 |
+|--------|------|---------|
+| `.fade-in` | 투명→불투명 | 0.3s |
+| `.slide-in` | 좌→우 슬라이드 | 0.25s |
+| `.cookie-float` | 상하 플로팅 | 3s (반복) |
+| `.pulse-soft` | 부드러운 펄스 | 2s (반복) |
+| `.cookie-bounce` | 바운스 | 0.5s |
+| `.skeleton::after` | 로딩 시머 (shimmer) | CSS 키프레임 |
+
+**반응형 레이아웃:**
+
+| 브레이크포인트 | 변화 |
+|--------------|------|
+| **xl** (1280px+) | 12-column 그리드: Sidebar 3열 고정 + Main 9열 |
+| **lg** (1024px) | Sidebar 토글 (오버레이) |
+| **md** (768px) | 탭 축소, 카드 1열 |
+| **sm** (640px) | 모바일 최적화, 풀 위드 |
+
+> 전역 90% 줌(`document.documentElement.style.zoom = '0.9'`)으로 정보 밀도를 높이고, Noto Sans KR + Pretendard 폰트로 한글 가독성을 확보한다.
 
 ---
 
@@ -598,6 +763,8 @@ export async function apiCall({
 
 ### 4.2 SSE 스트리밍
 
+클라이언트에서 `@microsoft/fetch-event-source`로 SSE 연결:
+
 ```javascript
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
@@ -606,28 +773,10 @@ await fetchEventSource('/api/agent/stream', {
   body: JSON.stringify({ message }),
   onmessage: (event) => {
     const data = JSON.parse(event.data);
-    if (data.type === 'token') {
-      onToken(data.content);
-    }
+    if (data.type === 'token') onToken(data.content);
   },
 });
 ```
-
-**SSE 프록시 (5개):**
-
-| 프록시 파일 | 타깃 백엔드 | 용도 |
-|------------|-----------|------|
-| `pages/api/agent/stream.js` | `/api/agent/stream` | AI 에이전트 스트리밍 |
-| `pages/api/cs/pipeline-answer.js` | `/api/cs/pipeline/answer` | CS 파이프라인 답변 스트리밍 |
-| `pages/api/cs/send-reply.js` | `/api/cs/send-reply` | CS 회신 전송 (n8n SSE) |
-| `pages/api/cs/stream.js` | `/api/cs/stream?job_id=` | CS 회신 SSE 스트리밍 (job_id 기반) |
-| `pages/api/cs/callback.js` | `/api/cs/callback` | CS 콜백 프록시 (POST) |
-
-| 설정 | 설명 |
-|------|------|
-| `bodyParser: false` | POST 바디 원본 전달 |
-| `responseLimit: false` | 스트리밍 크기 제한 없음 |
-| `duplex: 'half'` | Node.js 18+ 스트림 필수 |
 
 **SSE 이벤트 타입:**
 
@@ -639,16 +788,60 @@ await fetchEventSource('/api/agent/stream', {
 | `done` | 응답 완료 | `{"ok": true, "final": "...", "tool_calls": [...]}` |
 | `error` | 오류 발생 | `{"message": "..."}` |
 
-### 4.3 Next.js API 프록시
+### 4.3 SSE 프록시 (5개)
+
+Next.js API Route로 구현한 SSE 프록시. 브라우저는 같은 오리진만 호출하고, 서버에서 백엔드로 릴레이한다.
+
+| # | 프록시 파일 | 타깃 백엔드 | 메서드 | 전송 방식 | 용도 |
+|---|------------|-----------|--------|----------|------|
+| 1 | `pages/api/agent/stream.js` | `/api/agent/stream` | POST | SSE 스트리밍 | AI 에이전트 실시간 응답 |
+| 2 | `pages/api/cs/pipeline-answer.js` | `/api/cs/pipeline/answer` | POST | SSE 스트리밍 | CS 파이프라인 답변 생성 |
+| 3 | `pages/api/cs/send-reply.js` | `/api/cs/send-reply` | POST | JSON (버퍼링) | CS 회신 전송 (n8n 연동) |
+| 4 | `pages/api/cs/stream.js` | `/api/cs/stream?job_id=` | GET | SSE 스트리밍 | CS 회신 SSE (job_id 기반) |
+| 5 | `pages/api/cs/callback.js` | `/api/cs/callback` | POST | JSON (버퍼링) | CS 콜백 수신 |
+
+**프록시 공통 설정 (Next.js API Config):**
+
+| 설정 | 값 | 설명 |
+|------|----|------|
+| `bodyParser` | `false` | POST 바디를 파싱하지 않고 원본 스트림으로 전달 |
+| `responseLimit` | `false` | SSE 응답 크기 제한 해제 (스트리밍용) |
+| `externalResolver` | `true` | Next.js 내장 경고 억제 (외부에서 응답 처리) |
+
+**SSE 프록시 (#1, #2, #4) 상세:**
+
+| 항목 | 설명 |
+|------|------|
+| **바디 전달** | `init.body = req` (원본 스트림 그대로 릴레이) |
+| **duplex** | `'half'` -- Node.js 18+ `fetch(undici)`에서 스트림 바디 전송 시 필수 |
+| **응답 헤더** | `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` (Nginx 버퍼링 비활성) |
+| **CORS** | `Access-Control-Allow-Origin: *`, OPTIONS preflight 204 응답 |
+| **클라이언트 해제** | `req.on('close')` 시 `reader.cancel()` + `res.end()` -- 연결 끊김 감지 후 업스트림 정리 |
+| **청크 전달** | `ReadableStream.getReader()` 루프로 바이트 단위 릴레이 |
+| **에러 처리** | catch 시 HTTP 500 + `{ status: "FAILED", error: "..." }` JSON 응답 |
+
+**JSON 프록시 (#3, #5) 상세:**
+
+| 항목 | 설명 |
+|------|------|
+| **바디 수집** | `for await (const chunk of req)` 으로 전체 버퍼링 후 백엔드 전달 |
+| **응답** | 백엔드 응답 텍스트를 그대로 클라이언트에 반환 |
+| **에러 처리** | catch 시 HTTP 500 + `{ status: "FAILED", error: "..." }` JSON 응답 |
+
+> **참고**: `cs/stream.js`(#4)는 GET 전용이며 `job_id` 쿼리 파라미터 필수 (없으면 400 반환)
+
+### 4.4 Next.js API 프록시 (rewrites)
+
+SSE 이외의 일반 API는 `next.config.js` rewrites로 백엔드에 직접 프록시:
 
 ```javascript
 // next.config.js
 async rewrites() {
   const backend = process.env.BACKEND_INTERNAL_URL || 'http://127.0.0.1:8001';
   return [
-    // SSE 스트리밍은 Next API Route로 처리
+    // SSE 스트리밍 → Next API Route에서 처리 (위 5개 프록시)
     { source: '/api/agent/stream', destination: '/api/agent/stream' },
-    // 나머지 /api/* 는 전부 백엔드로 프록시
+    // 나머지 /api/* → 백엔드 직접 프록시
     { source: '/api/:path*', destination: `${backend}/api/:path*` },
   ];
 }
@@ -660,39 +853,78 @@ async rewrites() {
 
 ### 5.1 페이지 레벨 상태 (`pages/app.js`)
 
+| 상태 | 타입 | 초기값 | 영속화 | 설명 |
+|------|------|--------|--------|------|
+| `auth` | object \| null | `null` | sessionStorage | 인증 정보 (username, password, user_name, user_role) |
+| `shops` | array | `[]` | - | 쇼핑몰 목록 (`/api/shops`에서 로드) |
+| `categories` | array | `[]` | - | 카테고리 목록 (`/api/categories`에서 로드) |
+| `selectedShop` | string \| null | `null` | - | 선택된 쇼핑몰 ID (첫 번째 자동 선택) |
+| `settings` | object | DEFAULT_SETTINGS | localStorage | LLM 설정 (아래 상세) |
+| `settingsLoaded` | boolean | `false` | - | 스토리지에서 설정 로드 완료 여부 |
+| `agentMessages` | array | `[]` | localStorage | AI 채팅 히스토리 |
+| `activityLog` | array | `[]` | localStorage | 활동 로그 (시간, 사용자, 작업, 상세) |
+| `totalQueries` | number | `0` | localStorage | 누적 쿼리 수 |
+| `activeTab` | string | `'agent'` | - | 현재 활성 탭 키 |
+
+**DEFAULT_SETTINGS:**
+
 ```javascript
-// 인증
-const [auth, setAuth] = useState(null);
-
-// 데이터
-const [shops, setShops] = useState([]);
-const [categories, setCategories] = useState([]);
-const [selectedShop, setSelectedShop] = useState(null);
-
-// LLM 설정
-const [settings, setSettings] = useState({
+{
   apiKey: '',
   selectedModel: 'gpt-4o-mini',
   maxTokens: 8000,
   temperature: 0.3,
-  systemPrompt: '',
-  ragMode: 'rag',  // 'rag' | 'lightrag' | 'k2rag' | 'auto'
-});
-
-// AI 에이전트
-const [agentMessages, setAgentMessages] = useState([]);
-const [totalQueries, setTotalQueries] = useState(0);
+  systemPrompt: '',    // 백엔드에서 자동 로드
+  ragMode: 'rag',      // 'rag' | 'lightrag' | 'k2rag' | 'auto'
+}
 ```
 
-### 5.2 스토리지 키
+**초기 데이터 로딩 (마운트 시):**
 
-| 키 | 저장소 | 용도 |
-|----|-------|------|
-| `cafe24_auth` | sessionStorage | 인증 정보 (탭 닫으면 만료) |
-| `cafe24_settings` | localStorage | LLM 설정 (영구) |
-| `cafe24_agent_messages` | localStorage | 채팅 히스토리 |
-| `cafe24_activity_log` | localStorage | 활동 로그 |
-| `cafe24_total_queries` | localStorage | 총 쿼리 수 |
+| API | 용도 | 저장 상태 |
+|-----|------|----------|
+| `GET /api/settings/prompt` | 시스템 프롬프트 자동 로드 | `settings.systemPrompt` |
+| `GET /api/settings/default` | 프롬프트 로드 실패 시 fallback | `settings.systemPrompt` |
+| `GET /api/shops` | 쇼핑몰 목록 | `shops`, `selectedShop` |
+| `GET /api/categories` | 카테고리 목록 | `categories` |
+
+**활동 로그 시스템:**
+
+| 함수 | 설명 |
+|------|------|
+| `addLog(action, detail)` | 활동 기록 추가 (시간, 사용자명 자동 포함) |
+| `clearLog()` | 전체 로그 초기화 (LogsPanel에서 호출) |
+
+**CustomEvent 기반 예시 질문 브릿지:**
+
+```
+Sidebar 예시 클릭 → cafe24_example_question → ExampleQuestionBridge → cafe24_send_question → AgentPanel
+```
+
+> 사이드바의 예시 질문 클릭 시 `window.dispatchEvent(CustomEvent)` 체인으로 AgentPanel에 질문 전달. React state가 아닌 window 이벤트를 사용하여 컴포넌트 간 느슨한 결합 유지
+
+### 5.2 스토리지 키 (`lib/storage.js`)
+
+| 상수명 | 키 | 저장소 | 용도 | 만료 |
+|--------|-----|-------|------|------|
+| `STORAGE_KEYS.AUTH` | `cafe24_auth` | sessionStorage | 인증 정보 (username, password) | 탭/브라우저 닫으면 만료 |
+| `STORAGE_KEYS.SETTINGS` | `cafe24_settings` | localStorage | LLM 설정 (모델, temperature 등) | 영구 (수동 삭제 전까지) |
+| `STORAGE_KEYS.AGENT_MESSAGES` | `cafe24_agent_messages` | localStorage | AI 채팅 히스토리 | 영구 |
+| `STORAGE_KEYS.ACTIVITY_LOG` | `cafe24_activity_log` | localStorage | 활동 로그 (LogsPanel) | 영구 |
+| `STORAGE_KEYS.TOTAL_QUERIES` | `cafe24_total_queries` | localStorage | 누적 쿼리 수 | 영구 |
+
+### 5.3 스토리지 유틸리티
+
+| 함수 | 대상 | 설명 |
+|------|------|------|
+| `loadFromStorage(key, fallback)` | localStorage | JSON 파싱, 실패 시 fallback 반환 |
+| `saveToStorage(key, value)` | localStorage | JSON 직렬화 후 저장 |
+| `removeFromStorage(key)` | localStorage | 키 삭제 |
+| `loadFromSession(key, fallback)` | sessionStorage | JSON 파싱, 실패 시 fallback 반환 |
+| `saveToSession(key, value)` | sessionStorage | JSON 직렬화 후 저장 |
+| `removeFromSession(key)` | sessionStorage | 키 삭제 |
+
+> SSR 안전: 모든 함수에서 `typeof window === 'undefined'` 가드 -- 서버 사이드에서 호출해도 에러 없음
 
 ---
 
@@ -808,32 +1040,47 @@ colors: {
 
 ## 7. 환경 설정
 
-### 환경 변수
+### 7.1 환경 변수
+
+| 변수 | 용도 | 기본값 | 스코프 |
+|------|------|--------|--------|
+| `BACKEND_INTERNAL_URL` | 서버 사이드에서 백엔드 프록시 주소 | `http://127.0.0.1:8001` | 서버 전용 |
+| `NEXT_PUBLIC_API_BASE` | 클라이언트 API 베이스 URL (다른 호스트/포트 시) | `''` (같은 오리진) | 클라이언트 공개 |
 
 `.env.local` 파일:
 
 ```env
-# 서버 사이드에서 백엔드로 프록시할 주소
 BACKEND_INTERNAL_URL=http://127.0.0.1:8001
+# NEXT_PUBLIC_API_BASE=http://127.0.0.1:8001  # 로컬에서 백엔드가 다른 포트일 때만
 ```
 
-### 실행
+### 7.2 실행
 
 ```bash
 # 개발
 npm install
-npm run dev
+npm run dev          # http://localhost:3000
 
 # 프로덕션
 npm run build
 npm start
 ```
 
-### 기술 스택
+### 7.3 Vercel 배포
+
+| 항목 | 설정 |
+|------|------|
+| **Framework** | Next.js (자동 감지) |
+| **Build Command** | `npm run build` |
+| **Output** | `.next/` |
+| **환경 변수** | Vercel Dashboard > Settings > Environment Variables에서 `BACKEND_INTERNAL_URL` 설정 |
+| **SSE 주의** | Vercel Serverless Functions는 최대 실행 시간 제한 있음 (Hobby: 10s, Pro: 60s). 장시간 SSE 스트리밍 시 타임아웃 주의 |
+
+### 7.4 기술 스택
 
 | 라이브러리 | 버전 | 용도 |
 |-----------|------|------|
-| **Next.js** | 14.2 | React 프레임워크 |
+| **Next.js** | 14.2 | React 프레임워크 (Pages Router) |
 | **React** | 18.2 | UI 라이브러리 |
 | **Tailwind CSS** | 3.4 | 유틸리티 CSS |
 | **Recharts** | 3.7 | 차트/그래프 |
@@ -851,63 +1098,197 @@ npm start
 | **tailwind-merge** | 2.5 | Tailwind 클래스 병합 |
 | **nprogress** | 0.2 | 페이지 전환 진행바 |
 | **swr** | 2.2 | 데이터 페칭 |
+| **plotly.js-dist-min** | 2.30 | Plotly 차트 (경량) |
+| **react-plotly.js** | 2.6 | React Plotly 래퍼 |
 
 ---
 
-## 8. 추가 컴포넌트
+## 8. 인증 및 라우팅
 
-### ToastProvider.js
+### 8.1 페이지 라우팅 흐름
 
-전역 토스트 알림 관리:
-
-```javascript
-// 사용 예시
-import toast from 'react-hot-toast';
-toast.success('저장되었습니다');
-toast.error('오류가 발생했습니다');
+```mermaid
+flowchart LR
+    I["/ (index.js)"] -->|"sessionStorage 체크"| C{인증 정보?}
+    C -->|있음| A["/app"]
+    C -->|없음| L["/login"]
+    L -->|"POST /api/login"| S{결과}
+    S -->|SUCCESS| A
+    S -->|실패| L
+    A -->|"로그아웃"| L
 ```
 
-### Skeleton.js
+| 페이지 | 파일 | 역할 |
+|--------|------|------|
+| `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 (빈 페이지) |
+| `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 11개 패널) |
 
-로딩 상태 스켈레톤:
+### 8.2 로그인 페이지 (`pages/login.js`)
 
-```jsx
-<Skeleton width="100%" height="40px" />
-<Skeleton width="60%" height="20px" />
-```
+| 기능 | 설명 |
+|------|------|
+| **인증 방식** | `POST /api/login` (Basic Auth 헤더) |
+| **세션 저장** | 성공 시 `{ username, password, user_name, user_role }` → sessionStorage |
+| **자동 리다이렉트** | 이미 인증된 상태면 `/app`으로 자동 이동 |
+| **테스트 계정 퀵필** | 아코디언 토글로 4개 테스트 계정 원클릭 입력 |
+| **Enter 키 로그인** | 비밀번호 필드에서 Enter 키로 바로 로그인 |
+| **에러 표시** | Framer Motion 애니메이션 에러 메시지 |
+| **플로팅 아이콘** | 배경에 이커머스 아이콘 5개 플로팅 애니메이션 (ShoppingBag, BarChart3, Package, Truck, CreditCard) |
+| **CAFE24 SVG 로고** | 로그인 카드 상단 스프링 애니메이션 로고 |
 
-### progress.js
+**테스트 계정:**
 
-NProgress 페이지 전환 진행바 설정.
+| 라벨 | 아이디 | 역할 | 접근 패널 |
+|------|--------|------|-----------|
+| 관리자 | `admin` / `admin123` | Admin | 11개 전부 |
+| 운영자 | `operator` / `oper123` | Operator | 6개 (공개) |
+| 분석가 | `analyst` / `analyst123` | Analyst | 6개 (공개) |
+| 사용자 | `user` / `user123` | User | 6개 (공개) |
+
+### 8.3 앱 초기화 (`pages/app.js`)
+
+마운트 시 순서:
+
+1. `document.documentElement.style.zoom = '0.9'` (전역 90% 줌 적용)
+2. sessionStorage에서 인증 정보 로드 (없으면 `/login` 리다이렉트)
+3. localStorage에서 설정, 채팅 히스토리, 활동 로그, 쿼리 수 복원
+4. 백엔드에서 시스템 프롬프트 자동 로드 (`/api/settings/prompt`, fallback: `/api/settings/default`)
+5. `/api/shops`, `/api/categories` 병렬 로드
+6. 모든 상태 변경은 즉시 localStorage에 자동 동기화 (`useEffect` 워치)
+
+### 8.4 예시 질문 시스템
+
+사이드바에 6개 카테고리, 총 62개 예시 질문 내장:
+
+| 카테고리 | 질문 수 | 예시 |
+|----------|---------|------|
+| 쇼핑몰 & 플랫폼 | 10 | "S0001 쇼핑몰 정보 알려줘" |
+| CS & 운영 | 6 | "CS 문의 통계 보여줘" |
+| AI 예측 분석 | 12 | "SEL0001 셀러 이탈 확률 예측해줘" |
+| 비즈니스 KPI | 12 | "최근 7일 KPI 트렌드 분석해줘" |
+| 셀러 분석 | 12 | "SEL0001 셀러 분석해줘" |
+| 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
+
+> 사이드바 예시 질문은 `CustomEvent` 브릿지를 통해 AgentPanel로 전달 (섹션 5.1 참조)
 
 ---
 
 ## 9. 데이터 흐름
 
+### 9.1 AI 에이전트 SSE 흐름
+
 ```mermaid
 sequenceDiagram
     participant User as 사용자
     participant Panel as AgentPanel
-    participant Proxy as SSE Proxy
-    participant Backend as FastAPI
+    participant Proxy as /api/agent/stream.js
+    participant Backend as FastAPI Backend
 
     User->>Panel: 질문 입력
-    Panel->>Panel: settings.ragMode 확인
-    Panel->>Proxy: POST /api/agent/stream
-    Proxy->>Backend: POST /api/agent/stream (rag_mode)
+    Panel->>Panel: settings.ragMode 확인<br/>(rag / lightrag / k2rag / auto)
+    Panel->>Proxy: POST /api/agent/stream<br/>(fetchEventSource)
+    Proxy->>Backend: POST /api/agent/stream<br/>(body 스트림 릴레이, duplex: half)
 
-    loop SSE 이벤트
+    loop SSE 이벤트 스트리밍
         Backend-->>Proxy: event: tool_start
-        Proxy-->>Panel: onopen
+        Proxy-->>Panel: 도구 실행 표시 (접이식)
+        Backend-->>Proxy: event: tool_end
+        Proxy-->>Panel: 도구 결과 표시
         Backend-->>Proxy: event: delta (토큰)
-        Proxy-->>Panel: onmessage
-        Panel-->>User: 실시간 렌더링
+        Proxy-->>Panel: onmessage 콜백
+        Panel-->>User: 실시간 마크다운 렌더링
     end
 
     Backend-->>Proxy: event: done
-    Proxy-->>Panel: 완료
-    Panel-->>User: 최종 응답
+    Proxy-->>Panel: 스트림 종료
+    Panel->>Panel: localStorage에 히스토리 저장
+    Panel-->>User: 최종 응답 (복사/재질문 버튼)
+
+    Note over User,Backend: 클라이언트 해제 시<br/>req.on('close') -> reader.cancel()
 ```
+
+### 9.2 CS 파이프라인 흐름
+
+```mermaid
+sequenceDiagram
+    participant User as 사용자
+    participant Lab as LabPanel
+    participant P1 as pipeline-answer.js
+    participant P2 as send-reply.js
+    participant P3 as cs/stream.js
+    participant Backend as FastAPI
+
+    User->>Lab: 문의 선택 + 답변 생성 클릭
+    Lab->>P1: POST /api/cs/pipeline-answer<br/>(SSE 스트리밍)
+    P1->>Backend: POST /api/cs/pipeline/answer
+    Backend-->>P1: event: delta (답변 토큰)
+    P1-->>Lab: 실시간 답변 표시
+
+    User->>Lab: 회신 전송 클릭
+    Lab->>P2: POST /api/cs/send-reply
+    P2->>Backend: POST /api/cs/send-reply
+    Backend-->>P2: { job_id: "..." }
+    P2-->>Lab: job_id 반환
+
+    Lab->>P3: GET /api/cs/stream?job_id=xxx
+    P3->>Backend: GET /api/cs/stream?job_id=xxx
+    loop 전송 진행 SSE
+        Backend-->>P3: 노드 상태 업데이트
+        P3-->>Lab: React Flow 노드 활성화
+    end
+```
+
+---
+
+## 10. 에러 핸들링
+
+### 10.1 API 호출 에러 (`lib/api.js`)
+
+| 상황 | 처리 |
+|------|------|
+| **타임아웃** | `AbortController` + `setTimeout(timeoutMs)` -- 기본 60초. 시간 초과 시 abort |
+| **네트워크 에러** | catch에서 `{ status: "FAILED", error: "..." }` 반환 (throw 하지 않음) |
+| **JSON 파싱 실패** | `resp.json().catch(() => ({}))` -- 빈 객체 fallback |
+| **인증 실패** | Basic Auth 헤더 누락/잘못된 경우 백엔드에서 401 반환 |
+
+### 10.2 SSE 프록시 에러
+
+| 상황 | 처리 |
+|------|------|
+| **백엔드 미응답** | `fetch(target)` 실패 시 HTTP 500 + JSON 에러 응답 |
+| **클라이언트 연결 끊김** | `req.on('close')` 에서 `reader.cancel()` 호출로 업스트림 정리 |
+| **업스트림 body 없음** | `if (!upstream.body) res.end()` -- 빈 응답으로 종료 |
+| **job_id 누락** (`cs/stream`) | HTTP 400 + `{ error: "job_id required" }` |
+
+### 10.3 스토리지 에러
+
+| 상황 | 처리 |
+|------|------|
+| **JSON 파싱 실패** | `safeJsonParse()` -- try/catch로 fallback 값 반환 |
+| **SSR 환경** | `typeof window === 'undefined'` 가드 -- 서버에서 호출 시 fallback 반환 |
+| **스토리지 용량 초과** | 브라우저 기본 제한 (5MB). 채팅 히스토리가 커지면 수동 정리 필요 |
+
+---
+
+## 11. 성능 최적화
+
+| 기법 | 적용 위치 | 설명 |
+|------|----------|------|
+| **SSE 청크 릴레이** | SSE 프록시 | `ReadableStream.getReader()` 바이트 단위 릴레이 -- 전체 버퍼링 없이 실시간 전달 |
+| **NProgress (중첩 카운터)** | `lib/progress.js` | `inflight` 카운터로 중첩 라우트 전환 추적. `showSpinner: false`, `trickleSpeed: 140ms`, `minimum: 0.15` |
+| **AbortController** | `lib/api.js` | 모든 API 호출에 타임아웃 적용 (기본 60초) -- 응답 없는 요청 자동 중단 |
+| **sessionStorage 인증** | `lib/storage.js` | 인증 정보는 sessionStorage -- 탭 닫으면 자동 만료, 보안 강화 |
+| **cache: no-store** | `lib/api.js` | 모든 fetch에 `cache: 'no-store'` -- 항상 최신 데이터 |
+| **X-Accel-Buffering: no** | SSE 프록시 | Nginx 프록시 뒤에서도 SSE 버퍼링 방지 |
+| **flushHeaders** | SSE 프록시 | 응답 헤더 즉시 전송으로 SSE 연결 지연 최소화 |
+| **전역 90% 줌** | `pages/app.js` | `document.documentElement.style.zoom = '0.9'` -- 더 많은 정보를 한 화면에 표시 |
+| **Noto Sans KR + Pretendard** | `Layout.js` / `globals.css` | Next.js `next/font/google`로 Noto Sans KR 최적 로딩 + Pretendard fallback |
+| **backdrop-filter 글래스** | `globals.css` | `.glass` 클래스: `backdrop-filter: blur(12px)` 반투명 패널 |
+| **CSS shimmer 스켈레톤** | `globals.css` | `.skeleton::after` 키프레임으로 로딩 시머 효과 (순수 CSS, JS 없음) |
+| **safeReplace** | `pages/app.js` | 동일 경로 중복 `router.replace()` 방지 (불필요한 리렌더 차단) |
+| **useCallback/useMemo** | `pages/app.js` | `apiCall`, `addLog`, `tabs`, `onExampleQuestion` 등 주요 함수/값 메모이제이션 |
+| **mount 가드** | `pages/app.js` | 비동기 로드 시 `mounted` 플래그로 언마운트 후 상태 업데이트 방지 |
 
 ---
 

@@ -702,8 +702,33 @@ async def _replay_steps_from_n8n(inquiries: list, all_channels: list, queue: asy
         await queue.put(None)
 
 
+async def _send_email_resend(to_email: str, subject: str, body_html: str) -> bool:
+    """Resend API로 이메일 발송"""
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    if not resend_key or not to_email:
+        return False
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                json={
+                    "from": "CAFE24 CS <onboarding@resend.dev>",
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": body_html,
+                },
+            )
+        st.logger.info("[cs-email] resend to=%s status=%s", to_email, resp.status_code)
+        return resp.status_code < 400
+    except Exception as e:
+        st.logger.error("[cs-email] resend error: %s", e)
+        return False
+
+
 async def _simulate_workflow(job_id: str, inquiries: list, queue: asyncio.Queue):
-    """n8n 미설정 시 시뮬레이션 (asyncio.sleep 기반)"""
+    """n8n 미설정 시 직접 이메일 발송 + 시뮬레이션"""
     try:
         await queue.put({"type": "step", "data": {"node": "validate", "status": "running"}})
         await asyncio.sleep(0.5)
@@ -717,8 +742,38 @@ async def _simulate_workflow(job_id: str, inquiries: list, queue: asyncio.Queue)
         for ch in all_channels:
             ch_count = sum(1 for inq in inquiries if ch in inq.get("channels", []))
             await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "running"}})
-            await asyncio.sleep(0.5)
-            await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": f"{ch_count}건 전송 (시뮬레이션)"}})
+
+            if ch == "이메일":
+                # Resend API로 실제 이메일 발송
+                email_sent = 0
+                for inq in inquiries:
+                    if "이메일" not in inq.get("channels", []):
+                        continue
+                    to_email = inq.get("recipient_email", "")
+                    if not to_email:
+                        continue
+                    subject = f"[카페24] 문의 답변 — {inq.get('category', '기타')}"
+                    html = f"""<div style="font-family:'Apple SD Gothic Neo',sans-serif;max-width:600px;margin:0 auto">
+  <div style="background:#1a56db;padding:20px 32px">
+    <h2 style="margin:0;color:#fff;font-size:18px">카페24 고객지원 답변</h2>
+  </div>
+  <div style="padding:24px 32px;background:#fff">
+    <p style="color:#374151;font-size:14px;line-height:1.7"><strong>문의 내용:</strong><br>{inq.get('inquiry_text', '')}</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0">
+    <p style="color:#374151;font-size:14px;line-height:1.7"><strong>답변:</strong><br>{inq.get('answer_text', '')}</p>
+  </div>
+  <div style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb">
+    <p style="margin:0;font-size:11px;color:#9ca3af">CAFE24 AI CS — 자동 발송</p>
+  </div>
+</div>"""
+                    ok = await _send_email_resend(to_email, subject, html)
+                    if ok:
+                        email_sent += 1
+                detail = f"{email_sent}건 발송 완료" if email_sent > 0 else f"{ch_count}건 전송 (시뮬레이션)"
+                await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": detail}})
+            else:
+                await asyncio.sleep(0.5)
+                await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": f"{ch_count}건 전송 (시뮬레이션)"}})
 
         await queue.put({"type": "step", "data": {"node": "log", "status": "running"}})
         await asyncio.sleep(0.3)

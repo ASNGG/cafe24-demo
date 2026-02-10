@@ -26,6 +26,7 @@
 9. [데이터 흐름](#9-데이터-흐름)
 10. [에러 핸들링](#10-에러-핸들링)
 11. [성능 최적화](#11-성능-최적화)
+12. [접근성](#12-접근성)
 
 ---
 
@@ -65,6 +66,7 @@ graph LR
 | **직접 조작** | DnD로 CS 문의 자동/수동 분기, 슬라이더로 신뢰도 임계값 조정 |
 | **상태 가시성** | 로딩 스켈레톤, NProgress 전환 바, 토스트 알림으로 시스템 상태 투명 전달 |
 | **역할 기반 접근 제어** | 관리자/비관리자 역할에 따라 패널 접근 자동 필터링 |
+| **접근성** | ARIA 속성, 키보드 네비게이션으로 웹 접근성 표준 준수 |
 
 ---
 
@@ -91,31 +93,61 @@ nextjs/
 │   ├── Layout.js                   # 12-column 그리드 레이아웃
 │   ├── Sidebar.js                  # 예시 질문 아코디언, 셀러 정보
 │   ├── Topbar.js                   # 사용자 정보, 로그아웃
-│   ├── Tabs.js                     # 역할별 탭 네비게이션
+│   ├── Tabs.js                     # 역할별 탭 네비게이션 (ARIA, 키보드)
 │   ├── KpiCard.js                  # KPI 지표 카드
 │   ├── SectionHeader.js            # 섹션 제목 + 액션 버튼
 │   ├── EmptyState.js               # 빈 상태 UI
 │   ├── Skeleton.js                 # 로딩 스켈레톤 (CSS shimmer)
 │   ├── ToastProvider.js            # 전역 토스트 알림 (react-hot-toast)
 │   │
+│   ├── common/                     # 공통 컴포넌트 (신규)
+│   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
+│   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
+│   │   └── constants.js            # 공통 상수 (COLORS 등)
+│   │
 │   └── panels/                     # 기능별 패널 (11개)
 │       ├── AgentPanel.js           # AI 에이전트 채팅
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
-│       ├── AnalysisPanel.js        # 상세 분석 (9개 서브탭)
+│       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
 │       ├── ModelsPanel.js          # MLflow 모델 관리
 │       ├── RagPanel.js             # RAG 문서 관리
 │       ├── SettingsPanel.js        # LLM/시스템 설정
 │       ├── UsersPanel.js           # 셀러 관리
 │       ├── LogsPanel.js            # 활동 로그 뷰어
-│       ├── LabPanel.js             # 실험실 - CS 자동화 파이프라인
-│       ├── GuardianPanel.js        # 실험실 - DB 보안 감시
-│       └── ProcessMinerPanel.js    # 실험실 - 프로세스 마이닝
+│       ├── LabPanel.js             # CS 자동화 파이프라인 (→ lab/ 위임)
+│       ├── GuardianPanel.js        # DB 보안 감시
+│       ├── ProcessMinerPanel.js    # 프로세스 마이닝
+│       │
+│       ├── lab/                    # LabPanel 분리 (11개 파일)
+│       │   ├── LabPanel.js         # 메인 컨테이너
+│       │   ├── StepIndicator.js    # 5단계 진행 표시기
+│       │   ├── StepClassify.js     # Step 1: 접수함 + DnD 분기
+│       │   ├── StepReview.js       # Step 2: 상세 분석 + 우선순위
+│       │   ├── StepAnswer.js       # Step 3: RAG+LLM 답변 생성
+│       │   ├── StepReply.js        # Step 4: React Flow 워크플로우
+│       │   ├── StepImprove.js      # Step 5: 통계 대시보드
+│       │   ├── DraggableCard.js    # HTML5 DnD 카드
+│       │   ├── WorkflowNode.js     # React Flow 커스텀 노드
+│       │   ├── constants.js        # 샘플 데이터, 채널 메타
+│       │   └── utils.js            # 유틸리티 함수
+│       │
+│       └── analysis/               # AnalysisPanel 분리 (10개 파일)
+│           ├── AnalysisPanel.js    # 메인 컨테이너 (9개 탭 오케스트레이션)
+│           ├── SellerTab.js        # 셀러 분석
+│           ├── SegmentTab.js       # 세그먼트 분석
+│           ├── AnomalyTab.js       # 이상거래 탐지
+│           ├── PredictionTab.js    # 예측 분석
+│           ├── CohortTab.js        # 코호트 분석
+│           ├── TrendTab.js         # 트렌드 분석
+│           ├── ShopTab.js          # 쇼핑몰 분석
+│           ├── CsTab.js            # CS 분석
+│           └── MarketingTab.js     # 마케팅 최적화
 │
 ├── lib/                            # 유틸리티
 │   ├── api.js                      # API 호출 (Basic Auth, AbortController)
+│   ├── sse.js                      # SSE 파싱/인증 헤더 공통 유틸 (신규)
 │   ├── storage.js                  # 로컬/세션 스토리지 (SSR 안전)
 │   ├── cn.js                       # 클래스명 병합 (flat + filter)
-│   ├── utils.js                    # 확장 cn (객체/배열 지원)
 │   └── progress.js                 # NProgress 중첩 카운터
 │
 ├── styles/
@@ -123,7 +155,7 @@ nextjs/
 │   └── nprogress.css               # 페이지 전환 진행바
 │
 ├── next.config.js                  # API 프록시 rewrites 설정
-├── tailwind.config.js              # CAFE24 테마 커스텀 설정
+├── tailwind.config.js              # CAFE24 테마 커스텀 설정 (cafe24 색상 별칭)
 ├── postcss.config.js               # PostCSS (Tailwind + Autoprefixer)
 └── package.json
 ```
@@ -235,6 +267,7 @@ flowchart TB
 | **역할** | 전체 플랫폼 KPI 및 통계 시각화, AI 인사이트, 알림 |
 | **API** | `GET /api/dashboard/summary`, `GET /api/dashboard/insights`, `GET /api/dashboard/alerts`, `GET /api/users/segments/{name}/details` |
 | **라이브러리** | `recharts` (PieChart, BarChart, AreaChart, RadialBarChart) |
+| **공통 컴포넌트** | `common/CustomTooltip.js` (차트 툴팁) |
 
 **대시보드 섹션 구성:**
 
@@ -253,25 +286,29 @@ flowchart TB
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/AnalysisPanel.js` |
+| **파일** | `components/panels/analysis/AnalysisPanel.js` (메인 컨테이너) |
+| **구조** | `components/panels/analysis/` 디렉토리 10개 파일로 분리 |
 | **역할** | 셀러/쇼핑몰 데이터 심층 분석, ML 예측 결과 시각화, 마케팅 최적화 |
-| **탭 수** | 9개 |
+| **탭 수** | 9개 (탭별 독립 컴포넌트) |
 | **공통 기능** | 기간 필터(7일/30일/90일), LIVE/NO DATA 상태 배지, 커스텀 툴팁 |
+| **공통 컴포넌트** | `common/CustomTooltip.js` (차트 툴팁) |
 | **라이브러리** | `recharts` (LineChart, RadarChart, AreaChart, BarChart, ComposedChart, Scatter, PieChart) |
 
 > 페이지 진입 시 `/api/stats/summary`, `/api/analysis/anomaly`, `/api/analysis/prediction/churn`, `/api/analysis/cohort/retention`, `/api/analysis/trend/kpis` 를 병렬 호출하여 전 탭의 데이터를 미리 로드한다.
 
-| # | 탭 | 설명 | 주요 API | 차트 |
-|---|-----|------|---------|------|
-| 1 | **셀러 분석** | 개별 셀러 프로필 + ML 예측 | `/api/sellers/search`, `/api/sellers/autocomplete` | RadarChart, AreaChart |
-| 2 | **세그먼트** | 셀러 세그먼트별 통계 비교 | `/api/stats/summary` | BarChart |
-| 3 | **이상거래 탐지** | 이상 거래 목록, 유형별 분포, 추이 | `/api/analysis/anomaly` | ComposedChart + Scatter, BarChart |
-| 4 | **예측 분석** | 이탈/매출/인게이지먼트 (3 서브탭) | `/api/analysis/prediction/churn`, `/api/sellers/search` | AreaChart |
-| 5 | **코호트** | 셀러 리텐션/LTV/전환율 (3 서브탭) | `/api/analysis/cohort/retention` | HeatMap, BarChart, LineChart |
-| 6 | **트렌드** | GMV, 활성셀러 등 KPI 추이 + 예측 | `/api/analysis/trend/kpis` | LineChart, AreaChart |
-| 7 | **쇼핑몰 분석** | 쇼핑몰별 운영점수/전환율/인기도 | `/api/shops` | BarChart (플랜 등급별 색상) |
-| 8 | **CS 분석** | CS 채널별 건수/품질/미처리 | `/api/stats/summary` | PieChart, 테이블 |
-| 9 | **마케팅 최적화** | 셀러별 채널 ROI 최적화 추천 | `/api/marketing/seller/{id}`, `/api/marketing/optimize` | 테이블, 카드 |
+**탭별 분리 구조:**
+
+| # | 탭 | 파일 | 설명 | 주요 API | 차트 |
+|---|-----|------|------|---------|------|
+| 1 | **셀러 분석** | `SellerTab.js` | 개별 셀러 프로필 + ML 예측 | `/api/sellers/search`, `/api/sellers/autocomplete` | RadarChart, AreaChart |
+| 2 | **세그먼트** | `SegmentTab.js` | 셀러 세그먼트별 통계 비교 | `/api/stats/summary` | BarChart |
+| 3 | **이상거래 탐지** | `AnomalyTab.js` | 이상 거래 목록, 유형별 분포, 추이 | `/api/analysis/anomaly` | ComposedChart + Scatter, BarChart |
+| 4 | **예측 분석** | `PredictionTab.js` | 이탈/매출/인게이지먼트 (3 서브탭) | `/api/analysis/prediction/churn`, `/api/sellers/search` | AreaChart |
+| 5 | **코호트** | `CohortTab.js` | 셀러 리텐션/LTV/전환율 (3 서브탭) | `/api/analysis/cohort/retention` | HeatMap, BarChart, LineChart |
+| 6 | **트렌드** | `TrendTab.js` | GMV, 활성셀러 등 KPI 추이 + 예측 | `/api/analysis/trend/kpis` | LineChart, AreaChart |
+| 7 | **쇼핑몰 분석** | `ShopTab.js` | 쇼핑몰별 운영점수/전환율/인기도 | `/api/shops` | BarChart (플랜 등급별 색상) |
+| 8 | **CS 분석** | `CsTab.js` | CS 채널별 건수/품질/미처리 | `/api/stats/summary` | PieChart, 테이블 |
+| 9 | **마케팅 최적화** | `MarketingTab.js` | 셀러별 채널 ROI 최적화 추천 | `/api/marketing/seller/{id}`, `/api/marketing/optimize` | 테이블, 카드 |
 
 #### 탭 1. 셀러 분석
 
@@ -340,6 +377,7 @@ flowchart TB
 | **역할** | RAG 인덱스 관리, 모드 선택, LightRAG 빌드, 기능 상태 모니터링 |
 | **API** | `GET /api/rag/status`, `GET /api/rag/files`, `POST /api/rag/reload`, `POST /api/rag/upload`, `POST /api/rag/delete`, `GET /api/lightrag/status`, `POST /api/lightrag/build`, `POST /api/ocr/extract` |
 | **권한** | 관리자 전용 |
+| **변경** | `alert()`/`confirm()` → toast 통일 |
 
 **RAG 모드 선택 UI:**
 
@@ -379,6 +417,7 @@ flowchart LR
 | **역할** | LLM 모델 및 파라미터 설정, 시스템 프롬프트 관리 |
 | **API** | `GET/POST /api/settings/llm`, `GET/POST /api/settings/prompt`, `POST /api/settings/llm/reset`, `POST /api/settings/prompt/reset` |
 | **권한** | 관리자 전용 |
+| **변경** | 미사용 함수 4개 제거 |
 
 **LLM 설정 항목:**
 
@@ -431,6 +470,7 @@ flowchart LR
 | **역할** | 플랫폼 셀러 계정 관리 |
 | **API** | `GET/POST /api/users` |
 | **권한** | 관리자 전용 |
+| **변경** | `Object.keys()` 동적 컬럼 → 화이트리스트 방식으로 변경 |
 
 ---
 
@@ -449,9 +489,11 @@ flowchart LR
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/LabPanel.js` |
+| **파일** | `components/panels/lab/LabPanel.js` (메인 컨테이너) |
+| **구조** | `components/panels/lab/` 디렉토리 11개 파일로 분리 |
 | **역할** | 셀러 문의 자동화 5단계 파이프라인 (일괄 분류 + DnD 자동/수동 분기 + 일괄 답변) |
 | **API** | `POST /api/classify/inquiry` (일괄), `POST /api/cs/pipeline`, `POST /api/cs/pipeline-answer` (SSE), `POST /api/cs/send-reply` (JSON), `GET /api/cs/stream` (SSE), `GET /api/cs/statistics` |
+| **SSE 유틸** | `lib/sse.js` (SSE 파싱/인증 헤더 공통 추출) |
 | **권한** | 전체 사용자 |
 
 > **핵심 컨셉**: 단순/반복 문의는 자동 처리, 복잡한 문의만 담당자 검토
@@ -533,17 +575,21 @@ flowchart LR
 - KPI 카드 (총 처리 건수, 자동 처리율, 평균 응답 시간)
 - 파이프라인 처리 이력 테이블 (시간, 문의 요약, 카테고리, 라우팅, 우선순위)
 
-**내부 컴포넌트:**
+**분리된 내부 컴포넌트:**
 
-| 컴포넌트 | 역할 |
-|----------|------|
-| `StepIndicator` | 5단계 진행 표시기 (완료/현재/미완료 상태, 클릭 이동) |
-| `StepClassify` | 접수함 테이블 + DnD 2열 분기 + 신뢰도 슬라이더 |
-| `StepReview` | 파이프라인 결과 상세 (분류/우선순위/라우팅) |
-| `StepAnswer` | SSE 스트리밍 답변 + 일괄 답변 생성 + 인라인 수정 |
-| `StepReply` | React Flow 워크플로우 + 채널 선택 + 전송 |
-| `StepImprove` | 카테고리 BarChart + KPI + 이력 테이블 |
-| `DraggableCard` | HTML5 DnD 카드 (드래그 핸들, 카테고리 배지, 드롭존 하이라이트) |
+| 컴포넌트 | 파일 | 역할 |
+|----------|------|------|
+| `LabPanel` | `lab/LabPanel.js` | 메인 컨테이너 (상태 관리, 스텝 라우팅) |
+| `StepIndicator` | `lab/StepIndicator.js` | 5단계 진행 표시기 (완료/현재/미완료 상태, 클릭 이동) |
+| `StepClassify` | `lab/StepClassify.js` | 접수함 테이블 + DnD 2열 분기 + 신뢰도 슬라이더 |
+| `StepReview` | `lab/StepReview.js` | 파이프라인 결과 상세 (분류/우선순위/라우팅) |
+| `StepAnswer` | `lab/StepAnswer.js` | SSE 스트리밍 답변 + 일괄 답변 생성 + 인라인 수정 |
+| `StepReply` | `lab/StepReply.js` | React Flow 워크플로우 + 채널 선택 + 전송 |
+| `StepImprove` | `lab/StepImprove.js` | 카테고리 BarChart + KPI + 이력 테이블 |
+| `DraggableCard` | `lab/DraggableCard.js` | HTML5 DnD 카드 (드래그 핸들, 카테고리 배지, 드롭존 하이라이트) |
+| `WorkflowNode` | `lab/WorkflowNode.js` | React Flow 커스텀 노드 |
+| `constants` | `lab/constants.js` | 샘플 문의 데이터, 채널 메타정보 |
+| `utils` | `lab/utils.js` | 유틸리티 함수 |
 
 **애니메이션 (Framer Motion):**
 - `AnimatePresence` + `motion.div`로 스텝 전환 시 슬라이드 인/아웃 (`x: 20 → 0 → -20`, 0.2s)
@@ -557,6 +603,7 @@ flowchart LR
 | **파일** | `components/panels/GuardianPanel.js` |
 | **역할** | DB 쿼리 실시간 감시 -- 룰엔진 + ML 이상탐지(Isolation Forest) + AI Agent 3단계 분석으로 위험 쿼리 차단 |
 | **API** | `POST /api/guardian/analyze`, `POST /api/guardian/recover`, `POST /api/guardian/notify-dba`, `GET /api/guardian/logs`, `GET /api/guardian/stats` |
+| **공통 컴포넌트** | `common/StatCard.js` (통계 카드) |
 | **권한** | 전체 사용자 |
 
 > **핵심 컨셉**: 룰엔진(<1ms) + ML 이상탐지(~50ms)로 1차 필터링, 위험 쿼리만 AI Agent(GPT-4o-mini)가 정밀 분석. 사용자가 감시 모드(룰/ML/룰+ML) 선택 가능
@@ -662,6 +709,7 @@ flowchart LR
 | **파일** | `components/panels/ProcessMinerPanel.js` |
 | **역할** | 이커머스 프로세스 마이닝 -- 프로세스 발견 + ML 다음 활동 예측 + 병목 분석 + ML 이상 프로세스 탐지 + AI 자동화 추천 |
 | **API** | `POST /api/process-miner/discover`, `POST /api/process-miner/predict`, `POST /api/process-miner/bottlenecks`, `POST /api/process-miner/anomalies`, `POST /api/process-miner/recommend` |
+| **공통 컴포넌트** | `common/StatCard.js` (통계 카드) |
 | **권한** | 전체 사용자 |
 
 > **핵심 컨셉**: 이벤트 로그 기반 프로세스 플로우 시각화 + ML 모델로 다음 활동 예측 및 이상 프로세스 탐지
@@ -732,7 +780,6 @@ flowchart LR
 | `ProcessFlowDiagram` | 프로세스 플로우 커스텀 렌더링 (위상 정렬 BFS + 노드 클릭 상세) |
 | `TransitionMatrix` | 전이 행렬 테이블 (활동 간 빈도/확률 매트릭스) |
 | `FeatureImportanceChart` | ML 피처 중요도 가로 막대 차트 |
-| `SummaryCard` | 요약 카드 (아이콘 + 라벨 + 값, 색상 가변) |
 | `SimpleMarkdown` | 간이 마크다운 렌더러 (h1~h3, 리스트, 볼드, 줄바꿈) |
 
 **유틸리티 함수:**
@@ -763,9 +810,9 @@ flowchart LR
 |--------|------|---------|
 | `.fade-in` | 투명→불투명 | 0.3s |
 | `.slide-in` | 좌→우 슬라이드 | 0.25s |
-| `.cookie-float` | 상하 플로팅 | 3s (반복) |
+| `.cafe24-float` | 상하 플로팅 | 3s (반복) |
 | `.pulse-soft` | 부드러운 펄스 | 2s (반복) |
-| `.cookie-bounce` | 바운스 | 0.5s |
+| `.cafe24-bounce` | 바운스 | 0.5s |
 | `.skeleton::after` | 로딩 시머 (shimmer) | CSS 키프레임 |
 
 **반응형 레이아웃:**
@@ -790,7 +837,15 @@ flowchart LR
 | **Layout** | `Layout.js` | 12-column 그리드 (Sidebar 3열 + Main 9열), Noto Sans KR 폰트 |
 | **Sidebar** | `Sidebar.js` | CAFE24 SVG 로고, 예시 질문 아코디언 (6카테고리 62개), 셀러 정보, 환영 팝업 |
 | **Topbar** | `Topbar.js` | CAFE24 SVG 로고, 사용자명, 로그아웃 버튼 |
-| **Tabs** | `Tabs.js` | 역할별 필터링된 탭 네비게이션 |
+| **Tabs** | `Tabs.js` | 역할별 필터링된 탭 네비게이션, ARIA 접근성 (`role="tablist"`, `role="tab"`, `aria-selected`), ArrowLeft/ArrowRight 키보드 네비게이션 |
+
+### 공통 컴포넌트 (신규)
+
+| 컴포넌트 | 파일 | 설명 |
+|----------|------|------|
+| **CustomTooltip** | `common/CustomTooltip.js` | Recharts 차트 공통 툴팁 (DashboardPanel, AnalysisPanel에서 중복 추출) |
+| **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel StatCard + ProcessMinerPanel SummaryCard 통합) |
+| **constants** | `common/constants.js` | 공통 상수 (COLORS 등 차트/UI 색상) |
 
 ### UI 컴포넌트
 
@@ -848,6 +903,10 @@ export async function apiCall({
 ```
 
 ### 4.3 SSE 스트리밍
+
+**SSE 공통 유틸 (`lib/sse.js`):**
+
+SSE 파싱과 인증 헤더 생성 로직을 공통 모듈로 추출하여 LabPanel 내 3회 반복되던 코드를 제거했다.
 
 클라이언트에서 `@microsoft/fetch-event-source`로 SSE 연결:
 
@@ -930,6 +989,10 @@ async rewrites() {
   ];
 }
 ```
+
+### 4.6 API 상태 포맷
+
+백엔드 API 응답의 `status` 필드는 소문자(`success`, `failed` 등)로 통일되었으며, 프론트엔드는 이에 대응 완료.
 
 ---
 
@@ -1054,7 +1117,7 @@ colors: {
 ### 6.2 CSS 변수
 
 ```css
-/* styles/globals.css */
+/* styles/globals.css -- cafe24 테마 */
 :root {
   --bg: #F5F7FA;
   --panel: #ffffff;
@@ -1064,8 +1127,12 @@ colors: {
   --primary2: #4A8AE5;
   --success: #00C853;
   --danger: #F44336;
+
+  /* --cafe24-* 변수 (기존 --cookie-* 에서 리네이밍) */
 }
 ```
+
+> CSS 변수가 `--cookie-*` → `--cafe24-*`로 리네이밍되었으며, `ToastProvider.js` 등 CSS 변수를 참조하는 컴포넌트도 함께 업데이트 완료.
 
 ### 6.3 커스텀 클래스
 
@@ -1076,12 +1143,12 @@ colors: {
 | | `.btn-ghost` | 투명 배경 |
 | | `.btn-green` | 성공 그라데이션 |
 | **카드** | `.card` | 흰색 배경, 라운드 16px |
-| | `.cookie-card` | CAFE24 호버 효과 카드 |
+| | `.cafe24-card` | CAFE24 호버 효과 카드 |
 | **배지** | `.badge-success` / `.badge-danger` / `.badge-orange` | 상태별 색상 |
 | | `.badge-common` ~ `.badge-ancient` | 셀러 등급별 |
 | **채팅** | `.chat-bubble-user` | 라이트 블루 배경 |
 | | `.chat-bubble-ai` | 흰색 배경 |
-| **텍스트** | `.cookie-text` | CAFE24 블루 그라데이션 텍스트 |
+| **텍스트** | `.cafe24-text` | CAFE24 블루 그라데이션 텍스트 |
 
 ### 6.4 애니메이션
 
@@ -1089,11 +1156,11 @@ colors: {
 |--------|------|
 | `.fade-in` | 페이드 인 (0.3s) |
 | `.slide-in` | 슬라이드 인 (0.25s) |
-| `.cookie-float` | 플로팅 (3s) |
+| `.cafe24-float` | 플로팅 (3s) |
 | `.pulse-soft` | 부드러운 펄스 (2s) |
-| `.cookie-spin` | 회전 (8s) |
-| `.cookie-bounce` | 바운스 (0.5s) |
-| `.cookie-glow` | 글로우 효과 |
+| `.cafe24-spin` | 회전 (8s) |
+| `.cafe24-bounce` | 바운스 (0.5s) |
+| `.cafe24-glow` | 글로우 효과 |
 
 ### 6.5 반응형 브레이크포인트
 
@@ -1162,10 +1229,7 @@ npm start
 | **@microsoft/fetch-event-source** | 2.0 | SSE 스트리밍 |
 | **@xyflow/react** | 12.10 | React Flow 다이어그램 (LabPanel) |
 | **react-hot-toast** | 2.4 | 토스트 알림 |
-| **clsx** | 2.1 | 클래스명 조건부 결합 |
-| **tailwind-merge** | 2.5 | Tailwind 클래스 병합 |
 | **nprogress** | 0.2 | 페이지 전환 진행바 |
-| **swr** | 2.2 | 데이터 페칭 |
 | **plotly.js-dist-min** | 2.30 | Plotly 차트 (경량) |
 | **react-plotly.js** | 2.6 | React Plotly 래퍼 |
 
@@ -1356,11 +1420,31 @@ sequenceDiagram
 | **safeReplace** | `pages/app.js` | 동일 경로 중복 `router.replace()` 방지 |
 | **useCallback/useMemo** | `pages/app.js` | `apiCall`, `addLog`, `tabs` 등 주요 함수/값 메모이제이션 |
 | **mount 가드** | `pages/app.js` | `mounted` 플래그로 언마운트 후 상태 업데이트 방지 |
+| **SSE 유틸 공통화** | `lib/sse.js` | LabPanel 내 SSE 파싱/인증 헤더 3회 반복 코드를 공통 모듈로 추출 |
+| **컴포넌트 분리** | `panels/lab/`, `panels/analysis/` | 대형 단일 파일을 기능별 모듈로 분리하여 번들 최적화 |
+
+---
+
+## 12. 접근성
+
+### ARIA 속성
+
+| 컴포넌트 | 적용 내용 |
+|----------|----------|
+| **Tabs.js** | `role="tablist"` (탭 컨테이너), `role="tab"` (개별 탭), `aria-selected` (선택 상태) |
+| **5개 패널** | 주요 인터랙션 요소에 ARIA 속성 추가 |
+
+### 키보드 네비게이션
+
+| 키 | 동작 | 적용 위치 |
+|----|------|----------|
+| `ArrowLeft` | 이전 탭으로 이동 | Tabs.js |
+| `ArrowRight` | 다음 탭으로 이동 | Tabs.js |
 
 ---
 
 <div align="center">
 
-**Version 7.5.0** · Last Updated 2026-02-10
+**Version 8.0.0** · Last Updated 2026-02-10
 
 </div>

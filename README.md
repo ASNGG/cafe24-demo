@@ -71,14 +71,16 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 | 특징 | 설명 |
 |------|------|
 | **LLM + ML 하이브리드** | GPT-4o-mini가 28개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 |
-| **3단계 라우터** | 키워드 분류(비용 0) -> LLM Router(gpt-4o-mini) -> Semantic Router(embedding 코사인 유사도) |
-| **Triple RAG** | FAISS Hybrid Search + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q+Hybrid) |
+| **2단계 라우터** | 키워드 분류(비용 0, <1ms) -> LLM Router(gpt-4o-mini fallback) |
+| **Triple RAG** | FAISS Hybrid Search + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q+Hybrid) + BM25 한국어 토큰화 |
 | **Corrective RAG** | 검색 결과 품질 자동 평가 -> 쿼리 재작성 -> 재검색 ([CRAG 논문](https://arxiv.org/abs/2401.15884) 기반) |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
 | **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 |
 | **DB 보안 감시** | 룰엔진(<1ms) + Isolation Forest + SHAP + LangChain Agent + Recovery Agent |
 | **CS 자동화** | 접수(DnD 분류) -> 답변(RAG+LLM) -> 회신(n8n) 워크플로우 |
 | **마케팅 최적화** | P-PSO(Particle Swarm Optimization) 기반 채널별 예산 배분 최적화 |
+| **보안** | 프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL/세션 제한, 스택트레이스 비노출 |
+| **모듈형 아키텍처** | 라우터 8개 도메인 분리, RAG 서비스 파사드 패턴, 프론트엔드 패널 컴포넌트 분리 |
 
 > **기술 상세**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
 
@@ -96,10 +98,13 @@ flowchart TB
     end
 
     subgraph Backend["Backend (FastAPI + Python 3.10+)"]
-        subgraph Router["3단계 라우터"]
+        subgraph API["API 레이어 (8개 도메인 라우터)"]
+            Routes["routes_shop · routes_seller · routes_cs<br/>routes_rag · routes_ml · routes_guardian<br/>routes_agent · routes_admin"]
+        end
+
+        subgraph Router["2단계 라우터"]
             R1["1. 키워드 분류<br/>(비용 0, <1ms)"]
-            R2["2. LLM Router<br/>(gpt-4o-mini)"]
-            R3["3. Semantic Router<br/>(embedding 코사인 유사도)"]
+            R2["2. LLM Router<br/>(gpt-4o-mini fallback)"]
         end
 
         subgraph Agent["AI 에이전트"]
@@ -109,10 +114,12 @@ flowchart TB
             CRAG["crag.py<br/>Corrective RAG"]
         end
 
-        subgraph RAGSystem["RAG 시스템"]
-            HybridRAG["Hybrid Search<br/>FAISS + BM25"]
+        subgraph RAGSystem["RAG 시스템 (파사드 + 모듈)"]
+            Service["service.py<br/>통합 파사드"]
+            HybridRAG["search.py<br/>FAISS + BM25"]
             LightRAGNode["LightRAG<br/>GraphRAG"]
             K2RAGNode["K2RAG<br/>KG + Sub-Q"]
+            Chunking["chunking.py"]
         end
 
         subgraph MLModels["ML 모델 (12개)"]
@@ -139,11 +146,14 @@ flowchart TB
         Railway["Railway<br/>(백엔드)"]
     end
 
-    Frontend -->|"REST / SSE"| Backend
+    Frontend -->|"REST / SSE"| API
+    API --> Router
     Router --> Agent
     Agent --> RAGSystem
     Agent --> MLModels
     Agent --> OpenAI
+    Service --> HybridRAG
+    Service --> Chunking
     RAGSystem --> OpenAI
     Runner --> Tools
     MultiAgent --> Tools
@@ -159,7 +169,7 @@ sequenceDiagram
     autonumber
     participant User as 사용자
     participant FE as Frontend (Next.js)
-    participant Router as 3단계 라우터
+    participant Router as 2단계 라우터
     participant Agent as AI Agent (runner.py)
     participant Tool as Tool Executor (tools.py)
     participant ML as ML Model (.pkl)
@@ -190,16 +200,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph Startup["시작 시 로딩"]
+    subgraph Startup["시작 시 로딩 (lifespan)"]
         main["main.py"] --> loader["data/loader.py"]
         loader --> state["state.py<br/>16개 DataFrame<br/>12개 ML 모델"]
     end
 
     subgraph Request["요청 처리"]
-        FE["Frontend<br/>(Next.js 프록시)"] --> routes["routes.py<br/>89개 엔드포인트"]
+        FE["Frontend<br/>(Next.js 프록시)"] --> routes["api/<br/>8개 도메인 라우터<br/>89개 엔드포인트"]
         routes --> agent["agent/<br/>runner + tools"]
         routes --> ml["ml/<br/>모델 추론"]
-        routes --> rag["rag/<br/>문서 검색"]
+        routes --> rag["rag/<br/>service 파사드<br/>+ search · chunking · kg"]
         agent --> state2["state.py"]
         ml --> state2
     end
@@ -362,13 +372,28 @@ flowchart LR
 ├── README.md                          # 프로젝트 루트 문서 (이 파일)
 │
 ├── backend 리팩토링 시작/             # FastAPI 백엔드
-│   ├── main.py                        # FastAPI 앱 진입점
+│   ├── main.py                        # FastAPI 앱 진입점 (lifespan 패턴)
 │   ├── state.py                       # 전역 상태 관리 (16개 DataFrame + 모델)
-│   ├── api/routes.py                  # 83개 REST API 엔드포인트
+│   ├── api/                           # REST API 엔드포인트 (도메인별 분리)
+│   │   ├── common.py                  # 공통 의존성/유틸
+│   │   ├── routes.py                  # 라우터 허브 (8개 도메인 라우터 통합)
+│   │   ├── routes_shop.py             # 쇼핑몰/주문/상품 API
+│   │   ├── routes_seller.py           # 셀러 관리 API
+│   │   ├── routes_cs.py               # CS 자동화 API
+│   │   ├── routes_rag.py              # RAG 검색/문서 관리 API
+│   │   ├── routes_ml.py               # ML 모델 추론/학습 API
+│   │   ├── routes_guardian.py         # DB 보안 감시 API
+│   │   ├── routes_agent.py            # AI 에이전트 API
+│   │   └── routes_admin.py            # 관리/설정/로그 API
 │   ├── agent/                         # AI 에이전트 (runner, tools, router, crag, multi_agent)
 │   │   ├── tools.py                   # 28개 도구 함수 (비즈니스 로직)
 │   │   └── tool_schemas.py            # 28개 @tool 래퍼 (LLM 인터페이스)
-│   ├── rag/                           # RAG 시스템 (Hybrid, LightRAG, K2RAG)
+│   ├── rag/                           # RAG 시스템 (모듈별 분리)
+│   │   ├── service.py                 # RAG 파사드 (통합 인터페이스)
+│   │   ├── chunking.py                # 문서 청킹 로직
+│   │   ├── search.py                  # 검색 엔진 (Hybrid/BM25)
+│   │   ├── kg.py                      # 지식 그래프 처리
+│   │   └── contextual.py              # Contextual RAG 로직
 │   ├── ml/                            # ML 모델 학습/추론 (train_models, revenue, marketing, mlflow)
 │   ├── core/                          # 유틸리티 (constants, utils, memory, parsers)
 │   ├── data/                          # 데이터 로더
@@ -380,8 +405,13 @@ flowchart LR
 └── nextjs/                            # Next.js 프론트엔드
     ├── pages/                         # Pages Router (login, app, API Routes)
     │   └── api/                       # SSE 프록시 핸들러 (agent, cs)
-    ├── components/panels/             # 11개 기능 패널
-    ├── lib/                           # 유틸리티 (api, storage, cn)
+    ├── components/
+    │   ├── common/                    # 공통 컴포넌트 (CustomTooltip, StatCard, constants)
+    │   └── panels/                    # 11개 기능 패널
+    │       ├── lab/                   # CS 자동화 실험실 (11개 파일로 분리)
+    │       ├── analysis/              # 분석 패널 (10개 탭 파일로 분리)
+    │       └── ...                    # 기타 패널
+    ├── lib/                           # 유틸리티 (api, storage, cn, sse)
     └── README.md                      # 프론트엔드 상세 문서
 ```
 
@@ -494,6 +524,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 8.0.0 | 2026-02-10 | 대규모 리팩토링: routes.py 8개 도메인 라우터 분리, service.py 파사드+모듈 분리, LabPanel/AnalysisPanel 컴포넌트 분리, 보안 강화(프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL), CSS 변수 리네이밍, 접근성 개선 |
 | 7.6.0 | 2026-02-10 | README 체계화: 루트(프로젝트 개요) / 백엔드(기술 상세) / 프론트엔드(UI 상세) 역할 분리 |
 | 7.5.0 | 2026-02-10 | README 전면 리뉴얼: 백엔드/프론트엔드/루트 README 코드 기준 정확성 검증 |
 | 7.4.0 | 2026-02-10 | KaTeX 수학 렌더링, 시스템 프롬프트 통합 (constants.py), CAFE24 브랜딩 통일 |

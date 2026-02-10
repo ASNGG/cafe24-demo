@@ -29,14 +29,14 @@
 11. [n8n 워크플로우 자동화](#11-n8n-워크플로우-자동화)
 12. [환경 설정](#12-환경-설정)
 13. [Core 모듈](#13-core-모듈)
-14. [Data Guardian Agent](#14-data-guardian-agent)
+14. [DB 보안 감시 (Data Guardian)](#14-db-보안-감시-data-guardian)
 15. [AI 프로세스 마이너](#15-ai-프로세스-마이너)
 
 ---
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **89개 REST API**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **8개 도메인별 라우터(89개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
 - **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 7개 IntentCategory로 28개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 포함
@@ -44,7 +44,7 @@
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
 - **CS 자동화**: ML 문의 분류(TF-IDF + RF, 9개 카테고리) -> RAG+LLM 답변 생성(SSE 스트리밍) -> n8n Cloud 워크플로우 -> Resend 이메일 발송. 신뢰도 >= 0.75 자동 처리, 미만 시 담당자 검토 분기
-- **Data Guardian**: 룰엔진(<1ms, O(1) 조건 분기) + IsolationForest ML(7개 피처) + LangChain `create_agent` AI Agent 3단계 쿼리 위험도 분석. 복구 SQL은 "제안만" (DBA 승인 필수)
+- **DB 보안 감시 (Data Guardian)**: 룰엔진(<1ms, O(1) 조건 분기) + IsolationForest ML(7개 피처) + LangChain `create_agent` AI Agent 3단계 쿼리 위험도 분석. 복구 SQL은 "제안만" (DBA 승인 필수)
 - **AI 프로세스 마이너**: 이벤트 로그(주문/CS/정산 3종) 기반 프로세스 패턴 발견(전이 행렬 + Mermaid), IQR 병목 분석, GPT-4o-mini 자동화 추천 + SOP 생성, RandomForest 다음 활동 예측(Top-3), IsolationForest 이상 프로세스 탐지
 - **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py -> state.py -> runner.py) + 프론트엔드 실시간 수정. `system_prompt.json` 영속화, KaTeX 수식 렌더링 지원
 
@@ -62,7 +62,7 @@ flowchart TB
     end
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
-        ROUTES["api/routes.py<br/>(83개 엔드포인트)"]
+        ROUTES["api/ 도메인별 라우터 8개<br/>(89개 엔드포인트)"]
         PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
@@ -87,7 +87,7 @@ flowchart TB
             CFG["설정 / 메모리"]
         end
 
-        GUARDIAN["Data Guardian<br/>(룰엔진 + ML + Agent)"]
+        GUARDIAN["DB 보안 감시<br/>(룰엔진 + ML + Agent)"]
         MINER["AI 프로세스 마이너<br/>(5개 분석 모듈)"]
     end
 
@@ -165,33 +165,46 @@ flowchart TB
 ```
 backend 리팩토링 시작/
 │
-├── main.py                          # FastAPI 진입점 (앱 생성, 미들웨어, startup)
-├── state.py                         # 전역 상태 관리 (DataFrame, 모델, 설정)
+├── main.py                          # FastAPI 진입점 (lifespan 패턴, 미들웨어)
+├── state.py                         # 전역 상태 관리 (DataFrame, 모델, 설정, TTL 30분/최대 1000세션)
 ├── Dockerfile                       # Docker 이미지 빌드 (Railway/프로덕션 배포)
 ├── .env                             # 환경 변수 (API 키, n8n URL 등)
 ├── requirements.txt                 # Python 의존성 목록
 │
-├── api/
-│   └── routes.py                    # REST API 엔드포인트 (83개 라우트 + Guardian 포함, SSE 스트리밍)
+├── api/                             # REST API (도메인별 라우터 분리)
+│   ├── common.py                    # 공통 유틸리티 (응답 형식, 인증 헬퍼)
+│   ├── routes.py                    # 레거시 라우터 (하위 호환)
+│   ├── routes_shop.py               # 쇼핑몰/상품 API
+│   ├── routes_seller.py             # 셀러 분석 API
+│   ├── routes_cs.py                 # CS/고객지원 API (X-Callback-Token 인증)
+│   ├── routes_rag.py                # RAG/LightRAG/K2RAG API
+│   ├── routes_ml.py                 # ML/MLflow/마케팅 API
+│   ├── routes_guardian.py           # Guardian/보안감시 API
+│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍)
+│   └── routes_admin.py              # 관리/설정/사용자 API
 │
 ├── agent/                           # AI 에이전트 시스템
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
 │   ├── tools.py                     # 28개 도구 함수 구현체 (실제 비즈니스 로직)
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router)
-│   ├── intent.py                    # 인텐트 감지 + 결정적 도구 실행
+│   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류)
 │   ├── multi_agent.py               # LangGraph 멀티 에이전트 (Coordinator → Search/Analysis/CS)
 │   ├── crag.py                      # Corrective RAG (검색 품질 평가 + 쿼리 재작성)
-│   ├── semantic_router.py           # Semantic Router (임베딩 기반, 현재 비활성)
-│   └── llm.py                       # LLM 호출 래퍼 (ChatOpenAI 생성, API 키 관리)
+│   ├── semantic_router.py           # Semantic Router (레거시 카테고리 정리됨, 현재 비활성)
+│   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
-├── rag/                             # RAG 시스템
-│   ├── service.py                   # FAISS + BM25 Hybrid Search + Knowledge Graph
-│   ├── light_rag.py                 # LightRAG (지식 그래프 기반 검색)
-│   └── k2rag.py                     # K2RAG (KG + Hybrid + Corpus Summarization)
+├── rag/                             # RAG 시스템 (모듈 분리)
+│   ├── service.py                   # RAG 파사드 (823줄, 검색 인터페이스 통합)
+│   ├── chunking.py                  # 청킹 로직 (Parent-Child Chunking)
+│   ├── search.py                    # 검색 엔진 (BM25, Vector, Hybrid, RAG-Fusion)
+│   ├── kg.py                        # Knowledge Graph
+│   ├── contextual.py                # Contextual Retrieval (LLM 컨텍스트 생성)
+│   ├── light_rag.py                 # LightRAG (지식 그래프 기반 검색, 검색 캐시 Lock)
+│   └── k2rag.py                     # K2RAG (ThreadPoolExecutor, 한국어 BM25 토큰화)
 │
 ├── ml/
-│   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 12개 ML 모델 학습 + Guardian 이상탐지
+│   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 12개 ML 모델 학습 + if __name__ 가드
 │   ├── revenue_model.py             # 매출 예측 (LightGBM 회귀)
 │   ├── marketing_optimizer.py       # 마케팅 최적화 (P-PSO 알고리즘, mealpy)
 │   ├── mlflow_tracker.py            # MLflow 실험 추적 유틸리티
@@ -199,16 +212,16 @@ backend 리팩토링 시작/
 │
 ├── core/                            # 핵심 유틸리티
 │   ├── constants.py                 # 상수 (플랜, 카테고리, 피처, 프롬프트, 용어)
-│   ├── utils.py                     # 유틸 함수 (safe_str, json_sanitize, format_openai_error)
+│   ├── utils.py                     # 유틸 함수 (extract_seller_id 등 중복 통합)
 │   ├── memory.py                    # 대화 메모리 관리 (세션별 최대 10턴)
-│   └── parsers.py                   # 텍스트 파서 (top-k 추출, 날짜 범위, ID 추출)
+│   └── parsers.py                   # 텍스트 파서 (레거시 함수 정리됨)
 │
 ├── process_miner/                   # AI 프로세스 마이너
 │   ├── __init__.py
 │   ├── event_generator.py           # 데모 이벤트 로그 생성 (주문/CS/정산 3종)
 │   ├── miner.py                     # 프로세스 패턴 발견 + 전이 행렬 + Mermaid 다이어그램
 │   ├── bottleneck.py                # 병목 분석 (IQR 이상치, 시간대별 분포, 효율성 점수)
-│   ├── predictor.py                 # 다음 활동 예측 (RandomForest, 7개 피처, Top-3 확률)
+│   ├── predictor.py                 # 다음 활동 예측 (RandomForest, SHA256 해시 기반 모델 캐싱)
 │   ├── anomaly_detector.py          # 이상 프로세스 탐지 (IsolationForest, 경로 기반)
 │   ├── recommender.py               # LLM 자동화 추천 + SOP 생성 (GPT-4o-mini / 규칙 기반 fallback)
 │   └── routes.py                    # 전용 API 라우터 (/api/process-miner/*)
@@ -417,9 +430,10 @@ flowchart TB
 | `CUSTOM_LLM_SETTINGS` | 모델, temperature, maxTokens, timeoutMs |
 | `CUSTOM_SYSTEM_PROMPT` | 사용자 수정 시스템 프롬프트 (`system_prompt.json` 영속화) |
 | `LIGHTRAG_CONFIG` | top_k, context_max_chars |
-| `CONVERSATION_MEMORY` | 세션별 대화 기록 (최대 10턴) |
+| `CONVERSATION_MEMORY` | 세션별 대화 기록 (최대 10턴, TTL 30분, 최대 1000세션) |
 | `CHURN_MODEL_CONFIG` | 이탈 모델 설정 (피처, SHAP, 정확도) |
 | `SHOP_SERVICE_MAP` | 쇼핑몰별 서비스 캐시 |
+| `CS_JOB_QUEUES` | CS 작업 큐 (TTL 기반 자동 정리) |
 
 ---
 
@@ -508,7 +522,7 @@ flowchart TD
 
 **문제**: 28개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
 
-**해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-4o-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(Data Guardian의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
+**해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-4o-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(DB 보안 감시의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
 
 ```mermaid
 flowchart TB
@@ -530,9 +544,9 @@ flowchart TB
     Stage1 & Stage2 --> Tools["카테고리별 도구 선택"]
 ```
 
-**구현 위치**:
+**구현 위치** (키워드 분류 로직 통합 - 중복 제거):
 - `agent/router.py` - `_keyword_classify()` + `route_intent_llm()` + `classify_and_get_tools()`
-- `agent/intent.py` - `detect_intent()` + `run_deterministic_tools()`
+- `agent/intent.py` - `detect_intent()` + `run_deterministic_tools()` (router.py와 키워드 분류 로직 통합)
 - `agent/runner.py` - `KEYWORD_TOOL_MAPPING` 강제 도구 실행 + `run_agent()`
 
 #### 6.4.1 IntentCategory (7개)
@@ -552,9 +566,7 @@ class IntentCategory(str, Enum):
 
 #### 6.4.2 Semantic Router (비활성)
 
-> **참고**: `agent/semantic_router.py` 파일은 존재하지만 **현재 라우팅 체인에서 제거됨** (`main.py`: `# Semantic Router 제거됨 - 키워드 분류만 사용`)
-
-키워드 분류의 높은 커버리지와 LLM fallback의 정확도로 인해 Semantic Router 단계를 제거하고 2단계 구조로 단순화했습니다. `SemanticRouterCache` 클래스는 OpenAI `text-embedding-3-small` 임베딩으로 카테고리별 예시 쿼리를 사전 계산하고, 코사인 유사도로 분류하는 구조입니다.
+`agent/semantic_router.py`의 `SemanticRouterCache` 클래스는 OpenAI `text-embedding-3-small` 임베딩으로 카테고리별 예시 쿼리를 사전 계산하고, 코사인 유사도로 분류하는 구조입니다. 키워드 분류의 높은 커버리지와 LLM fallback의 정확도로 인해 Semantic Router 단계를 제거하고 2단계 구조로 단순화했습니다.
 
 #### 6.4.3 KEYWORD_TOOL_MAPPING (강제 도구 실행)
 
@@ -627,7 +639,7 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     # 5. 대시보드 관련
     # 6. 플랫폼 관련 (정책, 기능, 용어)
     # 7. 일반 대화
-    # 불확실 -> None -> LLM Router (fallback)
+    # 불확실 -> None -> LLM Router (2단계 fallback)
 ```
 
 #### 6.4.7 PLATFORM 강제 RAG (tool_choice="required")
@@ -771,6 +783,8 @@ flowchart TD
 | 설정 | 값 | 설명 |
 |------|-----|------|
 | `MAX_MEMORY_TURNS` | 10 | 세션당 최대 대화 턴 |
+| `MEMORY_TTL_SEC` | 1800 | 대화 메모리 TTL (30분, 미사용 세션 자동 정리) |
+| `MAX_SESSIONS` | 1000 | 최대 동시 세션 수 (초과 시 오래된 세션 제거) |
 | `LAST_CONTEXT_TTL_SEC` | 600 | 컨텍스트 캐시 유효시간 (10분) |
 
 ```python
@@ -792,8 +806,12 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 요청 헤더 api_key > state.OPENAI_API_KEY > 환경 변수 OPENAI_API_KEY
 ```
 
+**프롬프트 인젝션 방어 (`_sanitize_user_input`):**
+- 사용자 입력에서 시스템 프롬프트 변조 시도를 탐지/제거
+- 위험한 지시어 패턴(ignore previous instructions 등) 필터링
+
 **자동 재시도 (`invoke_with_retry`):**
-- 최대 3회 재시도, 지수 백오프 (1초 sleep)
+- 최대 3회 재시도, 지수 백오프 (1초 → 2초 → 4초)
 - `RateLimitError`, `APIConnectionError` 등 일시적 오류 자동 복구
 - 3회 실패 시 마지막 예외를 상위로 전파
 
@@ -833,6 +851,29 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 | 6 | **K2RAG** | KG + Hybrid + Corpus Summarization | [arXiv:2507.07695](https://arxiv.org/abs/2507.07695) | 가변 | 시험중 |
 | 7 | **CRAG** | 검색 품질 자동 교정 (Retrieval Grader + Query Rewriter) | [arXiv:2401.15884](https://arxiv.org/abs/2401.15884) | ~200ms (LLM) | 모듈 구현 완료 (미통합) |
 | 8 | **Cross-Encoder Reranking** | 정밀 재순위 정확도 향상 | - | ~80ms | 비활성 |
+
+### 7.1.1 모듈 아키텍처 (리팩토링)
+
+기존 `service.py` 단일 파일(2,984줄)을 **파사드 패턴**으로 분리하여 유지보수성을 개선했습니다.
+
+| 모듈 | 줄 수 | 역할 |
+|------|-------|------|
+| `service.py` | 823 | RAG 파사드 (검색 인터페이스 통합, content 짧을 시 parent chunk 보강) |
+| `chunking.py` | - | 청킹 로직 (Parent 3,000자 / Child 500자) |
+| `search.py` | - | 검색 엔진 (BM25, Vector, Hybrid, RAG-Fusion) |
+| `kg.py` | - | Knowledge Graph |
+| `contextual.py` | - | Contextual Retrieval (LLM 컨텍스트 생성) |
+
+```mermaid
+flowchart TD
+    SVC["service.py<br/>(파사드)"]
+    SVC --> CHK["chunking.py<br/>Parent-Child Chunking"]
+    SVC --> SCH["search.py<br/>BM25 · Vector · Hybrid · RAG-Fusion"]
+    SVC --> KG["kg.py<br/>Knowledge Graph"]
+    SVC --> CTX["contextual.py<br/>Contextual Retrieval"]
+    SVC --> LR["light_rag.py<br/>LightRAG (검색 캐시 Lock)"]
+    SVC --> K2["k2rag.py<br/>ThreadPoolExecutor · 한국어 BM25"]
+```
 
 ### 7.2 Hybrid Search (FAISS + BM25)
 
@@ -891,7 +932,7 @@ flowchart TD
 정산은 매월 1일과 15일에 진행됩니다"
 ```
 
-**구현**: `rag/service.py` - `_generate_contextual_prefix()`
+**구현**: `rag/contextual.py` - `_generate_contextual_prefix()`
 
 ### 7.5 Parent-Child Chunking
 
@@ -899,7 +940,7 @@ flowchart TD
 
 | 레벨 | 크기 | 용도 |
 |------|------|------|
-| **Parent** | 3,000자 | 최종 반환 (충분한 문맥) |
+| **Parent** | 3,000자 | 최종 반환 (충분한 문맥). content가 짧을 시 parent chunk로 자동 보강 |
 | **Child** | 500자 | 검색 인덱싱 (정밀 매칭) |
 
 ### 7.6 LightRAG (지식 그래프)
@@ -929,7 +970,7 @@ flowchart TB
 
 | 최적화 | 설명 |
 |--------|------|
-| **검색 캐싱** | TTL 5분, 최대 100개 항목 |
+| **검색 캐싱** | TTL 5분, 최대 100개 항목, `threading.Lock` 스레드 안전성 확보 |
 | **쿼리 정규화** | 대소문자/공백/물음표 통일 -> 캐시 히트율 향상 |
 | **단순 쿼리 스킵** | 인사, 단답, 3글자 이하 -> RAG 호출 생략 |
 | **OpenAI 클라이언트 싱글톤** | 연결 오버헤드 감소 |
@@ -976,6 +1017,8 @@ flowchart TB
 | **Hybrid Search** | lambda=0.8 (Dense 80% + Sparse 20%) | 정확도 + 리콜 균형 |
 | **Sub-question Generation** | KG 결과에서 서브 질문 생성 | 복잡한 질문 분해 |
 | **Longformer LED** | `pszemraj/led-base-book-summary` | 긴 문서 요약 (GPU 지원) |
+| **ThreadPoolExecutor** | `asyncio.run()` → ThreadPoolExecutor 우회 | 이벤트 루프 충돌 방지 |
+| **한국어 BM25 토큰화** | 조사 제거 + 바이그램 생성 | 한국어 검색 정확도 향상 |
 
 ### 7.8 문서 소스
 
@@ -1417,7 +1460,31 @@ python ml/train_models.py
 
 ## 10. API 엔드포인트
 
-모든 API는 `/api` prefix를 사용합니다 (`router = APIRouter(prefix="/api")`).
+모든 API는 `/api` prefix를 사용합니다. 기존 단일 `routes.py`(4,570줄)에서 **8개 도메인별 라우터**로 분리되었습니다.
+
+### 라우터 파일 매핑
+
+| 라우터 파일 | 도메인 | 주요 엔드포인트 |
+|------------|--------|---------------|
+| `routes_shop.py` | 쇼핑몰/상품 | `/api/shops/*`, `/api/categories/*` |
+| `routes_seller.py` | 셀러 분석 | `/api/sellers/*`, `/api/analysis/*` |
+| `routes_cs.py` | CS/고객지원 | `/api/cs/*`, `/api/classify/*` |
+| `routes_rag.py` | RAG/LightRAG/K2RAG | `/api/rag/*`, `/api/lightrag/*`, `/api/k2rag/*` |
+| `routes_ml.py` | ML/MLflow/마케팅 | `/api/mlflow/*`, `/api/marketing/*` |
+| `routes_guardian.py` | Guardian/보안감시 | `/api/guardian/*` |
+| `routes_agent.py` | 에이전트/채팅 | `/api/agent/*` |
+| `routes_admin.py` | 관리/설정/사용자 | `/api/settings/*`, `/api/users`, `/api/login` |
+
+### API 응답 형식
+
+모든 API 응답은 소문자 상태 코드를 사용합니다 (기존 `SUCCESS`/`ERROR`/`FAILED` → `success`/`error`로 통일):
+
+```json
+{
+  "status": "success",
+  "data": { ... }
+}
+```
 
 ### 인증/헬스
 
@@ -1482,7 +1549,7 @@ python ml/train_models.py
 | POST | `/api/cs/pipeline/answer` | RAG+LLM 답변 초안 생성 (SSE 스트리밍) |
 | POST | `/api/cs/send-reply` | 회신 작업 시작 (job_id 발급 + n8n 트리거) |
 | GET | `/api/cs/stream` | SSE 스트림 (job_id 기반 실시간 워크플로우 상태) |
-| POST | `/api/cs/callback` | n8n 콜백 수신 (단계별 상태 보고) |
+| POST | `/api/cs/callback` | n8n 콜백 수신 (X-Callback-Token 인증, 단계별 상태 보고) |
 
 **문의 카테고리 (9개):**
 `배송` / `환불` / `결제` / `상품` / `계정` / `정산` / `기술지원` / `마케팅` / `기타`
@@ -1696,7 +1763,7 @@ data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 
 ### Pydantic 요청 모델
 
-주요 요청 모델 (`api/routes.py`):
+주요 요청 모델 (`api/common.py` 및 각 도메인 라우터):
 
 | 모델 | 용도 | 주요 필드 |
 |------|------|----------|
@@ -1710,10 +1777,11 @@ data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 
 ### 에러 응답 형식
 
-모든 API는 일관된 에러 응답 형식을 사용합니다:
+모든 API는 일관된 에러 응답 형식을 사용합니다 (소문자 `error` 상태):
 
 ```json
 {
+  "status": "error",
   "detail": "에러 메시지",
   "error_code": "ERROR_CODE"
 }
@@ -1902,7 +1970,7 @@ event: done  ->  { total: 2, channels: ["email"] }
 
 ### Startup 초기화 순서
 
-서버 시작 시 `@app.on_event("startup")`에서 실행되는 초기화 순서입니다. 실패 허용 단계(RAG, LightRAG)와 필수 단계(데이터/모델)를 구분하여, RAG 인덱스가 없어도 서버는 정상 기동됩니다.
+서버 시작 시 `lifespan` 패턴(`@asynccontextmanager`)에서 실행되는 초기화 순서입니다. 기존 `@app.on_event("startup")` 방식에서 FastAPI 권장 lifespan 패턴으로 전환하였으며, 스택트레이스 클라이언트 노출을 제거했습니다. 실패 허용 단계(RAG, LightRAG)와 필수 단계(데이터/모델)를 구분하여, RAG 인덱스가 없어도 서버는 정상 기동됩니다.
 
 ```mermaid
 flowchart LR
@@ -2034,7 +2102,7 @@ flowchart LR
 
 ---
 
-## 14. Data Guardian Agent
+## 14. DB 보안 감시 (Data Guardian)
 
 ### 14.1 개발 배경
 
@@ -2307,7 +2375,7 @@ SQLite objects created in a thread can only be used in that same thread
 - `block` + Agent 상세 분석: **3~8초** (GPT-4o-mini 호출 포함)
 - 전체 요청 중 Agent 호출 비율: 약 1~2% (대부분 룰엔진에서 처리 완료)
 
-**핵심 인사이트**: "모든 쿼리에 AI를 적용"하는 것보다, "AI가 필요한 쿼리만 선별하여 적용"하는 2레이어 구조가 실시간 시스템에 적합. 이는 프로젝트 전체 아키텍처(2단계 라우터, LLM fallback 패턴)에서 일관되게 적용된 설계 원칙.
+**핵심 인사이트**: "모든 쿼리에 AI를 적용"하는 것보다, "AI가 필요한 쿼리만 선별하여 적용"하는 다단계 구조가 실시간 시스템에 적합. 이는 프로젝트 전체 아키텍처(2단계 라우터, LLM fallback 패턴)에서 일관되게 적용된 설계 원칙.
 
 ---
 
@@ -2331,7 +2399,7 @@ SQLite objects created in a thread can only be used in that same thread
 
 | 설계 결정 | 근거 |
 |-----------|------|
-| **별도 패키지** (`process_miner/`) | 기존 `api/routes.py`(4000+ 줄)와 분리, 독립적 확장 가능 |
+| **별도 패키지** (`process_miner/`) | 기존 API 코드와 분리, 독립적 확장 가능 |
 | **별도 라우터** (`pm_router`) | `main.py`에 2줄 추가만으로 통합 (`from process_miner.routes import pm_router` + `app.include_router(pm_router)`) |
 | **데모 데이터 자체 생성** | 외부 DB/CSV 의존 없이 `event_generator.py`가 현실적 데이터 생성 |
 | **LLM + 규칙 기반 이중화** | OpenAI API 키 유무에 관계없이 항상 동작 (Graceful Degradation) |
@@ -2577,7 +2645,7 @@ LLM 출력은 프롬프트에 "순수 JSON만 출력"을 지시해도 마크다�
 
 **알고리즘:**
 - **모델**: RandomForestClassifier (`n_estimators=100`, `max_depth=10`, `class_weight="balanced"`)
-- 매 호출마다 이벤트 로그로부터 학습 → 예측하는 데모용 구현
+- SHA256 해시 기반 모델 캐싱 (동일 데이터 재학습 방지, 데이터 변경 시에만 재학습)
 
 **7개 피처:**
 
@@ -2757,7 +2825,7 @@ flowchart TD
 | **AI 자동화 추천** | 추천 카드 + SOP 문서 뷰어 | 자동화 유형 아이콘 (Zap/Brain/Bot), `SimpleMarkdown` 렌더러 | POST `/recommend` |
 
 **프론트엔드 데이터 정규화:**
-- 백엔드 응답 `{ status: "SUCCESS", data: {...} }` → `setResult(res.data || res)`로 안전하게 언래핑
+- 백엔드 응답 `{ status: "success", data: {...} }` → `setResult(res.data || res)`로 안전하게 언래핑
 - 필드명 호환: `from_step` / `from`, `avg_duration_minutes` / `avg_minutes` 양쪽 지원
 - 효율성 점수: 0~1 또는 0~100 양쪽 자동 정규화
 
@@ -2771,10 +2839,10 @@ flowchart TD
 | **LLM 구조화 출력** | 프롬프트 엔지니어링 + 3단계 JSON 파싱 안전장치 | `recommender.py` |
 | **Graceful Degradation** | API 키 유무/LLM 실패 상관없이 항상 결과 반환 (규칙 기반 fallback) | `recommender.py` |
 | **Mermaid 자동 생성** | `<br/>` 줄바꿈 사용 (Mermaid에서 `\n` 미지원), 한국어 노드 ID 자동 매핑 | `miner.py` |
-| **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률, 매 호출마다 재학습) | `predictor.py` |
+| **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률, SHA256 해시 캐싱) | `predictor.py` |
 | **Path-based Anomaly Detection** | IsolationForest 기반 경로 이상 탐지 (bottleneck의 시간 기반 IQR과 상호보완) | `anomaly_detector.py` |
 | **시드 기반 재현성** | `random.Random(seed=42)` -- 동일 파라미터 시 동일 결과 (데모 안정성) | `event_generator.py` |
-| **독립 패키지** | 기존 코드(routes.py 4000줄)와 분리, `main.py`에 2줄 추가로 통합 | `process_miner/` |
+| **독립 패키지** | 기존 API 코드와 분리 (8개 도메인 라우터), `main.py`에 2줄 추가로 통합 | `process_miner/` |
 
 ### 15.7 프로세스 마이너 vs 기존 ML 모델 비교
 
@@ -2791,6 +2859,6 @@ flowchart TD
 
 <div align="center">
 
-**Version 7.5.0** | 2026-02-10
+**Version 8.0.0** | 2026-02-10
 
 </div>

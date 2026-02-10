@@ -1,3 +1,56 @@
+---
+html:
+  embed_local_images: true
+print_background: true
+---
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+/* === 기본 === */
+body { background-color: #fdf6e3 !important; color: #586e75; font-family: 'Noto Sans KR', sans-serif; line-height: 1.8; }
+
+/* === 제목 === */
+h1 { color: #073642; border-bottom: 3px solid #268bd2; padding-bottom: 8px; }
+h2 { color: #073642; border-bottom: 2px solid #93a1a1; padding-bottom: 6px; margin-top: 2em; }
+h3, h4 { color: #073642; }
+strong { color: #073642; }
+
+/* === 테이블 === */
+table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.92em; }
+table th { background-color: #d3cbb7; color: #073642; padding: 10px 12px; text-align: left; font-weight: bold; }
+table td { padding: 8px 12px; border-bottom: 1px solid #d3cbb7; }
+table tr:nth-child(even) { background-color: #eee8d5; }
+
+/* === 인용문 === */
+blockquote { border-left: 4px solid #268bd2; background-color: #eee8d5; padding: 12px 20px; border-radius: 4px; margin: 16px 0; }
+
+/* === 코드 블록 === */
+pre { background-color: #eee8d5 !important; color: #073642 !important; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; border: 1px solid #d3cbb7; }
+code { font-size: 0.9em; color: #073642; }
+
+/* === 링크 === */
+a { color: #268bd2; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* === 구분선 === */
+hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
+
+/* === Mermaid === */
+.mermaid { background-color: transparent; border-radius: 8px; padding: 16px; margin: 16px auto; max-width: 800px; text-align: center; }
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* === 인쇄 === */
+@media print {
+  body { background-color: #fdf6e3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table th { background-color: #d3cbb7 !important; color: #073642 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table tr:nth-child(even) { background-color: #eee8d5 !important; }
+  pre { background-color: #eee8d5 !important; color: #073642 !important; }
+  .mermaid { background-color: transparent; }
+  h2 { page-break-before: auto; }
+}
+</style>
+
 # CAFE24 AI 운영 플랫폼
 
 <div align="center">
@@ -6,19 +59,18 @@
 
 **자연어 한 마디로 셀러 이탈 예측, 이상거래 탐지, CS 자동화, 매출 예측을 수행하는 AI 에이전트 플랫폼**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org)
-[![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com)
-[![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
-[![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
-[![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square)](https://github.com/facebookresearch/faiss)
-[![SHAP](https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square)](https://shap.readthedocs.io)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org) [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com) [![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org) [![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com) [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/) [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com) [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org) [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square)](https://github.com/facebookresearch/faiss) [![SHAP](https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square)](https://shap.readthedocs.io)
 
 [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) · [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) · 개발 기간: 2026.02.06 ~ 진행 중
 
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4AQMAAAADqqSRAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABNElEQVQ4jaWVMYrEMAxFBSp8KRNfy0VAgi18LYMv5cKM9isJszDVymNC4LkQ0v+STPRxxGwmJV5lFbNXmCtRlTY9VCY64iyzJtMzl4Vvj6UhIevbjJ8NW3uMeioyQrh3fRF2PXFx5pzf+kb4cVGzh/tz9d8sNvHVkzuPMXqY05RmikC8EPHYYKqpTR6It3AdZk0qptJdDs8nzHCjKdqhdF4U5kqptSneDGVd/sZY9O6HfklCX3MVhUTy09nG4h5m+GMoEQ0+7nqDjOG6/M1smJBjg82aTb7GK1Oc7/aWDnWz1xdmD6hobuRTXmH2g7vl81Uszvd8p2e/UJh9v8ATzTAjP/smxL4f1ee7oJ6+xZemqIf9fdhgvA9wAg1hPc6+X+Hn4sW+n6J86ekP3Bi+oL7mj/MLVio/I4zKxJ4AAAAASUVORK5CYII=" alt="웹앱 QR코드" width="120">
+
+**웹앱 바로가기 QR**
+
 </div>
+
+> **아래 모든 기능은 웹앱에서 직접 사용해볼 수 있습니다.**
+> 더 자세한 기술 문서는 [GitHub 리포지토리](https://github.com/ASNGG/cafe24-demo)에서 확인할 수 있습니다.
 
 ---
 
@@ -54,9 +106,11 @@
 
 ## 1. 프로젝트 개요
 
-### 배경
+### 배경 및 목표
 
-이커머스 플랫폼 운영에서 반복적으로 발생하는 문제들 — 셀러 이탈을 사후에야 인지하고, 이상거래를 수동으로 모니터링하며, CS 문의를 담당자가 일일이 분류하고 응답하는 비효율 — 을 AI로 해결하기 위해 이 프로젝트를 시작했습니다.
+카페24 같은 이커머스 플랫폼을 운영한다면 어떤 문제가 발생할지 직접 고민하고, 그 문제들을 AI로 해결하는 데모 프로젝트를 풀스택으로 개발했습니다. "셀러가 이탈하기 전에 미리 알 수 있다면?", "이상거래를 사람 대신 자동으로 잡아낼 수 있다면?", "CS 문의를 AI가 분류하고 답변 초안까지 만들어준다면?", "운영 프로세스의 병목을 데이터로 발견할 수 있다면?" — 이런 질문들에서 출발했습니다.
+
+백엔드(FastAPI + LangChain + 12개 ML 모델)부터 프론트엔드(Next.js 14, 11개 패널)까지 전 과정을 직접 설계·구현했으며, 자연어 한 마디로 28개 AI 도구를 호출하여 이커머스 운영 전반을 하나의 에이전트로 통합하는 것을 목표로 했습니다. 시스템은 실시간 데이터 연동을 가정하고 설계했으나, 현재 데모에서는 도메인별 통계적 분포로 생성한 합성 데이터(18개 CSV, ~100K행)를 사용합니다.
 
 ### 해결하는 문제
 
@@ -69,6 +123,7 @@
 | **매출 예측** | 경험 기반 추정 | LightGBM 다변량 매출 예측 |
 | **데이터 분석** | SQL 직접 작성 | 자연어 질의 → AI 에이전트 자동 분석 (28개 도구) |
 | **DB 보안** | 수동 모니터링 | 룰엔진 + ML + LangChain Agent 3단계 실시간 차단 |
+| **운영 프로세스** | 경험 기반 병목 파악 | 이벤트 로그 기반 프로세스 마이닝 + ML 이상 탐지 + 자동화 추천 |
 
 ### 핵심 설계 원칙
 
@@ -90,16 +145,17 @@
 ### 전체 아키텍처
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TB
-    subgraph Frontend["Frontend (Next.js 14 + Tailwind CSS)"]
+    subgraph Frontend["Frontend · Next.js 14"]
         Login[로그인]
-        Panels["11개 패널<br/>Dashboard / Agent / Analysis<br/>Models / RAG / Lab / Process Miner<br/>DB 보안 감시 / Settings / Users / Logs"]
+        Panels["11개 기능 패널"]
     end
 
-    subgraph Backend["Backend (FastAPI + Python 3.10+)"]
+    subgraph Backend["Backend · FastAPI"]
         subgraph Router["2단계 라우터"]
-            R1["1. 키워드 분류<br/>(비용 0, <1ms)"]
-            R2["2. LLM Router<br/>(gpt-4o-mini fallback)"]
+            R1["키워드 분류 · 0ms"]
+            R2["LLM Router · fallback"]
         end
 
         subgraph Agent["AI 에이전트"]
@@ -109,25 +165,25 @@ flowchart TB
         end
 
         subgraph RAGSystem["RAG 시스템"]
-            HybridRAG["Hybrid Search<br/>FAISS + BM25 + RRF"]
-            LightRAG["LightRAG<br/>GraphRAG"]
-            K2RAG["K2RAG<br/>KG + Sub-Q"]
+            HybridRAG["Hybrid Search"]
+            LightRAG["LightRAG"]
+            K2RAG["K2RAG"]
         end
 
-        subgraph MLModels["ML 모델 (12개)"]
-            Churn["이탈 예측<br/>RF + SHAP"]
-            Fraud["이상거래<br/>Isolation Forest"]
-            Revenue["매출 예측<br/>LightGBM"]
+        subgraph MLModels["ML 12개 모델"]
+            Churn["이탈 예측 · RF+SHAP"]
+            Fraud["이상거래 · IsolationForest"]
+            Revenue["매출 예측 · LightGBM"]
             Others["+ 9개 모델"]
         end
 
-        State["전역 상태 관리<br/>(DataFrame 18개 + 모델 12개)"]
+        State["전역 상태 관리"]
     end
 
     subgraph External["외부 서비스"]
-        OpenAI["OpenAI API<br/>(GPT-4o-mini)"]
-        n8n["n8n Cloud<br/>워크플로우"]
-        Resend["Resend<br/>이메일"]
+        OpenAI["OpenAI API"]
+        n8n["n8n Cloud"]
+        Resend["Resend Email"]
     end
 
     Frontend -->|"REST / SSE"| Backend
@@ -141,6 +197,7 @@ flowchart TB
 사용자가 "SEL0001 셀러가 이탈할 확률은?"이라고 질문하면:
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 sequenceDiagram
     autonumber
     participant User as 사용자
@@ -184,19 +241,19 @@ sequenceDiagram
 flowchart TB
     Q["사용자 질문"]
 
-    subgraph Stage1["1단계: 키워드 Router (0ms, 비용 0)"]
-        K1["'매출', '이탈', 'GMV' → ANALYSIS"]
-        K2["'플랫폼', '정책' → PLATFORM"]
-        K3["'SEL0001' 패턴 → SELLER"]
+    subgraph Stage1["1단계: 키워드 Router"]
+        K1["매출 · 이탈 · GMV → ANALYSIS"]
+        K2["플랫폼 · 정책 → PLATFORM"]
+        K3["SEL0001 패턴 → SELLER"]
     end
 
-    subgraph Stage2["2단계: LLM Router (fallback)"]
+    subgraph Stage2["2단계: LLM Router"]
         L1["GPT-4o-mini 분류"]
         L2["JSON 응답 파싱"]
     end
 
-    Q --> Stage1
-    Stage1 -->|"매칭 실패"| Stage2
+    Q -->|"0ms, 비용 0"| Stage1
+    Stage1 -->|"매칭 실패 → fallback"| Stage2
     Stage1 & Stage2 --> Tools["카테고리별 도구 4~16개만 노출"]
 ```
 
@@ -235,7 +292,9 @@ LLM 호출 **전에** 키워드 매칭으로 필수 도구를 강제 실행합�
 | 주문 ID | `O0001` | `O\d{4,8}` |
 | 일수 | "최근 7일" | `(\d+)\s*일` |
 | 날짜 범위 | `2024-01-01 ~ 2024-12-31` | `\d{4}-\d{2}-\d{2}` |
+| 월 | "3월", "2024-03" | `(\d{1,2})월`, `\d{4}-\d{2}` |
 | 위험 등급 | "고위험" | `고위험\|중위험\|저위험` |
+| 코호트 | `2024-01 W1` | `\d{4}-\d{2}\s*W\d` |
 
 ### 3.4 도구 함수 (28개)
 
@@ -254,9 +313,9 @@ LangGraph `StateGraph` 기반으로 Coordinator가 질의를 분석하여 전문
 
 ```mermaid
 flowchart TD
-    C["Coordinator<br/>(GPT-4o)"] -->|"검색 질문"| S["Search Agent<br/>7개 도구"]
-    C -->|"분석 질문"| A["Analysis Agent<br/>16개 도구"]
-    C -->|"CS 질문"| T["CS Agent<br/>5개 도구"]
+    C["Coordinator · GPT-4o"] -->|"검색"| S["Search Agent · 7개 도구"]
+    C -->|"분석"| A["Analysis Agent · 16개 도구"]
+    C -->|"CS"| T["CS Agent · 5개 도구"]
     S & A & T --> Tools["Tool Executor"]
     Tools --> S & A & T -->|"최종 응답"| END
 ```
@@ -286,9 +345,9 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Q["쿼리"] --> FAISS["FAISS Vector<br/>(text-embedding-3-small)<br/>의미적 유사도"]
-    Q --> BM25["BM25 Keyword<br/>(rank_bm25)<br/>키워드 매칭"]
-    FAISS & BM25 --> RRF["Reciprocal Rank<br/>Fusion"] --> Result["최종 결과"]
+    Q["쿼리"] --> FAISS["FAISS · 의미적 유사도"]
+    Q --> BM25["BM25 · 키워드 매칭"]
+    FAISS & BM25 --> RRF["RRF 병합"] --> Result["최종 결과"]
 ```
 
 ### 4.2 RAG-Fusion (Multi-Query)
@@ -315,8 +374,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Q["쿼리"] --> LOCAL["Local 검색<br/>엔티티 중심"]
-    Q --> GLOBAL["Global 검색<br/>테마 중심"]
+    Q["쿼리"] --> LOCAL["Local · 엔티티 중심"]
+    Q --> GLOBAL["Global · 테마 중심"]
     LOCAL & GLOBAL --> HYBRID["Hybrid 병합"] --> Result
 ```
 
@@ -330,9 +389,9 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Q["쿼리"] --> S["검색"] --> G{"Retrieval Grader<br/>(gpt-4o-mini)"}
+    Q["쿼리"] --> S["검색"] --> G{"Retrieval Grader"}
     G -->|"CORRECT"| USE["바로 사용"]
-    G -->|"INCORRECT"| RW["Query Rewriter"] --> S2["재검색<br/>(최대 2회)"]
+    G -->|"INCORRECT"| RW["Query Rewriter"] --> S2["재검색 · 최대 2회"]
     G -->|"AMBIGUOUS"| RW
 ```
 
@@ -397,10 +456,10 @@ total_gmv (높음)                  -0.12   이탈 감소 (방어 요인)
 
 ```mermaid
 flowchart LR
-    A["셀러 ID + 총 예산"] --> B["LightGBM<br/>매출 베이스라인 예측"]
-    B --> C["P-PSO 최적화<br/>6개 채널 × FloatVar<br/>epoch=200, pop=50"]
-    C --> D["채널별 예산 배분<br/>+ 예상 ROAS"]
-    C -->|"실패 시"| F["Heuristic Fallback<br/>ROAS 순 탐욕 배분"]
+    A["셀러 ID + 총 예산"] --> B["LightGBM 매출 예측"]
+    B --> C["P-PSO 최적화 · 6채널"]
+    C --> D["채널별 예산 배분 + ROAS"]
+    C -->|"실패 시"| F["Heuristic Fallback"]
     F --> D
 ```
 
@@ -442,15 +501,16 @@ sequenceDiagram
 단순/반복 문의는 자동 처리하고, 복잡한 문의만 담당자가 검토하는 구조입니다.
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
-    A["접수함<br/>5건 일괄 분류<br/>(TF-IDF + RF)"] --> B{"DnD 분기<br/>신뢰도 임계값"}
+    A["접수 · TF-IDF+RF 분류"] --> B{"DnD 분기"}
     B -->|"신뢰도 >= 0.75"| C["자동 처리"]
     B -->|"신뢰도 < 0.75"| D["담당자 검토"]
-    C --> E["RAG+LLM 답변 생성<br/>(SSE 스트리밍)"]
-    D --> F["Step 2: 상세 검토<br/>우선순위 예측"]
+    C --> E["RAG+LLM 답변 생성"]
+    D --> F["상세 검토 · 우선순위 예측"]
     F --> E
-    E --> G["React Flow 워크플로우<br/>n8n 연동 회신"]
-    G --> H["개선 대시보드<br/>KPI + 이력"]
+    E --> G["React Flow + n8n 회신"]
+    G --> H["개선 대시보드 · KPI"]
 ```
 
 | 단계 | 기능 | AS-IS → TO-BE |
@@ -465,12 +525,12 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    W1["Webhook<br/>수신"] --> W2["답변 검증"]
+    W1["Webhook 수신"] --> W2["답변 검증"]
     W2 --> W3["채널 분기"]
     W3 --> W4["채널별 발송"]
     W4 --> W5{"이메일?"}
     W5 -->|Yes| W6["이메일 분리"]
-    W6 --> W7["Resend API<br/>건별 발송"]
+    W6 --> W7["Resend API 발송"]
     W7 --> W8["결과 병합"]
     W5 -->|No| W9["결과 기록"]
     W8 --> W9
@@ -492,17 +552,18 @@ flowchart LR
 ### 3단계 + Recovery Agent
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
-    A["SQL 쿼리 입력"] --> M{"감시 모드<br/>rule / ml / rule+ml"}
-    M --> B["1단계: 룰엔진<br/>위험 패턴 매칭 (<1ms)"]
-    M --> ML["1단계: ML 이상탐지<br/>Isolation Forest + SHAP (~50ms)"]
-    B & ML -->|"고위험"| D["2단계: AI Agent<br/>LangChain (GPT-4o-mini)<br/>자연어 위험 분석"]
+    A["SQL 쿼리 입력"] --> M{"감시 모드 선택"}
+    M --> B["룰엔진 · 패턴 매칭 · 1ms 미만"]
+    M --> ML["ML 이상탐지 · IsolationForest"]
+    B & ML -->|"고위험"| D["AI Agent · 위험 분석"]
     B & ML -->|"저위험"| SAFE["즉시 실행"]
     D --> E{"판정"}
     E --> SAFE
     E --> WARN["WARNING"]
-    E --> BLOCK["BLOCKED<br/>+ DBA 이메일 알림 (Resend)"]
-    BLOCK -.->|"복구 요청"| R["Recovery Agent<br/>복구 SQL 생성 (제안만)"]
+    E --> BLOCK["BLOCKED · DBA 알림"]
+    BLOCK -.->|"복구 요청"| R["Recovery Agent · 복구 SQL 제안"]
 ```
 
 **설계 결정 — 멀티 에이전트를 채택하지 않은 이유**:
@@ -523,11 +584,11 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A["이벤트 로그<br/>(주문/CS/정산)"] --> B["프로세스 발견<br/>패턴 추출 + 전이 행렬<br/>+ Mermaid 다이어그램"]
-    B --> C["병목 분석<br/>IQR 기반 이상치 탐지"]
-    C --> D["AI 자동화 추천<br/>GPT-4o-mini + SOP 생성"]
-    B --> E["다음 활동 예측<br/>RandomForest (Top-3)"]
-    B --> F["이상 프로세스 탐지<br/>IsolationForest"]
+    A["이벤트 로그 · 주문/CS/정산"] --> B["프로세스 발견 · 패턴 추출"]
+    B --> C["병목 분석 · IQR 이상치"]
+    C --> D["AI 자동화 추천 · SOP 생성"]
+    B --> E["다음 활동 예측 · RF Top-3"]
+    B --> F["이상 프로세스 · IsolationForest"]
 ```
 
 | 기능 | 기술 | 설명 |
@@ -567,6 +628,19 @@ flowchart LR
 | 9 | **CS 파이프라인** | 5단계 자동화 (DnD + React Flow + n8n) | Framer Motion, @xyflow/react |
 | 10 | **DB 보안 감시** | 3단계 쿼리 분석 + 복구 | 감시 모드 토글, 프리셋 8개 |
 | 11 | **프로세스 마이너** | 프로세스 발견 + ML 예측 + 이상 탐지 | 위상 정렬 BFS 렌더링 |
+
+### 대시보드 패널 상세
+
+| 영역 | 표시 내용 |
+|------|----------|
+| **KPI 카드 (4개)** | 쇼핑몰 수 (티어별), 전체 셀러 수 (이상거래 건수), CS 문의 (만족도), 운영 이벤트 (30일) |
+| **GMV 추이** | 일별 GMV AreaChart (그라디언트) |
+| **셀러 세그먼트** | 도넛 차트 (클릭 시 드릴다운: 평균 매출·상품수·주문수·리텐션) |
+| **운영 이벤트** | 이벤트 유형별 가로 BarChart |
+| **쇼핑몰 플랜** | RadialBarChart + 플랜별(Basic/Standard/Premium/Enterprise) 카드 |
+| **CS 카테고리** | 카테고리별 문의 통계 가로 BarChart |
+| **AI 인사이트** | 긍정/경고/중립 3종 인사이트 자동 생성 |
+| **실시간 알림** | 색상별 이상 알림 (최신 항목 pulse 애니메이션) |
 
 ### 분석 패널 상세 (9개 서브탭)
 
@@ -640,7 +714,7 @@ flowchart LR
 ```
 카페24 프로젝트/
 ├── README.md                          # 프로젝트 루트 문서
-├── PORTFOLIO.md                       # 포트폴리오 문서 (이 파일)
+├── portfolio/PORTFOLIO.md              # 포트폴리오 문서 (이 파일)
 │
 ├── backend 리팩토링 시작/             # FastAPI 백엔드
 │   ├── main.py                        # 앱 진입점 (미들웨어, startup)
@@ -704,8 +778,8 @@ npm run dev
 
 ```mermaid
 flowchart LR
-    User[사용자] --> Vercel["Vercel<br/>(Next.js)"]
-    Vercel -->|"API 프록시"| Railway["Railway<br/>(FastAPI + Docker)"]
+    User[사용자] --> Vercel["Vercel · Next.js"]
+    Vercel -->|"API 프록시"| Railway["Railway · FastAPI"]
     Railway --> OpenAI["OpenAI API"]
     Railway --> n8n["n8n Cloud"]
     n8n --> Resend["Resend Email"]
@@ -741,5 +815,7 @@ flowchart LR
 ---
 
 **CAFE24 AI 운영 플랫폼** · 카페24 이커머스 AI 기반 내부 운영 시스템
+
+**🔗 [웹앱에서 모든 기능 직접 체험하기](https://cafe24-frontend.vercel.app/)** · **[GitHub에서 전체 소스코드 및 상세 기술 문서 보기](https://github.com/ASNGG/cafe24-demo)**
 
 </div>

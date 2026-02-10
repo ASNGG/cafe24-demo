@@ -786,12 +786,20 @@ def tool_rag_search(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str =
             if key and key not in seen:
                 seen.add(key)
                 fusion_score = float(r.get("rerank_score") or r.get("fusion_score") or 0.0)
+                content = safe_str(r.get("content") or "")
+                # content가 짧으면(100자 미만) parent chunk에서 보강 시도
+                if len(content) < 100:
+                    parent_id = r.get("parent_id", "")
+                    if parent_id:
+                        parent_text = _get_parent_content(parent_id, content)
+                        if len(parent_text) > len(content):
+                            content = parent_text
                 merged.append({
                     "title": r.get("title"),
                     "source": r.get("source"),
                     "score": round(fusion_score, 6),
                     "priority": 100.0 * fusion_score,
-                    "content": safe_str(r.get("content") or "")[:st.RAG_SNIPPET_CHARS],
+                    "content": content[:st.RAG_SNIPPET_CHARS],
                     "matched_child": safe_str(r.get("matched_child") or "")[:200],
                 })
                 remain -= 1

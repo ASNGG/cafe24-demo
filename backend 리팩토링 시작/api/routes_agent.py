@@ -125,8 +125,12 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                 tool_calls_log.append({"tool": "rag_search", "args": {"query": user_text}, "result": rag_out})
                                 rag_context = "\n\n## 검색된 플랫폼 정보 (참고용):\n"
                                 for r in results[:5]:
-                                    content = r.get("content", "")[:500]
-                                    rag_context += f"- {content}\n"
+                                    content = r.get("content", "")[:800]
+                                    source = r.get("source", "")
+                                    if source:
+                                        rag_context += f"- [출처: {source}] {content}\n"
+                                    else:
+                                        rag_context += f"- {content}\n"
                                 tools = [t for t in tools if t.name != "search_platform_docs"]
                 except Exception as _e:
                     st.logger.warning("RAG_SEARCH_FAIL err=%s", safe_str(_e))
@@ -179,11 +183,12 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 ## 검색된 플랫폼 정보 (공식 문서)
 {rag_context}
 
-### 답변 규칙 (엄격히 준수)
-1. 검색 결과에 명시된 정보만 사용
-2. 검색 결과를 확장, 추론, 일반화하지 않기
-3. 검색 결과에 없는 내용은 "검색 결과에서 확인되지 않습니다"라고 답변
-4. "검색 결과에 따르면" 형식으로 출처를 명시
+### 답변 규칙
+1. 검색 결과를 기반으로 사용자 질문에 친절하게 답변
+2. 검색 결과가 짧은 안내 문구라도 해당 내용을 활용하여 안내
+3. 검색 결과의 문서 제목(source)이 있으면 관련 가이드를 언급
+4. 검색 결과에 전혀 관련 없는 내용만 있을 경우에만 "관련 정보를 찾지 못했습니다"라고 답변
+5. 카페24 플랫폼 공식 가이드 문서 기반임을 자연스럽게 안내
 """
 
             model_name = req.model or "gpt-4o-mini"

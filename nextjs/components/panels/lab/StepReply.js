@@ -224,9 +224,9 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
   };
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
-      <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-        <Send className="w-5 h-5 text-cookie-orange" />
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
+      <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+        <Send className="w-5 h-5 text-cafe24-orange" />
         Step 4. 회신 - 채널별 자동 발송
       </div>
 
@@ -255,7 +255,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
                       <p className="text-xs text-gray-700 leading-relaxed flex-1 line-clamp-2">{item.text}</p>
-                      <span className="px-1.5 py-0.5 rounded-full bg-cookie-orange/10 text-cookie-orange text-[10px] font-bold shrink-0">
+                      <span className="px-1.5 py-0.5 rounded-full bg-cafe24-orange/10 text-cafe24-orange text-[10px] font-bold shrink-0">
                         {item.result?.predicted_category || '?'}
                       </span>
                     </div>
@@ -287,7 +287,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                               !ch.enabled
                                 ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
                                 : selected
-                                ? 'border-cookie-orange bg-cookie-orange/10 text-cookie-orange'
+                                ? 'border-cafe24-orange bg-cafe24-orange/10 text-cafe24-orange'
                                 : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                             } ${(sent || isSending) ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
@@ -309,7 +309,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                             value={autoEmails[idx] || ''}
                             onChange={e => setAutoEmails(prev => ({ ...prev, [idx]: e.target.value }))}
                             disabled={sent || isSending}
-                            className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-cookie-orange focus:ring-1 focus:ring-cookie-orange/30 disabled:opacity-50"
+                            className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-cafe24-orange focus:ring-1 focus:ring-cafe24-orange/30 disabled:opacity-50"
                           />
                         </div>
                         <p className="text-[10px] text-blue-500 ml-6">전송 시 실제로 해당 이메일로 답변이 발송됩니다.</p>
@@ -414,21 +414,21 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                       !ch.enabled
                         ? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50'
                         : selected
-                        ? 'border-cookie-orange bg-cookie-orange/5 shadow-md'
+                        ? 'border-cafe24-orange bg-cafe24-orange/5 shadow-md'
                         : 'border-gray-200 hover:border-gray-300 bg-white'
                     } ${(sent || isSending) ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${ch.enabled ? ch.color : 'from-gray-300 to-gray-400'} flex items-center justify-center text-white`}>
                       <Icon className="w-5 h-5" />
                     </div>
-                    <span className={`text-sm font-medium ${!ch.enabled ? 'text-gray-400' : selected ? 'text-cookie-orange' : 'text-gray-600'}`}>
+                    <span className={`text-sm font-medium ${!ch.enabled ? 'text-gray-400' : selected ? 'text-cafe24-orange' : 'text-gray-600'}`}>
                       {ch.label}
                     </span>
                     {!ch.enabled && (
                       <span className="text-[9px] text-gray-400 -mt-1">미구현</span>
                     )}
                     {selected && ch.enabled && (
-                      <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-cookie-orange" />
+                      <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-cafe24-orange" />
                     )}
                     {isPreferred && (
                       <span className="absolute top-1 left-1 px-1 py-0.5 rounded text-[8px] font-bold bg-blue-100 text-blue-600">
@@ -453,7 +453,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                     value={manualEmail}
                     onChange={e => setManualEmail(e.target.value)}
                     disabled={sent || isSending}
-                    className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-cookie-orange focus:ring-1 focus:ring-cookie-orange/30 disabled:opacity-50"
+                    className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-cafe24-orange focus:ring-1 focus:ring-cafe24-orange/30 disabled:opacity-50"
                   />
                 </div>
                 <p className="text-[10px] text-blue-500 ml-6">전송 시 실제로 해당 이메일로 답변이 발송됩니다.</p>
@@ -528,7 +528,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
           <button
             onClick={handleSend}
             disabled={!canSend}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-cookie-orange text-white font-medium hover:bg-cookie-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-cafe24-orange text-white font-medium hover:bg-cafe24-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isSending ? (
               <><Loader2 className="w-4 h-4 animate-spin" />전송 중...</>

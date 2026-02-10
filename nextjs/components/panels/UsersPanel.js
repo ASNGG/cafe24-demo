@@ -52,14 +52,14 @@ export default function UsersPanel({ auth, apiCall }) {
     <div>
       <div className="flex items-end justify-between gap-3 mb-3">
         <div>
-          <h2 className="text-lg md:text-xl font-semibold text-cookie-brown">셀러 관리</h2>
-          <p className="text-sm text-cookie-brown/60">계정 목록 확인 및 추가</p>
+          <h2 className="text-lg md:text-xl font-semibold text-cafe24-brown">셀러 관리</h2>
+          <p className="text-sm text-cafe24-brown/60">계정 목록 확인 및 추가</p>
         </div>
       </div>
 
       <div className="card mb-4">
         <div className="card-header">사용자 목록</div>
-        {loading ? <div className="text-sm text-cookie-brown/60">로딩 중...</div> : null}
+        {loading ? <div className="text-sm text-cafe24-brown/60">로딩 중...</div> : null}
         <div className="overflow-auto">
           <table className="table">
             <thead>
@@ -77,7 +77,7 @@ export default function UsersPanel({ auth, apiCall }) {
                   ))}
                 </tr>
               )) : (
-                <tr><td className="py-3 text-cookie-brown/70">데이터 없음</td></tr>
+                <tr><td className="py-3 text-cafe24-brown/70">데이터 없음</td></tr>
               )}
             </tbody>
           </table>
@@ -89,19 +89,19 @@ export default function UsersPanel({ auth, apiCall }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="text-sm text-cookie-brown/70">아이디</label>
+            <label className="text-sm text-cafe24-brown/70">아이디</label>
             <input className="input mt-1" value={newId} onChange={(e) => setNewId(e.target.value)} />
           </div>
           <div>
-            <label className="text-sm text-cookie-brown/70">이름</label>
+            <label className="text-sm text-cafe24-brown/70">이름</label>
             <input className="input mt-1" value={newName} onChange={(e) => setNewName(e.target.value)} />
           </div>
           <div>
-            <label className="text-sm text-cookie-brown/70">비밀번호</label>
+            <label className="text-sm text-cafe24-brown/70">비밀번호</label>
             <input className="input mt-1" type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
           </div>
           <div>
-            <label className="text-sm text-cookie-brown/70">권한</label>
+            <label className="text-sm text-cafe24-brown/70">권한</label>
             <select className="input mt-1" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
               <option value="사용자">사용자</option>
               <option value="관리자">관리자</option>
@@ -114,7 +114,7 @@ export default function UsersPanel({ auth, apiCall }) {
         </button>
 
         {msg ? (
-          <div className="mt-3 rounded-xl border border-cookie-orange/20 bg-cookie-beige px-3 py-2 text-sm text-cookie-brown/80">
+          <div className="mt-3 rounded-xl border border-cafe24-orange/20 bg-cafe24-beige px-3 py-2 text-sm text-cafe24-brown/80">
             {msg}
           </div>
         ) : null}

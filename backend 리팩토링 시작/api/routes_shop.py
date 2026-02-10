@@ -49,7 +49,7 @@ def get_shops(
 ):
     """쇼핑몰 목록 조회 (성과 데이터 포함)"""
     result = tool_list_shops(plan_tier=plan_tier, category=category)
-    if result.get("status") == "SUCCESS" and st.SHOP_PERFORMANCE_DF is not None:
+    if result.get("status") == "success" and st.SHOP_PERFORMANCE_DF is not None:
         perf = st.SHOP_PERFORMANCE_DF.set_index("shop_id")
         for shop in result.get("shops", []):
             sid = shop.get("shop_id", "")
@@ -568,7 +568,13 @@ def get_cohort_retention(days: int = 7, user: dict = Depends(verify_credentials)
     try:
         if st.COHORT_RETENTION_DF is not None and len(st.COHORT_RETENTION_DF) > 0:
             raw_data = st.COHORT_RETENTION_DF.tail(weeks).to_dict("records")
-            cohort_data = [{"cohort": row.get("cohort_month", row.get("cohort", "unknown")), "week0": 100, "week1": row.get("week1"), "week2": row.get("week2"), "week3": row.get("week4"), "week4": row.get("week8")} for row in raw_data]
+            cohort_data = []
+            for row in raw_data:
+                entry = {"cohort": row.get("cohort_month", row.get("cohort", "unknown")), "week0": 100}
+                for col in ["week1", "week2", "week4", "week8", "week12"]:
+                    if col in row and row[col] is not None and not (isinstance(row[col], float) and pd.isna(row[col])):
+                        entry[col] = round(float(row[col]), 1)
+                cohort_data.append(entry)
         else:
             cohort_data = []
 
@@ -765,7 +771,7 @@ def get_summary_stats(days: int = 7, user: dict = Depends(verify_credentials)):
     if st.CS_STATS_DF is not None and len(st.CS_STATS_DF) > 0:
         stats_list = []
         for _, row in st.CS_STATS_DF.iterrows():
-            stats_list.append({"category": str(row.get("category", "기타")), "lang_name": str(row.get("category", "기타")), "total_count": int(row.get("total_tickets", 0)), "avg_quality": float(row.get("satisfaction_score", 0)), "avg_resolution_hours": float(row.get("avg_resolution_hours", 0)), "pending_count": 0})
+            stats_list.append({"category": str(row.get("category", "기타")), "lang_name": str(row.get("category", "기타")), "total_count": int(row.get("total_tickets", 0)), "avg_quality": round(float(row.get("satisfaction_score", 0)) * 20, 1), "avg_resolution_hours": float(row.get("avg_resolution_hours", 0)), "pending_count": 0})
         summary["cs_stats_detail"] = stats_list
 
     date_col_logs = "event_date" if st.OPERATION_LOGS_DF is not None and "event_date" in st.OPERATION_LOGS_DF.columns else "timestamp"

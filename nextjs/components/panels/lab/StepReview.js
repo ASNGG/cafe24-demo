@@ -11,9 +11,9 @@ export default function StepReview({ result, classifyResult, threshold, selected
   // 자동 처리 모드: 분류 결과 요약 표시
   if (hasAutoMode) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
-        <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-          <Search className="w-5 h-5 text-cookie-orange" />
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
+        <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+          <Search className="w-5 h-5 text-cafe24-orange" />
           Step 2. 검토 - 분류 결과 요약
         </div>
 
@@ -33,7 +33,7 @@ export default function StepReview({ result, classifyResult, threshold, selected
 
         {/* 개별 분류 결과 */}
         <div className="space-y-2">
-          <span className="text-sm font-medium text-cookie-brown/80">문의별 분류 상세</span>
+          <span className="text-sm font-medium text-cafe24-brown/80">문의별 분류 상세</span>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-xs">
               <thead>
@@ -54,7 +54,7 @@ export default function StepReview({ result, classifyResult, threshold, selected
                       <td className="py-2 px-3 text-gray-400">{i + 1}</td>
                       <td className="py-2 px-3 text-gray-700 max-w-[200px] truncate">{item.text}</td>
                       <td className="py-2 px-3 whitespace-nowrap">
-                        <span className="px-1.5 py-0.5 rounded-full bg-cookie-orange/10 text-cookie-orange font-bold">
+                        <span className="px-1.5 py-0.5 rounded-full bg-cafe24-orange/10 text-cafe24-orange font-bold">
                           {item.result?.predicted_category || '?'}
                         </span>
                       </td>
@@ -90,7 +90,7 @@ export default function StepReview({ result, classifyResult, threshold, selected
 
   if (!result) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10">
         <EmptyStep message="먼저 Step 1에서 문의를 분류하세요." />
       </div>
     );
@@ -102,9 +102,9 @@ export default function StepReview({ result, classifyResult, threshold, selected
   const pColors = PRIORITY_COLORS[priority] || PRIORITY_COLORS.normal;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
-      <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-        <Search className="w-5 h-5 text-cookie-orange" />
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
+      <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+        <Search className="w-5 h-5 text-cafe24-orange" />
         Step 2. 검토 - 상세 분석
       </div>
 
@@ -122,7 +122,7 @@ export default function StepReview({ result, classifyResult, threshold, selected
         <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 space-y-2">
           <span className="text-xs text-gray-500 font-medium">분류 결과</span>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full bg-cookie-orange/10 text-cookie-orange text-sm font-bold">
+            <span className="px-2.5 py-1 rounded-full bg-cafe24-orange/10 text-cafe24-orange text-sm font-bold">
               {classifyResult?.predicted_category || result.predicted_category}
             </span>
             <span className="text-sm text-gray-600">
@@ -165,11 +165,11 @@ export default function StepReview({ result, classifyResult, threshold, selected
 
       {result.priority?.recommendations && result.priority.recommendations.length > 0 && (
         <div className="space-y-2">
-          <span className="text-sm font-medium text-cookie-brown/80">추천 조치</span>
+          <span className="text-sm font-medium text-cafe24-brown/80">추천 조치</span>
           <ul className="space-y-1">
             {result.priority.recommendations.map((rec, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                <ChevronRight className="w-4 h-4 text-cookie-orange mt-0.5 shrink-0" />
+                <ChevronRight className="w-4 h-4 text-cafe24-orange mt-0.5 shrink-0" />
                 {rec}
               </li>
             ))}

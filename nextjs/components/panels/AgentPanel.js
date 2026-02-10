@@ -15,16 +15,16 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 // CAFE24 테마 버튼 스타일 - 블루 파스텔
 const cookieBtn =
-  'w-full rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cookie-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
 
 const cookieBtnSecondary =
-  'w-full rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cookie-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
 
 const cookieBtnInline =
-  'rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cookie-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
+  'rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
 
 const cookieBtnSecondaryInline =
-  'rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cookie-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
+  'rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
 
 const SEEN_KEY = 'cafe24_seen_example_hint';
 
@@ -51,15 +51,15 @@ function ToolCalls({ toolCalls }) {
           return (
             <div
               key={idx}
-              className="rounded-2xl border-2 border-cookie-orange/20 bg-white/80 p-3 shadow-sm backdrop-blur"
+              className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 p-3 shadow-sm backdrop-blur"
             >
               <div className="flex items-center justify-between">
-                <div className="font-extrabold text-cookie-brown">{tc.tool}</div>
+                <div className="font-extrabold text-cafe24-brown">{tc.tool}</div>
                 <span className={ok ? 'badge badge-success' : 'badge badge-danger'}>
                   {ok ? '성공' : '실패'}
                 </span>
               </div>
-              <pre className="mt-2 overflow-auto rounded-xl bg-cookie-yellow/10 p-3 text-xs text-cookie-brown">
+              <pre className="mt-2 overflow-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown">
                 {JSON.stringify(tc.result, null, 2)}
               </pre>
             </div>
@@ -73,14 +73,14 @@ function ToolCalls({ toolCalls }) {
 function Chip({ label, onClick }) {
   return (
     <button
-      className="inline-flex items-center gap-2 rounded-full border-2 border-cookie-orange/20 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-cookie-brown hover:bg-cookie-yellow/20 hover:border-cookie-orange/40 hover:shadow-sm transition active:translate-y-[1px] whitespace-nowrap"
+      className="inline-flex items-center gap-2 rounded-full border-2 border-cafe24-orange/20 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm transition active:translate-y-[1px] whitespace-nowrap"
       onClick={onClick}
       title="클릭하면 질문이 바로 전송됩니다"
       type="button"
     >
-      <ShoppingBag size={14} className="text-cookie-orange" />
+      <ShoppingBag size={14} className="text-cafe24-orange" />
       <span className="max-w-[220px] truncate">{label}</span>
-      <ArrowUpRight size={14} className="text-cookie-brown/50" />
+      <ArrowUpRight size={14} className="text-cafe24-brown/50" />
     </button>
   );
 }
@@ -88,10 +88,10 @@ function Chip({ label, onClick }) {
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 py-1">
-      <span className="h-2 w-2 rounded-full bg-cookie-orange animate-bounce [animation-delay:-0.2s]" />
-      <span className="h-2 w-2 rounded-full bg-cookie-orange animate-bounce [animation-delay:-0.1s]" />
-      <span className="h-2 w-2 rounded-full bg-cookie-orange animate-bounce" />
-      <span className="ml-2 text-xs text-cookie-brown/60">답변 생성 중…</span>
+      <span className="h-2 w-2 rounded-full bg-cafe24-orange animate-bounce [animation-delay:-0.2s]" />
+      <span className="h-2 w-2 rounded-full bg-cafe24-orange animate-bounce [animation-delay:-0.1s]" />
+      <span className="h-2 w-2 rounded-full bg-cafe24-orange animate-bounce" />
+      <span className="ml-2 text-xs text-cafe24-brown/60">답변 생성 중…</span>
     </div>
   );
 }
@@ -99,8 +99,8 @@ function TypingDots() {
 function TopProgressBar({ active }) {
   if (!active) return null;
   return (
-    <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-cookie-yellow/30">
-      <div className="h-full w-1/3 animate-[cafe24_progress_1.2s_ease-in-out_infinite] bg-cookie-orange" />
+    <div className="mb-3 h-1 w-full overflow-hidden rounded-full bg-cafe24-yellow/30">
+      <div className="h-full w-1/3 animate-[cafe24_progress_1.2s_ease-in-out_infinite] bg-cafe24-orange" />
     </div>
   );
 }
@@ -146,26 +146,26 @@ function MarkdownMessage({ content }) {
             <table className="w-full border-collapse" {...props} />
           </div>
         ),
-        thead: ({ node, ...props }) => <thead className="bg-cookie-yellow/20" {...props} />,
+        thead: ({ node, ...props }) => <thead className="bg-cafe24-yellow/20" {...props} />,
         th: ({ node, ...props }) => (
           <th
-            className="border-2 border-cookie-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cookie-brown"
+            className="border-2 border-cafe24-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cafe24-brown"
             {...props}
           />
         ),
         td: ({ node, ...props }) => (
           <td
-            className="border border-cookie-orange/15 px-3 py-2 align-top text-xs text-cookie-brown whitespace-nowrap"
+            className="border border-cafe24-orange/15 px-3 py-2 align-top text-xs text-cafe24-brown whitespace-nowrap"
             {...props}
           />
         ),
         pre: ({ node, ...props }) => (
-          <pre className="overflow-x-auto rounded-xl bg-cookie-yellow/10 p-3 text-xs text-cookie-brown" {...props} />
+          <pre className="overflow-x-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown" {...props} />
         ),
         code: ({ node, inline, className, children, ...props }) => {
           if (inline) {
             return (
-              <code className="rounded bg-cookie-yellow/20 px-1 py-0.5 text-[11px] text-cookie-brown" {...props}>
+              <code className="rounded bg-cafe24-yellow/20 px-1 py-0.5 text-[11px] text-cafe24-brown" {...props}>
                 {children}
               </code>
             );
@@ -181,7 +181,7 @@ function MarkdownMessage({ content }) {
             {...props}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-extrabold text-cookie-orange underline underline-offset-2 hover:text-cookie-brown"
+            className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown"
           />
         ),
       }}
@@ -673,12 +673,12 @@ export default function AgentPanel({
                         : 'chat-bubble chat-bubble-ai w-full md:max-w-[78%]'
                     }
                   >
-                    <div className="text-[11px] font-extrabold text-cookie-brown/60 mb-2 flex items-center justify-between">
+                    <div className="text-[11px] font-extrabold text-cafe24-brown/60 mb-2 flex items-center justify-between">
                       <span>{isUser ? auth?.username || 'USER' : 'CAFE24 AI'}</span>
 
                       {!isUser && isPending ? (
-                        <span className="inline-flex items-center gap-2 text-cookie-orange">
-                          <span className="h-3 w-3 rounded-full border-2 border-cookie-yellow border-t-cookie-orange animate-spin" />
+                        <span className="inline-flex items-center gap-2 text-cafe24-orange">
+                          <span className="h-3 w-3 rounded-full border-2 border-cafe24-yellow border-t-cafe24-orange animate-spin" />
                           <span className="text-[10px]">streaming</span>
                         </span>
                       ) : null}
@@ -698,7 +698,7 @@ export default function AgentPanel({
                             navigator.clipboard.writeText(m.content || '');
                             toast.success('복사되었습니다');
                           }}
-                          className="p-1.5 rounded-lg bg-white/90 border border-cookie-brown/20 text-cookie-brown/60 hover:text-cookie-brown hover:bg-cookie-beige transition shadow-sm"
+                          className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-brown hover:bg-cafe24-beige transition shadow-sm"
                           title="복사"
                         >
                           <Copy size={14} />
@@ -708,7 +708,7 @@ export default function AgentPanel({
                             onClick={() => {
                               sendQuestion(m.content || '');
                             }}
-                            className="p-1.5 rounded-lg bg-white/90 border border-cookie-brown/20 text-cookie-brown/60 hover:text-cookie-orange hover:bg-cookie-beige transition shadow-sm"
+                            className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
                             title="다시 질문"
                           >
                             <RefreshCcw size={14} />
@@ -790,7 +790,7 @@ export default function AgentPanel({
       <div className="col-span-12 xl:col-span-3">
         <div className="card">
           <div className="card-header">빠른 분석</div>
-          <div className="text-sm text-cookie-brown/70 mb-3">
+          <div className="text-sm text-cafe24-brown/70 mb-3">
             CAFE24 AI 도구 호출
           </div>
 
@@ -832,22 +832,22 @@ export default function AgentPanel({
           </div>
 
           {quickResult ? (
-            <pre className="mt-3 max-h-[45vh] overflow-auto rounded-2xl bg-cookie-yellow/10 p-3 text-xs text-cookie-brown">
+            <pre className="mt-3 max-h-[45vh] overflow-auto rounded-2xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown">
               {JSON.stringify(quickResult, null, 2)}
             </pre>
           ) : (
-            <div className="mt-3 text-xs text-cookie-brown/60">버튼을 클릭하면 API 호출 결과를 확인할 수 있어요.</div>
+            <div className="mt-3 text-xs text-cafe24-brown/60">버튼을 클릭하면 API 호출 결과를 확인할 수 있어요.</div>
           )}
         </div>
 
         <div className="card mt-4">
           <div className="card-header">LLM 설정 요약</div>
-          <div className="text-sm text-cookie-brown/70 space-y-1">
+          <div className="text-sm text-cafe24-brown/70 space-y-1">
             <div>
-              <span className="text-cookie-brown/50">모델</span>: <span className="font-mono">{settings?.selectedModel || 'gpt-4o-mini'}</span>
+              <span className="text-cafe24-brown/50">모델</span>: <span className="font-mono">{settings?.selectedModel || 'gpt-4o-mini'}</span>
             </div>
             <div>
-              <span className="text-cookie-brown/50">Max Tokens</span>: <span className="font-mono">{settings?.maxTokens || 4000}</span>
+              <span className="text-cafe24-brown/50">Max Tokens</span>: <span className="font-mono">{settings?.maxTokens || 4000}</span>
             </div>
           </div>
         </div>

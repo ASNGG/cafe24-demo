@@ -23,8 +23,8 @@ const PieTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const data = payload[0];
   return (
-    <div className="rounded-xl border-2 border-cookie-orange/20 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
-      <p className="text-xs font-bold text-cookie-brown">{data.name}</p>
+    <div className="rounded-xl border-2 border-cafe24-orange/20 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+      <p className="text-xs font-bold text-cafe24-brown">{data.name}</p>
       <p className="text-sm font-semibold" style={{ color: data.payload.fill }}>
         {data.value.toLocaleString()}명 ({((data.value / data.payload.total) * 100).toFixed(1)}%)
       </p>
@@ -223,9 +223,9 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
               onClick={loadData}
               disabled={loading}
               aria-label="데이터 새로고침"
-              className="rounded-full border-2 border-cookie-orange/20 bg-white/80 p-1.5 hover:bg-cookie-beige transition disabled:opacity-50"
+              className="rounded-full border-2 border-cafe24-orange/20 bg-white/80 p-1.5 hover:bg-cafe24-beige transition disabled:opacity-50"
             >
-              <RefreshCw size={14} className={`text-cookie-brown ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw size={14} className={`text-cafe24-brown ${loading ? 'animate-spin' : ''}`} />
             </button>
             {!loading && (
               <span className={`rounded-full border-2 px-2 py-1 text-[10px] font-black ${
@@ -257,37 +257,37 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
               title="쇼핑몰"
               value={`${dashboard.shop_stats?.total || 0}개`}
               subtitle={`Enterprise: ${dashboard.shop_stats?.by_tier?.Enterprise || 0}`}
-              icon={<ShoppingBag size={18} className="text-cookie-brown" />}
+              icon={<ShoppingBag size={18} className="text-cafe24-brown" />}
               tone="yellow"
             />
             <KpiCard
               title="전체 셀러"
               value={`${(dashboard.seller_stats?.total || 0).toLocaleString()}명`}
               subtitle={`이상 거래: ${dashboard.seller_stats?.anomaly_count || 0}`}
-              icon={<Users size={18} className="text-cookie-brown" />}
+              icon={<Users size={18} className="text-cafe24-brown" />}
               tone="orange"
             />
             <KpiCard
               title="CS 문의"
               value={`${(dashboard.cs_stats?.total || 0).toLocaleString()}건`}
               subtitle={`만족도: ${dashboard.cs_stats?.avg_satisfaction || '-'}%`}
-              icon={<Globe size={18} className="text-cookie-brown" />}
+              icon={<Globe size={18} className="text-cafe24-brown" />}
               tone="cream"
             />
             <KpiCard
               title="운영 이벤트"
               value={`${(dashboard.order_stats?.total || 0).toLocaleString()}건`}
               subtitle="최근 30일"
-              icon={<BarChart3 size={18} className="text-cookie-brown" />}
+              icon={<BarChart3 size={18} className="text-cafe24-brown" />}
               tone="green"
             />
           </div>
 
           {/* 일별 GMV 추이 차트 */}
-          <div className="mb-6 rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
             <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={18} className="text-cookie-orange" />
-              <span className="text-sm font-black text-cookie-brown">일별 GMV 추이</span>
+              <TrendingUp size={18} className="text-cafe24-orange" />
+              <span className="text-sm font-black text-cafe24-brown">일별 GMV 추이</span>
             </div>
             {gmvData.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
@@ -326,7 +326,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
               </AreaChart>
             </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[240px] text-sm text-cookie-brown/60">
+              <div className="flex items-center justify-center h-[240px] text-sm text-cafe24-brown/60">
                 GMV 데이터 없음
               </div>
             )}
@@ -335,10 +335,10 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
           {/* 메인 차트 그리드 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* 셀러 세그먼트 분포 - 파이 차트 (클릭 가능) */}
-            <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-black text-cookie-brown">셀러 세그먼트 분포</span>
-                <span className="text-[10px] text-cookie-brown/50 bg-cookie-cream px-2 py-0.5 rounded-full">클릭하여 상세보기</span>
+                <span className="text-sm font-black text-cafe24-brown">셀러 세그먼트 분포</span>
+                <span className="text-[10px] text-cafe24-brown/50 bg-cafe24-cream px-2 py-0.5 rounded-full">클릭하여 상세보기</span>
               </div>
               {segmentData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -372,20 +372,20 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                     <Legend
                       verticalAlign="bottom"
                       height={36}
-                      formatter={(value) => <span className="text-xs font-semibold text-cookie-brown">{value}</span>}
+                      formatter={(value) => <span className="text-xs font-semibold text-cafe24-brown">{value}</span>}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-[300px] text-sm text-cookie-brown/60">
+                <div className="flex items-center justify-center h-[300px] text-sm text-cafe24-brown/60">
                   세그먼트 데이터 없음
                 </div>
               )}
             </div>
 
             {/* 운영 이벤트 통계 - 바 차트 */}
-            <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-              <div className="mb-4 text-sm font-black text-cookie-brown">운영 이벤트 통계</div>
+            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <div className="mb-4 text-sm font-black text-cafe24-brown">운영 이벤트 통계</div>
               {eventData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={eventData} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
@@ -419,7 +419,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-[300px] text-sm text-cookie-brown/60">
+                <div className="flex items-center justify-center h-[300px] text-sm text-cafe24-brown/60">
                   이벤트 데이터 없음
                 </div>
               )}
@@ -428,8 +428,8 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
 
           {/* 쇼핑몰 플랜별 분포 - Radial Bar Chart */}
           {tierData.length > 0 && (
-            <div className="mb-6 rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-              <div className="mb-4 text-sm font-black text-cookie-brown">쇼핑몰 플랜별 분포</div>
+            <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <div className="mb-4 text-sm font-black text-cafe24-brown">쇼핑몰 플랜별 분포</div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Radial 차트 */}
                 <ResponsiveContainer width="100%" height={250}>
@@ -456,7 +456,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                       layout="horizontal"
                       verticalAlign="bottom"
                       align="center"
-                      formatter={(value) => <span className="text-xs font-semibold text-cookie-brown">{value}</span>}
+                      formatter={(value) => <span className="text-xs font-semibold text-cafe24-brown">{value}</span>}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
@@ -473,7 +473,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                       }}
                     >
                       <div className="text-xs font-bold" style={{ color: fill }}>{name}</div>
-                      <div className="text-2xl font-black text-cookie-brown">{value}</div>
+                      <div className="text-2xl font-black text-cafe24-brown">{value}</div>
                     </div>
                   ))}
                 </div>
@@ -483,8 +483,8 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
 
           {/* CS 문의 카테고리별 통계 */}
           {categoryData.length > 0 && (
-            <div className="mb-6 rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-              <div className="mb-4 text-sm font-black text-cookie-brown">CS 문의 카테고리별 통계</div>
+            <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <div className="mb-4 text-sm font-black text-cafe24-brown">CS 문의 카테고리별 통계</div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={categoryData} layout="vertical" margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#FFD93D40" horizontal={false} />
@@ -544,13 +544,13 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                         {config.icon}
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-cookie-brown">{insight.title}</div>
-                        <div className="text-xs text-cookie-brown/70">{insight.description}</div>
+                        <div className="text-sm font-bold text-cafe24-brown">{insight.title}</div>
+                        <div className="text-xs text-cafe24-brown/70">{insight.description}</div>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div className="flex items-center justify-center p-4 text-sm text-cookie-brown/50">
+                  <div className="flex items-center justify-center p-4 text-sm text-cafe24-brown/50">
                     인사이트 로딩 중...
                   </div>
                 )}
@@ -579,14 +579,14 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                     <div key={idx} className={`flex items-center gap-3 p-3 rounded-2xl bg-white/80 border ${colors.border}`}>
                       <div className={`w-2 h-2 rounded-full ${colors.dot} ${colors.animate ? 'animate-pulse' : ''}`} />
                       <div className="flex-1">
-                        <div className="text-sm font-bold text-cookie-brown">{alert.type}</div>
-                        <div className="text-xs text-cookie-brown/70">{alert.user_id} - {alert.detail}</div>
+                        <div className="text-sm font-bold text-cafe24-brown">{alert.type}</div>
+                        <div className="text-xs text-cafe24-brown/70">{alert.user_id} - {alert.detail}</div>
                       </div>
-                      <span className="text-[10px] text-cookie-brown/50">{alert.time_ago}</span>
+                      <span className="text-[10px] text-cafe24-brown/50">{alert.time_ago}</span>
                     </div>
                   );
                 }) : (
-                  <div className="flex items-center justify-center p-4 text-sm text-cookie-brown/50">
+                  <div className="flex items-center justify-center p-4 text-sm text-cafe24-brown/50">
                     알림이 없습니다
                   </div>
                 )}
@@ -605,7 +605,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
           onClick={closeDrilldown}
         >
           <div
-            className="relative w-full max-w-md mx-4 rounded-3xl border-2 border-cookie-orange/30 bg-white shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md mx-4 rounded-3xl border-2 border-cafe24-orange/30 bg-white shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 헤더 */}
@@ -644,32 +644,32 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
             <div className="p-5">
               {drilldownLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-8 h-8 border-4 border-cookie-orange/30 border-t-cookie-orange rounded-full animate-spin" />
+                  <div className="w-8 h-8 border-4 border-cafe24-orange/30 border-t-cafe24-orange rounded-full animate-spin" />
                 </div>
               ) : drilldownData ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-xl bg-cookie-cream/50">
-                      <div className="text-xs text-cookie-brown/60 mb-1">평균 월매출</div>
-                      <div className="text-lg font-black text-cookie-brown">{drilldownData.avg_monthly_revenue || '-'}만원</div>
+                    <div className="p-3 rounded-xl bg-cafe24-cream/50">
+                      <div className="text-xs text-cafe24-brown/60 mb-1">평균 월매출</div>
+                      <div className="text-lg font-black text-cafe24-brown">{drilldownData.avg_monthly_revenue || '-'}만원</div>
                     </div>
-                    <div className="p-3 rounded-xl bg-cookie-cream/50">
-                      <div className="text-xs text-cookie-brown/60 mb-1">평균 상품수</div>
-                      <div className="text-lg font-black text-cookie-brown">{drilldownData.avg_product_count || '-'}개</div>
+                    <div className="p-3 rounded-xl bg-cafe24-cream/50">
+                      <div className="text-xs text-cafe24-brown/60 mb-1">평균 상품수</div>
+                      <div className="text-lg font-black text-cafe24-brown">{drilldownData.avg_product_count || '-'}개</div>
                     </div>
-                    <div className="p-3 rounded-xl bg-cookie-cream/50">
-                      <div className="text-xs text-cookie-brown/60 mb-1">평균 주문수</div>
-                      <div className="text-lg font-black text-cookie-brown">{drilldownData.avg_order_count || '-'}건</div>
+                    <div className="p-3 rounded-xl bg-cafe24-cream/50">
+                      <div className="text-xs text-cafe24-brown/60 mb-1">평균 주문수</div>
+                      <div className="text-lg font-black text-cafe24-brown">{drilldownData.avg_order_count || '-'}건</div>
                     </div>
-                    <div className="p-3 rounded-xl bg-cookie-cream/50">
-                      <div className="text-xs text-cookie-brown/60 mb-1">리텐션</div>
-                      <div className="text-lg font-black text-cookie-brown">{drilldownData.retention_rate || '-'}%</div>
+                    <div className="p-3 rounded-xl bg-cafe24-cream/50">
+                      <div className="text-xs text-cafe24-brown/60 mb-1">리텐션</div>
+                      <div className="text-lg font-black text-cafe24-brown">{drilldownData.retention_rate || '-'}%</div>
                     </div>
                   </div>
 
                   {drilldownData.top_activities && (
                     <div>
-                      <div className="text-xs text-cookie-brown/60 mb-2">주요 활동</div>
+                      <div className="text-xs text-cafe24-brown/60 mb-2">주요 활동</div>
                       <div className="flex flex-wrap gap-2">
                         {drilldownData.top_activities.map((activity, idx) => (
                           <span
@@ -691,7 +691,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
             <div className="px-5 pb-5">
               <button
                 onClick={closeDrilldown}
-                className="w-full py-3 rounded-xl bg-cookie-beige text-cookie-brown font-bold text-sm hover:bg-cookie-cream transition"
+                className="w-full py-3 rounded-xl bg-cafe24-beige text-cafe24-brown font-bold text-sm hover:bg-cafe24-cream transition"
               >
                 닫기
               </button>

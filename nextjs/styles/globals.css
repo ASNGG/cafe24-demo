@@ -35,7 +35,7 @@
   --shadow: 0 2px 8px rgba(26,26,46,0.05);
   --shadowHover: 0 8px 24px rgba(26,26,46,0.08);
   --shadowSoft: 0 4px 16px rgba(26,26,46,0.04);
-  --shadowCookie: 0 4px 12px rgba(91,155,245,0.18);
+  --shadowCafe24: 0 4px 12px rgba(91,155,245,0.18);
 }
 
 html, body { height: 100%; }
@@ -281,27 +281,27 @@ body {
   @keyframes shimmer { 100% { transform: translateX(100%); } }
 
   /* 카드 (cafe24) */
-  .cookie-card {
+  .cafe24-card {
     @apply rounded-2xl p-4;
     background: var(--panel);
     border: 1px solid var(--border);
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .cookie-card:hover {
+  .cafe24-card:hover {
     border-color: rgba(91,155,245,0.2);
     box-shadow: var(--shadowHover);
     transform: translateY(-2px);
   }
 
-  .cookie-header {
+  .cafe24-header {
     @apply flex items-center gap-3 pb-3 mb-3;
     border-bottom: 1px solid var(--border);
   }
 
-  .cookie-icon {
+  .cafe24-icon {
     @apply w-10 h-10 rounded-xl flex items-center justify-center;
     background: linear-gradient(135deg, #7CB9F7 0%, #5B9BF5 100%);
-    box-shadow: var(--shadowCookie);
+    box-shadow: var(--shadowCafe24);
   }
 
   /* 인터랙티브 요소들 */
@@ -350,34 +350,34 @@ body {
   }
 
   /* 플로팅 애니메이션 */
-  .cookie-float {
-    animation: cookieFloat 3s ease-in-out infinite;
+  .cafe24-float {
+    animation: cafe24Float 3s ease-in-out infinite;
   }
-  @keyframes cookieFloat {
+  @keyframes cafe24Float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-6px); }
   }
 
   /* 로테이트 */
-  .cookie-spin {
-    animation: cookieSpin 8s linear infinite;
+  .cafe24-spin {
+    animation: cafe24Spin 8s linear infinite;
   }
-  @keyframes cookieSpin {
+  @keyframes cafe24Spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
 
   /* 바운스 */
-  .cookie-bounce {
-    animation: cookieBounce 0.5s ease;
+  .cafe24-bounce {
+    animation: cafe24Bounce 0.5s ease;
   }
-  @keyframes cookieBounce {
+  @keyframes cafe24Bounce {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.1); }
   }
 
   /* 그라데이션 텍스트 */
-  .cookie-text {
+  .cafe24-text {
     background: linear-gradient(135deg, #7CB9F7 0%, #93C5FD 50%, #5B9BF5 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -385,12 +385,12 @@ body {
   }
 
   /* 글로우 효과 */
-  .cookie-glow {
+  .cafe24-glow {
     box-shadow: 0 0 20px rgba(91,155,245,0.25), 0 0 40px rgba(74,138,229,0.12);
   }
 
   /* 보더 그라데이션 */
-  .cookie-border {
+  .cafe24-border {
     border: 2px solid transparent;
     background:
       linear-gradient(var(--panel), var(--panel)) padding-box,

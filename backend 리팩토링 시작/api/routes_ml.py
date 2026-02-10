@@ -139,7 +139,23 @@ def get_marketing_seller_info(seller_id: str, user: dict = Depends(verify_creden
                 shops = st.SHOP_PERFORMANCE_DF.head(5).to_dict("records")
             else:
                 shops = seller_shops.head(5).to_dict("records")
-        data = {"seller_id": seller.get("seller_id", sid), "total_revenue": float(seller.get("total_revenue", 0)), "total_orders": int(seller.get("total_orders", 0)), "product_count": int(seller.get("product_count", 0)), "shops": shops}
+        # shops에 cvr 필드 추가 (프론트엔드 차트용)
+        for s in shops:
+            if "conversion_rate" in s and "cvr" not in s:
+                s["cvr"] = float(s["conversion_rate"])
+        data = {
+            "seller_id": seller.get("seller_id", sid),
+            "total_revenue": float(seller.get("total_revenue", 0)),
+            "total_orders": int(seller.get("total_orders", 0)),
+            "product_count": int(seller.get("product_count", 0)),
+            "resources": {
+                "ad_budget": int(float(seller.get("total_revenue", 0)) * 0.1),
+                "monthly_revenue": float(seller.get("total_revenue", 0)),
+                "product_count": int(seller.get("product_count", 0)),
+                "order_count": int(seller.get("total_orders", 0)),
+            },
+            "shops": shops,
+        }
         return json_sanitize({"status": "success", "data": data})
     except Exception as e:
         st.logger.exception("마케팅 셀러 정보 조회 실패")

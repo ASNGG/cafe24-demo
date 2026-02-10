@@ -3,8 +3,8 @@ export default function LogsPanel({ activityLog, clearLog }) {
     <div>
       <div className="flex items-end justify-between gap-3 mb-3">
         <div>
-          <h2 className="text-lg md:text-xl font-semibold text-cookie-brown">활동 로그</h2>
-          <p className="text-sm text-cookie-brown/60">클라이언트 측 로그(세션 저장)</p>
+          <h2 className="text-lg md:text-xl font-semibold text-cafe24-brown">활동 로그</h2>
+          <p className="text-sm text-cafe24-brown/60">클라이언트 측 로그(세션 저장)</p>
         </div>
       </div>
 
@@ -39,7 +39,7 @@ export default function LogsPanel({ activityLog, clearLog }) {
           </button>
         </div>
       ) : (
-        <div className="card text-sm text-cookie-brown/70">로그 없음</div>
+        <div className="card text-sm text-cafe24-brown/70">로그 없음</div>
       )}
     </div>
   );

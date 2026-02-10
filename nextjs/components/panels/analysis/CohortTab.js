@@ -1,7 +1,7 @@
 // components/panels/analysis/CohortTab.js
 // 코호트 분석 탭
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Target, Repeat, DollarSign } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
 import {
@@ -12,13 +12,24 @@ import {
 export default function CohortTab({ cohortData }) {
   const [cohortTab, setCohortTab] = useState('retention');
 
+  const weekKeys = useMemo(() => {
+    if (!cohortData?.retention?.length) return ['week0'];
+    const allKeys = new Set();
+    cohortData.retention.forEach(row => {
+      Object.keys(row).forEach(k => {
+        if (k.startsWith('week')) allKeys.add(k);
+      });
+    });
+    return ['week0', ...Array.from(allKeys).filter(k => k !== 'week0').sort((a, b) => parseInt(a.replace('week', '')) - parseInt(b.replace('week', '')))];
+  }, [cohortData]);
+
   return (
     <div className="space-y-6">
       {!cohortData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cookie-orange/20 bg-white/80">
-          <Target size={48} className="mx-auto mb-3 text-cookie-brown/30" />
-          <p className="text-sm font-semibold text-cookie-brown/50">코호트 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cookie-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
+        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
+          <Target size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
+          <p className="text-sm font-semibold text-cafe24-brown/50">코호트 데이터를 불러올 수 없습니다</p>
+          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
         </div>
       ) : (
       <>
@@ -36,8 +47,8 @@ export default function CohortTab({ cohortData }) {
               onClick={() => setCohortTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                 cohortTab === tab.key
-                  ? 'bg-cookie-brown text-white'
-                  : 'bg-white border-2 border-cookie-orange/20 text-cookie-brown hover:bg-cookie-beige'
+                  ? 'bg-cafe24-brown text-white'
+                  : 'bg-white border-2 border-cafe24-orange/20 text-cafe24-brown hover:bg-cafe24-beige'
               }`}
             >
               <Icon size={14} />
@@ -49,38 +60,38 @@ export default function CohortTab({ cohortData }) {
 
       {/* 리텐션 히트맵 */}
       {cohortTab === 'retention' && (
-        <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 text-sm font-black text-cookie-brown">주간 리텐션 코호트</div>
+        <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-4 text-sm font-black text-cafe24-brown">주간 리텐션 코호트</div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-cookie-orange/10">
-                  <th className="text-left py-3 px-3 font-bold text-cookie-brown">코호트</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 0</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 1</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 2</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 3</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 4</th>
+                <tr className="border-b-2 border-cafe24-orange/10">
+                  <th className="text-left py-3 px-3 font-bold text-cafe24-brown">코호트</th>
+                  {weekKeys.map(week => (
+                    <th key={week} className="text-center py-3 px-3 font-bold text-cafe24-brown">
+                      Week {week.replace('week', '')}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {(cohortData.retention || []).map((row, idx) => (
-                  <tr key={idx} className="border-b border-cookie-orange/5">
-                    <td className="py-3 px-3 font-semibold text-cookie-brown">{row.cohort}</td>
-                    {['week0', 'week1', 'week2', 'week3', 'week4'].map((week) => (
+                  <tr key={idx} className="border-b border-cafe24-orange/5">
+                    <td className="py-3 px-3 font-semibold text-cafe24-brown">{row.cohort}</td>
+                    {weekKeys.map((week) => (
                       <td key={week} className="py-3 px-3 text-center">
-                        {row[week] !== null ? (
+                        {row[week] != null ? (
                           <span
                             className="inline-block px-3 py-1 rounded-lg text-xs font-bold"
                             style={{
-                              backgroundColor: `rgba(255, 140, 66, ${row[week] / 100})`,
-                              color: row[week] > 50 ? 'white' : '#5C4A3D'
+                              backgroundColor: `rgba(255, 140, 66, ${Number(row[week]) / 100})`,
+                              color: Number(row[week]) > 50 ? 'white' : '#5C4A3D'
                             }}
                           >
-                            {row[week]}%
+                            {typeof row[week] === 'number' ? row[week].toFixed(1) : row[week]}%
                           </span>
                         ) : (
-                          <span className="text-cookie-brown/30">-</span>
+                          <span className="text-cafe24-brown/30">-</span>
                         )}
                       </td>
                     ))}
@@ -94,8 +105,8 @@ export default function CohortTab({ cohortData }) {
 
       {/* LTV 코호트 */}
       {cohortTab === 'ltv' && (
-        <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 text-sm font-black text-cookie-brown">월별 코호트 LTV</div>
+        <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-4 text-sm font-black text-cafe24-brown">월별 코호트 LTV</div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={cohortData.ltv_by_cohort || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#FFD93D40" />
@@ -112,8 +123,8 @@ export default function CohortTab({ cohortData }) {
 
       {/* 전환 퍼널 */}
       {cohortTab === 'conversion' && (
-        <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 text-sm font-black text-cookie-brown">코호트별 전환 퍼널</div>
+        <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-4 text-sm font-black text-cafe24-brown">코호트별 전환 퍼널</div>
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={cohortData.conversion || []} margin={{ top: 20, right: 30, left: 0, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#FFD93D40" />

@@ -18,9 +18,9 @@ export default function StepClassify({
   const hasSplit = autoIdxs.length > 0 || manualIdxs.length > 0;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
-      <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-        <Inbox className="w-5 h-5 text-cookie-orange" />
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
+      <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+        <Inbox className="w-5 h-5 text-cafe24-orange" />
         Step 1. 접수 - 셀러 문의 일괄 분류
       </div>
 
@@ -28,11 +28,11 @@ export default function StepClassify({
       {!hasSplit && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-cookie-brown/70 font-medium">접수함 ({INBOX_INQUIRIES.length}건)</span>
+            <span className="text-sm text-cafe24-brown/70 font-medium">접수함 ({INBOX_INQUIRIES.length}건)</span>
             <button
               onClick={runBatchClassify}
               disabled={classifyLoading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cookie-orange text-white text-sm font-medium hover:bg-cookie-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cafe24-orange text-white text-sm font-medium hover:bg-cafe24-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {classifyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {classifyLoading ? '분류 중...' : '일괄 분류'}
@@ -86,20 +86,20 @@ export default function StepClassify({
             <button
               onClick={runBatchClassify}
               disabled={classifyLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-cookie-brown/20 hover:bg-cookie-yellow/10 text-cookie-brown/60"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-cafe24-brown/20 hover:bg-cafe24-yellow/10 text-cafe24-brown/60"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               재분류
             </button>
-            <div className="flex items-center gap-2 text-xs text-cookie-brown/60">
+            <div className="flex items-center gap-2 text-xs text-cafe24-brown/60">
               <span>임계값</span>
               <input
                 type="range" min={0.5} max={0.95} step={0.05}
                 value={confidenceThreshold}
                 onChange={e => setConfidenceThreshold(Number(e.target.value))}
-                className="w-20 accent-cookie-orange h-1"
+                className="w-20 accent-cafe24-orange h-1"
               />
-              <span className="font-bold text-cookie-orange w-8">{(confidenceThreshold * 100).toFixed(0)}%</span>
+              <span className="font-bold text-cafe24-orange w-8">{(confidenceThreshold * 100).toFixed(0)}%</span>
             </div>
           </div>
 

@@ -71,21 +71,21 @@ export default function LoginPage() {
       {/* 배경 장식 */}
       <div className="pointer-events-none fixed inset-0">
         {/* 그라데이션 블러 */}
-        <div className="absolute top-10 left-10 w-48 h-48 bg-cookie-yellow/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 right-10 w-64 h-64 bg-cookie-orange/15 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-cookie-yellow/15 rounded-full blur-2xl"></div>
+        <div className="absolute top-10 left-10 w-48 h-48 bg-cafe24-yellow/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-10 w-64 h-64 bg-cafe24-orange/15 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-cafe24-yellow/15 rounded-full blur-2xl"></div>
 
         {/* 플로팅 이커머스 아이콘 */}
         {floatingIcons.map(({ Icon, size, delay, ...pos }, idx) => (
           <div
             key={idx}
-            className={`absolute ${size} opacity-[0.08] cookie-float`}
+            className={`absolute ${size} opacity-[0.08] cafe24-float`}
             style={{
               ...pos,
               animationDelay: `${delay}s`,
             }}
           >
-            <Icon className="w-full h-full text-cookie-yellow" />
+            <Icon className="w-full h-full text-cafe24-yellow" />
           </div>
         ))}
       </div>
@@ -105,14 +105,14 @@ export default function LoginPage() {
             className="mb-4 inline-block"
             whileHover={{ scale: 1.1, rotate: 10 }}
           >
-            <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-lg flex items-center justify-center cookie-float border-2 border-cookie-orange/20" style={{ animationDuration: '2s' }}>
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-lg flex items-center justify-center cafe24-float border-2 border-cafe24-orange/20" style={{ animationDuration: '2s' }}>
               <img src="https://img.echosting.cafe24.com/imgcafe24com/images/common/cafe24.svg" alt="CAFE24" className="w-14 h-14 object-contain" />
             </div>
           </motion.div>
-          <h1 className="text-xl font-semibold cookie-text">CAFE24 AI Platform</h1>
-          <p className="text-sm text-cookie-brown/60 mt-1">이커머스 운영 · AI 에이전트 · 데이터 분석</p>
-          <div className="mt-3 inline-flex items-center gap-1.5 bg-cookie-beige px-3 py-1 rounded-full">
-            <span className="text-xs font-medium text-cookie-brown/70">CAFE24</span>
+          <h1 className="text-xl font-semibold cafe24-text">CAFE24 AI Platform</h1>
+          <p className="text-sm text-cafe24-brown/60 mt-1">이커머스 운영 · AI 에이전트 · 데이터 분석</p>
+          <div className="mt-3 inline-flex items-center gap-1.5 bg-cafe24-beige px-3 py-1 rounded-full">
+            <span className="text-xs font-medium text-cafe24-brown/70">CAFE24</span>
           </div>
         </div>
 
@@ -121,11 +121,11 @@ export default function LoginPage() {
           <div className="space-y-4">
             {/* 아이디 입력 */}
             <div>
-              <label className="text-sm font-medium text-cookie-brown mb-1.5 block">아이디</label>
+              <label className="text-sm font-medium text-cafe24-brown mb-1.5 block">아이디</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cookie-brown/40" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cafe24-brown/40" />
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border2)] bg-white text-sm text-cookie-brown placeholder:text-cookie-brown/40 outline-none transition-all focus:border-cookie-yellow focus:ring-2 focus:ring-cookie-yellow/10"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border2)] bg-white text-sm text-cafe24-brown placeholder:text-cafe24-brown/40 outline-none transition-all focus:border-cafe24-yellow focus:ring-2 focus:ring-cafe24-yellow/10"
                   placeholder="아이디를 입력하세요"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -136,11 +136,11 @@ export default function LoginPage() {
 
             {/* 비밀번호 입력 */}
             <div>
-              <label className="text-sm font-medium text-cookie-brown mb-1.5 block">비밀번호</label>
+              <label className="text-sm font-medium text-cafe24-brown mb-1.5 block">비밀번호</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cookie-brown/40" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cafe24-brown/40" />
                 <input
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border2)] bg-white text-sm text-cookie-brown placeholder:text-cookie-brown/40 outline-none transition-all focus:border-cookie-yellow focus:ring-2 focus:ring-cookie-yellow/10"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[var(--border2)] bg-white text-sm text-cafe24-brown placeholder:text-cafe24-brown/40 outline-none transition-all focus:border-cafe24-yellow focus:ring-2 focus:ring-cafe24-yellow/10"
                   placeholder="비밀번호를 입력하세요"
                   type="password"
                   value={password}
@@ -168,7 +168,7 @@ export default function LoginPage() {
             <button
               onClick={onLogin}
               disabled={loading || !username || !password}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cookie-yellow to-cookie-orange text-white font-semibold text-base shadow-cookie transition-all hover:shadow-cookie-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-cafe24-yellow to-cafe24-orange text-white font-semibold text-base shadow-cookie transition-all hover:shadow-cafe24-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
@@ -184,7 +184,7 @@ export default function LoginPage() {
             <div className="pt-2">
               <button
                 onClick={() => setShowAccounts(!showAccounts)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-cookie-beige transition-colors text-sm text-cookie-brown"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-cafe24-beige transition-colors text-sm text-cafe24-brown"
               >
                 <span className="font-medium">테스트 계정</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showAccounts ? 'rotate-180' : ''}`} />
@@ -201,13 +201,13 @@ export default function LoginPage() {
                     <button
                       key={acc.user}
                       onClick={() => fillAccount(acc.user, acc.pass)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-cookie-yellow/20 hover:bg-cookie-light transition-all text-left group"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-cafe24-yellow/20 hover:bg-cafe24-light transition-all text-left group"
                     >
                       <div>
-                        <span className="text-sm font-medium text-cookie-brown">{acc.label}</span>
-                        <span className="text-xs text-cookie-brown/50 ml-2">{acc.user}</span>
+                        <span className="text-sm font-medium text-cafe24-brown">{acc.label}</span>
+                        <span className="text-xs text-cafe24-brown/50 ml-2">{acc.user}</span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cookie-beige text-cookie-brown/60 group-hover:bg-cookie-yellow/10 group-hover:text-cookie-yellow transition-colors">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cafe24-beige text-cafe24-brown/60 group-hover:bg-cafe24-yellow/10 group-hover:text-cafe24-yellow transition-colors">
                         {acc.role}
                       </span>
                     </button>
@@ -219,7 +219,7 @@ export default function LoginPage() {
         </div>
 
         {/* 푸터 */}
-        <p className="mt-6 text-center text-xs text-cookie-brown/40">
+        <p className="mt-6 text-center text-xs text-cafe24-brown/40">
           &copy; 2026 CAFE24 &middot; AI 운영 플랫폼
         </p>
       </motion.div>

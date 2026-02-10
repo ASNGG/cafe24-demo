@@ -18,10 +18,10 @@ export default function StepAnswer({
   // 자동 처리 모드: 일괄 답변 생성
   if (hasAutoMode) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-            <MessageSquare className="w-5 h-5 text-cookie-orange" />
+          <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+            <MessageSquare className="w-5 h-5 text-cafe24-orange" />
             Step 3. 답변 - 자동 처리 일괄 답변 생성
           </div>
           <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-500">
@@ -48,7 +48,7 @@ export default function StepAnswer({
           <button
             onClick={() => generateBatchAnswers(checkedAuto?.size > 0 ? [...checkedAuto] : autoIdxs)}
             disabled={batchLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-cookie-orange to-cookie-yellow text-white text-sm font-medium hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-cafe24-orange to-cafe24-yellow text-white text-sm font-medium hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {batchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {batchLoading
@@ -83,7 +83,7 @@ export default function StepAnswer({
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TIER_COLORS[item.tier] || ''}`}>
                         {item.tier}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-cookie-orange/10 text-cookie-orange text-[10px] font-bold">
+                      <span className="px-1.5 py-0.5 rounded-full bg-cafe24-orange/10 text-cafe24-orange text-[10px] font-bold">
                         {category}
                       </span>
                     </div>
@@ -156,7 +156,7 @@ export default function StepAnswer({
 
   if (!result) {
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10">
         <EmptyStep message="먼저 Step 1에서 문의를 분류하세요." />
       </div>
     );
@@ -165,10 +165,10 @@ export default function StepAnswer({
   const displayText = draftAnswer || streamingAnswer;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-          <MessageSquare className="w-5 h-5 text-cookie-orange" />
+        <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+          <MessageSquare className="w-5 h-5 text-cafe24-orange" />
           Step 3. 답변 - RAG + LLM 초안 생성
         </div>
         <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-500">
@@ -191,7 +191,7 @@ export default function StepAnswer({
       {!displayText && !isStreaming && (
         <button
           onClick={generateAnswer}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-cookie-orange to-cookie-yellow text-white font-medium hover:shadow-lg transition-all"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-cafe24-orange to-cafe24-yellow text-white font-medium hover:shadow-lg transition-all"
         >
           <Sparkles className="w-5 h-5" />
           RAG + LLM 답변 초안 생성
@@ -213,22 +213,22 @@ export default function StepAnswer({
       {(isStreaming || displayText) && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-cookie-brown/80 flex items-center gap-1.5">
-              {isStreaming && <Loader2 className="w-4 h-4 animate-spin text-cookie-orange" />}
+            <span className="text-sm font-medium text-cafe24-brown/80 flex items-center gap-1.5">
+              {isStreaming && <Loader2 className="w-4 h-4 animate-spin text-cafe24-orange" />}
               {isStreaming ? '답변 생성 중...' : '답변 초안'}
             </span>
             {draftAnswer && !isStreaming && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-cookie-brown/20 hover:bg-cookie-yellow/10 text-cookie-brown/70"
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-cafe24-brown/20 hover:bg-cafe24-yellow/10 text-cafe24-brown/70"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   {isEditing ? '미리보기' : '편집'}
                 </button>
                 <button
                   onClick={generateAnswer}
-                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-cookie-orange/30 hover:bg-cookie-orange/10 text-cookie-orange"
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-cafe24-orange/30 hover:bg-cafe24-orange/10 text-cafe24-orange"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   재생성
@@ -242,12 +242,12 @@ export default function StepAnswer({
               value={draftAnswer}
               onChange={e => setDraftAnswer(e.target.value)}
               rows={10}
-              className="w-full px-4 py-3 rounded-lg border border-cookie-orange/30 focus:border-cookie-orange focus:ring-1 focus:ring-cookie-orange/30 outline-none text-sm resize-none font-mono"
+              className="w-full px-4 py-3 rounded-lg border border-cafe24-orange/30 focus:border-cafe24-orange focus:ring-1 focus:ring-cafe24-orange/30 outline-none text-sm resize-none font-mono"
             />
           ) : (
             <div className="p-4 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap min-h-[120px] leading-relaxed">
               {renderMd(displayText)}
-              {isStreaming && <span className="inline-block w-1.5 h-4 bg-cookie-orange animate-pulse ml-0.5 align-middle" />}
+              {isStreaming && <span className="inline-block w-1.5 h-4 bg-cafe24-orange animate-pulse ml-0.5 align-middle" />}
             </div>
           )}
         </div>

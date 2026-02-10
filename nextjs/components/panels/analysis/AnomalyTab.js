@@ -18,14 +18,14 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
         }`}>
           <div className="flex items-center gap-2 mb-3">
             <Shield size={18} className={selectedUser.model_predictions.fraud.is_anomaly ? 'text-red-600' : 'text-green-600'} />
-            <span className="text-sm font-black text-cookie-brown">{selectedUser.id} 이상거래 탐지 결과</span>
+            <span className="text-sm font-black text-cafe24-brown">{selectedUser.id} 이상거래 탐지 결과</span>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <div className="text-2xl font-black" style={{
                 color: selectedUser.model_predictions.fraud.is_anomaly ? '#DC2626' : '#16A34A'
               }}>{(selectedUser.model_predictions.fraud.anomaly_score * 100).toFixed(1)}%</div>
-              <div className="text-xs text-cookie-brown/60">이상 점수</div>
+              <div className="text-xs text-cafe24-brown/60">이상 점수</div>
             </div>
             <div className="text-center">
               <div className={`text-2xl font-black ${
@@ -33,17 +33,17 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
               }`}>
                 {selectedUser.model_predictions.fraud.risk_level}
               </div>
-              <div className="text-xs text-cookie-brown/60">판정</div>
+              <div className="text-xs text-cafe24-brown/60">판정</div>
             </div>
           </div>
-          <div className="mt-2 text-[10px] text-cookie-brown/40">{selectedUser.model_predictions.fraud.model}</div>
+          <div className="mt-2 text-[10px] text-cafe24-brown/40">{selectedUser.model_predictions.fraud.model}</div>
         </div>
       )}
       {!anomalyData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cookie-orange/20 bg-white/80">
-          <AlertTriangle size={48} className="mx-auto mb-3 text-cookie-brown/30" />
-          <p className="text-sm font-semibold text-cookie-brown/50">이상탐지 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cookie-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
+        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
+          <AlertTriangle size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
+          <p className="text-sm font-semibold text-cafe24-brown/50">이상탐지 데이터를 불러올 수 없습니다</p>
+          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
         </div>
       ) : (
       <>
@@ -73,20 +73,20 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
           <div className="text-2xl font-black text-yellow-600">{anomalyData.summary?.low_risk || 0}</div>
           <div className="text-xs text-yellow-600/70">관찰 대상</div>
         </div>
-        <div className="rounded-2xl border-2 border-cookie-orange/20 bg-white/80 p-4">
+        <div className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Activity size={18} className="text-cookie-orange" />
-            <span className="text-xs font-bold text-cookie-brown">탐지율</span>
+            <Activity size={18} className="text-cafe24-orange" />
+            <span className="text-xs font-bold text-cafe24-brown">탐지율</span>
           </div>
-          <div className="text-2xl font-black text-cookie-brown">{anomalyData.summary?.anomaly_rate || 0}%</div>
-          <div className="text-xs text-cookie-brown/60">{anomalyData.summary?.anomaly_count || 0}/{anomalyData.summary?.total_sellers || 0}</div>
+          <div className="text-2xl font-black text-cafe24-brown">{anomalyData.summary?.anomaly_rate || 0}%</div>
+          <div className="text-xs text-cafe24-brown/60">{anomalyData.summary?.anomaly_count || 0}/{anomalyData.summary?.total_sellers || 0}</div>
         </div>
       </div>
 
       {/* 이상유형별 분포 & 트렌드 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 text-sm font-black text-cookie-brown">이상 유형별 분포</div>
+        <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-4 text-sm font-black text-cafe24-brown">이상 유형별 분포</div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={anomalyData.by_type || []} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#FFD93D40" horizontal={false} />
@@ -102,8 +102,8 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-          <div className="mb-4 text-sm font-black text-cookie-brown">일별 이상 탐지 트렌드</div>
+        <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <div className="mb-4 text-sm font-black text-cafe24-brown">일별 이상 탐지 트렌드</div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={anomalyData.trend || []}>
               <defs>
@@ -123,10 +123,10 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
       </div>
 
       {/* 최근 알림 */}
-      <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2 mb-4">
           <Zap size={18} className="text-red-500" />
-          <span className="text-sm font-black text-cookie-brown">실시간 이상 탐지 알림</span>
+          <span className="text-sm font-black text-cafe24-brown">실시간 이상 탐지 알림</span>
         </div>
         <div className="space-y-3">
           {(anomalyData.recent_alerts || []).map((alert, idx) => (
@@ -143,16 +143,16 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-bold text-cookie-brown">{alert.id}</span>
+                  <span className="font-bold text-cafe24-brown">{alert.id}</span>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     alert.severity === 'high' ? 'bg-red-200 text-red-700' :
                     alert.severity === 'medium' ? 'bg-orange-200 text-orange-700' :
                     'bg-yellow-200 text-yellow-700'
                   }`}>{alert.type}</span>
                 </div>
-                <p className="text-sm text-cookie-brown/70">{alert.detail}</p>
+                <p className="text-sm text-cafe24-brown/70">{alert.detail}</p>
               </div>
-              <div className="text-xs text-cookie-brown/50">{alert.time}</div>
+              <div className="text-xs text-cafe24-brown/50">{alert.time}</div>
             </div>
           ))}
         </div>

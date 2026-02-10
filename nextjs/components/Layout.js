@@ -24,13 +24,13 @@ export default function Layout({
 
   return (
     <div
-      className={`${notoSansKr.className} antialiased min-h-screen bg-gradient-to-br from-cookie-yellow/10 via-white to-cookie-orange/5`}
+      className={`${notoSansKr.className} antialiased min-h-screen bg-gradient-to-br from-cafe24-yellow/10 via-white to-cafe24-orange/5`}
     >
       {/* 배경 장식 */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute top-20 left-20 w-40 h-40 bg-cookie-yellow/15 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-40 right-20 w-60 h-60 bg-cookie-orange/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/3 w-32 h-32 bg-cookie-yellow/15 rounded-full blur-2xl"></div>
+        <div className="absolute top-20 left-20 w-40 h-40 bg-cafe24-yellow/15 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-40 right-20 w-60 h-60 bg-cafe24-orange/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/3 w-32 h-32 bg-cafe24-yellow/15 rounded-full blur-2xl"></div>
       </div>
 
       <Topbar
@@ -55,7 +55,7 @@ export default function Layout({
           </div>
 
           <main className="col-span-12 xl:col-span-9">
-            <div className="rounded-[32px] border-2 border-cookie-orange/10 bg-white/80 p-4 shadow-xl backdrop-blur-sm md:p-5">
+            <div className="rounded-[32px] border-2 border-cafe24-orange/10 bg-white/80 p-4 shadow-xl backdrop-blur-sm md:p-5">
               {children}
             </div>
           </main>

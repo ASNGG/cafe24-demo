@@ -13,8 +13,8 @@ export const renderMd = (text) => {
 export function KpiMini({ label, value, icon: Icon }) {
   return (
     <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-center">
-      <Icon className="w-4 h-4 text-cookie-orange mx-auto mb-1" />
-      <div className="text-lg font-bold text-cookie-brown">{value}</div>
+      <Icon className="w-4 h-4 text-cafe24-orange mx-auto mb-1" />
+      <div className="text-lg font-bold text-cafe24-brown">{value}</div>
       <div className="text-xs text-gray-500">{label}</div>
     </div>
   );

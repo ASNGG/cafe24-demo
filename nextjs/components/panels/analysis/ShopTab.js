@@ -25,18 +25,18 @@ export default function ShopTab({ shopsData }) {
   return (
     <div className="space-y-6">
       {!shopsData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cookie-orange/20 bg-white/80">
-          <ShoppingBag size={48} className="mx-auto mb-3 text-cookie-brown/30" />
-          <p className="text-sm font-semibold text-cookie-brown/50">쇼핑몰 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cookie-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
+        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
+          <ShoppingBag size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
+          <p className="text-sm font-semibold text-cafe24-brown/50">쇼핑몰 데이터를 불러올 수 없습니다</p>
+          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
         </div>
       ) : (
       <>
       {/* 쇼핑몰 운영 차트 */}
-      <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2 mb-4">
-          <ShoppingBag size={18} className="text-cookie-orange" />
-          <span className="text-sm font-black text-cookie-brown">인기 쇼핑몰 분석</span>
+          <ShoppingBag size={18} className="text-cafe24-orange" />
+          <span className="text-sm font-black text-cafe24-brown">인기 쇼핑몰 분석</span>
         </div>
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={shopUsageData} layout="vertical" margin={{ top: 10, right: 30, left: 100, bottom: 10 }}>
@@ -53,11 +53,11 @@ export default function ShopTab({ shopsData }) {
       </div>
 
       {/* 쇼핑몰 상세 리스트 */}
-      <div className="rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
-        <div className="mb-4 text-sm font-black text-cookie-brown">쇼핑몰별 상세 통계</div>
+      <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+        <div className="mb-4 text-sm font-black text-cafe24-brown">쇼핑몰별 상세 통계</div>
         <div className="space-y-3">
           {shopsData.map((shop, idx) => (
-            <div key={shop.name} className="flex items-center gap-4 p-3 rounded-2xl bg-cookie-beige/30 hover:bg-cookie-beige/50 transition">
+            <div key={shop.name} className="flex items-center gap-4 p-3 rounded-2xl bg-cafe24-beige/30 hover:bg-cafe24-beige/50 transition">
               <span
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
                 style={{ backgroundColor: COLORS.tiers[shop.plan_tier] }}
@@ -65,21 +65,21 @@ export default function ShopTab({ shopsData }) {
                 {idx + 1}
               </span>
               <div className="flex-1">
-                <div className="font-bold text-cookie-brown">{shop.name}</div>
-                <div className="text-xs text-cookie-brown/60">{shop.plan_tier}</div>
+                <div className="font-bold text-cafe24-brown">{shop.name}</div>
+                <div className="text-xs text-cafe24-brown/60">{shop.plan_tier}</div>
               </div>
               <div className="flex gap-4 text-sm">
                 <div className="text-center">
-                  <div className="font-bold text-cookie-brown">{shop.usage}%</div>
-                  <div className="text-[10px] text-cookie-brown/50">운영점수</div>
+                  <div className="font-bold text-cafe24-brown">{shop.usage}%</div>
+                  <div className="text-[10px] text-cafe24-brown/50">운영점수</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-bold text-cookie-brown">{shop.cvr}%</div>
-                  <div className="text-[10px] text-cookie-brown/50">전환율</div>
+                  <div className="font-bold text-cafe24-brown">{shop.cvr}%</div>
+                  <div className="text-[10px] text-cafe24-brown/50">전환율</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-bold text-cookie-brown">{shop.popularity}%</div>
-                  <div className="text-[10px] text-cookie-brown/50">인기도</div>
+                  <div className="font-bold text-cafe24-brown">{shop.popularity}%</div>
+                  <div className="text-[10px] text-cafe24-brown/50">인기도</div>
                 </div>
               </div>
             </div>

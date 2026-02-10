@@ -356,19 +356,19 @@ export default function AppPage() {
 
   if (!auth) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-cookie-yellow/20 via-white to-cookie-orange/10 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-cafe24-yellow/20 via-white to-cafe24-orange/10 flex items-center justify-center">
         <div className="text-center">
           <div className="relative inline-block">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cookie-yellow to-cookie-orange shadow-lg flex items-center justify-center animate-bounce">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cafe24-yellow to-cafe24-orange shadow-lg flex items-center justify-center animate-bounce">
               <span className="text-3xl font-black text-white">C24</span>
             </div>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-14 h-3 bg-cookie-orange/20 rounded-full blur-sm animate-pulse"></div>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-14 h-3 bg-cafe24-orange/20 rounded-full blur-sm animate-pulse"></div>
           </div>
-          <div className="mt-6 text-cookie-brown font-bold text-lg">로딩 중...</div>
+          <div className="mt-6 text-cafe24-brown font-bold text-lg">로딩 중...</div>
           <div className="mt-2 flex justify-center gap-1">
-            <span className="w-2 h-2 bg-cookie-yellow rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-            <span className="w-2 h-2 bg-cookie-yellow rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-            <span className="w-2 h-2 bg-cookie-yellow rounded-full animate-bounce"></span>
+            <span className="w-2 h-2 bg-cafe24-yellow rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+            <span className="w-2 h-2 bg-cafe24-yellow rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+            <span className="w-2 h-2 bg-cafe24-yellow rounded-full animate-bounce"></span>
           </div>
         </div>
       </div>
@@ -384,24 +384,24 @@ export default function AppPage() {
     >
       <div className="mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-3xl font-black text-cookie-yellow">C24</span>
+          <span className="text-3xl font-black text-cafe24-yellow">C24</span>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-cookie-brown">CAFE24 AI Platform</h1>
+              <h1 className="text-2xl font-bold text-cafe24-brown">CAFE24 AI Platform</h1>
               {settings?.selectedModel?.includes("mini") && (
                 <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-bold whitespace-nowrap">
                   GPT-4o mini 모드
                 </span>
               )}
             </div>
-            <p className="text-sm text-cookie-brown/70">이커머스 운영 · AI 에이전트 · 데이터 분석</p>
+            <p className="text-sm text-cafe24-brown/70">이커머스 운영 · AI 에이전트 · 데이터 분석</p>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cookie-yellow/20 text-cookie-brown">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cafe24-yellow/20 text-cafe24-brown">
             GPT-4 기반
           </span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cookie-orange/15 text-cookie-orange">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cafe24-orange/15 text-cafe24-orange">
             CAFE24
           </span>
         </div>

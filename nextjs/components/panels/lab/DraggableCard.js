@@ -22,7 +22,7 @@ export default function DraggableCard({ idx, item, variant, checked, onCheck, on
       onDragStart={(e) => !editing && onDragStart(e, idx)}
       onClick={onClick}
       className={`w-full text-left p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-all ${
-        isSelected ? 'border-cookie-orange bg-cookie-orange/5' : `${borderColor} bg-white ${hoverBorder} hover:shadow-sm`
+        isSelected ? 'border-cafe24-orange bg-cafe24-orange/5' : `${borderColor} bg-white ${hoverBorder} hover:shadow-sm`
       } ${loading ? 'opacity-60' : ''}`}
     >
       <div className="flex items-start gap-2">
@@ -38,9 +38,9 @@ export default function DraggableCard({ idx, item, variant, checked, onCheck, on
         {!isAuto && (
           <div className="shrink-0 mt-0.5">
             {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin text-cookie-orange" />
+              <Loader2 className="w-4 h-4 animate-spin text-cafe24-orange" />
             ) : isSelected ? (
-              <CheckCircle2 className="w-4 h-4 text-cookie-orange" />
+              <CheckCircle2 className="w-4 h-4 text-cafe24-orange" />
             ) : (
               <User className="w-4 h-4 text-gray-400" />
             )}
@@ -53,7 +53,7 @@ export default function DraggableCard({ idx, item, variant, checked, onCheck, on
               {item.tier}
             </span>
             {item.result?.predicted_category && (
-              <span className="px-1.5 py-0.5 rounded-full bg-cookie-orange/10 text-cookie-orange text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-cafe24-orange/10 text-cafe24-orange text-[10px] font-bold">
                 {item.result.predicted_category}
               </span>
             )}

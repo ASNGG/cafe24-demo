@@ -456,7 +456,7 @@ export default function AnalysisPanel({ auth, apiCall }) {
             <div className="relative">
               <button
                 onClick={() => setShowDateDropdown(!showDateDropdown)}
-                className="flex items-center gap-1.5 rounded-full border-2 border-cookie-orange/20 bg-white/80 px-3 py-1.5 text-xs font-bold text-cookie-brown hover:bg-cookie-beige transition"
+                className="flex items-center gap-1.5 rounded-full border-2 border-cafe24-orange/20 bg-white/80 px-3 py-1.5 text-xs font-bold text-cafe24-brown hover:bg-cafe24-beige transition"
                 aria-label="기간 선택"
               >
                 <Calendar size={12} />
@@ -464,13 +464,13 @@ export default function AnalysisPanel({ auth, apiCall }) {
                 <ChevronDown size={12} />
               </button>
               {showDateDropdown && (
-                <div className="absolute right-0 top-full mt-1 z-10 rounded-xl border-2 border-cookie-orange/20 bg-white shadow-lg overflow-hidden">
+                <div className="absolute right-0 top-full mt-1 z-10 rounded-xl border-2 border-cafe24-orange/20 bg-white shadow-lg overflow-hidden">
                   {DATE_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       onClick={() => { setDateRange(opt.value); setShowDateDropdown(false); }}
-                      className={`block w-full px-4 py-2 text-left text-xs font-semibold hover:bg-cookie-beige transition ${
-                        dateRange === opt.value ? 'bg-cookie-yellow/30 text-cookie-brown' : 'text-cookie-brown/70'
+                      className={`block w-full px-4 py-2 text-left text-xs font-semibold hover:bg-cafe24-beige transition ${
+                        dateRange === opt.value ? 'bg-cafe24-yellow/30 text-cafe24-brown' : 'text-cafe24-brown/70'
                       }`}
                     >
                       {opt.label}
@@ -497,8 +497,8 @@ export default function AnalysisPanel({ auth, apiCall }) {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
                 isActive
-                  ? 'bg-gradient-to-r from-cookie-yellow to-cookie-orange text-white shadow-md'
-                  : 'bg-white/80 border-2 border-cookie-orange/20 text-cookie-brown hover:bg-cookie-beige'
+                  ? 'bg-gradient-to-r from-cafe24-yellow to-cafe24-orange text-white shadow-md'
+                  : 'bg-white/80 border-2 border-cafe24-orange/20 text-cafe24-brown hover:bg-cafe24-beige'
               }`}
             >
               <Icon size={16} />

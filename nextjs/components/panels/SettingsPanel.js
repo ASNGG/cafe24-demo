@@ -48,14 +48,14 @@ function Slider({ value, onChange, min, max, step, label, disabled, showValue = 
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-1">
-        <label className="text-sm text-cookie-brown/70">{label}</label>
+        <label className="text-sm text-cafe24-brown/70">{label}</label>
         {showValue && (
-          <span className="text-sm font-mono text-cookie-brown/80">{value.toFixed(step < 1 ? 2 : 0)}</span>
+          <span className="text-sm font-mono text-cafe24-brown/80">{value.toFixed(step < 1 ? 2 : 0)}</span>
         )}
       </div>
-      <div className="relative h-2 bg-cookie-cream rounded-full overflow-hidden">
+      <div className="relative h-2 bg-cafe24-cream rounded-full overflow-hidden">
         <div
-          className="absolute h-full bg-gradient-to-r from-cookie-orange to-cookie-pink transition-all duration-150"
+          className="absolute h-full bg-gradient-to-r from-cafe24-orange to-cafe24-pink transition-all duration-150"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -207,8 +207,8 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     <div>
       <div className="flex items-end justify-between gap-3 mb-3">
         <div>
-          <h2 className="text-lg md:text-xl font-semibold text-cookie-brown">LLM 설정</h2>
-          <p className="text-sm text-cookie-brown/60">모델 파라미터 설정</p>
+          <h2 className="text-lg md:text-xl font-semibold text-cafe24-brown">LLM 설정</h2>
+          <p className="text-sm text-cafe24-brown/60">모델 파라미터 설정</p>
         </div>
         <span className="badge">Admin</span>
       </div>
@@ -219,19 +219,19 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
             <div className="flex items-center gap-2">
               <span>모델 파라미터</span>
               {isCustomLLM ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-cookie-orange/20 text-cookie-orange">커스텀</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-cafe24-orange/20 text-cafe24-orange">커스텀</span>
               ) : (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">기본값</span>
               )}
             </div>
             {!llmSaved && (
-              <span className="text-xs text-cookie-orange font-medium">변경사항 있음</span>
+              <span className="text-xs text-cafe24-orange font-medium">변경사항 있음</span>
             )}
           </div>
 
           <div className="space-y-3">
             <div>
-              <label className="text-sm text-cookie-brown/70">모델</label>
+              <label className="text-sm text-cafe24-brown/70">모델</label>
               <select
                 className="input mt-1 opacity-60 cursor-not-allowed"
                 value={selectedModel}
@@ -245,7 +245,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
               </select>
 
               <div className="mt-2">
-                <label className="text-xs text-cookie-brown/60">모델명 직접 입력(선택) <span className="text-cookie-brown/40">(비활성)</span></label>
+                <label className="text-xs text-cafe24-brown/60">모델명 직접 입력(선택) <span className="text-cafe24-brown/40">(비활성)</span></label>
                 <input
                   className="input mt-1 opacity-60 cursor-not-allowed"
                   type="text"
@@ -258,12 +258,12 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
             {/* 프리셋 버튼 */}
             <div>
-              <label className="text-sm text-cookie-brown/70 mb-2 block">빠른 프리셋</label>
+              <label className="text-sm text-cafe24-brown/70 mb-2 block">빠른 프리셋</label>
               <div className="grid grid-cols-3 gap-2">
                 {Object.entries(LLM_PRESETS).map(([key, preset]) => (
                   <button
                     key={key}
-                    className="p-2 rounded-lg border-2 border-cookie-cream hover:border-cookie-orange/50 bg-white hover:bg-cookie-cream/30 transition-all text-left group"
+                    className="p-2 rounded-lg border-2 border-cafe24-cream hover:border-cafe24-orange/50 bg-white hover:bg-cafe24-cream/30 transition-all text-left group"
                     onClick={() => {
                       setDraftLLM((d) => ({
                         ...d,
@@ -276,8 +276,8 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                     }}
                   >
                     <div className="text-lg mb-1">{preset.icon}</div>
-                    <div className="text-xs font-medium text-cookie-brown group-hover:text-cookie-orange transition-colors">{preset.name}</div>
-                    <div className="text-[10px] text-cookie-brown/50">{preset.description}</div>
+                    <div className="text-xs font-medium text-cafe24-brown group-hover:text-cafe24-orange transition-colors">{preset.name}</div>
+                    <div className="text-[10px] text-cafe24-brown/50">{preset.description}</div>
                   </button>
                 ))}
               </div>
@@ -294,8 +294,8 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                   step={0.1}
                   disabled={isGpt5}
                 />
-                {isGpt5 ? <div className="text-xs text-cookie-brown/60 mt-1">gpt-5 계열은 temperature를 사용하지 않습니다.</div> : null}
-                <div className="text-xs text-cookie-brown/50 mt-1">낮을수록 정확, 높을수록 창의적</div>
+                {isGpt5 ? <div className="text-xs text-cafe24-brown/60 mt-1">gpt-5 계열은 temperature를 사용하지 않습니다.</div> : null}
+                <div className="text-xs text-cafe24-brown/50 mt-1">낮을수록 정확, 높을수록 창의적</div>
               </div>
 
               <div>
@@ -307,7 +307,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                   max={1}
                   step={0.05}
                 />
-                <div className="text-xs text-cookie-brown/50 mt-1">확률 분포 커트라인</div>
+                <div className="text-xs text-cafe24-brown/50 mt-1">확률 분포 커트라인</div>
               </div>
             </div>
 
@@ -321,7 +321,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                   max={2}
                   step={0.1}
                 />
-                <div className="text-xs text-cookie-brown/50 mt-1">새 주제 언급 유도</div>
+                <div className="text-xs text-cafe24-brown/50 mt-1">새 주제 언급 유도</div>
               </div>
 
               <div>
@@ -333,13 +333,13 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                   max={2}
                   step={0.1}
                 />
-                <div className="text-xs text-cookie-brown/50 mt-1">반복 표현 억제</div>
+                <div className="text-xs text-cafe24-brown/50 mt-1">반복 표현 억제</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm text-cookie-brown/70">Max Tokens (8000 고정)</label>
+                <label className="text-sm text-cafe24-brown/70">Max Tokens (8000 고정)</label>
                 <input
                   className="input mt-1 opacity-60 cursor-not-allowed"
                   type="number"
@@ -349,7 +349,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
               </div>
 
               <div>
-                <label className="text-sm text-cookie-brown/70">Seed (선택)</label>
+                <label className="text-sm text-cafe24-brown/70">Seed (선택)</label>
                 <input
                   className="input mt-1"
                   type="number"
@@ -364,7 +364,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm text-cookie-brown/70">요청 Timeout(ms)</label>
+                <label className="text-sm text-cafe24-brown/70">요청 Timeout(ms)</label>
                 <input
                   className="input mt-1"
                   type="number"
@@ -377,7 +377,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
               </div>
 
               <div>
-                <label className="text-sm text-cookie-brown/70">Retry 횟수</label>
+                <label className="text-sm text-cafe24-brown/70">Retry 횟수</label>
                 <input
                   className="input mt-1"
                   type="number"
@@ -392,8 +392,8 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm text-cookie-brown/70">스트리밍 사용</div>
-                <div className="text-xs text-cookie-brown/60">UI에서 /api/agent/stream 사용 여부 플래그</div>
+                <div className="text-sm text-cafe24-brown/70">스트리밍 사용</div>
+                <div className="text-xs text-cafe24-brown/60">UI에서 /api/agent/stream 사용 여부 플래그</div>
               </div>
               <input
                 type="checkbox"
@@ -404,14 +404,14 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
             </div>
 
             <div>
-              <label className="text-sm text-cookie-brown/70">OpenAI API Key (로컬 전용)</label>
+              <label className="text-sm text-cafe24-brown/70">OpenAI API Key (로컬 전용)</label>
               <input
                 className="input mt-1"
                 type="password"
                 value={draftLLM?.apiKey ?? ""}
                 onChange={(e) => handleLLMSettingChange("apiKey", e.target.value)}
               />
-              <div className="text-xs text-cookie-brown/50 mt-1">API Key는 보안상 로컬에만 저장됩니다.</div>
+              <div className="text-xs text-cafe24-brown/50 mt-1">API Key는 보안상 로컬에만 저장됩니다.</div>
             </div>
 
             <div className="flex gap-2">
@@ -423,7 +423,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                 {llmSaved ? '저장됨' : '설정 저장'}
               </button>
             </div>
-            <p className="text-xs text-cookie-brown/50">
+            <p className="text-xs text-cafe24-brown/50">
               * 저장 버튼을 눌러야 설정이 브라우저에 저장됩니다.
               <br />* AI 에이전트 호출 시 저장된 설정값이 적용됩니다.
             </p>
@@ -436,7 +436,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
               <span>시스템 프롬프트</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">백엔드 관리</span>
               {loadingDefault && (
-                <span className="text-xs text-cookie-orange">로딩 중...</span>
+                <span className="text-xs text-cafe24-orange">로딩 중...</span>
               )}
             </div>
           </div>
@@ -447,7 +447,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
             placeholder="백엔드에서 시스템 프롬프트를 로드합니다..."
             disabled
           />
-          <p className="text-xs text-cookie-brown/50 mt-2">
+          <p className="text-xs text-cafe24-brown/50 mt-2">
             * 시스템 프롬프트는 백엔드에서 중앙 관리됩니다. 읽기 전용으로 표시됩니다.
           </p>
         </div>

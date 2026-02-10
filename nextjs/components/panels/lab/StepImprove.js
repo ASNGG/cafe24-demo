@@ -36,16 +36,16 @@ export default function StepImprove({ result, history, apiCall, auth }) {
     : [];
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-cookie-brown/10 space-y-5">
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-cookie-brown font-semibold text-lg">
-          <TrendingUp className="w-5 h-5 text-cookie-orange" />
+        <div className="flex items-center gap-2 text-cafe24-brown font-semibold text-lg">
+          <TrendingUp className="w-5 h-5 text-cafe24-orange" />
           Step 5. 개선 - 피드백 & 대시보드
         </div>
         <button
           onClick={loadStats}
           disabled={loadingStats}
-          className="text-xs px-2.5 py-1 rounded-lg border border-cookie-brown/20 hover:bg-cookie-yellow/10 text-cookie-brown/60"
+          className="text-xs px-2.5 py-1 rounded-lg border border-cafe24-brown/20 hover:bg-cafe24-yellow/10 text-cafe24-brown/60"
         >
           {loadingStats ? '로딩...' : '새로고침'}
         </button>
@@ -63,7 +63,7 @@ export default function StepImprove({ result, history, apiCall, auth }) {
       {/* 카테고리별 차트 */}
       {chartData.length > 0 && (
         <div>
-          <span className="text-sm font-medium text-cookie-brown/80 mb-2 block">카테고리별 티켓 수</span>
+          <span className="text-sm font-medium text-cafe24-brown/80 mb-2 block">카테고리별 티켓 수</span>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -101,7 +101,7 @@ export default function StepImprove({ result, history, apiCall, auth }) {
       {/* 파이프라인 처리 이력 */}
       {history.length > 0 && (
         <div>
-          <span className="text-sm font-medium text-cookie-brown/80 mb-2 block">파이프라인 처리 이력</span>
+          <span className="text-sm font-medium text-cafe24-brown/80 mb-2 block">파이프라인 처리 이력</span>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -121,7 +121,7 @@ export default function StepImprove({ result, history, apiCall, auth }) {
                       <td className="py-1.5 px-2 text-gray-500">{row.time}</td>
                       <td className="py-1.5 px-2 text-gray-700">{row.text}</td>
                       <td className="py-1.5 px-2">
-                        <span className="px-1.5 py-0.5 rounded bg-cookie-orange/10 text-cookie-orange font-medium">{row.category}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-cafe24-orange/10 text-cafe24-orange font-medium">{row.category}</span>
                       </td>
                       <td className="py-1.5 px-2">
                         <span className={`px-1.5 py-0.5 rounded font-medium ${

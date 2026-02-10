@@ -127,13 +127,13 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
       <SectionHeader title="RAG 문서 관리" subtitle="PDF 및 문서 업로드/관리" />
 
       {/* RAG 상태 */}
-      <div className="rounded-3xl border border-cookie-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border border-cafe24-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-black text-cookie-brown">RAG 시스템 상태</h3>
+          <h3 className="text-sm font-black text-cafe24-brown">RAG 시스템 상태</h3>
           <button
             onClick={loadStatus}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-2xl border border-cookie-brown/10 bg-white px-3 py-2 text-xs font-black text-cookie-brown/80 hover:bg-cookie-beige disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl border border-cafe24-brown/10 bg-white px-3 py-2 text-xs font-black text-cafe24-brown/80 hover:bg-cafe24-beige disabled:opacity-50"
             type="button"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -142,46 +142,46 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-cookie-brown/10 bg-cookie-beige/50 p-4">
+          <div className="rounded-2xl border border-cafe24-brown/10 bg-cafe24-beige/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               {status?.rag_ready ? (
                 <CheckCircle size={18} className="text-green-600" />
               ) : (
                 <XCircle size={18} className="text-red-600" />
               )}
-              <span className="text-xs font-black text-cookie-brown/70">인덱스 상태</span>
+              <span className="text-xs font-black text-cafe24-brown/70">인덱스 상태</span>
             </div>
-            <div className="text-lg font-black text-cookie-brown">
+            <div className="text-lg font-black text-cafe24-brown">
               {status?.rag_ready ? '준비됨' : '비활성'}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-cookie-brown/10 bg-cookie-beige/50 p-4">
+          <div className="rounded-2xl border border-cafe24-brown/10 bg-cafe24-beige/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               <FileText size={18} className="text-blue-600" />
-              <span className="text-xs font-black text-cookie-brown/70">문서 수</span>
+              <span className="text-xs font-black text-cafe24-brown/70">문서 수</span>
             </div>
-            <div className="text-lg font-black text-cookie-brown">
+            <div className="text-lg font-black text-cafe24-brown">
               {status?.files_count || 0}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-cookie-brown/10 bg-cookie-beige/50 p-4">
+          <div className="rounded-2xl border border-cafe24-brown/10 bg-cafe24-beige/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               <FileText size={18} className="text-purple-600" />
-              <span className="text-xs font-black text-cookie-brown/70">청크 수</span>
+              <span className="text-xs font-black text-cafe24-brown/70">청크 수</span>
             </div>
-            <div className="text-lg font-black text-cookie-brown">
+            <div className="text-lg font-black text-cafe24-brown">
               {status?.chunks_count || 0}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-cookie-brown/10 bg-cookie-beige/50 p-4">
+          <div className="rounded-2xl border border-cafe24-brown/10 bg-cafe24-beige/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertCircle size={18} className="text-amber-600" />
-              <span className="text-xs font-black text-cookie-brown/70">임베딩 모델</span>
+              <span className="text-xs font-black text-cafe24-brown/70">임베딩 모델</span>
             </div>
-            <div className="text-sm font-bold text-cookie-brown">
+            <div className="text-sm font-bold text-cafe24-brown">
               {status?.embed_model || '-'}
             </div>
           </div>
@@ -196,19 +196,19 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Contextual Retrieval - 미적용 */}
             <div className="flex items-center gap-2 opacity-50">
-              <FileText size={14} className="text-cookie-brown/50" />
+              <FileText size={14} className="text-cafe24-brown/50" />
               <div>
-                <div className="text-xs font-black text-cookie-brown/80">Contextual Retrieval</div>
-                <div className="text-[10px] text-cookie-brown/50">미적용</div>
+                <div className="text-xs font-black text-cafe24-brown/80">Contextual Retrieval</div>
+                <div className="text-[10px] text-cafe24-brown/50">미적용</div>
               </div>
             </div>
 
             {/* Hybrid Search (BM25 + Vector) */}
             <div className="flex items-center gap-2">
-              <Search size={14} className={status?.bm25_ready ? 'text-green-600' : 'text-cookie-brown/50'} />
+              <Search size={14} className={status?.bm25_ready ? 'text-green-600' : 'text-cafe24-brown/50'} />
               <div>
-                <div className="text-xs font-black text-cookie-brown/80">Hybrid Search</div>
-                <div className="text-[10px] text-cookie-brown/60">
+                <div className="text-xs font-black text-cafe24-brown/80">Hybrid Search</div>
+                <div className="text-[10px] text-cafe24-brown/60">
                   {status?.bm25_available ? (
                     status?.bm25_ready ? (
                       <span className="text-green-600">BM25 + Vector ✓</span>
@@ -216,7 +216,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
                       <span className="text-amber-600">BM25 대기중</span>
                     )
                   ) : (
-                    <span className="text-cookie-brown/50">미설치</span>
+                    <span className="text-cafe24-brown/50">미설치</span>
                   )}
                 </div>
               </div>
@@ -224,22 +224,22 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
 
             {/* Reranking - 비활성화 */}
             <div className="flex items-center gap-2">
-              <Zap size={14} className="text-cookie-brown/50" />
+              <Zap size={14} className="text-cafe24-brown/50" />
               <div>
-                <div className="text-xs font-black text-cookie-brown/80">Reranking</div>
-                <div className="text-[10px] text-cookie-brown/60">
-                  <span className="text-cookie-brown/50">비활성</span>
+                <div className="text-xs font-black text-cafe24-brown/80">Reranking</div>
+                <div className="text-[10px] text-cafe24-brown/60">
+                  <span className="text-cafe24-brown/50">비활성</span>
                 </div>
               </div>
             </div>
 
             {/* Simple Knowledge Graph - 비활성화 */}
             <div className="flex items-center gap-2">
-              <GitBranch size={14} className="text-cookie-brown/50" />
+              <GitBranch size={14} className="text-cafe24-brown/50" />
               <div>
-                <div className="text-xs font-black text-cookie-brown/80">Simple KG</div>
-                <div className="text-[10px] text-cookie-brown/60">
-                  <span className="text-cookie-brown/50">비활성</span>
+                <div className="text-xs font-black text-cafe24-brown/80">Simple KG</div>
+                <div className="text-[10px] text-cafe24-brown/60">
+                  <span className="text-cafe24-brown/50">비활성</span>
                 </div>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
             <button
               onClick={handleReindex}
               disabled={loading}
-              className="w-full rounded-2xl border border-cookie-orange/30 bg-gradient-to-r from-cookie-yellow to-cookie-orange px-4 py-2.5 text-sm font-black text-white shadow-cookie hover:shadow-cookie-lg transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full rounded-2xl border border-cafe24-orange/30 bg-gradient-to-r from-cafe24-yellow to-cafe24-orange px-4 py-2.5 text-sm font-black text-white shadow-cookie hover:shadow-cafe24-lg transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               type="button"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -270,10 +270,10 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
       </div>
 
       {/* RAG 모드 선택 */}
-      <div className="rounded-3xl border border-cookie-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border border-cafe24-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2 mb-4">
           <Search size={18} className="text-indigo-600" />
-          <h3 className="text-sm font-black text-cookie-brown">AI 에이전트 RAG 검색 모드</h3>
+          <h3 className="text-sm font-black text-cafe24-brown">AI 에이전트 RAG 검색 모드</h3>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -283,30 +283,30 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
             className={`rounded-2xl border-2 p-4 text-left transition ${
               settings?.ragMode === 'rag'
                 ? 'border-blue-500 bg-blue-50'
-                : 'border-cookie-brown/10 bg-cookie-beige/30 hover:bg-cookie-beige/50'
+                : 'border-cafe24-brown/10 bg-cafe24-beige/30 hover:bg-cafe24-beige/50'
             }`}
             type="button"
           >
             <div className="flex items-center gap-2 mb-2">
-              <Search size={16} className={settings?.ragMode === 'rag' ? 'text-blue-600' : 'text-cookie-brown/60'} />
-              <span className={`text-sm font-black ${settings?.ragMode === 'rag' ? 'text-blue-700' : 'text-cookie-brown'}`}>
+              <Search size={16} className={settings?.ragMode === 'rag' ? 'text-blue-600' : 'text-cafe24-brown/60'} />
+              <span className={`text-sm font-black ${settings?.ragMode === 'rag' ? 'text-blue-700' : 'text-cafe24-brown'}`}>
                 RAG
               </span>
               {settings?.ragMode === 'rag' && (
                 <CheckCircle size={14} className="text-blue-600 ml-auto" />
               )}
             </div>
-            <div className="text-[11px] text-cookie-brown/70 leading-relaxed">
+            <div className="text-[11px] text-cafe24-brown/70 leading-relaxed">
               FAISS + BM25
               <br />
-              <span className="text-cookie-brown/50">싱글홉 질문에 최적</span>
+              <span className="text-cafe24-brown/50">싱글홉 질문에 최적</span>
             </div>
           </button>
 
           {/* LightRAG (시험용 - 비활성화) */}
           <button
             disabled
-            className="rounded-2xl border-2 p-4 text-left transition border-cookie-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
+            className="rounded-2xl border-2 p-4 text-left transition border-cafe24-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
             type="button"
           >
             <div className="flex items-center gap-2 mb-2">
@@ -328,7 +328,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           {/* K²RAG (시험중 - 비활성화) */}
           <button
             disabled
-            className="rounded-2xl border-2 p-4 text-left transition border-cookie-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
+            className="rounded-2xl border-2 p-4 text-left transition border-cafe24-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
             type="button"
           >
             <div className="flex items-center gap-2 mb-2">
@@ -350,7 +350,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           {/* Auto (비활성화) */}
           <button
             disabled
-            className="rounded-2xl border-2 p-4 text-left transition border-cookie-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
+            className="rounded-2xl border-2 p-4 text-left transition border-cafe24-brown/10 bg-gray-100 opacity-50 cursor-not-allowed"
             type="button"
           >
             <div className="flex items-center gap-2 mb-2">
@@ -370,20 +370,20 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           </button>
         </div>
 
-        <div className="mt-3 text-[11px] text-cookie-brown/60 text-center">
+        <div className="mt-3 text-[11px] text-cafe24-brown/60 text-center">
           선택한 모드는 AI 에이전트가 플랫폼 관련 질문에 답할 때 사용됩니다
         </div>
       </div>
 
       {/* 파일 업로드 - 비활성화 */}
       {auth?.user_role === '관리자' && (
-        <div className="rounded-3xl border border-cookie-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur opacity-60">
-          <h3 className="text-sm font-black text-cookie-brown mb-4">문서 업로드</h3>
+        <div className="rounded-3xl border border-cafe24-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur opacity-60">
+          <h3 className="text-sm font-black text-cafe24-brown mb-4">문서 업로드</h3>
 
           <div className="space-y-3">
-            <div className="rounded-2xl border-2 border-dashed border-cookie-brown/20 bg-gray-50 p-6 text-center">
-              <Upload size={32} className="mx-auto mb-3 text-cookie-brown/30" />
-              <span className="inline-flex items-center gap-2 rounded-2xl border border-cookie-brown/20 bg-white px-4 py-2 text-sm font-black text-cookie-brown/40 cursor-not-allowed">
+            <div className="rounded-2xl border-2 border-dashed border-cafe24-brown/20 bg-gray-50 p-6 text-center">
+              <Upload size={32} className="mx-auto mb-3 text-cafe24-brown/30" />
+              <span className="inline-flex items-center gap-2 rounded-2xl border border-cafe24-brown/20 bg-white px-4 py-2 text-sm font-black text-cafe24-brown/40 cursor-not-allowed">
                 <Upload size={16} />
                 파일 선택 (비활성화)
               </span>
@@ -391,14 +391,14 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
 
             <button
               disabled
-              className="w-full rounded-2xl border border-cookie-brown/20 bg-gray-200 px-4 py-3 text-sm font-black text-cookie-brown/40 cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full rounded-2xl border border-cafe24-brown/20 bg-gray-200 px-4 py-3 text-sm font-black text-cafe24-brown/40 cursor-not-allowed flex items-center justify-center gap-2"
               type="button"
             >
               <Upload size={16} />
               문서 업로드
             </button>
 
-            <div className="text-xs font-semibold text-cookie-brown/60">
+            <div className="text-xs font-semibold text-cafe24-brown/60">
               지원 형식: PDF, TXT, MD, JSON, CSV, LOG (파일당 최대 15MB)
             </div>
           </div>
@@ -406,10 +406,10 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
       )}
 
       {/* OCR 업로드 - 비활성화됨 */}
-      <div className="rounded-3xl border border-cookie-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur opacity-60">
+      <div className="rounded-3xl border border-cafe24-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur opacity-60">
         <div className="flex items-center gap-2 mb-4">
           <ScanText size={18} className="text-purple-400" />
-          <h3 className="text-sm font-black text-cookie-brown">OCR 이미지 업로드</h3>
+          <h3 className="text-sm font-black text-cafe24-brown">OCR 이미지 업로드</h3>
         </div>
 
         <div className="space-y-3">
@@ -443,34 +443,34 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
                   : 'opacity-0 invisible translate-y-1'
               }`}
             >
-              <div className="bg-cookie-brown text-white text-xs rounded-xl px-4 py-3 shadow-lg">
+              <div className="bg-cafe24-brown text-white text-xs rounded-xl px-4 py-3 shadow-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertCircle size={14} className="text-amber-400" />
                   <span className="font-bold text-amber-400">기능 비활성화됨</span>
                 </div>
-                <p className="text-cookie-beige leading-relaxed">
+                <p className="text-cafe24-beige leading-relaxed">
                   OCR 처리 후 RAG 저장 시 <span className="text-white font-semibold">LLM API 비용이 발생</span>합니다.
                   현재 프로덕션 환경에서는 비활성화되어 있습니다.
                 </p>
-                <div className="mt-2 pt-2 border-t border-cookie-brown/30 text-cookie-brown/50 text-[10px]">
+                <div className="mt-2 pt-2 border-t border-cafe24-brown/30 text-cafe24-brown/50 text-[10px]">
                   활성화가 필요하면 관리자에게 문의하세요
                 </div>
               </div>
               {/* 툴팁 화살표 */}
-              <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-cookie-brown rotate-45" />
+              <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-cafe24-brown rotate-45" />
             </div>
           </div>
 
-          <div className="text-xs font-semibold text-cookie-brown/60">
+          <div className="text-xs font-semibold text-cafe24-brown/60">
             지원 형식: JPG, PNG, BMP, TIFF, GIF, WEBP (최대 20MB) • 한국어/영어 지원
           </div>
         </div>
       </div>
 
       {/* 파일 목록 */}
-      <div className="rounded-3xl border border-cookie-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
+      <div className="rounded-3xl border border-cafe24-brown/10 bg-white/70 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-black text-cookie-brown">업로드된 문서</h3>
+          <h3 className="text-sm font-black text-cafe24-brown">업로드된 문서</h3>
           <div className="flex items-center gap-2">
             {auth?.user_role === '관리자' && files.length > 0 && (
               <div
@@ -480,7 +480,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
               >
                 <button
                   disabled={true}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-cookie-brown/10 bg-white/50 px-2.5 py-1.5 text-xs font-black text-cookie-brown/40 cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cafe24-brown/10 bg-white/50 px-2.5 py-1.5 text-xs font-black text-cafe24-brown/40 cursor-not-allowed"
                   type="button"
                 >
                   <Trash2 size={14} />
@@ -495,30 +495,30 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
                       : 'opacity-0 invisible translate-y-1'
                   }`}
                 >
-                  <div className="bg-cookie-brown text-white text-xs rounded-xl px-4 py-3 shadow-lg">
+                  <div className="bg-cafe24-brown text-white text-xs rounded-xl px-4 py-3 shadow-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertCircle size={14} className="text-amber-400" />
                       <span className="font-bold text-amber-400">기능 비활성화됨</span>
                     </div>
-                    <p className="text-cookie-beige leading-relaxed">
+                    <p className="text-cafe24-beige leading-relaxed">
                       문서 삭제 후 인덱스 재빌드 시 <span className="text-white font-semibold">LLM API 비용이 발생</span>합니다.
                       현재 프로덕션 환경에서는 비활성화되어 있습니다.
                     </p>
-                    <div className="mt-2 pt-2 border-t border-cookie-brown/30 text-cookie-brown/50 text-[10px]">
+                    <div className="mt-2 pt-2 border-t border-cafe24-brown/30 text-cafe24-brown/50 text-[10px]">
                       활성화가 필요하면 관리자에게 문의하세요
                     </div>
                   </div>
                   {/* 툴팁 화살표 */}
-                  <div className="absolute right-6 -bottom-1 w-2 h-2 bg-cookie-brown rotate-45" />
+                  <div className="absolute right-6 -bottom-1 w-2 h-2 bg-cafe24-brown rotate-45" />
                 </div>
               </div>
             )}
-            <span className="text-xs font-black text-cookie-brown/60">{files.length}개</span>
+            <span className="text-xs font-black text-cafe24-brown/60">{files.length}개</span>
           </div>
         </div>
 
         {files.length === 0 ? (
-          <div className="rounded-2xl border border-cookie-brown/10 bg-cookie-beige/50 p-6 text-center text-sm font-semibold text-cookie-brown/60">
+          <div className="rounded-2xl border border-cafe24-brown/10 bg-cafe24-beige/50 p-6 text-center text-sm font-semibold text-cafe24-brown/60">
             업로드된 문서가 없습니다
           </div>
         ) : (
@@ -526,13 +526,13 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
             {files.map((file) => (
               <div
                 key={file.filename}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-cookie-brown/10 bg-white p-3"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-cafe24-brown/10 bg-white p-3"
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <FileText size={20} className="text-blue-600 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-cookie-brown truncate">{file.filename}</div>
-                    <div className="text-xs font-semibold text-cookie-brown/60">
+                    <div className="text-sm font-bold text-cafe24-brown truncate">{file.filename}</div>
+                    <div className="text-xs font-semibold text-cafe24-brown/60">
                       {formatBytes(file.size)} • {formatDate(file.modified)}
                     </div>
                   </div>

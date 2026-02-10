@@ -35,7 +35,7 @@ export default function Tabs({ tabs = [], active, onChange }) {
         ref={tabListRef}
         role="tablist"
         aria-label="탭 목록"
-        className="flex flex-wrap gap-2 rounded-3xl border-2 border-cookie-orange/20 bg-white/80 p-2 shadow-sm backdrop-blur"
+        className="flex flex-wrap gap-2 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-2 shadow-sm backdrop-blur"
       >
         {tabs.map((t) => {
           const isActive = t.key === active;
@@ -51,8 +51,8 @@ export default function Tabs({ tabs = [], active, onChange }) {
               className={cn(
                 'rounded-2xl px-4 py-2 text-sm font-black transition active:translate-y-[1px]',
                 isActive
-                  ? 'bg-gradient-to-br from-cookie-yellow via-cookie-orange to-cookie-yellow text-cookie-brown shadow-cookie'
-                  : 'bg-white/70 text-cookie-brown/60 hover:bg-cookie-yellow/20'
+                  ? 'bg-gradient-to-br from-cafe24-yellow via-cafe24-orange to-cafe24-yellow text-cafe24-brown shadow-cookie'
+                  : 'bg-white/70 text-cafe24-brown/60 hover:bg-cafe24-yellow/20'
               )}
             >
               {t.label}

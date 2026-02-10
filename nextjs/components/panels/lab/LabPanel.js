@@ -367,17 +367,17 @@ export default function LabPanel({ auth, apiCall, settings }) {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-cookie-brown flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-cookie-orange" />
+          <h2 className="text-xl font-bold text-cafe24-brown flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-cafe24-orange" />
             실험실 - CS 자동화 파이프라인
           </h2>
-          <p className="text-sm text-cookie-brown/60 mt-1">
+          <p className="text-sm text-cafe24-brown/60 mt-1">
             단순/반복 문의는 자동 처리, 복잡한 문의만 담당자 검토
           </p>
         </div>
         <button
           onClick={resetPipeline}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-cookie-brown/20 hover:bg-cookie-yellow/10 text-cookie-brown/70 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-cafe24-brown/20 hover:bg-cafe24-yellow/10 text-cafe24-brown/70 transition-colors"
         >
           <RotateCcw className="w-4 h-4" />
           초기화
@@ -484,18 +484,18 @@ export default function LabPanel({ auth, apiCall, settings }) {
         <button
           onClick={goPrev}
           disabled={currentStep === 0}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg border border-cookie-brown/20 hover:bg-cookie-yellow/10 text-cookie-brown/70 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg border border-cafe24-brown/20 hover:bg-cafe24-yellow/10 text-cafe24-brown/70 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           이전 단계
         </button>
-        <span className="text-xs text-cookie-brown/40">
+        <span className="text-xs text-cafe24-brown/40">
           {currentStep + 1} / {STEPS.length}
         </span>
         <button
           onClick={goNext}
           disabled={currentStep === 4}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-cookie-orange text-white hover:bg-cookie-orange/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-cafe24-orange text-white hover:bg-cafe24-orange/90 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           다음 단계
           <ChevronRight className="w-4 h-4" />

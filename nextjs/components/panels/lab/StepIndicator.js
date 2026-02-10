@@ -3,7 +3,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 export default function StepIndicator({ steps, current, completed, onStepClick }) {
   return (
-    <div className="flex items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-cookie-brown/10">
+    <div className="flex items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-cafe24-brown/10">
       {steps.map((step, i) => {
         const Icon = step.icon;
         const isActive = i === current;
@@ -18,7 +18,7 @@ export default function StepIndicator({ steps, current, completed, onStepClick }
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                   isActive
-                    ? 'bg-cookie-orange text-white shadow-lg shadow-cookie-orange/30 scale-110'
+                    ? 'bg-cafe24-orange text-white shadow-lg shadow-cafe24-orange/30 scale-110'
                     : isDone
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
@@ -32,7 +32,7 @@ export default function StepIndicator({ steps, current, completed, onStepClick }
               </div>
               <span
                 className={`text-xs font-medium ${
-                  isActive ? 'text-cookie-orange' : isDone ? 'text-green-600' : 'text-gray-400'
+                  isActive ? 'text-cafe24-orange' : isDone ? 'text-green-600' : 'text-gray-400'
                 }`}
               >
                 {step.label}

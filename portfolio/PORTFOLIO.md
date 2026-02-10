@@ -732,39 +732,66 @@ flowchart LR
 │
 ├── backend 리팩토링 시작/             # FastAPI 백엔드
 │   ├── main.py                        # 앱 진입점 (미들웨어, startup)
-│   ├── state.py                       # 전역 상태 (DataFrame 18개 + 모델 12개)
-│   ├── api/routes.py                  # 89개 REST API
+│   ├── state.py                       # 전역 상태 (DataFrame 16개 + 모델 12개)
+│   │
+│   ├── api/                           # REST API (도메인별 분리)
+│   │   ├── common.py                  # 공통 의존성 (인증, 요청 모델)
+│   │   ├── routes_shop.py             # 쇼핑몰/카테고리/대시보드/분석/통계
+│   │   ├── routes_seller.py           # 셀러 검색/세그먼트/활동
+│   │   ├── routes_cs.py               # CS 파이프라인/자동화
+│   │   ├── routes_rag.py              # RAG 검색/인덱스 관리
+│   │   ├── routes_ml.py               # MLflow/마케팅 최적화
+│   │   ├── routes_guardian.py         # DB 보안 감시
+│   │   ├── routes_agent.py            # AI 에이전트 (SSE 스트리밍)
+│   │   └── routes_admin.py            # 관리자/설정/시스템
 │   │
 │   ├── agent/                         # AI 에이전트 시스템
 │   │   ├── runner.py                  # Tool Calling 실행기
 │   │   ├── tools.py                   # 28개 도구 함수
+│   │   ├── tool_schemas.py            # 도구 스키마 정의
 │   │   ├── router.py                  # 2단계 라우터
+│   │   ├── intent.py                  # 인텐트 분류
+│   │   ├── semantic_router.py         # 시맨틱 라우터
 │   │   ├── multi_agent.py             # LangGraph 멀티 에이전트
 │   │   ├── crag.py                    # Corrective RAG
 │   │   └── llm.py                     # LLM 호출 래퍼 (재시도, GPT-5 호환)
 │   │
-│   ├── rag/                           # RAG 시스템
-│   │   ├── service.py                 # FAISS + BM25 Hybrid Search
+│   ├── rag/                           # RAG 시스템 (모듈 분리)
+│   │   ├── service.py                 # 퍼사드 (외부 인터페이스)
+│   │   ├── search.py                  # FAISS + BM25 Hybrid Search
+│   │   ├── chunking.py                # Parent-Child Chunking
+│   │   ├── kg.py                      # 지식 그래프 빌더
+│   │   ├── contextual.py              # Contextual Retrieval
 │   │   ├── light_rag.py               # LightRAG (GraphRAG)
 │   │   └── k2rag.py                   # K2RAG (KG + Hybrid + Summarization)
 │   │
 │   ├── ml/                            # ML 파이프라인
 │   │   ├── train_models.py            # 18개 CSV + 12개 모델 학습
+│   │   ├── helpers.py                 # ML 유틸리티 함수
 │   │   ├── revenue_model.py           # LightGBM 매출 예측
 │   │   ├── marketing_optimizer.py     # P-PSO 마케팅 최적화
 │   │   └── mlflow_tracker.py          # MLflow 실험 추적
 │   │
+│   ├── n8n/                           # n8n 워크플로우 연동
+│   │   ├── _writer.py                 # 워크플로우 JSON 생성
+│   │   └── cs_reply_workflow.json     # CS 회신 워크플로우
+│   │
 │   ├── process_miner/                 # 프로세스 마이너 (발견/병목/예측/이상/추천)
 │   ├── core/                          # 유틸리티 (상수, 파서, 메모리)
-│   ├── data/loader.py                 # CSV 18개 + 모델 12개 로더
+│   ├── data/loader.py                 # CSV 16개 → DataFrame + 모델 12개 로더
 │   └── Dockerfile
 │
 └── nextjs/                            # Next.js 프론트엔드
     ├── pages/                         # Pages Router (login, app, API Routes)
     │   ├── app.js                     # 메인 앱 (탭 기반 11개 패널)
     │   └── api/                       # SSE 프록시 5개
-    ├── components/panels/             # 11개 기능 패널
-    ├── lib/                           # API 호출, 스토리지, 유틸리티
+    ├── components/
+    │   ├── panels/                    # 11개 기능 패널
+    │   │   ├── lab/                   # AI 실험실 (11개 컴포넌트)
+    │   │   ├── analysis/              # 상세 분석 (10개 컴포넌트, 9탭)
+    │   │   └── ...                    # 기타 패널
+    │   └── common/                    # 공유 컴포넌트 (CustomTooltip, StatCard 등)
+    ├── lib/                           # API 호출, SSE 파서, 스토리지
     └── styles/globals.css             # CAFE24 디자인 시스템
 ```
 

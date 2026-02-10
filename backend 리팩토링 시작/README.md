@@ -173,7 +173,7 @@ backend 리팩토링 시작/
 │
 ├── api/                             # REST API (도메인별 라우터 분리)
 │   ├── common.py                    # 공통 유틸리티 (응답 형식, 인증 헬퍼)
-│   ├── routes.py                    # 레거시 라우터 (하위 호환)
+│   ├── routes.py                    # 라우터 통합 모듈 (8개 도메인 라우터를 단일 APIRouter로 통합)
 │   ├── routes_shop.py               # 쇼핑몰/상품 API
 │   ├── routes_seller.py             # 셀러 분석 API
 │   ├── routes_cs.py                 # CS/고객지원 API (X-Callback-Token 인증)
@@ -230,7 +230,9 @@ backend 리팩토링 시작/
 │   └── loader.py                    # 데이터 로더 (CSV 16개 -> DataFrame + ML 모델 12개 + 스케일러/인코더)
 │
 ├── n8n/                             # n8n 워크플로우 정의
-│   └── cs_reply_workflow.json       # CS 회신 자동화 워크플로우
+│   ├── cs_reply_workflow.json       # CS 회신 자동화 워크플로우
+│   ├── test.json                    # 워크플로우 테스트용 페이로드
+│   └── _writer.py                   # Python 실행환경 확인 유틸리티
 │
 ├── rag_docs/                        # RAG 소스 문서 (카페24 가이드 PDF)
 ├── rag_faiss/                       # FAISS 인덱스 파일
@@ -409,6 +411,7 @@ flowchart TB
 | `DEMAND_FORECAST_MODEL` | `model_demand_forecast.pkl` | XGBoost | 상품 수요 예측 |
 | `SETTLEMENT_ANOMALY_MODEL` | `model_settlement_anomaly.pkl` | DBSCAN | 정산 이상 탐지 |
 | `SHAP_EXPLAINER_CHURN` | `shap_explainer_churn.pkl` | TreeExplainer | 이탈 예측 해석 |
+| `_GUARDIAN_ISO_MODEL` | `model_guardian_anomaly.pkl` | IsolationForest | Guardian DB 쿼리 이상탐지 |
 
 ### 공용 도구 (스케일러/인코더)
 
@@ -421,6 +424,8 @@ flowchart TB
 | `LE_SELLER_TIER` | `le_seller_tier.pkl` | 셀러 등급 인코더 |
 | `LE_CS_PRIORITY` | `le_cs_priority.pkl` | CS 우선순위 인코더 |
 | `LE_INQUIRY_CATEGORY` | `le_inquiry_category.pkl` | 문의 카테고리 인코더 |
+| `_GUARDIAN_SCALER` | `scaler_guardian.pkl` | Guardian ML 피처 정규화 |
+| `scaler_revenue` | `scaler_revenue.pkl` | 매출 예측 피처 정규화 (`ml/revenue_model.py`) |
 
 ### 설정 변수
 
@@ -1041,7 +1046,7 @@ flowchart TB
 
 ### 8.0 왜 ML 모델을 만들었는가
 
-카페24 플랫폼 운영에서 반복적으로 발생하는 **수작업 분석/판단**을 자동화하기 위해 10개의 ML 모델 + 마케팅 최적화 메타휴리스틱 + Guardian 이상탐지 모델을 개발했습니다. 각 모델은 실제 운영에서 직면하는 구체적 비즈니스 문제를 해결합니다.
+카페24 플랫폼 운영에서 반복적으로 발생하는 **수작업 분석/판단**을 자동화하기 위해 11개의 ML 모델(Guardian 이상탐지 포함) + 마케팅 최적화 메타휴리스틱을 개발했습니다. 각 모델은 실제 운영에서 직면하는 구체적 비즈니스 문제를 해결합니다.
 
 **핵심 설계 원칙:**
 - **AI 에이전트 통합**: 모든 ML 모델은 독립 실행이 아닌 AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 선택하여 결과를 자연어로 설명합니다.
@@ -1064,6 +1069,7 @@ flowchart TB
 | 8 | **리뷰 감성 분석** | TF-IDF + LogisticRegression | 상품 리뷰 감성 자동 분류로 셀러 품질 모니터링 | 긍정/부정/중립 |
 | 9 | **상품 수요 예측** | XGBoost | 다음 주 주문량을 예측하여 재고 관리/프로모션 기획 | 수량 |
 | 10 | **정산 이상 탐지** | DBSCAN | 정산 금액/주기의 이상 패턴을 탐지하여 오류/부정 방지 | 정상/이상 클러스터 |
+| 11 | **Guardian 이상탐지** | Isolation Forest | DB 쿼리의 비정상 패턴 탐지 (7개 피처 기반 위험도 스코어링) | 이상 점수 (0~1) |
 | + | **마케팅 최적화** | P-PSO (mealpy) | 예산 제약 내 GMV 증가를 최대화하는 채널 조합 탐색 | 채널별 투자 추천 |
 
 ### 8.1.1 모델별 데이터 생성 방법
@@ -1082,6 +1088,7 @@ flowchart TB
 | 8 | 리뷰 감성 분석 | `REVIEW_TEMPLATES_*` | 긍정/부정/중립 각 15개 템플릿 x 30개 노이즈 변형 = 1,200건. TF-IDF(1000, ngram 1~2) 벡터화 | ~1,200건 |
 | 9 | 상품 수요 예측 | 합성 주간 주문 데이터 | 4주 주문량(Poisson) + 추세/프로모션 효과로 다음주 수요 산출 | 2,000건 |
 | 10 | 정산 이상 탐지 | 합성 정산 데이터 | 정상 ~950건(LogNormal 금액) + 이상 50건(고액/고수수료/장기정산) 결합 후 DBSCAN | ~1,000건 |
+| 11 | Guardian 이상탐지 | `guardian.db` 감사 로그 | 7개 피처(액션종류, 코어테이블여부, 행수, log1p(행수), 영향금액, 시간, 야간여부)를 StandardScaler 정규화 후 IsolationForest(contamination=5%) | 감사 로그 수 |
 
 ### 8.1.2 알고리즘 선택 근거
 
@@ -1097,6 +1104,7 @@ flowchart TB
 | 리뷰 감성 분석 | LogisticRegression | TF-IDF 고차원 희소 행렬에 효율적, 다중 클래스(OvR) 지원 |
 | 상품 수요 예측 | XGBoost | 시계열적 피처(주간 주문량)와 정적 피처(가격, 카테고리) 동시 처리 (미설치 시 GradientBoosting 대체) |
 | 정산 이상 탐지 | DBSCAN | 클러스터 수를 사전 지정할 필요 없음, noise(-1)로 자연스럽게 이상치 분리 |
+| Guardian 이상탐지 | Isolation Forest | 라벨 없는 DB 감사 로그에서 비정상 쿼리 패턴을 비지도 학습으로 탐지, 룰엔진 보완용 |
 
 ### 8.2 셀러 이탈 예측 + SHAP 해석
 
@@ -1313,6 +1321,16 @@ sequenceDiagram
 
 `ml/revenue_model.py`의 `RevenuePredictor` 클래스는 개별 쇼핑몰의 다음 달 매출을 예측하는 독립 모듈입니다. 마케팅 최적화(8.4)의 베이스라인 매출 계산에도 사용됩니다.
 
+**매출 예측 모델 파일 관계:**
+
+| 파일 | 생성 출처 | 용도 |
+|------|----------|------|
+| `model_revenue_prediction.pkl` | `ml/train_models.py` | 셀러 매출/성장률 기반 다음달 매출 예측 (state.py 로드) |
+| `model_revenue.pkl` | `ml/revenue_model.py` | 쇼핑몰 성과 7개 피처 기반 매출 예측 (RevenuePredictor 전용) |
+| `scaler_revenue.pkl` | `ml/revenue_model.py` | RevenuePredictor 피처 정규화용 StandardScaler |
+
+`train_models.py`는 셀러 분석 데이터(7개 피처: total_revenue, txn_count 등)로 학습하여 `model_revenue_prediction.pkl`로 저장합니다. `revenue_model.py`는 쇼핑몰 성과 데이터(7개 피처: monthly_revenue, monthly_orders 등)로 별도 학습하여 `model_revenue.pkl` + `scaler_revenue.pkl`로 저장합니다.
+
 **핵심 설계:**
 - **싱글턴 패턴**: `get_predictor()` 함수로 전역 인스턴스를 1회만 생성하여, 서버 전체에서 동일한 모델 객체를 재사용합니다
 - **Auto-Training**: 서버 시작 시 `data/loader.py`에서 `shop_performance.csv`가 존재하면 자동으로 학습을 수행합니다
@@ -1460,7 +1478,7 @@ python ml/train_models.py
 
 ## 10. API 엔드포인트
 
-모든 API는 `/api` prefix를 사용합니다. 기존 단일 `routes.py`(4,570줄)에서 **8개 도메인별 라우터**로 분리되었습니다.
+모든 API는 `/api` prefix를 사용합니다. `routes.py`가 **8개 도메인별 라우터**를 단일 `APIRouter`로 통합하며, `main.py`에서 이 라우터 하나만 include합니다.
 
 ### 라우터 파일 매핑
 

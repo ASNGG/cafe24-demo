@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-[웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v8.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -385,16 +385,25 @@ flowchart LR
 │   │   ├── routes_guardian.py         # DB 보안 감시 API
 │   │   ├── routes_agent.py            # AI 에이전트 API
 │   │   └── routes_admin.py            # 관리/설정/로그 API
-│   ├── agent/                         # AI 에이전트 (runner, tools, router, crag, multi_agent)
+│   ├── agent/                         # AI 에이전트
+│   │   ├── runner.py                  # Tool Calling 실행기
 │   │   ├── tools.py                   # 28개 도구 함수 (비즈니스 로직)
-│   │   └── tool_schemas.py            # 28개 @tool 래퍼 (LLM 인터페이스)
+│   │   ├── tool_schemas.py            # 28개 @tool 래퍼 (LLM 인터페이스)
+│   │   ├── router.py                  # 에이전트 라우팅
+│   │   ├── llm.py                     # LLM 클라이언트 설정
+│   │   ├── intent.py                  # 의도 분류
+│   │   ├── semantic_router.py         # 시맨틱 라우터
+│   │   ├── crag.py                    # Corrective RAG
+│   │   └── multi_agent.py             # LangGraph 멀티 에이전트
 │   ├── rag/                           # RAG 시스템 (모듈별 분리)
 │   │   ├── service.py                 # RAG 파사드 (통합 인터페이스)
 │   │   ├── chunking.py                # 문서 청킹 로직
 │   │   ├── search.py                  # 검색 엔진 (Hybrid/BM25)
 │   │   ├── kg.py                      # 지식 그래프 처리
-│   │   └── contextual.py              # Contextual RAG 로직
-│   ├── ml/                            # ML 모델 학습/추론 (train_models, revenue, marketing, mlflow)
+│   │   ├── contextual.py              # Contextual RAG 로직
+│   │   ├── light_rag.py               # LightRAG (GraphRAG) 엔진
+│   │   └── k2rag.py                   # K2RAG (KG+Sub-Q+Hybrid) 엔진
+│   ├── ml/                            # ML 모델 학습/추론 (train_models, helpers, revenue, marketing, mlflow)
 │   ├── core/                          # 유틸리티 (constants, utils, memory, parsers)
 │   ├── data/                          # 데이터 로더
 │   ├── process_miner/                 # AI 프로세스 마이너 (6개 엔드포인트)
@@ -409,7 +418,7 @@ flowchart LR
     │   ├── common/                    # 공통 컴포넌트 (CustomTooltip, StatCard, constants)
     │   └── panels/                    # 11개 기능 패널
     │       ├── lab/                   # CS 자동화 실험실 (11개 파일로 분리)
-    │       ├── analysis/              # 분석 패널 (10개 탭 파일로 분리)
+    │       ├── analysis/              # 분석 패널 (9개 탭 + 1 컨테이너, 10개 파일)
     │       └── ...                    # 기타 패널
     ├── lib/                           # 유틸리티 (api, storage, cn, sse)
     └── README.md                      # 프론트엔드 상세 문서

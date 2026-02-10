@@ -99,6 +99,7 @@ nextjs/
 │   ├── EmptyState.js               # 빈 상태 UI
 │   ├── Skeleton.js                 # 로딩 스켈레톤 (CSS shimmer)
 │   ├── ToastProvider.js            # 전역 토스트 알림 (react-hot-toast)
+│   ├── next.config.js              # next.config.js 사본 (기본 포트 8000, 루트는 8001)
 │   │
 │   ├── common/                     # 공통 컴포넌트 (신규)
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
@@ -155,7 +156,7 @@ nextjs/
 │   └── nprogress.css               # 페이지 전환 진행바
 │
 ├── next.config.js                  # API 프록시 rewrites 설정
-├── tailwind.config.js              # CAFE24 테마 커스텀 설정 (cafe24 색상 별칭)
+├── tailwind.config.js              # CAFE24 테마 (cafe24/grade 색상, @tailwindcss/typography)
 ├── postcss.config.js               # PostCSS (Tailwind + Autoprefixer)
 └── package.json
 ```
@@ -352,7 +353,7 @@ flowchart TB
 | **API** | `GET /api/mlflow/models`, `GET /api/mlflow/experiments`, `GET /api/mlflow/models/selected`, `POST /api/mlflow/models/select` |
 | **권한** | 관리자 전용 |
 
-**등록 모델 12종:**
+**등록 모델 11종:**
 
 | 모델명 | 알고리즘 | 용도 |
 |--------|----------|------|
@@ -366,6 +367,7 @@ flowchart TB
 | 리뷰감성분석 | LogisticRegression | 리뷰 긍/부정 분류 |
 | 상품수요예측 | XGBoost | 상품별 수요 예측 |
 | 정산이상탐지 | DBSCAN | 정산 이상 패턴 탐지 |
+| Guardian감사로그이상탐지 | IsolationForest | 감사 로그 이상 패턴 탐지 |
 
 ---
 
@@ -1097,11 +1099,23 @@ colors: {
     blue: '#5B9BF5',     // primary
     navy: '#4A8AE5',
     dark: '#1A1A2E',
-    light: '#F5F7FA',
+    light: '#F8FAFC',
     gray: '#E8ECF0',
     accent: '#00C853',   // 성공
     warning: '#FF9800',
     error: '#F44336',
+    white: '#FFFFFF',
+    slate: '#64748B',
+    primary: '#5B9BF5',
+    secondary: '#4A8AE5',
+    success: '#00C853',
+    info: '#7CB9F7',
+    yellow: '#7CB9F7',
+    orange: '#5B9BF5',
+    brown: '#1A1A2E',
+    cream: '#F5F7FA',
+    beige: '#E8ECF0',
+    pink: '#F472B6',
   },
   grade: {                // 셀러 등급별
     common: '#9CA3AF',
@@ -1112,6 +1126,7 @@ colors: {
     ancient: '#0D47A1',
   },
 }
+// plugins: [require('@tailwindcss/typography')]
 ```
 
 ### 6.2 CSS 변수
@@ -1128,11 +1143,16 @@ colors: {
   --success: #00C853;
   --danger: #F44336;
 
-  /* --cafe24-* 변수 (기존 --cookie-* 에서 리네이밍) */
+  /* --cafe24-* 변수 */
+  --cafe24-yellow: #7CB9F7;
+  --cafe24-orange: #5B9BF5;
+  --cafe24-brown: #1A1A2E;
+  --cafe24-cream: #F5F7FA;
+  /* ... */
 }
 ```
 
-> CSS 변수가 `--cookie-*` → `--cafe24-*`로 리네이밍되었으며, `ToastProvider.js` 등 CSS 변수를 참조하는 컴포넌트도 함께 업데이트 완료.
+> CSS 변수와 클래스명 모두 `cafe24-*` 접두사로 통일되어 있다. Tailwind 유틸리티(`text-cafe24-brown`, `bg-cafe24-orange` 등)와 커스텀 클래스(`.cafe24-card`, `.cafe24-text` 등)가 일관된 네이밍을 사용한다.
 
 ### 6.3 커스텀 클래스
 
@@ -1161,6 +1181,7 @@ colors: {
 | `.cafe24-spin` | 회전 (8s) |
 | `.cafe24-bounce` | 바운스 (0.5s) |
 | `.cafe24-glow` | 글로우 효과 |
+| `.cafe24-border` | 보더 그라데이션 |
 
 ### 6.5 반응형 브레이크포인트
 
@@ -1218,6 +1239,7 @@ npm start
 | **Next.js** | 14.2 | React 프레임워크 (Pages Router) |
 | **React** | 18.2 | UI 라이브러리 |
 | **Tailwind CSS** | 3.4 | 유틸리티 CSS |
+| **@tailwindcss/typography** | 0.5 | prose 타이포그래피 플러그인 |
 | **Recharts** | 3.7 | 차트/그래프 |
 | **Framer Motion** | 11.0 | 애니메이션 |
 | **Lucide React** | 0.452 | 아이콘 |

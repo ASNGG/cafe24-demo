@@ -11,36 +11,12 @@ import {
   AlertTriangle, Zap, ArrowUpRight, ArrowDownRight, Brain, Target
 } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
+import CustomTooltip from '@/components/common/CustomTooltip';
+import { DASHBOARD_COLORS as COLORS } from '@/components/common/constants';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadialBarChart, RadialBar
 } from 'recharts';
-
-// CAFE24 테마 색상
-const COLORS = {
-  primary: ['#1B6FF0', '#42A5F5', '#4ADE80', '#60A5FA', '#F472B6', '#A78BFA'],
-  tiers: {
-    Basic: '#9CA3AF',
-    Standard: '#42A5F5',
-    Premium: '#F59E0B',
-    Enterprise: '#1B6FF0',
-  },
-};
-
-// 커스텀 툴팁
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border-2 border-cookie-orange/20 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
-      <p className="text-xs font-bold text-cookie-brown">{label}</p>
-      {payload.map((entry, idx) => (
-        <p key={idx} className="text-sm font-semibold" style={{ color: entry.color }}>
-          {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
-        </p>
-      ))}
-    </div>
-  );
-};
 
 // 파이 차트용 커스텀 툴팁
 const PieTooltip = ({ active, payload }) => {
@@ -113,18 +89,18 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
 
     setLoading(false);
 
-    if (summaryRes?.status === 'SUCCESS') {
+    if (summaryRes?.status === 'success') {
       setDashboard(summaryRes);
     } else {
       setDashboard(null);
       toast.error('대시보드 데이터를 불러올 수 없습니다');
     }
 
-    if (insightsRes?.status === 'SUCCESS' && insightsRes.insights) {
+    if (insightsRes?.status === 'success' && insightsRes.insights) {
       setInsights(insightsRes.insights);
     }
 
-    if (alertsRes?.status === 'SUCCESS' && alertsRes.alerts) {
+    if (alertsRes?.status === 'success' && alertsRes.alerts) {
       setAlerts(alertsRes.alerts);
     }
   };
@@ -148,7 +124,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
         timeoutMs: 10000,
       });
 
-      if (res?.status === 'SUCCESS') {
+      if (res?.status === 'success') {
         setDrilldownData(res);
       } else {
         // 폴백: 기본 데이터 생성
@@ -246,6 +222,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
             <button
               onClick={loadData}
               disabled={loading}
+              aria-label="데이터 새로고침"
               className="rounded-full border-2 border-cookie-orange/20 bg-white/80 p-1.5 hover:bg-cookie-beige transition disabled:opacity-50"
             >
               <RefreshCw size={14} className={`text-cookie-brown ${loading ? 'animate-spin' : ''}`} />
@@ -643,6 +620,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                 </div>
                 <button
                   onClick={closeDrilldown}
+                  aria-label="닫기"
                   className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition"
                 >
                   <span className="text-lg">&times;</span>

@@ -47,7 +47,7 @@ function ToolCalls({ toolCalls }) {
       <summary>도구 실행 결과</summary>
       <div className="mt-2 space-y-3">
         {toolCalls.map((tc, idx) => {
-          const ok = tc?.result?.status === 'SUCCESS';
+          const ok = tc?.result?.status === 'success';
           return (
             <div
               key={idx}

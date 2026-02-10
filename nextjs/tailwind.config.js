@@ -50,10 +50,13 @@ module.exports = {
         sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Noto Sans KR', 'sans-serif'],
       },
       backgroundImage: {
+        'cafe24-gradient': 'linear-gradient(135deg, #7CB9F7 0%, #5B9BF5 100%)',
         'cookie-gradient': 'linear-gradient(135deg, #7CB9F7 0%, #5B9BF5 100%)',
         'dark-gradient': 'linear-gradient(135deg, #1A1A2E 0%, #16213E 100%)',
       },
       boxShadow: {
+        'cafe24': '0 4px 12px 0 rgba(91, 155, 245, 0.18)',
+        'cafe24-lg': '0 8px 24px -3px rgba(91, 155, 245, 0.22)',
         'cookie': '0 4px 12px 0 rgba(91, 155, 245, 0.18)',
         'cookie-lg': '0 8px 24px -3px rgba(91, 155, 245, 0.22)',
         'soft': '0 2px 8px rgba(26, 26, 46, 0.05)',

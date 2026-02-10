@@ -52,11 +52,16 @@ logger = logging.getLogger(__name__)
 np.random.seed(42)
 rng = np.random.default_rng(42)
 
-# MLflow 설정 (선택적)
+# MLflow 설정 (선택적) - 직접 실행 시에만 초기화
+MLFLOW_AVAILABLE = False
 try:
     import mlflow
     from mlflow.tracking import MlflowClient
     MLFLOW_AVAILABLE = True
+except ImportError:
+    pass
+
+if __name__ == "__main__" and MLFLOW_AVAILABLE:
     MLFLOW_TRACKING_URI = "file:./mlruns"
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     EXPERIMENT_NAME = "cafe24-ops-ai"
@@ -66,8 +71,7 @@ try:
     mlflow.set_experiment(EXPERIMENT_NAME)
     print(f"MLflow Tracking URI: {MLFLOW_TRACKING_URI}")
     print(f"MLflow Experiment: {EXPERIMENT_NAME}")
-except ImportError:
-    MLFLOW_AVAILABLE = False
+elif __name__ == "__main__" and not MLFLOW_AVAILABLE:
     print("MLflow 미설치 - 실험 추적을 건너뜁니다")
 
 # LightGBM (매출 예측용)
@@ -76,7 +80,6 @@ try:
     LIGHTGBM_AVAILABLE = True
 except ImportError:
     LIGHTGBM_AVAILABLE = False
-    print("LightGBM 미설치 - GradientBoosting으로 대체합니다")
 
 # XGBoost (수요 예측용)
 try:
@@ -84,7 +87,6 @@ try:
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
-    print("XGBoost 미설치 - GradientBoosting으로 대체합니다")
 
 # SHAP
 try:
@@ -92,7 +94,6 @@ try:
     SHAP_AVAILABLE = True
 except ImportError:
     SHAP_AVAILABLE = False
-    print("SHAP 미설치 - SHAP 분석을 건너뜁니다")
 
 # 저장 경로
 try:
@@ -107,19 +108,6 @@ except NameError:
         BACKEND_DIR = Path.cwd()
 
 BACKEND_DIR.mkdir(parents=True, exist_ok=True)
-
-print("=" * 70)
-print("PART 1: 설정 완료")
-print(f"  BACKEND_DIR: {BACKEND_DIR}")
-print("=" * 70)
-
-
-# ============================================================================
-# PART 2: 데이터 생성 (18개 CSV)
-# ============================================================================
-print("\n" + "=" * 70)
-print("PART 2: 데이터 생성 (카페24 이커머스)")
-print("=" * 70)
 
 reference_date = pd.to_datetime("2025-01-15")
 
@@ -384,18 +372,31 @@ ECOMMERCE_GLOSSARY = [
 ]
 
 
-# --------------------------------------------------------------------------
-# 2.1 shops.csv (300개 쇼핑몰)
-# --------------------------------------------------------------------------
-print("\n[2.1] 쇼핑몰 데이터 생성")
-
-
 def generate_shop_name(category, idx):
     prefixes = SHOP_NAME_PREFIXES.get(category, ["마이"])
     prefix = rng.choice(prefixes)
     suffix = rng.choice(SHOP_NAME_SUFFIXES)
     return f"{prefix}{suffix}"
 
+
+# ============================================================================
+# 가드: 직접 실행(python train_models.py)할 때만 데이터 생성/모델 학습 실행
+# 상수(PLAN_TIERS, CATEGORIES_KO 등)와 함수(generate_shop_name)는
+# import 시에도 사용 가능합니다.
+# ============================================================================
+assert __name__ == "__main__", (
+    "train_models.py는 직접 실행 전용 스크립트입니다. "
+    "import하지 마세요. 상수가 필요하면 별도 모듈로 분리하세요."
+)
+
+print("=" * 70)
+print("PART 1: 설정 완료")
+print(f"  BACKEND_DIR: {BACKEND_DIR}")
+print("=" * 70)
+print("\n" + "=" * 70)
+print("PART 2: 데이터 생성 (카페24 이커머스)")
+print("=" * 70)
+print("\n[2.1] 쇼핑몰 데이터 생성")
 
 shops_data = []
 for i in range(300):

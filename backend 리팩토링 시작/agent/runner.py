@@ -15,11 +15,10 @@ from typing import Dict, Any, List, Set
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 
 from core.constants import DEFAULT_SYSTEM_PROMPT
-from core.utils import safe_str, format_openai_error, normalize_model_name, json_sanitize
+from core.utils import safe_str, format_openai_error, normalize_model_name, json_sanitize, extract_seller_id, extract_shop_id, extract_order_id
 from core.memory import append_memory, memory_messages
 from agent.tool_schemas import ALL_TOOLS
 from agent.llm import get_llm, pick_api_key
-from agent.intent import detect_intent
 from agent.router import classify_and_get_tools, IntentCategory
 import state as st
 
@@ -60,24 +59,6 @@ KEYWORD_TOOL_MAPPING = {
     "get_trend_analysis": ["트렌드 분석", "KPI 분석", "지표 분석", "DAU 분석", "상관관계", "활성 셀러", "가입 추이", "전환율", "신규 가입", "변화 분석", "추이 분석", "주문량 분석"],
     "get_gmv_prediction": ["매출 예측", "GMV 분석", "GMV 예측", "수익 분석", "ARPU", "ARPPU", "거래액"],
 }
-
-
-def extract_seller_id(text: str) -> str | None:
-    """텍스트에서 셀러 ID 추출 (SEL0001 ~ SEL000001 형식, 1~6자리 지원)"""
-    match = re.search(r'SEL\d{1,6}', text, re.IGNORECASE)
-    return match.group(0).upper() if match else None
-
-
-def extract_shop_id(text: str) -> str | None:
-    """텍스트에서 쇼핑몰 ID 추출 (S0001 형식)"""
-    match = re.search(r'S\d{4,6}', text, re.IGNORECASE)
-    return match.group(0).upper() if match else None
-
-
-def extract_order_id(text: str) -> str | None:
-    """텍스트에서 주문 ID 추출 (O0001 형식)"""
-    match = re.search(r'O\d{4,8}', text, re.IGNORECASE)
-    return match.group(0).upper() if match else None
 
 
 def extract_days(text: str) -> int | None:
@@ -170,8 +151,8 @@ def execute_tool_by_name(tool_name: str, args: dict) -> dict:
             try:
                 return t.invoke(args)
             except Exception as e:
-                return {"status": "FAILED", "error": safe_str(e)}
-    return {"status": "FAILED", "error": f"도구 '{tool_name}'을 찾을 수 없습니다."}
+                return {"status": "error", "message": safe_str(e)}
+    return {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
 
 
 def run_agent(req, username: str) -> dict:
@@ -192,8 +173,8 @@ def run_agent(req, username: str) -> dict:
     if agent_mode == "multi":
         if not LANGGRAPH_AVAILABLE or run_multi_agent is None:
             return {
-                "status": "FAILED",
-                "response": "멀티 에이전트 모드를 사용하려면 langgraph를 설치하세요: pip install langgraph",
+                "status": "error",
+                "message": "멀티 에이전트 모드를 사용하려면 langgraph를 설치하세요: pip install langgraph",
                 "tool_calls": [],
                 "log_file": st.LOG_FILE,
             }
@@ -249,7 +230,7 @@ def run_agent(req, username: str) -> dict:
         if not api_key:
             msg = "처리 오류: OpenAI API Key가 없습니다."
             append_memory(username, user_text, msg)
-            return {"status": "FAILED", "response": msg, "tool_calls": [], "log_file": st.LOG_FILE}
+            return {"status": "error", "message": msg, "tool_calls": [], "log_file": st.LOG_FILE}
 
         # LLM 생성 및 도구 바인딩
         # 사용자 설정 temperature 사용 (기본값: 0.3)
@@ -456,7 +437,7 @@ def run_agent(req, username: str) -> dict:
                 )
 
                 return {
-                    "status": "SUCCESS",
+                    "status": "success",
                     "response": final_text,
                     "tool_calls": tool_calls_log,
                     "log_file": st.LOG_FILE,
@@ -478,13 +459,13 @@ def run_agent(req, username: str) -> dict:
                 )
 
                 # 도구 찾기 및 실행
-                tool_result = {"status": "FAILED", "error": f"도구 '{tool_name}'을 찾을 수 없습니다."}
+                tool_result = {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
                 for t in ALL_TOOLS:
                     if t.name == tool_name:
                         try:
                             tool_result = t.invoke(tool_args)
                         except Exception as e:
-                            tool_result = {"status": "FAILED", "error": safe_str(e)}
+                            tool_result = {"status": "error", "message": safe_str(e)}
                             st.logger.exception("TOOL_EXEC_FAIL tool=%s err=%s", tool_name, e)
                         break
 
@@ -512,7 +493,7 @@ def run_agent(req, username: str) -> dict:
         append_memory(username, user_text, final_text)
 
         return {
-            "status": "SUCCESS",
+            "status": "success",
             "response": final_text,
             "tool_calls": tool_calls_log,
             "log_file": st.LOG_FILE,
@@ -530,16 +511,16 @@ def run_agent(req, username: str) -> dict:
 
         if req.debug:
             return {
-                "status": "FAILED",
-                "response": msg,
+                "status": "error",
+                "message": msg,
                 "tool_calls": [],
                 "debug_error": err,
                 "log_file": st.LOG_FILE,
             }
 
         return {
-            "status": "FAILED",
-            "response": "처리 오류가 발생했습니다.",
+            "status": "error",
+            "message": "처리 오류가 발생했습니다.",
             "tool_calls": [],
             "log_file": st.LOG_FILE,
         }

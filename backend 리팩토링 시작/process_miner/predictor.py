@@ -14,6 +14,16 @@ from sklearn.preprocessing import LabelEncoder
 
 import state as st
 
+# ── 모델 캐시 (재학습 방지) ──
+_MODEL_CACHE = {
+    "model": None,
+    "encoders": None,
+    "accuracy": 0.0,
+    "feature_importance": {},
+    "class_labels": [],
+    "data_hash": "",  # 학습 데이터 해시 (변경 감지)
+}
+
 # ── 프로세스 타입 인코딩 ──
 PROCESS_TYPE_MAP = {"order": 0, "cs": 1, "settlement": 2}
 
@@ -80,6 +90,17 @@ def _build_features(event: dict, step_index: int, encoders: dict) -> list:
     return [pt_encoded, act_encoded, step_index, hour, weekday, meta_0, meta_1]
 
 
+def _compute_events_hash(events: list[dict]) -> str:
+    """이벤트 리스트의 해시값 계산 (변경 감지용)"""
+    import hashlib
+    # case_id + activity + timestamp 조합으로 해시
+    parts = []
+    for e in events:
+        parts.append(f"{e.get('case_id', '')}|{e.get('activity', '')}|{e.get('timestamp', '')}")
+    content = "\n".join(sorted(parts))
+    return hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()[:16]
+
+
 def _prepare_training_data(events: list[dict]) -> tuple[np.ndarray, np.ndarray, dict]:
     """
     이벤트 로그에서 학습 데이터를 추출한다.
@@ -132,9 +153,10 @@ def _prepare_training_data(events: list[dict]) -> tuple[np.ndarray, np.ndarray, 
     return X, y, encoders
 
 
-def train_predictor(events: list[dict]) -> dict:
+def train_predictor(events: list[dict], force_retrain: bool = False) -> dict:
     """
     이벤트 로그로 RandomForest 모델을 학습한다.
+    캐싱: 동일 데이터면 기존 모델 재사용 (매 호출마다 재학습 방지).
 
     Returns:
         {
@@ -145,6 +167,26 @@ def train_predictor(events: list[dict]) -> dict:
             "class_labels": [activity_name, ...]
         }
     """
+    global _MODEL_CACHE
+
+    # 데이터 변경 감지
+    data_hash = _compute_events_hash(events)
+
+    # 캐시 히트: 동일 데이터 + 모델 존재 → 재사용
+    if (
+        not force_retrain
+        and _MODEL_CACHE["model"] is not None
+        and _MODEL_CACHE["data_hash"] == data_hash
+    ):
+        st.logger.info("PREDICTOR cache_hit hash=%s", data_hash)
+        return {
+            "model": _MODEL_CACHE["model"],
+            "encoders": _MODEL_CACHE["encoders"],
+            "accuracy": _MODEL_CACHE["accuracy"],
+            "feature_importance": _MODEL_CACHE["feature_importance"],
+            "class_labels": _MODEL_CACHE["class_labels"],
+        }
+
     X, y, encoders = _prepare_training_data(events)
 
     if len(X) == 0:
@@ -170,9 +212,19 @@ def train_predictor(events: list[dict]) -> dict:
 
     class_labels = list(encoders["target"].classes_)
 
+    # 캐시 업데이트
+    _MODEL_CACHE.update({
+        "model": model,
+        "encoders": encoders,
+        "accuracy": accuracy,
+        "feature_importance": importance,
+        "class_labels": class_labels,
+        "data_hash": data_hash,
+    })
+
     st.logger.info(
-        "PREDICTOR train done samples=%d classes=%d accuracy=%.3f",
-        len(X), n_classes, accuracy,
+        "PREDICTOR train done samples=%d classes=%d accuracy=%.3f hash=%s",
+        len(X), n_classes, accuracy, data_hash,
     )
 
     return {

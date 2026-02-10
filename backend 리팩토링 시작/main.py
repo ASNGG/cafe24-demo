@@ -1,8 +1,9 @@
 """
 main.py - 애플리케이션 진입점
-FastAPI 앱 생성, 미들웨어, startup 이벤트, 라우터 등록
+FastAPI 앱 생성, 미들웨어, lifespan, 라우터 등록
 """
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # .env 파일 로드
@@ -14,8 +15,6 @@ except ImportError:
 
 # OpenMP 충돌 방지 (EasyOCR + numpy/sklearn 등)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
-import traceback
 
 import numpy as np
 
@@ -37,13 +36,65 @@ from rag.light_rag import (
     LIGHTRAG_STORE,
     run_in_lightrag_loop,
     get_lightrag_instance_async,
-    lightrag_search,
 )
+
+
+# ============================================================
+# Lifespan (startup/shutdown)
+# ============================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── startup ──
+    st.logger.info("APP_STARTUP")
+    st.logger.info("BASE_DIR=%s", st.BASE_DIR)
+    st.logger.info("LOG_FILE=%s", st.LOG_FILE)
+    st.logger.info("PID=%s", os.getpid())
+    try:
+        st.load_system_prompt()
+        st.load_llm_settings()
+
+        init_data_models()
+
+        _skip_rag = os.environ.get("SKIP_RAG_STARTUP", "").strip() in ("1", "true", "yes")
+        _k = st.OPENAI_API_KEY
+        if _skip_rag:
+            st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
+        elif _k:
+            rag_build_or_load_index(api_key=_k, force_rebuild=False)
+        else:
+            st.logger.info("RAG_SKIP_STARTUP no_env_api_key docs_dir=%s", st.RAG_DOCS_DIR)
+
+        _skip_lightrag = os.environ.get("SKIP_LIGHTRAG", "").strip() in ("1", "true", "yes")
+        if _skip_lightrag:
+            st.logger.info("LIGHTRAG_STARTUP_SKIP env SKIP_LIGHTRAG=1")
+        elif LIGHTRAG_AVAILABLE and LIGHTRAG_STORE.get("ready"):
+            st.logger.info("LIGHTRAG_STARTUP_INIT starting...")
+            try:
+                rag_instance = run_in_lightrag_loop(get_lightrag_instance_async(force_new=False))
+                if rag_instance:
+                    st.logger.info("LIGHTRAG_STARTUP_INIT instance loaded")
+                    st.logger.info("LIGHTRAG_STARTUP_WARMUP skipped (rate limit prevention)")
+                else:
+                    st.logger.warning("LIGHTRAG_STARTUP_INIT instance is None")
+            except Exception as e:
+                st.logger.warning("LIGHTRAG_STARTUP_INIT failed: %s", e)
+        else:
+            st.logger.info("LIGHTRAG_STARTUP_SKIP available=%s ready=%s",
+                          LIGHTRAG_AVAILABLE, LIGHTRAG_STORE.get("ready", False))
+    except Exception as e:
+        st.logger.exception("BOOTSTRAP_FAIL: %s", e)
+        raise
+
+    yield  # 앱 실행 중
+
+    # ── shutdown ──
+    st.logger.info("APP_SHUTDOWN")
+
 
 # ============================================================
 # 앱 생성
 # ============================================================
-app = FastAPI(title="CAFE24 AI 운영 플랫폼", version="2.0.0")
+app = FastAPI(title="CAFE24 AI 운영 플랫폼", version="2.0.0", lifespan=lifespan)
 
 # ============================================================
 # CORS
@@ -71,7 +122,7 @@ async def log_requests(request: Request, call_next):
         raise
 
 # ============================================================
-# 전역 예외 핸들러
+# 전역 예외 핸들러 (#3: 스택 트레이스 노출 제거)
 # ============================================================
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -79,10 +130,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={
-            "status": "FAILED",
-            "error": str(exc),
-            "trace": traceback.format_exc(),
-            "log_file": st.LOG_FILE,
+            "status": "error",
+            "message": "서버 내부 오류가 발생했습니다. 관리자에게 문의하세요.",
         },
     )
 
@@ -91,63 +140,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ============================================================
 app.include_router(api_router)
 app.include_router(pm_router)
-
-# ============================================================
-# Startup 이벤트
-# ============================================================
-@app.on_event("startup")
-def on_startup():
-    st.logger.info("APP_STARTUP")
-    st.logger.info("BASE_DIR=%s", st.BASE_DIR)
-    st.logger.info("LOG_FILE=%s", st.LOG_FILE)
-    st.logger.info("PID=%s", os.getpid())
-    try:
-        # 시스템 프롬프트 및 LLM 설정 로드 (백엔드 중앙 관리)
-        st.load_system_prompt()
-        st.load_llm_settings()
-
-        init_data_models()
-
-        # SKIP_RAG_STARTUP=1 → 시작 시 RAG 인덱스 빌드 건너뛰기 (메모리 절약)
-        # 나중에 /api/rag/reload 호출로 수동 빌드 가능
-        _skip_rag = os.environ.get("SKIP_RAG_STARTUP", "").strip() in ("1", "true", "yes")
-        _k = st.OPENAI_API_KEY
-        if _skip_rag:
-            st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
-        elif _k:
-            rag_build_or_load_index(api_key=_k, force_rebuild=False)
-        else:
-            st.logger.info("RAG_SKIP_STARTUP no_env_api_key docs_dir=%s", st.RAG_DOCS_DIR)
-
-        # ============================================================
-        # LightRAG 인스턴스 초기화 + 워밍업 (콜드스타트 방지)
-        # SKIP_LIGHTRAG=1 환경변수로 비활성화 가능 (메모리 절약)
-        # ============================================================
-        _skip_lightrag = os.environ.get("SKIP_LIGHTRAG", "").strip() in ("1", "true", "yes")
-        if _skip_lightrag:
-            st.logger.info("LIGHTRAG_STARTUP_SKIP env SKIP_LIGHTRAG=1")
-        elif LIGHTRAG_AVAILABLE and LIGHTRAG_STORE.get("ready"):
-            st.logger.info("LIGHTRAG_STARTUP_INIT starting...")
-            try:
-                # 인스턴스 초기화 (그래프/벡터DB 로드)
-                rag_instance = run_in_lightrag_loop(get_lightrag_instance_async(force_new=False))
-                if rag_instance:
-                    st.logger.info("LIGHTRAG_STARTUP_INIT instance loaded")
-                    # 워밍업 스킵 (rate limit 방지)
-                    # warmup_result = run_in_lightrag_loop(lightrag_search("워밍업", mode="local", top_k=1))
-                    st.logger.info("LIGHTRAG_STARTUP_WARMUP skipped (rate limit prevention)")
-                else:
-                    st.logger.warning("LIGHTRAG_STARTUP_INIT instance is None")
-            except Exception as e:
-                st.logger.warning("LIGHTRAG_STARTUP_INIT failed: %s", e)
-        else:
-            st.logger.info("LIGHTRAG_STARTUP_SKIP available=%s ready=%s",
-                          LIGHTRAG_AVAILABLE, LIGHTRAG_STORE.get("ready", False))
-
-        # Semantic Router 제거됨 - 키워드 분류만 사용
-    except Exception as e:
-        st.logger.exception("BOOTSTRAP_FAIL: %s", e)
-        raise
 
 # ============================================================
 # 직접 실행

@@ -1,10 +1,16 @@
 // components/panels/analysis/MarketingTab.js
 // 마케팅 최적화 탭
 
+import { useMemo } from 'react';
 import {
   DollarSign, RefreshCw, Users, Target, ShoppingBag,
   TrendingUp, ArrowUpRight, Search
 } from 'lucide-react';
+import CustomTooltip from '@/components/common/CustomTooltip';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
+} from 'recharts';
 
 const MARKETING_EXAMPLE_USERS = [
   { id: 'SEL0001', description: 'Premium, 고매출' },
@@ -19,6 +25,15 @@ export default function MarketingTab({
   handleMarketingExampleSelect, handleMarketingDirectSearch,
   handleMarketingInputKeyDown,
 }) {
+  const shopChartData = useMemo(() => {
+    if (!marketingUserStatus?.shops?.length) return [];
+    return marketingUserStatus.shops.slice(0, 8).map(s => ({
+      name: s.name || s.shop_id || '쇼핑몰',
+      전환율: s.cvr || s.conversion_rate || 0,
+      매출: Math.round((s.monthly_revenue || 0) / 10000),
+    }));
+  }, [marketingUserStatus]);
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -142,6 +157,21 @@ export default function MarketingTab({
                 <div className="text-xl font-bold text-cookie-brown">{marketingUserStatus.total_revenue?.toLocaleString() || '계산중'}</div>
               </div>
             </div>
+            {shopChartData.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-xs font-bold text-cookie-brown/70 mb-2">쇼핑몰별 성과</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={shopChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#FFD93D40" />
+                    <XAxis dataKey="name" tick={{ fill: '#5C4A3D', fontSize: 10 }} />
+                    <YAxis tick={{ fill: '#5C4A3D', fontSize: 11 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="전환율" fill="#FF8C42" radius={[4, 4, 0, 0]} barSize={18} />
+                    <Bar dataKey="매출" name="매출(만원)" fill="#60A5FA" radius={[4, 4, 0, 0]} barSize={18} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -452,7 +452,7 @@ export default function AnalysisPanel({ auth, apiCall }) {
                 {summaryData ? 'LIVE' : 'NO DATA'}
               </span>
             )}
-            {['seller', 'anomaly', 'prediction', 'trend'].includes(activeTab) && (
+            {['seller', 'anomaly', 'prediction', 'trend', 'cohort', 'shop', 'cs'].includes(activeTab) && (
             <div className="relative">
               <button
                 onClick={() => setShowDateDropdown(!showDateDropdown)}

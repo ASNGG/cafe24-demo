@@ -1,7 +1,7 @@
 // components/panels/analysis/CohortTab.js
 // 코호트 분석 탭
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Target, Repeat, DollarSign } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
 import {
@@ -11,6 +11,17 @@ import {
 
 export default function CohortTab({ cohortData }) {
   const [cohortTab, setCohortTab] = useState('retention');
+
+  const weekKeys = useMemo(() => {
+    if (!cohortData?.retention?.length) return ['week0'];
+    const allKeys = new Set();
+    cohortData.retention.forEach(row => {
+      Object.keys(row).forEach(k => {
+        if (k.startsWith('week')) allKeys.add(k);
+      });
+    });
+    return ['week0', ...Array.from(allKeys).filter(k => k !== 'week0').sort((a, b) => parseInt(a.replace('week', '')) - parseInt(b.replace('week', '')))];
+  }, [cohortData]);
 
   return (
     <div className="space-y-6">
@@ -56,28 +67,28 @@ export default function CohortTab({ cohortData }) {
               <thead>
                 <tr className="border-b-2 border-cookie-orange/10">
                   <th className="text-left py-3 px-3 font-bold text-cookie-brown">코호트</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 0</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 1</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 2</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 3</th>
-                  <th className="text-center py-3 px-3 font-bold text-cookie-brown">Week 4</th>
+                  {weekKeys.map(week => (
+                    <th key={week} className="text-center py-3 px-3 font-bold text-cookie-brown">
+                      Week {week.replace('week', '')}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {(cohortData.retention || []).map((row, idx) => (
                   <tr key={idx} className="border-b border-cookie-orange/5">
                     <td className="py-3 px-3 font-semibold text-cookie-brown">{row.cohort}</td>
-                    {['week0', 'week1', 'week2', 'week3', 'week4'].map((week) => (
+                    {weekKeys.map((week) => (
                       <td key={week} className="py-3 px-3 text-center">
-                        {row[week] !== null ? (
+                        {row[week] != null ? (
                           <span
                             className="inline-block px-3 py-1 rounded-lg text-xs font-bold"
                             style={{
-                              backgroundColor: `rgba(255, 140, 66, ${row[week] / 100})`,
-                              color: row[week] > 50 ? 'white' : '#5C4A3D'
+                              backgroundColor: `rgba(255, 140, 66, ${Number(row[week]) / 100})`,
+                              color: Number(row[week]) > 50 ? 'white' : '#5C4A3D'
                             }}
                           >
-                            {row[week]}%
+                            {typeof row[week] === 'number' ? row[week].toFixed(1) : row[week]}%
                           </span>
                         ) : (
                           <span className="text-cookie-brown/30">-</span>

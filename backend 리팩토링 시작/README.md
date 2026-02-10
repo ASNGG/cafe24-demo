@@ -36,17 +36,76 @@
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **10개 ML 모델** + **8종 RAG 기법** + **92개 REST API**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **89개 REST API**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
 - **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 7개 IntentCategory로 28개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 포함
 - **RAG 시스템 (8종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), CRAG([논문](https://arxiv.org/abs/2401.15884) 기반 검색 품질 자동 교정), Cross-Encoder Reranking
-- **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 10개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
+- **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
 - **CS 자동화**: ML 문의 분류(TF-IDF + RF, 9개 카테고리) -> RAG+LLM 답변 생성(SSE 스트리밍) -> n8n Cloud 워크플로우 -> Resend 이메일 발송. 신뢰도 >= 0.75 자동 처리, 미만 시 담당자 검토 분기
 - **Data Guardian**: 룰엔진(<1ms, O(1) 조건 분기) + IsolationForest ML(7개 피처) + LangChain `create_agent` AI Agent 3단계 쿼리 위험도 분석. 복구 SQL은 "제안만" (DBA 승인 필수)
 - **AI 프로세스 마이너**: 이벤트 로그(주문/CS/정산 3종) 기반 프로세스 패턴 발견(전이 행렬 + Mermaid), IQR 병목 분석, GPT-4o-mini 자동화 추천 + SOP 생성, RandomForest 다음 활동 예측(Top-3), IsolationForest 이상 프로세스 탐지
 - **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py -> state.py -> runner.py) + 프론트엔드 실시간 수정. `system_prompt.json` 영속화, KaTeX 수식 렌더링 지원
+
+### 시스템 아키텍처
+
+```mermaid
+flowchart TB
+    subgraph Client["Frontend (Next.js)"]
+        FE["브라우저"]
+    end
+
+    subgraph Proxy["Next.js Proxy"]
+        NP["API Rewrites<br/>/api/* -> Backend:8001"]
+        SSE["SSE API Route<br/>(agent/stream, cs/stream)"]
+    end
+
+    subgraph Backend["FastAPI Backend (Port 8001)"]
+        ROUTES["api/routes.py<br/>(83개 엔드포인트)"]
+        PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
+
+        subgraph Agent["AI 에이전트"]
+            ROUTER["2단계 라우터<br/>(키워드 + LLM)"]
+            TOOLS["28개 도구<br/>(tool_schemas.py)"]
+            RUNNER["runner.py<br/>(Tool Calling)"]
+        end
+
+        subgraph RAG["RAG 시스템"]
+            HYBRID["Hybrid Search<br/>(FAISS + BM25)"]
+            LIGHTRAG["LightRAG<br/>(Knowledge Graph)"]
+            K2RAG["K2RAG<br/>(KG + Summarization)"]
+        end
+
+        subgraph ML["ML 모델 (12개)"]
+            MODELS["RandomForest / IsolationForest<br/>K-Means / LightGBM / XGBoost<br/>+ SHAP / P-PSO"]
+        end
+
+        subgraph State["state.py (전역 상태)"]
+            DF["16개 DataFrame"]
+            MLV["12개 ML 모델 + 9개 도구"]
+            CFG["설정 / 메모리"]
+        end
+
+        GUARDIAN["Data Guardian<br/>(룰엔진 + ML + Agent)"]
+        MINER["AI 프로세스 마이너<br/>(5개 분석 모듈)"]
+    end
+
+    subgraph External["외부 서비스"]
+        OPENAI["OpenAI API<br/>(GPT-4o / GPT-4o-mini)"]
+        N8N["n8n Cloud<br/>(CS 워크플로우)"]
+        RESEND["Resend<br/>(이메일 발송)"]
+    end
+
+    FE --> NP & SSE --> ROUTES & PM_ROUTES
+    ROUTES --> Agent --> TOOLS --> ML & RAG
+    ROUTES --> GUARDIAN
+    PM_ROUTES --> MINER
+    Agent --> OPENAI
+    ROUTES --> N8N --> RESEND
+    TOOLS --> State
+    ML --> State
+```
 
 ---
 
@@ -108,11 +167,12 @@ backend 리팩토링 시작/
 │
 ├── main.py                          # FastAPI 진입점 (앱 생성, 미들웨어, startup)
 ├── state.py                         # 전역 상태 관리 (DataFrame, 모델, 설정)
+├── Dockerfile                       # Docker 이미지 빌드 (Railway/프로덕션 배포)
 ├── .env                             # 환경 변수 (API 키, n8n URL 등)
 ├── requirements.txt                 # Python 의존성 목록
 │
 ├── api/
-│   └── routes.py                    # REST API 엔드포인트 (83개 라우트, SSE 스트리밍)
+│   └── routes.py                    # REST API 엔드포인트 (83개 라우트 + Guardian 포함, SSE 스트리밍)
 │
 ├── agent/                           # AI 에이전트 시스템
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
@@ -131,7 +191,7 @@ backend 리팩토링 시작/
 │   └── k2rag.py                     # K2RAG (KG + Hybrid + Corpus Summarization)
 │
 ├── ml/
-│   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 10개 ML 모델 학습 + Guardian 이상탐지
+│   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 12개 ML 모델 학습 + Guardian 이상탐지
 │   ├── revenue_model.py             # 매출 예측 (LightGBM 회귀)
 │   ├── marketing_optimizer.py       # 마케팅 최적화 (P-PSO 알고리즘, mealpy)
 │   ├── mlflow_tracker.py            # MLflow 실험 추적 유틸리티
@@ -154,7 +214,7 @@ backend 리팩토링 시작/
 │   └── routes.py                    # 전용 API 라우터 (/api/process-miner/*)
 │
 ├── data/
-│   └── loader.py                    # 데이터 로더 (CSV 18개 + ML 모델 10개 + 스케일러/인코더 + Guardian 모델)
+│   └── loader.py                    # 데이터 로더 (CSV 16개 -> DataFrame + ML 모델 12개 + 스케일러/인코더)
 │
 ├── n8n/                             # n8n 워크플로우 정의
 │   └── cs_reply_workflow.json       # CS 회신 자동화 워크플로우
@@ -230,16 +290,19 @@ python main.py  # 0.0.0.0:8001
 
 ```bash
 docker build -t cafe24-backend .
-docker run -d -p 8001:8001 -e OPENAI_API_KEY=your_key cafe24-backend
+docker run -d -p 8000:8000 -e OPENAI_API_KEY=your_key cafe24-backend
 ```
+
+> **포트 참고**: Dockerfile은 `${PORT:-8000}`을 사용합니다 (Railway 배포 호환). 로컬 개발 시에는 `uvicorn main:app --port 8001`로 8001 포트를 사용합니다.
 
 ### 기본 계정
 
 | 사용자 | 비밀번호 | 역할 |
 |--------|----------|------|
 | `admin` | `admin123` | 관리자 |
+| `operator` | `oper123` | 운영자 |
 | `analyst` | `analyst123` | 분석가 |
-| `user` | `user123` | 일반 |
+| `user` | `user123` | 사용자 |
 
 ---
 
@@ -250,20 +313,26 @@ docker run -d -p 8001:8001 -e OPENAI_API_KEY=your_key cafe24-backend
 ```mermaid
 flowchart TB
     subgraph State["state.py"]
-        subgraph Data["DataFrame (18개 CSV)"]
+        subgraph Data["DataFrame (16개)"]
             SHOPS[SHOPS_DF]
+            CATEGORIES[CATEGORIES_DF]
+            SERVICES[SERVICES_DF]
+            PRODUCTS[PRODUCTS_DF]
             SELLERS[SELLERS_DF]
             ANALYTICS[SELLER_ANALYTICS_DF]
             ACTIVITY[SELLER_ACTIVITY_DF]
-            METRICS[DAILY_METRICS_DF]
+            LOGS[OPERATION_LOGS_DF]
+            PDOCS[PLATFORM_DOCS_DF]
+            GLOSS[ECOMMERCE_GLOSSARY_DF]
             PERF[SHOP_PERFORMANCE_DF]
-            COHORT[COHORT_RETENTION_DF]
+            METRICS[DAILY_METRICS_DF]
             CS[CS_STATS_DF]
             FRAUD[FRAUD_DETAILS_DF]
-            LOGS[OPERATION_LOGS_DF]
+            COHORT[COHORT_RETENTION_DF]
+            FUNNEL[CONVERSION_FUNNEL_DF]
         end
 
-        subgraph Models["ML 모델 (11개)"]
+        subgraph Models["ML 모델 (12개)"]
             CHURN[SELLER_CHURN_MODEL]
             ANOMALY[FRAUD_DETECTION_MODEL]
             SEGMENT[SELLER_SEGMENT_MODEL]
@@ -422,15 +491,15 @@ flowchart TB
 > **현재 상태**: 프론트엔드에서 `hybrid` 모드만 선택 가능. LightRAG(시험용), K²RAG(시험중), 자동 선택은 UI에서 비활성화됨.
 
 **백엔드 처리 흐름:**
-```
-POST /api/agent/stream
-  | body: { message, username, rag_mode }
-  |
-rag_mode == "auto"    -> 두 RAG 도구 모두 LLM에 제공
-rag_mode == "hybrid"  -> search_platform만 제공
-rag_mode == "lightrag"-> search_platform_lightrag만 제공
-  |
-LLM이 질문에 적합한 도구 선택 -> 실행 -> SSE 응답
+
+```mermaid
+flowchart TD
+    REQ["POST /api/agent/stream<br/>body: message, username, rag_mode"] --> MODE{"rag_mode?"}
+    MODE -->|"auto"| AUTO["두 RAG 도구 모두<br/>LLM에 제공"]
+    MODE -->|"hybrid"| HYB["search_platform만 제공"]
+    MODE -->|"lightrag"| LR["search_platform_lightrag만 제공"]
+    AUTO & HYB & LR --> LLM["LLM이 질문에 적합한<br/>도구 선택 + 실행"]
+    LLM --> SSE["SSE 스트리밍 응답"]
 ```
 
 ### 6.4 2단계 인텐트 라우터
@@ -509,7 +578,7 @@ KEYWORD_TOOL_MAPPING = {
     "get_cs_statistics": ["CS 통계", "상담 현황", ...],
     "classify_inquiry": ["카테고리 분류", "문의 분류", ...],
     "get_shop_performance": ["성과 분석", "쇼핑몰 성과", ...],
-    # ... 총 18개 도구 매핑
+    # ... 총 16개 도구 매핑
 }
 ```
 
@@ -1126,7 +1195,7 @@ flowchart TB
 
 ### 8.5 MLflow 실험 추적
 
-**도입 목적**: 10개 ML 모델의 학습 파라미터, 성능 메트릭, 모델 아티팩트를 체계적으로 관리하여, 모델 재학습 시 이전 실험과 비교하고 최적 버전을 선택할 수 있도록 합니다.
+**도입 목적**: 12개 ML 모델의 학습 파라미터, 성능 메트릭, 모델 아티팩트를 체계적으로 관리하여, 모델 재학습 시 이전 실험과 비교하고 최적 버전을 선택할 수 있도록 합니다.
 
 ```mermaid
 flowchart LR
@@ -1230,9 +1299,9 @@ noise ~ Uniform(-0.1, +0.1)
 - **검증**: 5-Fold Cross-Validation (R2 score)
 - **배치 예측**: `predict_batch(df)` 메서드로 전체 쇼핑몰 일괄 예측 지원
 
-### 8.7 에이전트 도구 레지스트리 (26개 Tool)
+### 8.7 에이전트 도구 레지스트리 (28개 Tool)
 
-모든 ML 모델은 `agent/tools.py`의 `AVAILABLE_TOOLS` 딕셔너리에 등록되어, AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 Semantic Router가 적절한 도구를 선택합니다.
+모든 ML 모델은 `agent/tool_schemas.py`의 `ALL_TOOLS` 리스트에 등록되어, AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 2단계 인텐트 라우터(키워드 + LLM fallback)가 적절한 도구를 선택합니다.
 
 | 카테고리 | 도구명 | ML 모델 | 설명 |
 |---------|--------|---------|------|
@@ -1279,7 +1348,7 @@ noise ~ Uniform(-0.1, +0.1)
 python ml/train_models.py
 # PART 1: 설정 및 환경
 # PART 2: 데이터 생성 (18개 CSV)
-# PART 3: 모델 학습 (10개 ML 모델)
+# PART 3: 모델 학습 (12개 ML 모델)
 # PART 4: 저장 및 테스트 (+ Guardian 이상탐지 모델)
 ```
 
@@ -1372,28 +1441,26 @@ python ml/train_models.py
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | `/api/sellers` | 셀러 목록 |
 | GET | `/api/sellers/search` | 셀러 검색 |
 | GET | `/api/sellers/autocomplete` | 자동완성 검색 (seller_id + shop_name 매칭, 최대 10건) |
-| GET | `/api/sellers/analyze/{id}` | 셀러 종합 분석 |
-| GET | `/api/sellers/{id}/activity` | 셀러 활동 이력 (최근 주문/CS/로그인) |
+| GET | `/api/sellers/analyze/{seller_id}` | 셀러 종합 분석 |
+| GET | `/api/sellers/{seller_id}/activity` | 셀러 활동 이력 (최근 주문/CS/로그인) |
 | GET | `/api/sellers/performance` | 셀러 성과 순위 (Top 100, GMV/주문수 기준) |
 | POST | `/api/sellers/segment` | 세그먼트 예측 |
 | POST | `/api/sellers/fraud` | 이상거래 탐지 |
 | GET | `/api/sellers/segments/statistics` | 세그먼트 통계 |
-| GET | `/api/users/segments/{name}/details` | 세그먼트 드릴다운 (소속 셀러 목록 + 개별 지표) |
+| GET | `/api/users/segments/{segment_name}/details` | 세그먼트 드릴다운 (소속 셀러 목록 + 개별 지표) |
 
 ### 분석
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | `/api/analysis/fraud` | 이상거래 전체 |
+| GET | `/api/analysis/anomaly` | 이상치 분석 (IsolationForest 기반 이상 메트릭 탐지) |
 | GET | `/api/analysis/prediction/churn` | 이탈 예측 전체 |
-| GET | `/api/analysis/prediction/churn/seller/{id}` | 개별 이탈 예측 |
+| GET | `/api/analysis/prediction/churn/user/{user_id}` | 개별 이탈 예측 |
 | GET | `/api/analysis/cohort/retention` | 코호트 리텐션 |
 | GET | `/api/analysis/trend/kpis` | KPI 트렌드 |
 | GET | `/api/analysis/correlation` | Pearson 상관관계 행렬 (KPI 간 상관계수 히트맵) |
-| GET | `/api/analysis/anomaly` | 이상치 분석 (IsolationForest 기반 이상 메트릭 탐지) |
 
 ### CS
 
@@ -1462,6 +1529,12 @@ sequenceDiagram
     N8N-->>BE: POST /api/cs/callback (단계별 이벤트)
     BE-->>FE: SSE 이벤트 (노드 상태 업데이트)
 ```
+
+### 운영 통계
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/orders/statistics` | 주문/운영 이벤트 통계 (이벤트 유형별, 기간별) |
 
 ### 대시보드
 
@@ -1843,15 +1916,15 @@ flowchart LR
 |------|------|------|---------|
 | 1 | `setup_logging()` | 로거 설정, PID 기록 | 서버 중단 |
 | 2 | `load_system_prompt()` + `load_llm_settings()` | `system_prompt.json` / `llm_settings.json`에서 복원 | 기본값 사용 |
-| 3 | `init_data_models()` | CSV 18개 + ML 모델 10개 + SHAP + 스케일러/인코더 + Guardian 모델 로드 | **서버 중단** (핵심 데이터) |
+| 3 | `init_data_models()` | CSV 18개 + ML 모델 12개 + SHAP + 스케일러/인코더 + Guardian 모델 로드 | **서버 중단** (핵심 데이터) |
 | 4 | `rag_build_or_load_index()` | FAISS 인덱스 생성/로드 (rag_docs/ PDF -> 청킹 -> 임베딩) | 경고 후 계속 |
 | 5 | LightRAG 초기화 | 인스턴스 로드 (워밍업은 OpenAI rate limit 방지로 스킵) | 경고 후 계속 |
 
 **데이터 로더 상세** (`data/loader.py` - `load_all_data()`):
 | 단계 | 내용 | 수량 | 비고 |
 |------|------|------|------|
-| 1. CSV 데이터 | 기본 9종 + 분석 7종 | **17개** | `operation_logs`는 `nrows=30000` 메모리 제한 |
-| 2. ML 모델 | 핵심 6개 + 신규 5개 | **11개** pkl | `load_model_safe()`로 파일 없어도 None 반환 |
+| 1. CSV 데이터 | 기본 9종 + 분석 7종 | **16개** | `operation_logs`는 `nrows=30000` 메모리 제한 |
+| 2. ML 모델 | 핵심 6개 + 신규 6개 | **12개** pkl | `load_model_safe()`로 파일 없어도 None 반환 |
 | 3. 공용 도구 | TF-IDF 2개 + Scaler 1개 + LabelEncoder 4개 | **7개** pkl | |
 | 4. 매출 예측 | `RevenuePredictor` 싱글턴 auto-training | 1개 | `shop_performance.csv` 기반 LightGBM |
 | 5. 마케팅 최적화 | `MarketingOptimizer` import 확인 | 1개 | `mealpy` 없으면 비활성화 |

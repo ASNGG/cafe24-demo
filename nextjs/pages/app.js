@@ -1,24 +1,26 @@
 // pages/app.js - CAFE24 AI 운영 플랫폼
 // 카페24 이커머스 AI 기반 내부 시스템
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
+
+import dynamic from 'next/dynamic';
 
 import Layout from '@/components/Layout';
 import Tabs from '@/components/Tabs';
 
-import AgentPanel from '@/components/panels/AgentPanel';
-import DashboardPanel from '@/components/panels/DashboardPanel';
-import AnalysisPanel from '@/components/panels/AnalysisPanel';
-import ModelsPanel from '@/components/panels/ModelsPanel';
-import SettingsPanel from '@/components/panels/SettingsPanel';
-import UsersPanel from '@/components/panels/UsersPanel';
-import LogsPanel from '@/components/panels/LogsPanel';
-import RagPanel from '@/components/panels/RagPanel';
-import LabPanel from '@/components/panels/LabPanel';
-import GuardianPanel from '@/components/panels/GuardianPanel';
-import ProcessMinerPanel from '@/components/panels/ProcessMinerPanel';
-import AutomationPanel from '@/components/panels/AutomationPanel';
+const AgentPanel = dynamic(() => import('@/components/panels/AgentPanel'), { ssr: false });
+const DashboardPanel = dynamic(() => import('@/components/panels/DashboardPanel'), { ssr: false });
+const AnalysisPanel = dynamic(() => import('@/components/panels/AnalysisPanel'), { ssr: false });
+const ModelsPanel = dynamic(() => import('@/components/panels/ModelsPanel'), { ssr: false });
+const SettingsPanel = dynamic(() => import('@/components/panels/SettingsPanel'), { ssr: false });
+const UsersPanel = dynamic(() => import('@/components/panels/UsersPanel'), { ssr: false });
+const LogsPanel = dynamic(() => import('@/components/panels/LogsPanel'), { ssr: false });
+const RagPanel = dynamic(() => import('@/components/panels/RagPanel'), { ssr: false });
+const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: false });
+const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false });
+const ProcessMinerPanel = dynamic(() => import('@/components/panels/ProcessMinerPanel'), { ssr: false });
+const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false });
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {
@@ -234,12 +236,19 @@ export default function AppPage() {
     setTotalQueries(loadFromStorage(STORAGE_KEYS.TOTAL_QUERIES, 0));
   }, [router.isReady, safeReplace]);
 
+  const systemPromptLoadedRef = useRef(false);
+
   useEffect(() => {
     if (!auth?.username || !auth?.password) return;
+    if (systemPromptLoadedRef.current) return;
 
     const cur = settings?.systemPrompt ? String(settings.systemPrompt).trim() : '';
-    if (cur.length > 0) return;
+    if (cur.length > 0) {
+      systemPromptLoadedRef.current = true;
+      return;
+    }
 
+    systemPromptLoadedRef.current = true;
     let mounted = true;
 
     async function loadSystemPrompt() {
@@ -286,7 +295,8 @@ export default function AppPage() {
     return () => {
       mounted = false;
     };
-  }, [apiCall, auth, settings?.systemPrompt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiCall, auth]);
 
   // 쇼핑몰/카테고리 데이터 로드
   useEffect(() => {
@@ -339,11 +349,17 @@ export default function AppPage() {
   }, [settings, settingsLoaded]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.AGENT_MESSAGES, agentMessages);
+    const timer = setTimeout(() => {
+      saveToStorage(STORAGE_KEYS.AGENT_MESSAGES, agentMessages);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [agentMessages]);
 
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ACTIVITY_LOG, activityLog);
+    const timer = setTimeout(() => {
+      saveToStorage(STORAGE_KEYS.ACTIVITY_LOG, activityLog);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [activityLog]);
 
   useEffect(() => {

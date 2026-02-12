@@ -14,99 +14,77 @@ export default function ModelsPanel({ auth, apiCall }) {
   const [message, setMessage] = useState(null);
   const [usingSample, setUsingSample] = useState(false);
 
-  // 서버에서 선택된 모델 상태 조회 (관리자가 선택한 모델이 서버에 저장됨)
-  useEffect(() => {
-    async function fetchSelectedModels() {
-      if (!auth) return;
+  // H27: fetchMLflowData/handleRefresh 공통 함수 추출
+  const CAFE24_KEYWORDS = ['cafe24', 'ops-ai', '이탈', '셀러', '매출', '이상', 'CS', '정산'];
 
-      try {
-        const res = await apiCall({
-          endpoint: '/api/mlflow/models/selected',
-          auth,
-          timeoutMs: 5000,
-        });
-
-        if (res?.status === 'success' && res.data) {
-          // 서버에서 선택된 모델 상태 적용
-          setSelectedModels(res.data);
-          console.log('서버에서 모델 선택 상태 로드:', res.data);
-        }
-      } catch (e) {
-        console.log('서버 모델 선택 상태 조회 실패, 로컬 상태 유지');
-      }
+  const fetchMLflowData = async (reset = false) => {
+    if (reset) {
+      setMlflowData([]);
+      setRegisteredModels([]);
     }
+    setLoading(true);
+    let gotRealData = false;
 
-    fetchSelectedModels();
-  }, [auth, apiCall]);
+    try {
+      const expRes = await apiCall({
+        endpoint: '/api/mlflow/experiments',
+        auth,
+        timeoutMs: 10000,
+      });
 
-  useEffect(() => {
-    async function fetchMLflowData() {
-      setLoading(true);
-      let gotRealData = false;
-
-      try {
-        // MLflow 실험 데이터 조회
-        const expRes = await apiCall({
-          endpoint: '/api/mlflow/experiments',
-          auth,
-          timeoutMs: 10000,
+      if (expRes?.status === 'success' && expRes.data?.length > 0) {
+        const cafe24Exps = expRes.data.filter(exp => {
+          const name = exp.name.toLowerCase();
+          return CAFE24_KEYWORDS.some(kw => name.includes(kw.toLowerCase()));
         });
-
-        if (expRes?.status === 'success' && expRes.data?.length > 0) {
-          // CAFE24 관련 실험만 필터링 (한글/영어 모두 지원)
-          const cafe24Exps = expRes.data.filter(exp => {
-            const name = exp.name.toLowerCase();
-            return name.includes('cafe24') ||
-              name.includes('ops-ai') ||
-              name.includes('이탈') ||
-              name.includes('셀러') ||
-              name.includes('매출') ||
-              name.includes('이상') ||
-              name.includes('CS') ||
-              name.includes('정산');
-          });
-
-          if (cafe24Exps.length > 0) {
-            setMlflowData(cafe24Exps);
-            gotRealData = true;
-          }
-        }
-      } catch (e) {
-        console.log('MLflow 실험 API fallback');
-      }
-
-      try {
-        // MLflow 모델 레지스트리 조회
-        const modelsRes = await apiCall({
-          endpoint: '/api/mlflow/models',
-          auth,
-          timeoutMs: 10000,
-        });
-
-        if (modelsRes?.status === 'success' && modelsRes.data?.length > 0) {
-          // 모든 모델 사용 (한글 이름: 셀러이탈예측, 이상거래탐지, 문의자동분류, 셀러세그먼트, 매출예측, CS응답품질, 고객LTV예측, 리뷰감성분석, 상품수요예측, 정산이상탐지)
-          setRegisteredModels(modelsRes.data);
+        if (cafe24Exps.length > 0) {
+          setMlflowData(cafe24Exps);
           gotRealData = true;
         }
-      } catch (e) {
-        console.log('MLflow 모델 API fallback');
       }
-
-      // CAFE24 데이터가 없으면 빈 배열 사용
-      if (!gotRealData) {
-        setMlflowData([]);
-        setRegisteredModels([]);
-        setUsingSample(true);
-      } else {
-        setUsingSample(false);
-      }
-
-      setLoading(false);
+    } catch (e) {
+      console.log('MLflow 실험 API fallback');
     }
 
-    if (auth) {
-      fetchMLflowData();
+    try {
+      const modelsRes = await apiCall({
+        endpoint: '/api/mlflow/models',
+        auth,
+        timeoutMs: 10000,
+      });
+
+      if (modelsRes?.status === 'success' && modelsRes.data?.length > 0) {
+        setRegisteredModels(modelsRes.data);
+        gotRealData = true;
+      }
+    } catch (e) {
+      console.log('MLflow 모델 API fallback');
     }
+
+    if (!gotRealData) {
+      setMlflowData([]);
+      setRegisteredModels([]);
+      setUsingSample(true);
+    } else {
+      setUsingSample(false);
+    }
+
+    setLoading(false);
+  };
+
+  // M47: 두 useEffect waterfall -> 단일 useEffect + Promise.all 병렬 로드
+  useEffect(() => {
+    if (!auth) return;
+    async function initLoad() {
+      const [selectedRes] = await Promise.all([
+        apiCall({ endpoint: '/api/mlflow/models/selected', auth, timeoutMs: 5000 }).catch(() => null),
+        fetchMLflowData(),
+      ]);
+      if (selectedRes?.status === 'success' && selectedRes.data) {
+        setSelectedModels(selectedRes.data);
+      }
+    }
+    initLoad();
   }, [auth, apiCall]);
 
   const formatTimestamp = (ts) => {
@@ -132,7 +110,6 @@ export default function ModelsPanel({ auth, apiCall }) {
       setSelecting(null);
 
       if (res?.status === 'success') {
-        // 해당 모델에 대해서만 버전 업데이트
         setSelectedModels(prev => ({ ...prev, [modelName]: version }));
         setMessage({ type: 'success', text: res.message || `${modelName} v${version} 모델이 로드되었습니다` });
       } else {
@@ -146,67 +123,7 @@ export default function ModelsPanel({ auth, apiCall }) {
     setTimeout(() => setMessage(null), 5000);
   };
 
-  const handleRefresh = async () => {
-    setMlflowData([]);
-    setRegisteredModels([]);
-    setLoading(true);
-    let gotRealData = false;
-
-    try {
-      const expRes = await apiCall({
-        endpoint: '/api/mlflow/experiments',
-        auth,
-        timeoutMs: 10000,
-      });
-
-      if (expRes?.status === 'success' && expRes.data?.length > 0) {
-        // CAFE24 관련 실험만 필터링 (한글/영어 모두 지원)
-        const cafe24Exps = expRes.data.filter(exp => {
-          const name = exp.name.toLowerCase();
-          return name.includes('cafe24') ||
-            name.includes('ops-ai') ||
-            name.includes('이탈') ||
-            name.includes('셀러') ||
-            name.includes('매출') ||
-            name.includes('이상') ||
-            name.includes('CS') ||
-            name.includes('정산');
-        });
-        if (cafe24Exps.length > 0) {
-          setMlflowData(cafe24Exps);
-          gotRealData = true;
-        }
-      }
-    } catch (e) {
-      console.log('MLflow experiments refresh fallback');
-    }
-
-    try {
-      const modelsRes = await apiCall({
-        endpoint: '/api/mlflow/models',
-        auth,
-        timeoutMs: 10000,
-      });
-
-      if (modelsRes?.status === 'success' && modelsRes.data?.length > 0) {
-        // 모든 모델 사용 (한글 이름)
-        setRegisteredModels(modelsRes.data);
-        gotRealData = true;
-      }
-    } catch (e) {
-      console.log('MLflow models refresh fallback');
-    }
-
-    if (!gotRealData) {
-      setMlflowData([]);
-      setRegisteredModels([]);
-      setUsingSample(true);
-    } else {
-      setUsingSample(false);
-    }
-
-    setLoading(false);
-  };
+  const handleRefresh = () => fetchMLflowData(true);
 
   return (
     <div>

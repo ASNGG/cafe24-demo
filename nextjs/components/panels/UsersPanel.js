@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const VISIBLE_COLUMNS = ['id', 'user_id', 'name', 'role', 'created_at'];
 
@@ -12,17 +12,18 @@ export default function UsersPanel({ auth, apiCall }) {
   const [newRole, setNewRole] = useState('사용자');
   const [msg, setMsg] = useState('');
 
-  async function loadUsers() {
+  // M50: loadUsers를 useCallback으로 안정화
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     const res = await apiCall({ endpoint: '/api/users', auth, timeoutMs: 30000 });
     setLoading(false);
     if (res?.status === 'success' && Array.isArray(res.data)) setUsers(res.data);
     else setUsers([]);
-  }
+  }, [apiCall, auth]);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   async function addUser() {
     setMsg('');
@@ -64,9 +65,10 @@ export default function UsersPanel({ auth, apiCall }) {
           <table className="table">
             <thead>
               <tr>
-                {users?.length ? VISIBLE_COLUMNS.filter((k) => k in users[0]).map((k) => (
+                {/* L27: 빈 배열일 때도 기본 컬럼 헤더 표시 */}
+                {(users?.length ? VISIBLE_COLUMNS.filter((k) => k in users[0]) : VISIBLE_COLUMNS).map((k) => (
                   <th key={k}>{k}</th>
-                )) : <th>-</th>}
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -77,7 +79,7 @@ export default function UsersPanel({ auth, apiCall }) {
                   ))}
                 </tr>
               )) : (
-                <tr><td className="py-3 text-cafe24-brown/70">데이터 없음</td></tr>
+                <tr><td colSpan={VISIBLE_COLUMNS.length} className="py-3 text-cafe24-brown/70 text-center">데이터 없음</td></tr>
               )}
             </tbody>
           </table>

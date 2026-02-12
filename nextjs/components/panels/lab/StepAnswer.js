@@ -1,17 +1,16 @@
 // components/panels/lab/StepAnswer.js - Step 3: 답변
-import { useState } from 'react';
+// H32: EditableAnswer 공통 컴포넌트 사용
 import {
   MessageSquare, Sparkles, Loader2, Edit3, RotateCcw, FileText, CheckCircle2,
 } from 'lucide-react';
 import { TIER_COLORS } from './constants';
 import { renderMd, EmptyStep } from './utils';
+import EditableAnswer from '@/components/common/EditableAnswer';
 
 export default function StepAnswer({
   result, draftAnswer, setDraftAnswer, streamingAnswer, isStreaming, generateAnswer, ragContext, isEditing, setIsEditing, settings,
   classifyResults, autoIdxs, batchAnswers, batchLoading, generateBatchAnswers, checkedAuto, toggleAutoCheck, toggleAllAuto, updateBatchAnswer,
 }) {
-  const [editingIdx, setEditingIdx] = useState(null);
-  const [editText, setEditText] = useState('');
   const hasAutoMode = !result && classifyResults?.length > 0 && autoIdxs?.length > 0;
   const answeredCount = batchAnswers ? Object.keys(batchAnswers).filter(k => autoIdxs?.includes(Number(k))).length : 0;
 
@@ -89,53 +88,20 @@ export default function StepAnswer({
                     </div>
                   </div>
                 </div>
-                {/* 답변 영역 */}
+                {/* 답변 영역 - H32: EditableAnswer 사용 */}
                 <div className="p-3">
                   {answer ? (
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          답변 생성 완료
-                        </div>
-                        {editingIdx !== idx && (
-                          <button
-                            onClick={() => { setEditText(answer); setEditingIdx(idx); }}
-                            className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-50 text-gray-500"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            수정
-                          </button>
-                        )}
+                      <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        답변 생성 완료
                       </div>
-                      {editingIdx === idx ? (
-                        <div className="space-y-1.5">
-                          <textarea
-                            value={editText}
-                            onChange={e => setEditText(e.target.value)}
-                            rows={6}
-                            className="w-full p-2.5 rounded border border-green-300 text-xs text-gray-700 resize-none focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-200 leading-relaxed"
-                          />
-                          <div className="flex gap-1.5 justify-end">
-                            <button
-                              onClick={() => setEditingIdx(null)}
-                              className="px-2.5 py-1 rounded text-[10px] text-gray-500 border border-gray-200 hover:bg-gray-50"
-                            >
-                              취소
-                            </button>
-                            <button
-                              onClick={() => { updateBatchAnswer(idx, editText); setEditingIdx(null); }}
-                              className="px-2.5 py-1 rounded text-[10px] text-white bg-green-600 hover:bg-green-700"
-                            >
-                              저장
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-2.5 rounded bg-green-50 border border-green-100 text-xs text-gray-600 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                          {renderMd(answer)}
-                        </div>
-                      )}
+                      <EditableAnswer
+                        answer={answer}
+                        onSave={(newText) => updateBatchAnswer(idx, newText)}
+                        rows={6}
+                        renderContent={renderMd}
+                      />
                     </div>
                   ) : batchLoading ? (
                     <div className="flex items-center gap-2 text-xs text-gray-400 py-2">

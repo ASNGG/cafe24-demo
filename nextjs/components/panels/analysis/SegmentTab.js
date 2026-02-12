@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 import { Users } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
+import AnalysisEmptyState from './common/EmptyState';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -47,11 +48,11 @@ export default function SegmentTab({ selectedUser, segmentsData }) {
         </div>
       )}
       {!segmentsData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
-          <Users size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
-          <p className="text-sm font-semibold text-cafe24-brown/50">세그먼트 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
-        </div>
+        <AnalysisEmptyState
+          icon={Users}
+          title="세그먼트 데이터를 불러올 수 없습니다"
+          subtitle="백엔드 API 연결을 확인하세요"
+        />
       ) : (
       <>
       {/* 세그먼트 비교 */}

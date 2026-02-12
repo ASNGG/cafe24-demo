@@ -64,11 +64,6 @@ body {
 
 /* ============== CAFE24 Components (Clean & Interactive) ============== */
 @layer components {
-  .glass {
-    background: var(--panel2);
-    backdrop-filter: blur(12px);
-  }
-
   /* 기본 버튼 - CAFE24 블루 */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold;
@@ -96,24 +91,6 @@ body {
   .btn-secondary:hover {
     background: var(--cafe24-beige);
     border-color: rgba(91,155,245,0.2);
-  }
-
-  /* 고스트 버튼 */
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold;
-    background: transparent;
-    color: var(--muted2);
-    transition: all 0.2s ease;
-  }
-  .btn-ghost:hover {
-    background: var(--cafe24-beige);
-    color: var(--cafe24-brown);
-  }
-
-  /* 성공 버튼 */
-  .btn-green {
-    background: linear-gradient(135deg, var(--success) 0%, var(--success2) 100%);
-    color: #fff;
   }
 
   /* 입력 필드 */
@@ -170,13 +147,6 @@ body {
   .badge-success { background: rgba(0,200,83,0.12); color: #1B5E20; }
   .badge-danger { background: rgba(244,67,54,0.12); color: #B71C1C; }
   .badge-orange { background: rgba(91,155,245,0.12); color: #4A8AE5; }
-
-  /* 등급별 배지 */
-  .badge-common { background: rgba(156,163,175,0.1); color: #4B5563; }
-  .badge-rare { background: rgba(66,165,245,0.1); color: #1565C0; }
-  .badge-epic { background: rgba(171,71,188,0.1); color: #7B1FA2; }
-  .badge-legendary { background: rgba(91,155,245,0.15); color: #4A8AE5; }
-  .badge-ancient { background: rgba(74,138,229,0.15); color: #4A8AE5; }
 
   /* 탭 */
   .tab {
@@ -263,92 +233,6 @@ body {
     background: var(--cafe24-beige);
   }
 
-  /* 스켈레톤 로더 */
-  .skeleton {
-    position: relative;
-    overflow: hidden;
-    background: var(--cafe24-beige);
-    border-radius: 8px;
-  }
-  .skeleton::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
-    animation: shimmer 1.5s infinite;
-  }
-  @keyframes shimmer { 100% { transform: translateX(100%); } }
-
-  /* 카드 (cafe24) */
-  .cafe24-card {
-    @apply rounded-2xl p-4;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .cafe24-card:hover {
-    border-color: rgba(91,155,245,0.2);
-    box-shadow: var(--shadowHover);
-    transform: translateY(-2px);
-  }
-
-  .cafe24-header {
-    @apply flex items-center gap-3 pb-3 mb-3;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .cafe24-icon {
-    @apply w-10 h-10 rounded-xl flex items-center justify-center;
-    background: linear-gradient(135deg, #7CB9F7 0%, #5B9BF5 100%);
-    box-shadow: var(--shadowCafe24);
-  }
-
-  /* 인터랙티브 요소들 */
-  .interactive {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-  }
-  .interactive:hover {
-    transform: translateY(-1px);
-  }
-  .interactive:active {
-    transform: translateY(0);
-  }
-
-  /* 포커스 링 */
-  .focus-ring:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--ring);
-  }
-
-  /* 부드러운 페이드 인 */
-  .fade-in {
-    animation: fadeIn 0.3s ease-out;
-  }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* 슬라이드 인 */
-  .slide-in {
-    animation: slideIn 0.25s ease-out;
-  }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  /* 펄스 애니메이션 */
-  .pulse-soft {
-    animation: pulseSoft 2s ease-in-out infinite;
-  }
-  @keyframes pulseSoft {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-
   /* 플로팅 애니메이션 */
   .cafe24-float {
     animation: cafe24Float 3s ease-in-out infinite;
@@ -356,24 +240,6 @@ body {
   @keyframes cafe24Float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-6px); }
-  }
-
-  /* 로테이트 */
-  .cafe24-spin {
-    animation: cafe24Spin 8s linear infinite;
-  }
-  @keyframes cafe24Spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  /* 바운스 */
-  .cafe24-bounce {
-    animation: cafe24Bounce 0.5s ease;
-  }
-  @keyframes cafe24Bounce {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
   }
 
   /* 그라데이션 텍스트 */
@@ -384,36 +250,6 @@ body {
     background-clip: text;
   }
 
-  /* 글로우 효과 */
-  .cafe24-glow {
-    box-shadow: 0 0 20px rgba(91,155,245,0.25), 0 0 40px rgba(74,138,229,0.12);
-  }
-
-  /* 보더 그라데이션 */
-  .cafe24-border {
-    border: 2px solid transparent;
-    background:
-      linear-gradient(var(--panel), var(--panel)) padding-box,
-      linear-gradient(135deg, #7CB9F7, #5B9BF5) border-box;
-  }
-
-  /* 호버 하이라이트 */
-  .hover-highlight {
-    position: relative;
-  }
-  .hover-highlight::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    background: var(--primary);
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: -1;
-  }
-  .hover-highlight:hover::before {
-    opacity: 0.06;
-  }
 }
 
 /* 프로즈 스타일 */
@@ -434,3 +270,19 @@ body {
   color: var(--primary2);
 }
 .prose :where(strong):not(:where([class~="not-prose"] *)) { color: var(--cafe24-brown); }
+
+/* 로그인 페이지 애니메이션 (framer-motion 대체) */
+@keyframes loginCardIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes loginLogoIn {
+  from { opacity: 0; transform: scale(0.8) rotate(-10deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.animate-login-card-in {
+  animation: loginCardIn 0.4s ease-out both;
+}
+.animate-login-logo-in {
+  animation: loginLogoIn 0.35s ease-out 0.1s both;
+}

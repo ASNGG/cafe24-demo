@@ -1,4 +1,12 @@
+import { useMemo } from 'react';
+
 export default function LogsPanel({ activityLog, clearLog }) {
+  // L24: slice().reverse()를 useMemo로 캐싱
+  const reversedLog = useMemo(
+    () => (activityLog || []).slice().reverse(),
+    [activityLog]
+  );
+
   return (
     <div>
       <div className="flex items-end justify-between gap-3 mb-3">
@@ -22,7 +30,7 @@ export default function LogsPanel({ activityLog, clearLog }) {
                 </tr>
               </thead>
               <tbody>
-                {activityLog.slice().reverse().map((r, idx) => (
+                {reversedLog.map((r, idx) => (
                   <tr key={idx}>
                     <td>{r['시간']}</td>
                     <td>{r['사용자']}</td>

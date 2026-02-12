@@ -1,9 +1,11 @@
 // components/panels/lab/StepClassify.js - Step 1: 접수 - 일괄 분류 + DnD 자동/수동 분기
+// L34: onDragOver throttle 적용
+import { useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Inbox, Zap, AlertTriangle, Loader2, RotateCcw,
 } from 'lucide-react';
-import { INBOX_INQUIRIES, TIER_COLORS } from './constants';
+import { INBOX_INQUIRIES, TIER_COLORS, CHANNEL_LABELS } from './constants';
 import DraggableCard from './DraggableCard';
 
 export default function StepClassify({
@@ -16,6 +18,17 @@ export default function StepClassify({
 }) {
   const hasResults = classifyResults.length > 0;
   const hasSplit = autoIdxs.length > 0 || manualIdxs.length > 0;
+
+  // L34: onDragOver throttle - 과도한 setDragOverZone 호출 방지
+  const dragOverThrottleRef = useRef(null);
+  const throttledDragOver = useCallback((e, zone) => {
+    e.preventDefault();
+    if (dragOverThrottleRef.current) return;
+    dragOverThrottleRef.current = setTimeout(() => {
+      dragOverThrottleRef.current = null;
+    }, 100);
+    setDragOverZone(zone);
+  }, [setDragOverZone]);
 
   return (
     <div className="bg-white rounded-xl p-6 shadow-sm border border-cafe24-brown/10 space-y-5">
@@ -65,7 +78,7 @@ export default function StepClassify({
                           <span key={ch} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                             ch === 'any' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                           }`}>
-                            {ch === 'any' ? '무관' : ch === 'email' ? '이메일' : ch === 'kakao' ? '카카오' : ch === 'sms' ? 'SMS' : ch}
+                            {CHANNEL_LABELS[ch] || ch}
                           </span>
                         ))}
                       </div>
@@ -111,7 +124,7 @@ export default function StepClassify({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* 자동 처리 드롭존 */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone('auto'); }}
+              onDragOver={(e) => throttledDragOver(e, 'auto')}
               onDragLeave={() => setDragOverZone(null)}
               onDrop={handleDropToAuto}
               className={`rounded-lg border-2 transition-all min-h-[200px] ${
@@ -164,7 +177,7 @@ export default function StepClassify({
 
             {/* 담당자 검토 드롭존 */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragOverZone('manual'); }}
+              onDragOver={(e) => throttledDragOver(e, 'manual')}
               onDragLeave={() => setDragOverZone(null)}
               onDrop={handleDropToManual}
               className={`rounded-lg border-2 transition-all min-h-[200px] ${

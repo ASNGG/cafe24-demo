@@ -51,7 +51,7 @@ export default function Tabs({ tabs = [], active, onChange }) {
               className={cn(
                 'rounded-2xl px-4 py-2 text-sm font-black transition active:translate-y-[1px]',
                 isActive
-                  ? 'bg-gradient-to-br from-cafe24-yellow via-cafe24-orange to-cafe24-yellow text-cafe24-brown shadow-cookie'
+                  ? 'bg-gradient-to-br from-cafe24-yellow via-cafe24-orange to-cafe24-yellow text-cafe24-brown shadow-cafe24-sm'
                   : 'bg-white/70 text-cafe24-brown/60 hover:bg-cafe24-yellow/20'
               )}
             >

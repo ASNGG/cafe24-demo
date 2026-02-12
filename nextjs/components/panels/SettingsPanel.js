@@ -124,25 +124,6 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     setDraftPrompt(settings?.systemPrompt || "");
   }, [settings?.systemPrompt]);
 
-  // settings가 외부에서 변경되면 draftLLM 동기화
-  useEffect(() => {
-    setDraftLLM({
-      selectedModel: settings?.selectedModel || "gpt-4o-mini",
-      customModel: settings?.customModel || "",
-      temperature: settings?.temperature ?? 0.3,
-      topP: settings?.topP ?? 1.0,
-      presencePenalty: settings?.presencePenalty ?? 0.0,
-      frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
-      maxTokens: settings?.maxTokens ?? 8000,
-      seed: settings?.seed ?? "",
-      timeoutMs: settings?.timeoutMs ?? 30000,
-      retries: settings?.retries ?? 2,
-      stream: settings?.stream ?? true,
-      apiKey: settings?.apiKey ?? "",
-    });
-    setLlmSaved(true);
-  }, []);
-
   // 백엔드에서 시스템 프롬프트 로드
   const loadPromptFromBackend = useCallback(async () => {
     if (typeof apiCall !== "function") return;
@@ -170,10 +151,24 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     }
   }, [apiCall, auth, setSettings]);
 
-  // 초기 로드 - 백엔드에서 시스템 프롬프트를 가져와 localStorage에 캐시
+  // M49: 빈 의존성 useEffect 2개 통합 → 단일 초기화
   useEffect(() => {
-    loadPromptFromBackend();
+    setDraftLLM({
+      selectedModel: settings?.selectedModel || "gpt-4o-mini",
+      customModel: settings?.customModel || "",
+      temperature: settings?.temperature ?? 0.3,
+      topP: settings?.topP ?? 1.0,
+      presencePenalty: settings?.presencePenalty ?? 0.0,
+      frequencyPenalty: settings?.frequencyPenalty ?? 0.0,
+      maxTokens: settings?.maxTokens ?? 8000,
+      seed: settings?.seed ?? "",
+      timeoutMs: settings?.timeoutMs ?? 30000,
+      retries: settings?.retries ?? 2,
+      stream: settings?.stream ?? true,
+      apiKey: settings?.apiKey ?? "",
+    });
     setLlmSaved(true);
+    loadPromptFromBackend();
   }, []);
 
   // LLM 설정 변경 감지 - draft에만 저장 (저장 버튼 누르기 전)

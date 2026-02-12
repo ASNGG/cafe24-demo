@@ -1,5 +1,6 @@
 // components/panels/lab/LabPanel.js - CS 자동화 파이프라인 실험실 (메인 컨테이너)
-import { useState, useRef, useCallback, useEffect } from 'react';
+// H33: useState ~20개 → useReducer 전환
+import { useReducer, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight, ChevronLeft, RotateCcw, Sparkles,
@@ -14,55 +15,104 @@ import StepAnswer from './StepAnswer';
 import StepReply from './StepReply';
 import StepImprove from './StepImprove';
 
-export default function LabPanel({ auth, apiCall, settings }) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedSteps, setCompletedSteps] = useState(new Set());
-
-  // Step 1 - 접수 (일괄 분류 + DnD)
-  const [classifyResults, setClassifyResults] = useState([]);
-  const [classifyLoading, setClassifyLoading] = useState(false);
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.75);
-  const [selectedIdx, setSelectedIdx] = useState(null);
-  const [pipelineLoading, setPipelineLoading] = useState(false);
-
-  // DnD 2열 관리
-  const [autoIdxs, setAutoIdxs] = useState([]);
-  const [manualIdxs, setManualIdxs] = useState([]);
-  const [checkedAuto, setCheckedAuto] = useState(new Set());
-  const [dragOverZone, setDragOverZone] = useState(null);
-  const [batchAnswers, setBatchAnswers] = useState({});
-  const [batchLoading, setBatchLoading] = useState(false);
-
+// H33: 초기 상태
+const initialState = {
+  currentStep: 0,
+  completedSteps: new Set(),
+  // Step 1 - 접수
+  classifyResults: [],
+  classifyLoading: false,
+  confidenceThreshold: 0.75,
+  selectedIdx: null,
+  pipelineLoading: false,
+  // DnD
+  autoIdxs: [],
+  manualIdxs: [],
+  checkedAuto: new Set(),
+  dragOverZone: null,
+  batchAnswers: {},
+  batchLoading: false,
   // 파이프라인 결과
-  const [pipelineResult, setPipelineResult] = useState(null);
-  const [selectedInquiry, setSelectedInquiry] = useState(null);
-
+  pipelineResult: null,
+  selectedInquiry: null,
   // Step 3 - 답변
-  const [draftAnswer, setDraftAnswer] = useState('');
-  const [streamingAnswer, setStreamingAnswer] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [ragContext, setRagContext] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  draftAnswer: '',
+  streamingAnswer: '',
+  isStreaming: false,
+  ragContext: null,
+  isEditing: false,
+  // Step 4 - 회신
+  selectedChannels: new Set(),
+  sent: false,
+  // Step 5 - 개선
+  pipelineHistory: [],
+};
+
+// H33: 리듀서 (기존 state 명칭 유지)
+function labReducer(state, action) {
+  switch (action.type) {
+    case 'SET':
+      return { ...state, ...action.payload };
+    case 'RESET':
+      return { ...initialState, pipelineHistory: state.pipelineHistory };
+    case 'FULL_RESET':
+      return { ...initialState };
+    case 'COMPLETE_STEP':
+      return { ...state, completedSteps: new Set([...state.completedSteps, ...action.payload]) };
+    case 'SET_CHECKED_AUTO': {
+      const fn = action.payload;
+      return { ...state, checkedAuto: fn(state.checkedAuto) };
+    }
+    case 'SET_BATCH_ANSWER':
+      return { ...state, batchAnswers: { ...state.batchAnswers, [action.idx]: action.value } };
+    case 'ADD_HISTORY':
+      return { ...state, pipelineHistory: [...state.pipelineHistory, action.payload] };
+    case 'SET_SELECTED_CHANNELS': {
+      const fn = action.payload;
+      return { ...state, selectedChannels: fn(state.selectedChannels) };
+    }
+    default:
+      return state;
+  }
+}
+
+export default function LabPanel({ auth, apiCall, settings }) {
+  const [state, dispatch] = useReducer(labReducer, initialState);
   const abortRef = useRef(null);
 
-  // Step 4 - 회신
-  const [selectedChannels, setSelectedChannels] = useState(new Set());
-  const [sent, setSent] = useState(false);
+  // 편의 destructure
+  const {
+    currentStep, completedSteps,
+    classifyResults, classifyLoading, confidenceThreshold, selectedIdx, pipelineLoading,
+    autoIdxs, manualIdxs, checkedAuto, dragOverZone, batchAnswers, batchLoading,
+    pipelineResult, selectedInquiry,
+    draftAnswer, streamingAnswer, isStreaming, ragContext, isEditing,
+    selectedChannels, sent,
+    pipelineHistory,
+  } = state;
 
-  // Step 5 - 개선
-  const [pipelineHistory, setPipelineHistory] = useState([]);
+  // ─── setter 래퍼 (하위 컴포넌트 호환) ───
+  const setCurrentStep = (v) => dispatch({ type: 'SET', payload: { currentStep: v } });
+  const setConfidenceThreshold = (v) => dispatch({ type: 'SET', payload: { confidenceThreshold: v } });
+  const setDragOverZone = (v) => dispatch({ type: 'SET', payload: { dragOverZone: v } });
+  const setDraftAnswer = (v) => dispatch({ type: 'SET', payload: { draftAnswer: v } });
+  const setIsEditing = (v) => dispatch({ type: 'SET', payload: { isEditing: v } });
+  const setSelectedChannels = (fn) => dispatch({ type: 'SET_SELECTED_CHANNELS', payload: fn });
+  const setSent = (v) => dispatch({ type: 'SET', payload: { sent: v } });
 
   // ─── 일괄 분류 ───
   const runBatchClassify = useCallback(async () => {
-    setClassifyLoading(true);
-    setClassifyResults([]);
-    setSelectedIdx(null);
-    setPipelineResult(null);
-    setSelectedInquiry(null);
-    setAutoIdxs([]);
-    setManualIdxs([]);
-    setCheckedAuto(new Set());
-    setBatchAnswers({});
+    dispatch({ type: 'SET', payload: {
+      classifyLoading: true,
+      classifyResults: [],
+      selectedIdx: null,
+      pipelineResult: null,
+      selectedInquiry: null,
+      autoIdxs: [],
+      manualIdxs: [],
+      checkedAuto: new Set(),
+      batchAnswers: {},
+    }});
 
     try {
       const promises = INBOX_INQUIRIES.map(async (inq) => {
@@ -75,26 +125,28 @@ export default function LabPanel({ auth, apiCall, settings }) {
         return { text: inq.text, tier: inq.tier, preferredChannels: inq.preferredChannels, result: res };
       });
       const settled = await Promise.all(promises);
-      setClassifyResults(settled);
       const autoList = [];
       const manualList = [];
       settled.forEach((item, i) => {
         const conf = item.result?.confidence || 0;
-        if (conf >= confidenceThreshold) {
+        if (conf >= state.confidenceThreshold) {
           autoList.push(i);
         } else {
           manualList.push(i);
         }
       });
-      setAutoIdxs(autoList);
-      setManualIdxs(manualList);
-      setCompletedSteps(new Set([0]));
+      dispatch({ type: 'SET', payload: {
+        classifyResults: settled,
+        autoIdxs: autoList,
+        manualIdxs: manualList,
+        classifyLoading: false,
+      }});
+      dispatch({ type: 'COMPLETE_STEP', payload: [0] });
     } catch (e) {
       toast.error(`분류 오류: ${e.message || e}`);
-    } finally {
-      setClassifyLoading(false);
+      dispatch({ type: 'SET', payload: { classifyLoading: false } });
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, state.confidenceThreshold]);
 
   // ─── DnD 핸들러 ───
   const handleDragStart = useCallback((e, idx) => {
@@ -105,58 +157,58 @@ export default function LabPanel({ auth, apiCall, settings }) {
   const handleDropToAuto = useCallback((e) => {
     e.preventDefault();
     const idx = Number(e.dataTransfer.getData('text/plain'));
-    setManualIdxs(prev => prev.filter(i => i !== idx));
-    setAutoIdxs(prev => prev.includes(idx) ? prev : [...prev, idx]);
-    setDragOverZone(null);
-    if (selectedIdx === idx) {
-      setSelectedIdx(null);
-      setSelectedInquiry(null);
-      setPipelineResult(null);
-    }
-  }, [selectedIdx]);
+    dispatch({ type: 'SET', payload: {
+      manualIdxs: state.manualIdxs.filter(i => i !== idx),
+      autoIdxs: state.autoIdxs.includes(idx) ? state.autoIdxs : [...state.autoIdxs, idx],
+      dragOverZone: null,
+      ...(state.selectedIdx === idx ? { selectedIdx: null, selectedInquiry: null, pipelineResult: null } : {}),
+    }});
+  }, [state.manualIdxs, state.autoIdxs, state.selectedIdx]);
 
   const handleDropToManual = useCallback((e) => {
     e.preventDefault();
     const idx = Number(e.dataTransfer.getData('text/plain'));
-    setAutoIdxs(prev => prev.filter(i => i !== idx));
-    setCheckedAuto(prev => { const s = new Set(prev); s.delete(idx); return s; });
-    setManualIdxs(prev => prev.includes(idx) ? prev : [...prev, idx]);
-    setDragOverZone(null);
-  }, []);
+    const newChecked = new Set(state.checkedAuto);
+    newChecked.delete(idx);
+    dispatch({ type: 'SET', payload: {
+      autoIdxs: state.autoIdxs.filter(i => i !== idx),
+      checkedAuto: newChecked,
+      manualIdxs: state.manualIdxs.includes(idx) ? state.manualIdxs : [...state.manualIdxs, idx],
+      dragOverZone: null,
+    }});
+  }, [state.autoIdxs, state.manualIdxs, state.checkedAuto]);
 
   // ─── 체크박스 ───
   const toggleAutoCheck = useCallback((idx) => {
-    setSelectedIdx(null);
-    setSelectedInquiry(null);
-    setPipelineResult(null);
-    setCheckedAuto(prev => {
+    dispatch({ type: 'SET', payload: { selectedIdx: null, selectedInquiry: null, pipelineResult: null } });
+    dispatch({ type: 'SET_CHECKED_AUTO', payload: (prev) => {
       const s = new Set(prev);
       s.has(idx) ? s.delete(idx) : s.add(idx);
       return s;
-    });
+    }});
   }, []);
 
   const toggleAllAuto = useCallback(() => {
-    setSelectedIdx(null);
-    setSelectedInquiry(null);
-    setPipelineResult(null);
-    setCheckedAuto(prev => prev.size === autoIdxs.length ? new Set() : new Set(autoIdxs));
-  }, [autoIdxs]);
+    dispatch({ type: 'SET', payload: { selectedIdx: null, selectedInquiry: null, pipelineResult: null } });
+    dispatch({ type: 'SET_CHECKED_AUTO', payload: (prev) =>
+      prev.size === state.autoIdxs.length ? new Set() : new Set(state.autoIdxs)
+    });
+  }, [state.autoIdxs]);
 
-  // ─── 일괄 자동 답변 생성 (SSE 공통 유틸 사용) ───
+  // ─── 일괄 자동 답변 생성 ───
   const generateBatchAnswers = useCallback(async (targetIdxs) => {
     if (!targetIdxs || targetIdxs.length === 0) return;
 
-    const toGenerate = targetIdxs.filter(idx => !batchAnswers[idx] || checkedAuto.has(idx));
+    const toGenerate = targetIdxs.filter(idx => !state.batchAnswers[idx] || state.checkedAuto.has(idx));
     if (toGenerate.length === 0) {
       toast('이미 모든 답변이 생성되었습니다. 재생성하려면 항목을 선택하세요.');
       return;
     }
 
-    setBatchLoading(true);
+    dispatch({ type: 'SET', payload: { batchLoading: true } });
 
     for (const idx of toGenerate) {
-      const item = classifyResults[idx];
+      const item = state.classifyResults[idx];
       if (!item) continue;
 
       const category = item.result?.predicted_category || '기타';
@@ -176,42 +228,41 @@ export default function LabPanel({ auth, apiCall, settings }) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
         const fullText = await parseSSEStream(resp, {
-          onToken: (_, accumulated) => {
-            // 중간 업데이트는 하지 않음 (일괄 생성이라 최종 결과만 사용)
-          },
+          onToken: () => {},
         });
 
-        setBatchAnswers(prev => ({ ...prev, [idx]: fullText || '(답변 생성 실패)' }));
-
-        setPipelineHistory(prev => [...prev, {
+        dispatch({ type: 'SET_BATCH_ANSWER', idx, value: fullText || '(답변 생성 실패)' });
+        dispatch({ type: 'ADD_HISTORY', payload: {
           time: new Date().toLocaleTimeString('ko-KR'),
           text: item.text.slice(0, 40) + (item.text.length > 40 ? '...' : ''),
           category,
           routing: 'auto',
           priority: 'normal',
-        }]);
+        }});
       } catch (e) {
-        setBatchAnswers(prev => ({ ...prev, [idx]: `(오류: ${e.message})` }));
+        dispatch({ type: 'SET_BATCH_ANSWER', idx, value: `(오류: ${e.message})` });
       }
     }
 
-    setBatchLoading(false);
+    dispatch({ type: 'SET', payload: { batchLoading: false } });
     toast.success(`${toGenerate.length}건 자동 답변 생성 완료`);
-  }, [classifyResults, auth, settings, batchAnswers, checkedAuto]);
+  }, [state.classifyResults, auth, settings, state.batchAnswers, state.checkedAuto]);
 
   // ─── 문의 선택 → 풀 파이프라인 실행 ───
   const selectInquiry = useCallback(async (idx) => {
-    const item = classifyResults[idx];
+    const item = state.classifyResults[idx];
     if (!item) return;
 
-    setSelectedIdx(idx);
-    setSelectedInquiry({ text: item.text, tier: item.tier, preferredChannels: item.preferredChannels });
-    setPipelineLoading(true);
-    setPipelineResult(null);
-    setDraftAnswer('');
-    setStreamingAnswer('');
-    setSelectedChannels(new Set());
-    setSent(false);
+    dispatch({ type: 'SET', payload: {
+      selectedIdx: idx,
+      selectedInquiry: { text: item.text, tier: item.tier, preferredChannels: item.preferredChannels },
+      pipelineLoading: true,
+      pipelineResult: null,
+      draftAnswer: '',
+      streamingAnswer: '',
+      selectedChannels: new Set(),
+      sent: false,
+    }});
 
     try {
       const res = await apiCall({
@@ -223,42 +274,42 @@ export default function LabPanel({ auth, apiCall, settings }) {
           seller_tier: item.tier,
           order_value: 50000,
           is_repeat_issue: false,
-          confidence_threshold: confidenceThreshold,
+          confidence_threshold: state.confidenceThreshold,
         },
       });
 
       if (res?.status === 'success' || res?.steps) {
-        setPipelineResult(res);
-        setCompletedSteps(prev => new Set([...prev, 0, 1]));
-        setCurrentStep(1);
-
-        setPipelineHistory(prev => [...prev, {
+        dispatch({ type: 'SET', payload: { pipelineResult: res, currentStep: 1 } });
+        dispatch({ type: 'COMPLETE_STEP', payload: [0, 1] });
+        dispatch({ type: 'ADD_HISTORY', payload: {
           time: new Date().toLocaleTimeString('ko-KR'),
           text: item.text.slice(0, 40) + (item.text.length > 40 ? '...' : ''),
           category: res.steps?.classify?.predicted_category || '?',
           routing: res.steps?.review?.routing || '?',
           priority: res.steps?.review?.priority?.predicted_priority || '?',
-        }]);
+        }});
       } else {
         toast.error('파이프라인 실행 실패');
       }
     } catch (e) {
       toast.error(`오류: ${e.message || e}`);
     } finally {
-      setPipelineLoading(false);
+      dispatch({ type: 'SET', payload: { pipelineLoading: false } });
     }
-  }, [classifyResults, confidenceThreshold, apiCall, auth]);
+  }, [state.classifyResults, state.confidenceThreshold, apiCall, auth]);
 
-  // ─── 답변 생성 (SSE 공통 유틸 사용) ───
+  // ─── 답변 생성 ───
   const generateAnswer = useCallback(async () => {
-    if (!pipelineResult || !selectedInquiry) return;
+    if (!state.pipelineResult || !state.selectedInquiry) return;
 
-    setIsStreaming(true);
-    setStreamingAnswer('');
-    setDraftAnswer('');
-    setRagContext(null);
+    dispatch({ type: 'SET', payload: {
+      isStreaming: true,
+      streamingAnswer: '',
+      draftAnswer: '',
+      ragContext: null,
+    }});
 
-    const category = pipelineResult.steps?.classify?.predicted_category || '기타';
+    const category = state.pipelineResult.steps?.classify?.predicted_category || '기타';
 
     try {
       const controller = new AbortController();
@@ -268,9 +319,9 @@ export default function LabPanel({ auth, apiCall, settings }) {
         method: 'POST',
         headers: createAuthHeaders(auth, { Accept: 'text/event-stream' }),
         body: JSON.stringify({
-          inquiry_text: selectedInquiry.text,
+          inquiry_text: state.selectedInquiry.text,
           inquiry_category: category,
-          seller_tier: selectedInquiry.tier,
+          seller_tier: state.selectedInquiry.tier,
           order_id: null,
           rag_mode: settings?.ragMode || 'rag',
           apiKey: settings?.apiKey || '',
@@ -282,31 +333,30 @@ export default function LabPanel({ auth, apiCall, settings }) {
 
       const fullText = await parseSSEStream(resp, {
         onToken: (_, accumulated) => {
-          setStreamingAnswer(accumulated);
+          dispatch({ type: 'SET', payload: { streamingAnswer: accumulated } });
         },
         onDone: (_, accumulated) => {
-          setDraftAnswer(accumulated);
-          setIsStreaming(false);
+          dispatch({ type: 'SET', payload: { draftAnswer: accumulated, isStreaming: false } });
         },
         onError: (data) => {
           toast.error(`답변 생성 오류: ${data}`);
-          setIsStreaming(false);
+          dispatch({ type: 'SET', payload: { isStreaming: false } });
         },
         onRagContext: (data) => {
-          setRagContext(data);
+          dispatch({ type: 'SET', payload: { ragContext: data } });
         },
       });
 
-      if (!fullText && !draftAnswer) {
-        setIsStreaming(false);
+      if (!fullText && !state.draftAnswer) {
+        dispatch({ type: 'SET', payload: { isStreaming: false } });
       }
     } catch (e) {
       if (e.name !== 'AbortError') {
         toast.error(`스트리밍 오류: ${e.message}`);
       }
-      setIsStreaming(false);
+      dispatch({ type: 'SET', payload: { isStreaming: false } });
     }
-  }, [pipelineResult, selectedInquiry, settings, auth, draftAnswer]);
+  }, [state.pipelineResult, state.selectedInquiry, settings, auth, state.draftAnswer]);
 
   // cleanup abort on unmount
   useEffect(() => {
@@ -317,29 +367,12 @@ export default function LabPanel({ auth, apiCall, settings }) {
 
   // ─── 자동 답변 개별 수정 ───
   const updateBatchAnswer = useCallback((idx, newText) => {
-    setBatchAnswers(prev => ({ ...prev, [idx]: newText }));
+    dispatch({ type: 'SET_BATCH_ANSWER', idx, value: newText });
   }, []);
 
   // ─── 초기화 ───
   const resetPipeline = useCallback(() => {
-    setCurrentStep(0);
-    setCompletedSteps(new Set());
-    setClassifyResults([]);
-    setSelectedIdx(null);
-    setPipelineResult(null);
-    setSelectedInquiry(null);
-    setDraftAnswer('');
-    setStreamingAnswer('');
-    setRagContext(null);
-    setSelectedChannels(new Set());
-    setSent(false);
-    setIsEditing(false);
-    setAutoIdxs([]);
-    setManualIdxs([]);
-    setCheckedAuto(new Set());
-    setDragOverZone(null);
-    setBatchAnswers({});
-    setBatchLoading(false);
+    dispatch({ type: 'FULL_RESET' });
     if (abortRef.current) abortRef.current.abort();
   }, []);
 
@@ -348,11 +381,11 @@ export default function LabPanel({ auth, apiCall, settings }) {
     if (currentStep < 4) {
       const isAutoMode = autoIdxs.length > 0 && !pipelineResult;
       if (currentStep === 0 && isAutoMode) {
-        setCompletedSteps(prev => new Set([...prev, 0, 1]));
-        setCurrentStep(2);
+        dispatch({ type: 'COMPLETE_STEP', payload: [0, 1] });
+        dispatch({ type: 'SET', payload: { currentStep: 2 } });
       } else {
-        setCompletedSteps(prev => new Set([...prev, currentStep]));
-        setCurrentStep(currentStep + 1);
+        dispatch({ type: 'COMPLETE_STEP', payload: [currentStep] });
+        dispatch({ type: 'SET', payload: { currentStep: currentStep + 1 } });
       }
     }
   };

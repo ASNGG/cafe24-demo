@@ -1,0 +1,38 @@
+/* M62: PipelineFlow styled-jsx → CSS Module (매 렌더 CSS 파싱 방지) */
+@keyframes pipeline-flow {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.lineDefault {
+  height: 2px;
+  flex: 1;
+  background: #E5E7EB;
+  border-radius: 1px;
+  transition: all 0.5s ease;
+}
+
+.lineComplete {
+  height: 2px;
+  flex: 1;
+  background: #4ADE80;
+  border-radius: 1px;
+  transition: all 0.5s ease;
+}
+
+.lineFlowing {
+  height: 2px;
+  flex: 1;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #4ADE80 0%, #5B9BF5 50%, #7CB9F7 100%);
+  background-size: 200% 100%;
+  animation: pipeline-flow 1.5s linear infinite;
+}
+
+.nodeIcon {
+  transition: all 0.5s ease;
+}
+
+.nodeProcessing .nodeIcon {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

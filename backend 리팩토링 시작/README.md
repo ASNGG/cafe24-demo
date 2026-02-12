@@ -218,10 +218,10 @@ backend 리팩토링 시작/
 │   ├── memory.py                    # 대화 메모리 관리 (세션별 최대 10턴)
 │   └── parsers.py                   # 텍스트 파서 (레거시 함수 정리됨)
 │
-├── automation/                      # 자동화 엔진 (탐지→자동실행)
-│   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소
+├── automation/                      # 자동화 엔진 (탐지→자동실행) + 파이프라인 추적
+│   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
 │   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
-│   ├── faq_engine.py                # CS FAQ 자동 생성 (패턴분석→LLM)
+│   ├── faq_engine.py                # CS FAQ 자동 생성 (패턴분석→LLM, 카테고리 강제)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
 │
 ├── process_miner/                   # AI 프로세스 마이너
@@ -2916,21 +2916,22 @@ flowchart LR
 
 | 모듈 | 역할 | 주요 함수 |
 |------|------|----------|
-| `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()` |
+| `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()`, `create_pipeline_run()`, `update_pipeline_step()`, `get_pipeline_run()` |
 | `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
 | `faq_engine.py` | CS 패턴 분석 → LLM FAQ 생성 → 승인 관리 | `analyze_cs_patterns()`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
 
-### 16.3 API 엔드포인트 (14개)
+### 16.3 API 엔드포인트 (17개)
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | GET | `/api/automation/retention/at-risk` | 이탈 위험 셀러 목록 (threshold, limit) |
 | POST | `/api/automation/retention/message` | LLM 리텐션 메시지 생성 |
 | POST | `/api/automation/retention/execute` | 자동 조치 실행 (coupon/upgrade/manager/message) |
+| POST | `/api/automation/retention/execute-bulk` | 벌크 조치 실행 (다중 셀러 일괄 처리) |
 | GET | `/api/automation/retention/history` | 리텐션 조치 이력 |
 | POST | `/api/automation/faq/analyze` | CS 문의 패턴 분석 |
-| POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 |
+| POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 (카테고리 필터 + 프롬프트 강제) |
 | GET | `/api/automation/faq/list` | FAQ 목록 (status 필터) |
 | PUT | `/api/automation/faq/{id}/approve` | FAQ 승인 |
 | PUT | `/api/automation/faq/{id}` | FAQ 수정 |
@@ -2939,11 +2940,23 @@ flowchart LR
 | GET | `/api/automation/report/history` | 리포트 생성 이력 |
 | GET | `/api/automation/actions/log` | 자동화 액션 로그 |
 | GET | `/api/automation/actions/stats` | 자동화 액션 통계 |
+| GET | `/api/automation/categories` | CS 카테고리 목록 (9종) |
+| GET | `/api/automation/pipeline/{run_id}` | 파이프라인 실행 상태 조회 |
+
+### 16.4 파이프라인 추적
+
+각 엔진 함수는 실행 시 `create_pipeline_run()`으로 파이프라인을 생성하고, 단계별로 `update_pipeline_step()`으로 상태를 업데이트합니다. 프론트엔드 PipelineFlow 컴포넌트가 이 상태를 시각화합니다.
+
+| 엔진 | 파이프라인 스텝 |
+|------|----------------|
+| `retention_engine` | detect → analyze (위험 셀러 탐지) / execute → log (조치 실행) |
+| `faq_engine` | analyze → select → generate → review → approve |
+| `report_engine` | collect → aggregate → write → save |
 
 ---
 
 <div align="center">
 
-**Version 8.1.0** | 2026-02-12
+**Version 8.2.0** | 2026-02-12
 
 </div>

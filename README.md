@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v8.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v8.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,16 +22,20 @@ v8.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v8.1.0** (2026-02-12) — 자동화 엔진 3대 기능 추가
+> **v8.2.0** (2026-02-12) — 자동화 엔진 고도화 (파이프라인 시각화 + 버그 수정)
 
-| 기능 | 설명 | 패턴 |
-|------|------|------|
-| **셀러 이탈 방지 자동 조치** | ML 이탈 예측(RandomForest + SHAP) → LLM 맞춤 메시지 생성 → 쿠폰·업그레이드·매니저 배정 자동 실행 | 데이터 분석 → AI 판단 → 자동 실행 |
-| **CS FAQ 자동 생성** | CS 문의 패턴 분석 → LLM FAQ Q&A 자동 생성 → 초안/승인/수정/삭제 관리 | 문의 패턴 분석 → FAQ 자동 생성 |
-| **운영 리포트 자동 생성** | 전체 KPI 집계 → LLM 마크다운 리포트 작성 (일간/주간/월간) | KPI 수집 → AI 리포트 작성 |
+| 기능 | 설명 |
+|------|------|
+| **인터랙티브 파이프라인 시각화** | PipelineFlow 컴포넌트 — 각 탭 상단에 5단계 진행 상태 실시간 표시 (pending→processing→complete 애니메이션) |
+| **RetentionTab 고도화** | 셀러 프리뷰 카드(5개 KPI) + 리스크 게이지 바 + 체크박스 벌크 액션 |
+| **FaqTab 고도화** | 카테고리 드롭다운(9종) + 텍스트/상태/카테고리 검색·필터 + 모달 편집 |
+| **ReportTab 고도화** | KPI 트렌드 표시(↑↓ + WoW 변화율) + 섹션 네비게이션 pill |
+| **FAQ 카테고리 버그 수정** | 프롬프트 강화 + 후처리 카테고리 강제 (선택한 카테고리만 생성) |
+| **파이프라인 추적 인프라** | `create_pipeline_run()` / `update_pipeline_step()` — 백엔드 3대 엔진 연동 |
 
-- 신규 API 엔드포인트 14개, 프론트엔드 자동화 패널 1개 (3탭) 추가
-- `automation/` 패키지 신설 (retention_engine · faq_engine · report_engine · action_logger)
+- 신규 API 3개: `/categories`, `/pipeline/{run_id}`, `/retention/execute-bulk`
+- 신규 컴포넌트: `PipelineFlow.js`, `automation/constants.js`
+- API 엔드포인트 총 17개 (14→17), 파이프라인 스텝 업데이트 버그 3건 수정
 
 ---
 
@@ -42,7 +46,7 @@ v8.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **AI 도구** | 28개 (Tool Calling 기반) |
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
 | **RAG 엔진** | 8종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · CRAG · Cross-Encoder) |
-| **API 엔드포인트** | 103개 REST API |
+| **API 엔드포인트** | 106개 REST API |
 | **프론트엔드 패널** | 12개 (Dashboard, Agent, Analysis, Lab, DB 보안 감시, 자동화 엔진 등) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
@@ -404,6 +408,11 @@ flowchart LR
 │   │   ├── routes_automation.py       # 자동화 엔진 API (14개 엔드포인트)
 │   │   ├── routes_agent.py            # AI 에이전트 API
 │   │   └── routes_admin.py            # 관리/설정/로그 API
+│   ├── automation/                    # 자동화 엔진 (이탈방지/FAQ/리포트)
+│   │   ├── action_logger.py           # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
+│   │   ├── retention_engine.py        # 셀러 이탈 방지 자동 조치 엔진
+│   │   ├── faq_engine.py              # CS FAQ 자동 생성 엔진
+│   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
 │   ├── agent/                         # AI 에이전트
 │   │   ├── runner.py                  # Tool Calling 실행기
 │   │   ├── tools.py                   # 28개 도구 함수 (비즈니스 로직)
@@ -440,6 +449,9 @@ flowchart LR
     │   └── api/                       # SSE 프록시 핸들러 (agent, cs)
     ├── components/
     │   ├── common/                    # 공통 컴포넌트 (CustomTooltip, StatCard, constants)
+    │   ├── automation/                # 자동화 엔진 공통 컴포넌트
+    │   │   ├── PipelineFlow.js      # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
+    │   │   └── constants.js         # 파이프라인 스텝 상수 + CS 카테고리
     │   └── panels/                    # 12개 기능 패널
     │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
     │       ├── lab/                   # CS 자동화 실험실 (11개 파일로 분리)

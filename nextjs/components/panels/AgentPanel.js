@@ -81,54 +81,10 @@ function TopProgressBar({ active }) {
   );
 }
 
-// H25: useRemarkGfm을 모듈 수준에서 1회만 dynamic import 후 공유
-let _remarkGfmCache = null;
-let _remarkGfmLoading = false;
-const _remarkGfmListeners = [];
+import remarkGfmPlugin from 'remark-gfm';
 
-function loadRemarkGfm() {
-  if (_remarkGfmCache !== null || _remarkGfmLoading) return;
-  _remarkGfmLoading = true;
-  import('remark-gfm')
-    .then((mod) => {
-      _remarkGfmCache = mod?.default ? mod.default : mod;
-    })
-    .catch(() => {
-      _remarkGfmCache = null;
-    })
-    .finally(() => {
-      _remarkGfmLoading = false;
-      _remarkGfmListeners.forEach((fn) => fn());
-      _remarkGfmListeners.length = 0;
-    });
-}
-
-function useRemarkGfm() {
-  const [remarkGfm, setRemarkGfm] = useState(_remarkGfmCache);
-
-  useEffect(() => {
-    if (_remarkGfmCache !== null) {
-      setRemarkGfm(_remarkGfmCache);
-      return;
-    }
-    const listener = () => setRemarkGfm(_remarkGfmCache);
-    _remarkGfmListeners.push(listener);
-    loadRemarkGfm();
-    return () => {
-      const idx = _remarkGfmListeners.indexOf(listener);
-      if (idx >= 0) _remarkGfmListeners.splice(idx, 1);
-    };
-  }, []);
-
-  return remarkGfm;
-}
-
-function MarkdownMessage({ content, remarkGfm }) {
-  const remarkPlugins = useMemo(() => {
-    const plugins = [remarkMath];
-    if (remarkGfm) plugins.push(remarkGfm);
-    return plugins;
-  }, [remarkGfm]);
+function MarkdownMessage({ content }) {
+  const remarkPlugins = useMemo(() => [remarkMath, remarkGfmPlugin], []);
 
   return (
     <ReactMarkdown
@@ -206,8 +162,6 @@ export default function AgentPanel({
   // M46: 이미 렌더된 메시지 ID 추적 → 새 메시지만 애니메이션
   const seenMsgIdsRef = useRef(new Set());
 
-  // H25: 부모에서 1회 로드, 자식에 전달
-  const remarkGfm = useRemarkGfm();
 
   // M53: SSE 스트리밍 로직을 useAgentStream 훅으로 추출
   const { sendQuestion, stopStream } = useAgentStream({
@@ -362,7 +316,7 @@ export default function AgentPanel({
                     </div>
 
                     <div className="prose prose-sm max-w-none">
-                      {!isUser && isPending ? <TypingDots /> : <MarkdownMessage content={m.content || ''} remarkGfm={remarkGfm} />}
+                      {!isUser && isPending ? <TypingDots /> : <MarkdownMessage content={m.content || ''} />}
                     </div>
 
                     <ToolCalls toolCalls={m.tool_calls} />

@@ -8,6 +8,7 @@ IsolationForest를 사용하여 비정상적인 활동 시퀀스를 가진
 
 from collections import defaultdict
 from datetime import datetime
+from functools import lru_cache
 
 import numpy as np
 from sklearn.ensemble import IsolationForest
@@ -22,6 +23,8 @@ NORMAL_ACTIVITIES: dict[str, set[str]] = {
 }
 
 
+# M34: 타임스탬프 파싱 캐싱 (중복 파싱 방지)
+@lru_cache(maxsize=4096)
 def _parse_timestamp(ts: str) -> datetime:
     return datetime.fromisoformat(ts)
 

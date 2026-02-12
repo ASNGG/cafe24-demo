@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
+import AnalysisEmptyState from './common/EmptyState';
 import { ANALYSIS_COLORS as COLORS } from '@/components/common/constants';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -25,11 +26,11 @@ export default function ShopTab({ shopsData }) {
   return (
     <div className="space-y-6">
       {!shopsData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
-          <ShoppingBag size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
-          <p className="text-sm font-semibold text-cafe24-brown/50">쇼핑몰 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
-        </div>
+        <AnalysisEmptyState
+          icon={ShoppingBag}
+          title="쇼핑몰 데이터를 불러올 수 없습니다"
+          subtitle="백엔드 API 연결을 확인하세요"
+        />
       ) : (
       <>
       {/* 쇼핑몰 운영 차트 */}

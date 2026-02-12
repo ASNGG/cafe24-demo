@@ -10,6 +10,7 @@ process_miner/routes.py
 """
 
 import random
+import time
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -17,6 +18,11 @@ from pydantic import BaseModel, Field
 
 import state as st
 from core.utils import json_sanitize
+
+# M33: 대시보드 TTL 캐시 (매 요청마다 이벤트 재생성 방지)
+_DASHBOARD_CACHE: dict = {}
+_DASHBOARD_CACHE_TS: float = 0.0
+_DASHBOARD_CACHE_TTL: float = 300.0  # 5분
 
 from process_miner.event_generator import generate_event_logs
 from process_miner.miner import discover_process
@@ -240,8 +246,19 @@ async def pm_anomalies(body: PMAnomalyRequest):
 @pm_router.get("/dashboard")
 async def pm_dashboard():
     """3가지 프로세스(order/cs/settlement) 요약 통계 대시보드"""
+    global _DASHBOARD_CACHE, _DASHBOARD_CACHE_TS
     try:
-        st.logger.info("PM_DASHBOARD start")
+        # M33: TTL 캐시 확인
+        now = time.monotonic()
+        if _DASHBOARD_CACHE and (now - _DASHBOARD_CACHE_TS) < _DASHBOARD_CACHE_TTL:
+            st.logger.info("PM_DASHBOARD cache_hit age=%.0fs", now - _DASHBOARD_CACHE_TS)
+            return JSONResponse(content={
+                "status": "success",
+                "data": _DASHBOARD_CACHE,
+                "cached": True,
+            })
+
+        st.logger.info("PM_DASHBOARD start (cache miss)")
         dashboard: dict = {}
 
         for ptype in ("order", "cs", "settlement"):
@@ -282,10 +299,16 @@ async def pm_dashboard():
                 st.logger.warning("PM_DASHBOARD %s failed: %s", ptype, e)
                 dashboard[ptype] = {"error": str(e)}
 
-        st.logger.info("PM_DASHBOARD done")
+        # M33: 캐시 저장
+        sanitized = json_sanitize(dashboard)
+        _DASHBOARD_CACHE = sanitized
+        _DASHBOARD_CACHE_TS = now
+
+        st.logger.info("PM_DASHBOARD done (cached)")
         return JSONResponse(content={
             "status": "success",
-            "data": json_sanitize(dashboard),
+            "data": sanitized,
+            "cached": False,
         })
     except Exception as e:
         st.logger.exception("PM_DASHBOARD error: %s", e)

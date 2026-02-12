@@ -7,8 +7,10 @@ CSV 데이터 및 ML 모델 로딩
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import joblib
 import pandas as pd
 
@@ -49,31 +51,50 @@ def load_model_safe(filepath: Path):
 
 
 def load_all_data():
-    """모든 데이터 로드"""
+    """모든 데이터 로드 (H23/cross-2: ThreadPoolExecutor 병렬화)"""
     st.logger.info("=" * 50)
-    st.logger.info("CAFE24 AI 운영 플랫폼 데이터 로딩 시작")
+    st.logger.info("CAFE24 AI 운영 플랫폼 데이터 로딩 시작 (병렬)")
     st.logger.info("=" * 50)
+
+    _load_start = time.time()
 
     # ========================================
-    # CSV 데이터 로드 (이커머스 데이터)
+    # H23/cross-2: CSV 데이터 병렬 로드
     # ========================================
+    csv_tasks = {
+        "SHOPS_DF": "shops.csv",
+        "CATEGORIES_DF": "categories.csv",
+        "SERVICES_DF": "services.csv",
+        "PRODUCTS_DF": "products.csv",
+        "SELLERS_DF": "sellers.csv",
+        "SELLER_ANALYTICS_DF": "seller_analytics.csv",
+        "PLATFORM_DOCS_DF": "platform_docs.csv",
+        "ECOMMERCE_GLOSSARY_DF": "ecommerce_glossary.csv",
+        "SHOP_PERFORMANCE_DF": "shop_performance.csv",
+        "DAILY_METRICS_DF": "daily_metrics.csv",
+        "CS_STATS_DF": "cs_stats.csv",
+        "FRAUD_DETAILS_DF": "fraud_details.csv",
+        "COHORT_RETENTION_DF": "cohort_retention.csv",
+        "CONVERSION_FUNNEL_DF": "conversion_funnel.csv",
+        "SELLER_ACTIVITY_DF": "seller_activity.csv",
+    }
 
-    # 쇼핑몰 데이터
-    st.SHOPS_DF = load_csv_safe(get_data_path("shops.csv"))
+    def _load_csv_task(attr_name, filename):
+        return attr_name, load_csv_safe(get_data_path(filename))
 
-    # 상품 카테고리 데이터
-    st.CATEGORIES_DF = load_csv_safe(get_data_path("categories.csv"))
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [
+            executor.submit(_load_csv_task, attr, fname)
+            for attr, fname in csv_tasks.items()
+        ]
+        for future in as_completed(futures):
+            try:
+                attr_name, df = future.result()
+                setattr(st, attr_name, df)
+            except Exception as e:
+                st.logger.error(f"CSV 병렬 로드 실패: {e}")
 
-    # 플랫폼 서비스 데이터
-    st.SERVICES_DF = load_csv_safe(get_data_path("services.csv"))
-
-    # 상품 리스팅 데이터
-    st.PRODUCTS_DF = load_csv_safe(get_data_path("products.csv"))
-
-    # 셀러 데이터
-    st.SELLERS_DF = load_csv_safe(get_data_path("sellers.csv"))
-
-    # 운영 로그 데이터 (메모리 절약을 위해 3만건만 로드)
+    # 운영 로그 (nrows 제한이 있어 별도 처리)
     logs_path = get_data_path("operation_logs.csv")
     if logs_path.exists():
         try:
@@ -86,62 +107,45 @@ def load_all_data():
         st.logger.warning(f"CSV 파일 없음: {logs_path}")
         st.OPERATION_LOGS_DF = None
 
-    # 셀러 분석 데이터
-    st.SELLER_ANALYTICS_DF = load_csv_safe(get_data_path("seller_analytics.csv"))
-
-    # 플랫폼 문서 데이터
-    st.PLATFORM_DOCS_DF = load_csv_safe(get_data_path("platform_docs.csv"))
-
-    # 이커머스 용어집
-    st.ECOMMERCE_GLOSSARY_DF = load_csv_safe(get_data_path("ecommerce_glossary.csv"))
+    _csv_elapsed = time.time() - _load_start
+    st.logger.info("CSV 병렬 로드 완료: %.1f초", _csv_elapsed)
 
     # ========================================
-    # 분석용 추가 데이터 로드
+    # ML 모델 로드 (M35: 병렬 로딩)
     # ========================================
+    _model_start = time.time()
 
-    # 쇼핑몰별 성과 KPI
-    st.SHOP_PERFORMANCE_DF = load_csv_safe(get_data_path("shop_performance.csv"))
+    model_tasks = {
+        "CS_QUALITY_MODEL": "model_cs_quality.pkl",
+        "INQUIRY_CLASSIFICATION_MODEL": "model_inquiry_classification.pkl",
+        "SELLER_SEGMENT_MODEL": "model_seller_segment.pkl",
+        "FRAUD_DETECTION_MODEL": "model_fraud_detection.pkl",
+        "SELLER_CHURN_MODEL": "model_seller_churn.pkl",
+        "SHAP_EXPLAINER_CHURN": "shap_explainer_churn.pkl",
+        "REVENUE_PREDICTION_MODEL": "model_revenue_prediction.pkl",
+        "CUSTOMER_LTV_MODEL": "model_customer_ltv.pkl",
+        "REVIEW_SENTIMENT_MODEL": "model_review_sentiment.pkl",
+        "DEMAND_FORECAST_MODEL": "model_demand_forecast.pkl",
+        "SETTLEMENT_ANOMALY_MODEL": "model_settlement_anomaly.pkl",
+        "TFIDF_VECTORIZER": "tfidf_vectorizer.pkl",
+        "TFIDF_VECTORIZER_SENTIMENT": "tfidf_vectorizer_sentiment.pkl",
+        "SCALER_CLUSTER": "scaler_cluster.pkl",
+    }
 
-    # 일별 플랫폼 지표
-    st.DAILY_METRICS_DF = load_csv_safe(get_data_path("daily_metrics.csv"))
+    def _load_model_task(attr_name, filename):
+        return attr_name, load_model_safe(get_data_path(filename))
 
-    # CS 문의 통계
-    st.CS_STATS_DF = load_csv_safe(get_data_path("cs_stats.csv"))
-
-    # 이상거래 상세 데이터
-    st.FRAUD_DETAILS_DF = load_csv_safe(get_data_path("fraud_details.csv"))
-
-    # 셀러 코호트 리텐션 데이터
-    st.COHORT_RETENTION_DF = load_csv_safe(get_data_path("cohort_retention.csv"))
-
-    # 전환 퍼널 데이터
-    st.CONVERSION_FUNNEL_DF = load_csv_safe(get_data_path("conversion_funnel.csv"))
-
-    # 셀러 일별 활동 데이터
-    st.SELLER_ACTIVITY_DF = load_csv_safe(get_data_path("seller_activity.csv"))
-
-    # ========================================
-    # ML 모델 로드 (10개 모델)
-    # ========================================
-
-    # ── 핵심 6개 모델 ──
-    # CS 응답 품질 예측 모델
-    st.CS_QUALITY_MODEL = load_model_safe(get_data_path("model_cs_quality.pkl"))
-
-    # 문의 자동 분류 모델
-    st.INQUIRY_CLASSIFICATION_MODEL = load_model_safe(get_data_path("model_inquiry_classification.pkl"))
-
-    # 셀러 세그먼트 모델
-    st.SELLER_SEGMENT_MODEL = load_model_safe(get_data_path("model_seller_segment.pkl"))
-
-    # 이상거래 탐지 모델
-    st.FRAUD_DETECTION_MODEL = load_model_safe(get_data_path("model_fraud_detection.pkl"))
-
-    # 셀러 이탈 예측 모델
-    st.SELLER_CHURN_MODEL = load_model_safe(get_data_path("model_seller_churn.pkl"))
-
-    # SHAP Explainer (이탈 예측용)
-    st.SHAP_EXPLAINER_CHURN = load_model_safe(get_data_path("shap_explainer_churn.pkl"))
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = [
+            executor.submit(_load_model_task, attr, fname)
+            for attr, fname in model_tasks.items()
+        ]
+        for future in as_completed(futures):
+            try:
+                attr_name, model = future.result()
+                setattr(st, attr_name, model)
+            except Exception as e:
+                st.logger.error(f"모델 병렬 로드 실패: {e}")
 
     # 이탈 예측 모델 설정 (JSON)
     churn_config_path = get_data_path("churn_model_config.json")
@@ -155,31 +159,8 @@ def load_all_data():
             st.logger.warning(f"이탈 예측 모델 설정 로드 실패: {e}")
             st.CHURN_MODEL_CONFIG = None
 
-    # ── 신규 4개 모델 ──
-    # 매출 예측 모델
-    st.REVENUE_PREDICTION_MODEL = load_model_safe(get_data_path("model_revenue_prediction.pkl"))
-
-    # 고객 LTV 예측 모델
-    st.CUSTOMER_LTV_MODEL = load_model_safe(get_data_path("model_customer_ltv.pkl"))
-
-    # 리뷰 감성 분석 모델
-    st.REVIEW_SENTIMENT_MODEL = load_model_safe(get_data_path("model_review_sentiment.pkl"))
-
-    # 상품 수요 예측 모델
-    st.DEMAND_FORECAST_MODEL = load_model_safe(get_data_path("model_demand_forecast.pkl"))
-
-    # 정산 이상 탐지 모델
-    st.SETTLEMENT_ANOMALY_MODEL = load_model_safe(get_data_path("model_settlement_anomaly.pkl"))
-
-    # ── 공용 도구 ──
-    # TF-IDF 벡터라이저 (문의 분류용)
-    st.TFIDF_VECTORIZER = load_model_safe(get_data_path("tfidf_vectorizer.pkl"))
-
-    # TF-IDF 벡터라이저 (리뷰 감성 분석용)
-    st.TFIDF_VECTORIZER_SENTIMENT = load_model_safe(get_data_path("tfidf_vectorizer_sentiment.pkl"))
-
-    # 스케일러 (셀러 세그먼트용)
-    st.SCALER_CLUSTER = load_model_safe(get_data_path("scaler_cluster.pkl"))
+    _model_elapsed = time.time() - _model_start
+    st.logger.info("ML 모델 병렬 로드 완료: %.1f초", _model_elapsed)
 
     # ========================================
     # 마케팅 최적화 모듈 확인

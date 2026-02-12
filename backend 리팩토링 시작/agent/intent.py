@@ -1,161 +1,117 @@
 """
-agent/intent.py - CAFE24 AI 운영 플랫폼 인텐트 감지 및 도구 라우팅
+agent/intent.py - CAFE24 AI 운영 플랫폼 인텐트 키워드/유틸리티 (단일 소스)
 ============================================================
-CAFE24 AI 운영 플랫폼
+cross-6: 키워드/인텐트 분류에 쓰이는 키워드를 이 파일에서 단일 소스로 정의.
+router.py, runner.py 모두 이 파일을 import하여 사용.
 
-사용자 입력을 분석하여 적절한 도구를 실행합니다.
+M14/M15/M16: 기존 detect_intent/run_deterministic_tools 제거.
+L6: want_fraud_detection → SELLER 카테고리로 통합.
+L7: LAST_CONTEXT_STORE → 미사용 제거.
 """
-import time
-from typing import Optional, Dict, Any, Tuple
-
-from core.constants import RAG_DOCUMENTS, SUMMARY_TRIGGERS
-from core.utils import safe_str, extract_seller_id, extract_shop_id, extract_order_id
-from agent.tools import (
-    tool_get_shop_info,
-    tool_list_shops,
-    tool_get_category_info,
-    tool_list_categories,
-    tool_auto_reply_cs,
-    tool_get_ecommerce_glossary,
-    tool_analyze_seller,
-    tool_get_segment_statistics,
-    tool_get_order_statistics,
-    tool_classify_inquiry,
-    tool_get_dashboard_summary,
-)
-from rag.service import tool_rag_search
-import state as st
+from typing import Optional, Dict, List
 
 
 # ============================================================
-# 요약 트리거 / 컨텍스트 재활용
+# 카테고리별 분류 키워드 (단일 소스 - cross-6)
 # ============================================================
-def _has_summary_trigger(user_text: str) -> bool:
-    t = (user_text or "").lower()
-    return any(k.lower() in t for k in SUMMARY_TRIGGERS)
+ANALYSIS_KEYWORDS: List[str] = [
+    "매출", "수익", "revenue", "arpu", "arppu", "과금", "성장률",
+    "gmv", "거래액", "총거래", "거래 금액",
+    "이탈", "churn", "고위험", "중위험", "저위험", "이탈률", "이탈 요인",
+    "코호트", "cohort", "리텐션", "retention", "잔존", "week1", "week4",
+    "트렌드", "trend", "kpi", "dau", "mau", "wau", "지표", "변화율",
+    "활성 셀러", "신규 가입", "가입 추이", "전환율", "변화 분석", "추이 분석",
+    "신규 쇼핑몰", "주문량", "주문 수", "결제 분석",
+]
 
+PLATFORM_KEYWORDS: List[str] = [
+    # 핵심 플랫폼 키워드 (RAG 검색 필수)
+    "플랫폼", "정책", "기능", "운영", "가이드", "도움말", "사용법",
+    "정산", "정산 주기", "수수료", "배송비 정책", "반품 정책", "환불 정책",
+    "앱스토어", "앱 연동", "API", "개발자", "테마", "디자인",
+    "쇼핑몰 개설", "멀티쇼핑몰", "해외 배송", "글로벌 커머스",
+    # 질문 패턴 (플랫폼 지식 요청)
+    "뜻", "용어", "설명", "정의", "개념", "meaning", "definition",
+    "뭐야", "무엇", "어떤", "알려줘", "어떻게 됐", "왜 그런",
+]
 
-def set_last_context(username: str, context_id: Optional[str], results: Dict[str, Any], user_text: str, mode: str) -> None:
-    if not username:
-        return
-    if not isinstance(results, dict) or len(results) == 0:
-        return
-    with st.LAST_CONTEXT_LOCK:
-        st.LAST_CONTEXT_STORE[username] = {
-            "context_id": safe_str(context_id).strip() if context_id else "",
-            "results": results,
-            "user_text": safe_str(user_text),
-            "ts": time.time(),
-            "mode": safe_str(mode),
-        }
+SHOP_KEYWORDS: List[str] = [
+    "쇼핑몰 정보", "쇼핑몰 서비스", "쇼핑몰 성과", "쇼핑몰 매출",
+    "쇼핑몰 목록", "쇼핑몰 리스트", "쇼핑몰 현황", "쇼핑몰 분포",
+    "쇼핑몰 플랜", "쇼핑몰 등급", "쇼핑몰 티어",
+    "쇼핑몰 수", "쇼핑몰 개수", "쇼핑몰 몇", "쇼핑몰 통계",
+    "전체 쇼핑몰", "총 쇼핑몰", "쇼핑몰 총",
+    "샵 정보", "샵 성과", "샵 매출", "샵 목록", "shop",
+    "카테고리별", "업종별", "티어별", "플랜별", "등급별",
+    "카테고리 목록", "카테고리 전체", "카테고리 정보", "카테고리 현황",
+    "업종 목록", "업종 전체", "업종 정보", "업종 현황",
+    "패션", "뷰티", "식품", "가전", "리빙", "디지털",
+    "프리미엄", "스탠다드", "베이직", "엔터프라이즈",
+    "premium", "standard", "basic", "enterprise",
+    "마케팅", "광고", "ROAS", "마케팅 최적화", "광고 전략",
+]
 
+SELLER_KEYWORDS: List[str] = [
+    "셀러 분석", "셀러 정보", "셀러 이탈", "셀러 예측", "판매자 분석", "입점업체",
+    "세그먼트", "군집",
+    # 세그먼트 이름 (CSV 기준: 성장형/휴면/우수/파워/관리필요)
+    "성장형 셀러", "휴면 셀러", "우수 셀러", "파워 셀러", "관리 필요 셀러",
+    "성장형", "휴면", "관리 필요",
+    # 이상/부정행위
+    "이상 셀러", "부정행위", "이상 탐지", "이상거래", "이상 거래", "어뷰징", "사기", "비정상", "허위 주문", "리뷰 조작",
+    "fraud", "anomaly", "부정 거래", "사기 탐지", "사기 거래",
+]
 
-def get_last_context(username: str) -> Optional[Dict[str, Any]]:
-    if not username:
-        return None
-    with st.LAST_CONTEXT_LOCK:
-        return st.LAST_CONTEXT_STORE.get(username)
+CS_KEYWORDS: List[str] = [
+    "CS", "고객 상담", "문의", "상담", "자동 응답", "자동응답",
+    "환불", "반품", "교환", "배송 문의", "결제 문의",
+    "CS 품질", "상담 품질", "용어집",
+    "문의 분류", "카테고리 분류", "분류해", "티켓", "응답 생성",
+    "결제 오류", "카드 오류", "배송 지연", "환불 요청", "교환 요청",
+]
 
+DASHBOARD_KEYWORDS: List[str] = [
+    "대시보드", "dashboard", "전체 현황", "요약",
+    "셀러 활동", "활동 현황", "주문 현황", "정산 현황",
+    "운영 이벤트", "이벤트 통계", "이벤트 현황", "주문 이벤트", "정산 이벤트",
+]
 
-def can_reuse_last_context(username: str, context_id: Optional[str], user_text: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
-    if not _has_summary_trigger(user_text):
-        return (False, None)
-
-    ctx = get_last_context(username)
-    if not ctx or not isinstance(ctx.get("results"), dict) or len(ctx["results"]) == 0:
-        return (False, None)
-
-    ts = float(ctx.get("ts") or 0.0)
-    if ts > 0 and (time.time() - ts) > st.LAST_CONTEXT_TTL_SEC:
-        return (False, None)
-
-    # 컨텍스트 ID가 일치하면 재사용
-    req_id = safe_str(context_id).strip() if context_id else ""
-    last_id = safe_str(ctx.get("context_id")).strip()
-
-    if req_id and req_id == last_id:
-        return (True, ctx)
-
-    # 이전 결과가 있으면 재사용
-    r = ctx.get("results") or {}
-    context_keys = ("get_shop_info", "analyze_seller", "auto_reply_cs", "rag_search", "dashboard")
-    if any(isinstance(r.get(k), dict) for k in context_keys):
-        return (True, ctx)
-
-    return (False, None)
-
-
-# ============================================================
-# 인텐트 감지
-# ============================================================
-def detect_intent(user_text: str) -> Dict[str, bool]:
-    t = (user_text or "").strip().lower()
-
-    # RAG 트리거
-    rag_triggers = ["뜻", "용어", "설명", "정의", "개념", "meaning", "definition", "플랫폼", "정책", "가이드"]
-
-    # 문서 키워드 검색
-    has_doc_keyword = False
-    for _, doc in RAG_DOCUMENTS.items():
-        for kw in doc.get("keywords", []):
-            kw2 = (kw or "").strip().lower()
-            if kw2 and (kw2 in t):
-                has_doc_keyword = True
-                break
-        if has_doc_keyword:
-            break
-
-    # 대시보드/현황
-    status_triggers = ["현황", "대시보드", "dashboard", "통계", "요약", "summary"]
-    force_full_status = any(x in t for x in status_triggers)
-
-    # 분석/예측 관련 키워드 (RAG 불필요)
-    analytics_keywords = [
-        "이탈", "churn", "코호트", "cohort", "리텐션", "retention", "잔존",
-        "트렌드", "trend", "kpi", "dau", "mau", "wau",
-        "매출", "revenue", "arpu", "arppu", "과금", "성장률",
-        "gmv", "거래액", "예측", "predict",
-        "마케팅", "광고", "roas", "마케팅 최적화",
-    ]
-    want_analytics = any(kw in t for kw in analytics_keywords)
-
-    return {
-        # 쇼핑몰 관련
-        "want_shop_info": ("쇼핑몰" in t or "샵" in t) and (("정보" in t) or ("누구" in t) or ("알려" in t)),
-        "want_shop_list": ("쇼핑몰" in t or "샵" in t) and (("목록" in t) or ("리스트" in t) or ("전체" in t)),
-
-        # 카테고리 관련
-        "want_category_info": ("카테고리" in t or "업종" in t) and (("정보" in t) or ("어디" in t) or ("알려" in t)),
-        "want_category_list": ("카테고리" in t or "업종" in t) and (("목록" in t) or ("리스트" in t) or ("전체" in t)),
-
-        # CS 관련
-        "want_cs_reply": ("문의" in t or "상담" in t or "cs" in t) and ("응답" in t or "답변" in t or "자동" in t),
-        "want_glossary": ("용어집" in t) or ("용어" in t and "이커머스" in t) or ("용어" in t and "커머스" in t),
-
-        # 셀러 분석
-        "want_seller_analysis": ("셀러" in t or "판매자" in t or "입점" in t) and ("분석" in t or "정보" in t),
-        "want_segment": ("세그먼트" in t) or ("군집" in t) or ("분류" in t and "셀러" in t),
-        "want_fraud_detection": ("부정행위" in t) or ("사기" in t) or ("어뷰징" in t) or ("비정상" in t) or ("허위" in t) or ("리뷰 조작" in t),
-
-        # 주문/거래 통계
-        "want_order_stats": ("주문" in t and ("통계" in t or "현황" in t)) or ("거래" in t and "통계" in t) or ("배송" in t and "현황" in t),
-
-        # 문의 분류
-        "want_classify": ("분류" in t and ("문의" in t or "텍스트" in t)) or ("카테고리" in t and "분류" in t),
-
-        # RAG 검색
-        "want_rag": any(x in t for x in rag_triggers) or has_doc_keyword,
-
-        # 대시보드
-        "want_dashboard": force_full_status,
-
-        # 분석/예측 (RAG 불필요)
-        "want_analytics": want_analytics,
-    }
+GENERAL_KEYWORDS: List[str] = [
+    "안녕", "하이", "헬로", "hi", "hello",
+    "고마워", "감사", "thanks",
+    "뭐해", "누구", "자기소개",
+]
 
 
 # ============================================================
-# CS 문의 카테고리 추출
+# 도구 강제 실행용 키워드-도구 매핑 (runner.py에서 사용)
+# ============================================================
+KEYWORD_TOOL_MAPPING: Dict[str, List[str]] = {
+    "detect_fraud": ["부정행위 탐지", "비정상 셀러", "어뷰징", "사기 탐지", "허위 주문", "리뷰 조작"],
+    "get_fraud_statistics": ["이상거래", "이상 거래", "이상 셀러", "부정행위 통계", "부정행위 현황", "사기 통계", "사기 현황", "fraud 통계", "부정 거래", "이상거래 탐지", "이상거래 현황"],
+    "get_segment_statistics": ["세그먼트 통계", "셀러 세그먼트", "셀러 분포", "세그먼트 분석", "세그먼트 현황",
+                               "성장형 셀러", "휴면 셀러", "우수 셀러", "파워 셀러", "관리 필요 셀러"],
+    "get_order_statistics": ["운영 이벤트", "이벤트 통계", "주문 이벤트", "정산 이벤트", "이벤트 현황"],
+    "get_cs_statistics": ["CS 통계", "상담 현황", "상담 품질", "CS 현황"],
+    "classify_inquiry": ["카테고리 분류", "문의 분류", "분류해줘", "분류해 줘"],
+    "get_dashboard_summary": ["대시보드", "전체 현황", "요약 통계", "셀러 활동", "활동 현황", "전체 셀러", "플랜별 분포", "등급별 분포", "티어별 분포", "전체 쇼핑몰", "쇼핑몰 수", "쇼핑몰 개수", "쇼핑몰 몇", "총 쇼핑몰"],
+    # 쇼핑몰 목록/검색 도구
+    "list_shops": ["쇼핑몰 목록", "쇼핑몰 리스트", "쇼핑몰 현황", "등급 쇼핑몰", "티어 쇼핑몰", "플랜 쇼핑몰"],
+    "list_categories": ["카테고리 목록", "카테고리 전체", "카테고리 정보", "업종 목록", "업종 전체", "업종 정보", "업종 현황"],
+    # ML 모델 예측 도구
+    "predict_seller_churn": ["이탈 예측", "이탈 확률", "이탈 위험", "이탈률", "churn", "셀러 이탈"],
+    "get_shop_performance": ["성과 분석", "쇼핑몰 성과", "쇼핑몰 매출", "성과 예측", "매출 분석"],
+    "optimize_marketing": ["마케팅 추천", "마케팅 최적화", "광고 추천", "광고 전략", "마케팅 예산", "ROAS 최적화", "마케팅 예산 최적화", "광고 최적화", "마케팅 분석"],
+    # 분석 도구
+    "get_churn_prediction": ["이탈 분석", "이탈 현황", "이탈 통계", "고위험 셀러", "이탈 요인"],
+    "get_cohort_analysis": ["코호트 분석", "리텐션 분석", "코호트 리텐션", "주간 리텐션", "잔존율"],
+    "get_trend_analysis": ["트렌드 분석", "KPI 분석", "지표 분석", "DAU 분석", "상관관계", "활성 셀러", "가입 추이", "전환율", "신규 가입", "변화 분석", "추이 분석", "주문량 분석"],
+    "get_gmv_prediction": ["매출 예측", "GMV 분석", "GMV 예측", "수익 분석", "ARPU", "ARPPU", "거래액"],
+}
+
+
+# ============================================================
+# CS 문의 카테고리 추출 (유틸리티)
 # ============================================================
 def extract_cs_category(user_text: str) -> Optional[str]:
     """텍스트에서 CS 문의 카테고리를 추출합니다."""
@@ -177,112 +133,4 @@ def extract_cs_category(user_text: str) -> Optional[str]:
         if keyword in t:
             return cat_code
 
-    return "general"  # 기본값: general
-
-
-# ============================================================
-# 결정적 도구 실행 파이프라인
-# ============================================================
-def run_deterministic_tools(user_text: str, context_id: Optional[str] = None) -> Dict[str, Any]:
-    """사용자 입력에 따라 적절한 도구를 실행합니다."""
-    intents = detect_intent(user_text)
-    results: Dict[str, Any] = {}
-
-    # RAG 검색 (플랫폼 정보 질문)
-    if intents.get("want_rag"):
-        results["rag_search"] = tool_rag_search(
-            user_text,
-            top_k=min(5, st.RAG_MAX_TOPK),
-            api_key=""
-        )
-
-    # 대시보드 요약
-    if intents.get("want_dashboard"):
-        results["dashboard"] = tool_get_dashboard_summary()
-        return results
-
-    # 쇼핑몰 정보
-    if intents.get("want_shop_info"):
-        shop_id = extract_shop_id(user_text)
-        if shop_id:
-            results["get_shop_info"] = tool_get_shop_info(shop_id)
-        else:
-            # ID를 못 찾으면 목록 반환
-            results["list_shops"] = tool_list_shops()
-        return results
-
-    if intents.get("want_shop_list"):
-        # 카테고리/티어/지역 필터 추출
-        category = None
-        tier = None
-        region = None
-
-        category_keywords = ["패션", "뷰티", "식품", "가전", "리빙", "디지털"]
-        for c in category_keywords:
-            if c in user_text:
-                category = c
-                break
-
-        tier_keywords = ["프리미엄", "스탠다드", "베이직", "엔터프라이즈"]
-        for ti in tier_keywords:
-            if ti in user_text:
-                tier = ti
-                break
-
-        region_keywords = {"국내": "국내", "해외": "해외", "글로벌": "글로벌"}
-        for rk, rv in region_keywords.items():
-            if rk in user_text:
-                region = rv
-                break
-
-        results["list_shops"] = tool_list_shops(category=category, tier=tier, region=region)
-        return results
-
-    # 카테고리 정보
-    if intents.get("want_category_info") or intents.get("want_category_list"):
-        results["list_categories"] = tool_list_categories()
-        return results
-
-    # CS 자동 응답
-    if intents.get("want_cs_reply"):
-        cs_category = extract_cs_category(user_text)
-        results["cs_reply_context"] = {
-            "status": "success",
-            "action": "CS_REPLY",
-            "category": cs_category,
-            "message": f"'{cs_category}' 카테고리 CS 응답을 준비합니다.",
-        }
-        return results
-
-    if intents.get("want_glossary"):
-        results["ecommerce_glossary"] = tool_get_ecommerce_glossary()
-        return results
-
-    # 셀러 분석
-    if intents.get("want_seller_analysis"):
-        seller_id = extract_seller_id(user_text)
-        if seller_id:
-            results["analyze_seller"] = tool_analyze_seller(seller_id)
-        else:
-            results["segment_statistics"] = tool_get_segment_statistics()
-        return results
-
-    if intents.get("want_segment"):
-        results["segment_statistics"] = tool_get_segment_statistics()
-        return results
-
-    # 주문/거래 통계
-    if intents.get("want_order_stats"):
-        results["order_statistics"] = tool_get_order_statistics()
-        return results
-
-    # 문의 분류
-    if intents.get("want_classify"):
-        results["classify_context"] = {
-            "status": "success",
-            "action": "CLASSIFY",
-            "message": "문의 분류를 위해 분류할 텍스트를 입력해주세요.",
-        }
-        return results
-
-    return results
+    return "general"

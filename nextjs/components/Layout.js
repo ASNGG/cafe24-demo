@@ -1,14 +1,7 @@
 // Layout.js - CAFE24 AI 운영 플랫폼
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
-import { Noto_Sans_KR } from 'next/font/google';
-
-const notoSansKr = Noto_Sans_KR({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-});
 
 export default function Layout({
   auth,
@@ -20,11 +13,11 @@ export default function Layout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showWelcomePopup, setShowWelcomePopup] = useState(true);
 
-  const username = useMemo(() => auth?.username || 'USER', [auth?.username]);
+  const username = auth?.username || 'USER';
 
   return (
     <div
-      className={`${notoSansKr.className} antialiased min-h-screen bg-gradient-to-br from-cafe24-yellow/10 via-white to-cafe24-orange/5`}
+      className="antialiased min-h-screen bg-gradient-to-br from-cafe24-yellow/10 via-white to-cafe24-orange/5"
     >
       {/* 배경 장식 */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">

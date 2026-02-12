@@ -1,11 +1,11 @@
 // components/panels/lab/DraggableCard.js - 드래그 가능한 문의 카드
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import {
   CheckCircle2, Loader2, User, Edit3,
 } from 'lucide-react';
-import { TIER_COLORS } from './constants';
+import { TIER_COLORS, CHANNEL_LABELS } from './constants';
 
-export default function DraggableCard({ idx, item, variant, checked, onCheck, onDragStart, onClick, loading, isSelected, answer, onUpdateAnswer }) {
+export default memo(function DraggableCard({ idx, item, variant, checked, onCheck, onDragStart, onClick, loading, isSelected, answer, onUpdateAnswer }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
 
@@ -65,7 +65,7 @@ export default function DraggableCard({ idx, item, variant, checked, onCheck, on
                 ? <span className="px-1 py-0.5 rounded text-[9px] bg-gray-100 text-gray-500">채널 무관</span>
                 : item.preferredChannels.map(ch => (
                     <span key={ch} className="px-1 py-0.5 rounded text-[9px] bg-blue-50 text-blue-600">
-                      {ch === 'email' ? '이메일' : ch === 'kakao' ? '카카오' : ch === 'sms' ? 'SMS' : ch === 'inapp' ? '인앱' : ch}
+                      {CHANNEL_LABELS[ch] || ch}
                     </span>
                   ))
             )}
@@ -120,4 +120,4 @@ export default function DraggableCard({ idx, item, variant, checked, onCheck, on
       </div>
     </div>
   );
-}
+});

@@ -1,7 +1,7 @@
 // components/panels/DashboardPanel.js
 // CAFE24 AI Platform - 대시보드 패널 (Recharts 버전)
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import KpiCard from '@/components/KpiCard';
 import EmptyState from '@/components/EmptyState';
@@ -65,10 +65,10 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
   const [drilldownData, setDrilldownData] = useState(null);
   const [drilldownLoading, setDrilldownLoading] = useState(false);
 
-  const loadData = async () => {
+  // M44: loadData를 useCallback으로 안정화
+  const loadData = useCallback(async () => {
     setLoading(true);
 
-    // 대시보드 요약, 인사이트, 알림을 병렬로 가져오기
     const [summaryRes, insightsRes, alertsRes] = await Promise.all([
       apiCall({
         endpoint: '/api/dashboard/summary',
@@ -103,11 +103,17 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
     if (alertsRes?.status === 'success' && alertsRes.alerts) {
       setAlerts(alertsRes.alerts);
     }
-  };
+  }, [auth, apiCall]);
 
   useEffect(() => {
     loadData();
-  }, [auth, apiCall]);
+  }, [loadData]);
+
+  // L20: 대시보드 자동 폴링 (60초 간격)
+  useEffect(() => {
+    const interval = setInterval(loadData, 60000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   // 세그먼트 드릴다운 핸들러
   const handleSegmentClick = async (data) => {
@@ -157,10 +163,20 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
   };
 
   // 드릴다운 닫기
-  const closeDrilldown = () => {
+  const closeDrilldown = useCallback(() => {
     setDrilldownSegment(null);
     setDrilldownData(null);
-  };
+  }, []);
+
+  // L25: Escape 키로 드릴다운 모달 닫기
+  useEffect(() => {
+    if (!drilldownSegment) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeDrilldown();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [drilldownSegment, closeDrilldown]);
 
   // 세그먼트 분포 차트 데이터
   const segmentData = useMemo(() => {

@@ -2,25 +2,27 @@
 // CAFE24 AI 운영 플랫폼 - 상세 분석 패널 (리팩토링)
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
-import { SkeletonCard } from '@/components/Skeleton';
 import {
-  Users, Search, Calendar, TrendingUp,
-  RefreshCw, ChevronDown, User, ShoppingBag, MessageSquare,
+  Users, Calendar, TrendingUp,
+  ChevronDown, User, ShoppingBag, MessageSquare,
   AlertTriangle, Brain, Target, DollarSign
 } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
+import { DAYS_MAP } from './common/constants';
 
-// 탭 컴포넌트
-import SellerTab from './SellerTab';
-import SegmentTab from './SegmentTab';
-import AnomalyTab from './AnomalyTab';
-import PredictionTab from './PredictionTab';
-import CohortTab from './CohortTab';
-import TrendTab from './TrendTab';
-import ShopTab from './ShopTab';
+// H28: recharts 사용 탭은 dynamic import (SSR 비활성화, 코드 스플리팅)
+const SellerTab = dynamic(() => import('./SellerTab'), { ssr: false });
+const SegmentTab = dynamic(() => import('./SegmentTab'), { ssr: false });
+const AnomalyTab = dynamic(() => import('./AnomalyTab'), { ssr: false });
+const PredictionTab = dynamic(() => import('./PredictionTab'), { ssr: false });
+const CohortTab = dynamic(() => import('./CohortTab'), { ssr: false });
+const TrendTab = dynamic(() => import('./TrendTab'), { ssr: false });
+const ShopTab = dynamic(() => import('./ShopTab'), { ssr: false });
+const MarketingTab = dynamic(() => import('./MarketingTab'), { ssr: false });
+// CsTab은 recharts 미사용이므로 정적 import
 import CsTab from './CsTab';
-import MarketingTab from './MarketingTab';
 
 // 분석 탭 정의
 const ANALYSIS_TABS = [
@@ -60,41 +62,37 @@ export default function AnalysisPanel({ auth, apiCall }) {
   // 빠른 선택용 샘플 셀러 ID
   const quickSelectUsers = ['SEL0001', 'SEL0025', 'SEL0100', 'SEL0250'];
 
-  // 자동완성 관련 상태
   const searchInputRef = useRef(null);
-  const autocompleteTimerRef = useRef(null);
 
   // 분석 데이터 상태
   const [anomalyData, setAnomalyData] = useState(null);
   const [predictionData, setPredictionData] = useState(null);
   const [cohortData, setCohortData] = useState(null);
   const [trendData, setTrendData] = useState(null);
-  const [predictionSearchQuery, setPredictionSearchQuery] = useState('');
-  const [predictionUser, setPredictionUser] = useState(null);
-  const [predictionUserLoading, setPredictionUserLoading] = useState(false);
 
-  // 마케팅 최적화 상태
-  const [marketingUser, setMarketingUser] = useState('');
-  const [marketingUserInput, setMarketingUserInput] = useState('');
-  const [marketingUserStatus, setMarketingUserStatus] = useState(null);
-  const [marketingResult, setMarketingResult] = useState(null);
-  const [marketingOptimizing, setMarketingOptimizing] = useState(false);
-  const [marketingLoading, setMarketingLoading] = useState(false);
+  // 선택된 셀러 ID ref (dateRange 변경 시 재검색용)
+  const selectedUserIdRef = useRef(null);
+  selectedUserIdRef.current = selectedUser?.id || null;
 
-  // API 데이터 로드
+  // API 데이터 로드 (H30: Promise.all 병렬, M58: useEffect 통합)
   useEffect(() => {
+    if (!auth) return;
+
     async function fetchData() {
       setLoading(true);
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
-      const days = daysMap[dateRange] || 7;
+      const days = DAYS_MAP[dateRange] || 7;
 
       try {
-        const summaryRes = await apiCall({
-          endpoint: `/api/stats/summary?days=${days}`,
-          auth,
-          timeoutMs: 10000,
-        });
+        // H30: 독립 API 4개 병렬 호출
+        const [summaryRes, anomalyRes, churnRes, cohortRes, trendRes] = await Promise.all([
+          apiCall({ endpoint: `/api/stats/summary?days=${days}`, auth, timeoutMs: 10000 }).catch(() => null),
+          apiCall({ endpoint: `/api/analysis/anomaly?days=${days}`, auth, timeoutMs: 10000 }).catch(() => null),
+          apiCall({ endpoint: `/api/analysis/prediction/churn?days=${days}`, auth, timeoutMs: 10000 }).catch(() => null),
+          apiCall({ endpoint: `/api/analysis/cohort/retention?days=${days}`, auth, timeoutMs: 10000 }).catch(() => null),
+          apiCall({ endpoint: `/api/analysis/trend/kpis?days=${days}`, auth, timeoutMs: 10000 }).catch(() => null),
+        ]);
 
+        // summary 처리
         if (summaryRes?.status === 'success') {
           setSummaryData(summaryRes);
 
@@ -153,80 +151,73 @@ export default function AnalysisPanel({ auth, apiCall }) {
           }
         }
 
-        // 이상탐지 API
-        try {
-          const anomalyRes = await apiCall({
-            endpoint: `/api/analysis/anomaly?days=${days}`,
-            auth,
-            timeoutMs: 10000,
+        // 이상탐지 처리
+        if (anomalyRes?.status === 'success') {
+          setAnomalyData({
+            summary: anomalyRes.summary || {},
+            by_type: anomalyRes.by_type || [],
+            recent_alerts: anomalyRes.recent_alerts || [],
+            trend: anomalyRes.trend || [],
           });
-          if (anomalyRes?.status === 'success') {
-            setAnomalyData({
-              summary: anomalyRes.summary || {},
-              by_type: anomalyRes.by_type || [],
-              recent_alerts: anomalyRes.recent_alerts || [],
-              trend: anomalyRes.trend || [],
-            });
-          }
-        } catch (e) {
-          console.log('이상탐지 API 실패');
         }
 
-        // 예측 분석 API
-        try {
-          const churnRes = await apiCall({
-            endpoint: `/api/analysis/prediction/churn?days=${days}`,
-            auth,
-            timeoutMs: 10000,
+        // 예측 처리
+        if (churnRes?.status === 'success' && churnRes.churn) {
+          setPredictionData({
+            churn: churnRes.churn,
+            revenue: churnRes.revenue || {},
+            engagement: churnRes.engagement || {},
           });
-          if (churnRes?.status === 'success' && churnRes.churn) {
-            setPredictionData({
-              churn: churnRes.churn,
-              revenue: churnRes.revenue || {},
-              engagement: churnRes.engagement || {},
-            });
-          }
-        } catch (e) {
-          console.log('예측 API 실패');
         }
 
-        // 코호트 API
-        try {
-          const cohortRes = await apiCall({
-            endpoint: `/api/analysis/cohort/retention?days=${days}`,
-            auth,
-            timeoutMs: 10000,
+        // 코호트 처리
+        if (cohortRes?.status === 'success' && cohortRes.retention) {
+          setCohortData({
+            retention: cohortRes.retention,
+            ltv_by_cohort: cohortRes.ltv_by_cohort || [],
+            conversion: cohortRes.conversion || [],
           });
-          if (cohortRes?.status === 'success' && cohortRes.retention) {
-            setCohortData({
-              retention: cohortRes.retention,
-              ltv_by_cohort: cohortRes.ltv_by_cohort || [],
-              conversion: cohortRes.conversion || [],
-            });
-          }
-        } catch (e) {
-          console.log('코호트 API 실패');
         }
 
-        // 트렌드 KPI API
-        try {
-          const trendRes = await apiCall({
-            endpoint: `/api/analysis/trend/kpis?days=${days}`,
-            auth,
-            timeoutMs: 10000,
+        // 트렌드 처리
+        if (trendRes?.status === 'success' && trendRes.kpis) {
+          setTrendData({
+            kpis: trendRes.kpis,
+            daily_metrics: trendRes.daily_metrics || [],
+            correlation: trendRes.correlation || [],
+            forecast: trendRes.forecast || [],
           });
-          if (trendRes?.status === 'success' && trendRes.kpis) {
-            setTrendData({
-              kpis: trendRes.kpis,
-              daily_metrics: trendRes.daily_metrics || [],
-              correlation: trendRes.correlation || [],
-              forecast: trendRes.forecast || [],
-            });
-          }
-        } catch (e) {
-          console.log('트렌드 API 실패');
         }
 
+        // M58: dateRange 변경 시 선택된 셀러 재검색 통합
+        if (selectedUserIdRef.current) {
+          try {
+            const res = await apiCall({
+              endpoint: `/api/sellers/search?q=${encodeURIComponent(selectedUserIdRef.current)}&days=${days}`,
+              auth,
+              timeoutMs: 10000,
+            });
+            if (res?.status === 'success' && res.user) {
+              setSelectedUser({
+                id: res.user.id,
+                segment: res.user.segment || '알 수 없음',
+                plan_tier: res.user.plan_tier,
+                monthly_revenue: res.user.monthly_revenue || 0,
+                product_count: res.user.product_count || 0,
+                order_count: res.user.order_count || 0,
+                top_shops: res.user.top_shops || [],
+                stats: res.user.stats || {},
+                activity: res.user.activity || [],
+                model_predictions: res.user.model_predictions || {},
+                period_stats: res.user.period_stats || {},
+                is_anomaly: res.user.is_anomaly,
+                region: res.user.region,
+              });
+            }
+          } catch (e) {
+            console.log('셀러 데이터 재조회 실패');
+          }
+        }
       } catch (e) {
         console.log('API 호출 실패');
       }
@@ -234,124 +225,8 @@ export default function AnalysisPanel({ auth, apiCall }) {
       setLoading(false);
     }
 
-    if (auth) {
-      fetchData();
-    }
+    fetchData();
   }, [auth, apiCall, dateRange]);
-
-  // 마케팅 최적화: 셀러 상태 로드
-  const loadMarketingUserStatus = useCallback(async (userId) => {
-    setMarketingLoading(true);
-    try {
-      const res = await apiCall({
-        endpoint: `/api/marketing/seller/${userId}`,
-        method: 'GET',
-        auth,
-        timeoutMs: 30000,
-      });
-      if (res?.status === 'success') {
-        setMarketingUserStatus(res.data);
-        toast.success(`${userId} 셀러 정보를 불러왔습니다`);
-      } else {
-        setMarketingUserStatus(null);
-        toast.error('셀러 정보를 불러올 수 없습니다');
-      }
-    } catch (error) {
-      console.error('Failed to load seller status:', error);
-      setMarketingUserStatus(null);
-      toast.error('셀러 정보 조회에 실패했습니다. 백엔드 연결을 확인하세요.');
-    } finally {
-      setMarketingLoading(false);
-    }
-  }, [apiCall, auth]);
-
-  // 마케팅 최적화: 최적화 실행
-  const runMarketingOptimization = useCallback(async () => {
-    if (!marketingUserStatus) return;
-    setMarketingOptimizing(true);
-    try {
-      const res = await apiCall({
-        endpoint: '/api/marketing/optimize',
-        method: 'POST',
-        auth,
-        data: { seller_id: marketingUser, top_n: 10 },
-        timeoutMs: 60000,
-      });
-      if (res?.status === 'success') {
-        setMarketingResult(res.data);
-        toast.success('마케팅 최적화가 완료되었습니다!');
-      } else {
-        setMarketingResult(null);
-        toast.error('최적화에 실패했습니다');
-      }
-    } catch (error) {
-      console.error('Optimization failed:', error);
-      setMarketingResult(null);
-      toast.error('최적화 실행에 실패했습니다. 백엔드 연결을 확인하세요.');
-    } finally {
-      setMarketingOptimizing(false);
-    }
-  }, [apiCall, auth, marketingUser, marketingUserStatus]);
-
-  // 예측 분석: 개별 셀러 검색
-  const handlePredictionSearch = useCallback(async (userId) => {
-    const id = (userId || predictionSearchQuery).trim();
-    if (!id) { toast.error('셀러 ID를 입력하세요'); return; }
-    setPredictionUserLoading(true);
-    const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
-    const days = daysMap[dateRange] || 7;
-    try {
-      const res = await apiCall({
-        endpoint: `/api/sellers/search?q=${encodeURIComponent(id)}&days=${days}`,
-        auth,
-        timeoutMs: 10000,
-      });
-      if (res?.status === 'success' && res.user) {
-        setPredictionUser({
-          id: res.user.id,
-          segment: res.user.segment,
-          plan_tier: res.user.plan_tier,
-          monthly_revenue: res.user.monthly_revenue,
-          model_predictions: res.user.model_predictions || {},
-        });
-        toast.success(`${res.user.id} 예측 결과를 불러왔습니다`);
-      } else {
-        toast.error('셀러를 찾을 수 없습니다');
-        setPredictionUser(null);
-      }
-    } catch (e) {
-      toast.error('셀러 검색에 실패했습니다');
-      setPredictionUser(null);
-    }
-    setPredictionUserLoading(false);
-  }, [apiCall, auth, dateRange, predictionSearchQuery]);
-
-  // 마케팅 최적화: 예시 셀러 선택
-  const handleMarketingExampleSelect = useCallback((userId) => {
-    setMarketingUser(userId);
-    setMarketingUserInput('');
-    setMarketingResult(null);
-    loadMarketingUserStatus(userId);
-  }, [loadMarketingUserStatus]);
-
-  // 마케팅 최적화: 직접 입력 조회
-  const handleMarketingDirectSearch = useCallback(() => {
-    const trimmed = marketingUserInput.trim();
-    if (!trimmed) {
-      toast.error('셀러 ID를 입력해주세요');
-      return;
-    }
-    setMarketingUser(trimmed);
-    setMarketingResult(null);
-    loadMarketingUserStatus(trimmed);
-  }, [marketingUserInput, loadMarketingUserStatus]);
-
-  // 마케팅 최적화: Enter 키 처리
-  const handleMarketingInputKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') {
-      handleMarketingDirectSearch();
-    }
-  }, [handleMarketingDirectSearch]);
 
   // 셀러 검색
   const handleUserSearch = useCallback(async () => {
@@ -360,8 +235,7 @@ export default function AnalysisPanel({ auth, apiCall }) {
       return;
     }
     setLoading(true);
-    const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
-    const days = daysMap[dateRange] || 7;
+    const days = DAYS_MAP[dateRange] || 7;
 
     try {
       const res = await apiCall({
@@ -398,43 +272,6 @@ export default function AnalysisPanel({ auth, apiCall }) {
     }
     setLoading(false);
   }, [apiCall, auth, dateRange, searchQuery]);
-
-  // 기간 변경 시 선택된 셀러가 있으면 자동 재검색
-  useEffect(() => {
-    if (selectedUser?.id && auth) {
-      const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
-      const days = daysMap[dateRange] || 7;
-
-      const refetchUser = async () => {
-        try {
-          const res = await apiCall({
-            endpoint: `/api/sellers/search?q=${encodeURIComponent(selectedUser.id)}&days=${days}`,
-            auth,
-            timeoutMs: 10000,
-          });
-
-          if (res?.status === 'success' && res.user) {
-            setSelectedUser({
-              id: res.user.id,
-              name: res.user.id,
-              segment: res.user.segment || '알 수 없음',
-              monthly_revenue: res.user.monthly_revenue || 0,
-              product_count: res.user.product_count || 0,
-              order_count: res.user.order_count || 0,
-              top_shops: res.user.top_shops || [],
-              stats: res.user.stats || {},
-              activity: res.user.activity || [],
-            });
-          }
-        } catch (e) {
-          console.log('셀러 데이터 재조회 실패');
-        }
-      };
-
-      refetchUser();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange]);
 
   return (
     <div>
@@ -531,12 +368,9 @@ export default function AnalysisPanel({ auth, apiCall }) {
       {activeTab === 'prediction' && (
         <PredictionTab
           predictionData={predictionData}
-          predictionSearchQuery={predictionSearchQuery}
-          setPredictionSearchQuery={setPredictionSearchQuery}
-          predictionUser={predictionUser}
-          setPredictionUser={setPredictionUser}
-          predictionUserLoading={predictionUserLoading}
-          handlePredictionSearch={handlePredictionSearch}
+          apiCall={apiCall}
+          auth={auth}
+          dateRange={dateRange}
         />
       )}
 
@@ -558,18 +392,8 @@ export default function AnalysisPanel({ auth, apiCall }) {
 
       {activeTab === 'marketing' && (
         <MarketingTab
-          marketingUser={marketingUser}
-          marketingUserInput={marketingUserInput}
-          setMarketingUserInput={setMarketingUserInput}
-          marketingUserStatus={marketingUserStatus}
-          marketingResult={marketingResult}
-          marketingOptimizing={marketingOptimizing}
-          marketingLoading={marketingLoading}
-          loadMarketingUserStatus={loadMarketingUserStatus}
-          runMarketingOptimization={runMarketingOptimization}
-          handleMarketingExampleSelect={handleMarketingExampleSelect}
-          handleMarketingDirectSearch={handleMarketingDirectSearch}
-          handleMarketingInputKeyDown={handleMarketingInputKeyDown}
+          apiCall={apiCall}
+          auth={auth}
         />
       )}
     </div>

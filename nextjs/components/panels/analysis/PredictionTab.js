@@ -1,55 +1,71 @@
 // components/panels/analysis/PredictionTab.js
-// 예측 분석 탭
+// 예측 분석 탭 (H29: 자체 상태 관리)
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import {
-  Brain, Search, UserMinus, DollarSign, Activity,
-  ArrowUpRight, Users, Shield, MessageSquare
+  Brain, UserMinus, DollarSign, Activity,
+  ArrowUpRight
 } from 'lucide-react';
+import SellerSearchInput from './common/SellerSearchInput';
+import AnalysisEmptyState from './common/EmptyState';
+import { DAYS_MAP } from './common/constants';
 
 export default function PredictionTab({
-  predictionData, predictionSearchQuery, setPredictionSearchQuery,
-  predictionUser, setPredictionUser, predictionUserLoading,
-  handlePredictionSearch,
+  predictionData, apiCall, auth, dateRange,
 }) {
   const [predictionTab, setPredictionTab] = useState('churn');
+  const [predictionSearchQuery, setPredictionSearchQuery] = useState('');
+  const [predictionUser, setPredictionUser] = useState(null);
+  const [predictionUserLoading, setPredictionUserLoading] = useState(false);
+
+  const handlePredictionSearch = useCallback(async (userId) => {
+    const id = (userId || predictionSearchQuery).trim();
+    if (!id) { toast.error('셀러 ID를 입력하세요'); return; }
+    setPredictionUserLoading(true);
+    const days = DAYS_MAP[dateRange] || 7;
+    try {
+      const res = await apiCall({
+        endpoint: `/api/sellers/search?q=${encodeURIComponent(id)}&days=${days}`,
+        auth,
+        timeoutMs: 10000,
+      });
+      if (res?.status === 'success' && res.user) {
+        setPredictionUser({
+          id: res.user.id,
+          segment: res.user.segment,
+          plan_tier: res.user.plan_tier,
+          monthly_revenue: res.user.monthly_revenue,
+          model_predictions: res.user.model_predictions || {},
+        });
+        toast.success(`${res.user.id} 예측 결과를 불러왔습니다`);
+      } else {
+        toast.error('셀러를 찾을 수 없습니다');
+        setPredictionUser(null);
+      }
+    } catch (e) {
+      toast.error('셀러 검색에 실패했습니다');
+      setPredictionUser(null);
+    }
+    setPredictionUserLoading(false);
+  }, [apiCall, auth, dateRange, predictionSearchQuery]);
 
   return (
     <div className="space-y-6">
-      {/* 개별 셀러 예측 검색 */}
+      {/* 개별 셀러 예측 검색 (M57: SellerSearchInput 공통 컴포넌트) */}
       <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2 mb-3">
-          <Search size={16} className="text-cafe24-orange" />
+          <Brain size={16} className="text-cafe24-orange" />
           <span className="text-sm font-black text-cafe24-brown">개별 셀러 예측 조회</span>
         </div>
-        <div className="flex gap-2 mb-3">
-          <input
-            type="text"
-            placeholder="셀러 ID 입력 (예: SEL0001)"
-            value={predictionSearchQuery}
-            onChange={(e) => setPredictionSearchQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handlePredictionSearch(); }}
-            className="flex-1 rounded-xl border-2 border-cafe24-orange/20 bg-white px-4 py-2 text-sm font-semibold text-cafe24-brown outline-none focus:border-cafe24-orange transition-all"
-          />
-          <button
-            onClick={() => handlePredictionSearch()}
-            disabled={predictionUserLoading}
-            className="rounded-xl bg-cafe24-brown px-4 py-2 text-sm font-bold text-white hover:bg-cafe24-brown/90 transition-all disabled:opacity-50"
-          >
-            {predictionUserLoading ? '조회중...' : '예측'}
-          </button>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {['SEL0001', 'SEL0025', 'SEL0050', 'SEL0100'].map(id => (
-            <button
-              key={id}
-              onClick={() => { setPredictionSearchQuery(id); handlePredictionSearch(id); }}
-              className="px-3 py-1 rounded-full bg-cafe24-beige text-xs font-bold text-cafe24-brown hover:bg-cafe24-orange/20 transition-all"
-            >
-              {id}
-            </button>
-          ))}
-        </div>
+        <SellerSearchInput
+          value={predictionSearchQuery}
+          onChange={setPredictionSearchQuery}
+          onSearch={handlePredictionSearch}
+          loading={predictionUserLoading}
+          buttonLabel="예측"
+          loadingLabel="조회중..."
+        />
       </div>
 
       {/* 개별 셀러 예측 결과 */}
@@ -155,11 +171,11 @@ export default function PredictionTab({
         </div>
       )}
       {!predictionData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
-          <Brain size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
-          <p className="text-sm font-semibold text-cafe24-brown/50">예측 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
-        </div>
+        <AnalysisEmptyState
+          icon={Brain}
+          title="예측 데이터를 불러올 수 없습니다"
+          subtitle="백엔드 API 연결을 확인하세요"
+        />
       ) : (
       <>
       {/* 예측 유형 선택 */}

@@ -1,4 +1,6 @@
 // components/panels/lab/StepReply.js - Step 4: 회신 - 채널별 자동 발송
+// H32: EditableAnswer 공통 컴포넌트 사용
+// L35: onInit triple fitView → 1회
 import { useState, useEffect, useMemo } from 'react';
 import { ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -9,10 +11,9 @@ import toast from 'react-hot-toast';
 import { createAuthHeaders, parseSSEStream } from '@/lib/sse';
 import { WORKFLOW_NODE_DEFS, WORKFLOW_EDGE_DEFS, workflowNodeTypes } from './WorkflowNode';
 import { EmptyStep } from './utils';
+import EditableAnswer from '@/components/common/EditableAnswer';
 
 export default function StepReply({ channels, selectedChannels, setSelectedChannels, sent, setSent, draftAnswer, inquiry, classifyResults, autoIdxs, batchAnswers, updateBatchAnswer, auth }) {
-  const [editingIdx, setEditingIdx] = useState(null);
-  const [editText, setEditText] = useState('');
   const [autoReplyChannels, setAutoReplyChannels] = useState({});
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [isSending, setIsSending] = useState(false);
@@ -247,7 +248,6 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
               const pref = item.preferredChannels || ['any'];
               const isAnyPref = pref.includes('any');
               const assignedChannels = autoReplyChannels[idx] || new Set();
-              const isEditingThis = editingIdx === idx;
 
               return (
                 <div key={idx} className="rounded-lg border border-gray-200 overflow-hidden">
@@ -316,52 +316,23 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                       </div>
                     )}
                   </div>
+                  {/* H32: EditableAnswer 공통 컴포넌트 사용 */}
                   <div className="border-t border-gray-100 bg-white">
-                    {isEditingThis ? (
-                      <div className="p-2.5 space-y-2">
-                        <textarea
-                          value={editText}
-                          onChange={e => setEditText(e.target.value)}
+                    <details className="group">
+                      <summary className="flex items-center gap-1 p-2.5 text-[10px] text-green-600 font-medium cursor-pointer hover:bg-gray-50">
+                        <FileText className="w-3 h-3" />
+                        답변 내용 보기
+                      </summary>
+                      <div className="p-2.5 pt-0">
+                        <EditableAnswer
+                          answer={batchAnswers[idx]}
+                          onSave={(newText) => updateBatchAnswer(idx, newText)}
+                          disabled={sent || isSending}
                           rows={5}
-                          className="w-full p-2 rounded border border-green-300 text-xs text-gray-700 resize-none focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-200"
+                          maxHeight="max-h-24"
                         />
-                        <div className="flex gap-1.5 justify-end">
-                          <button
-                            onClick={() => setEditingIdx(null)}
-                            className="px-2.5 py-1 rounded text-[10px] text-gray-500 border border-gray-200 hover:bg-gray-50"
-                          >
-                            취소
-                          </button>
-                          <button
-                            onClick={() => { updateBatchAnswer(idx, editText); setEditingIdx(null); }}
-                            className="px-2.5 py-1 rounded text-[10px] text-white bg-green-600 hover:bg-green-700"
-                          >
-                            저장
-                          </button>
-                        </div>
                       </div>
-                    ) : (
-                      <details className="group">
-                        <summary className="flex items-center gap-1 p-2.5 text-[10px] text-green-600 font-medium cursor-pointer hover:bg-gray-50">
-                          <FileText className="w-3 h-3" />
-                          답변 내용 보기
-                        </summary>
-                        <div className="p-2.5 pt-0 relative group/ans">
-                          <div className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">
-                            {batchAnswers[idx]}
-                          </div>
-                          {!sent && !isSending && (
-                            <button
-                              onClick={() => { setEditText(batchAnswers[idx]); setEditingIdx(idx); }}
-                              className="absolute top-0 right-2.5 p-1 rounded bg-white/80 border border-gray-200 opacity-0 group-hover/ans:opacity-100 transition-opacity hover:bg-gray-50"
-                              title="답변 수정"
-                            >
-                              <Edit3 className="w-3 h-3 text-gray-500" />
-                            </button>
-                          )}
-                        </div>
-                      </details>
-                    )}
+                    </details>
                   </div>
                 </div>
               );
@@ -491,8 +462,8 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
           )}
         </div>
         <div style={{ height: 340, width: '100%', position: 'relative' }}>
+          {/* M63: key prop 제거 - 불필요한 재마운트 방지 */}
           <ReactFlow
-            key={`wf-${activeChannelKeys.size}`}
             nodes={flowNodes}
             edges={flowEdges}
             nodeTypes={workflowNodeTypes}
@@ -500,10 +471,8 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
             fitView
             fitViewOptions={{ padding: 0.25, includeHiddenNodes: true }}
             onInit={(inst) => {
-              const doFit = () => { try { inst.fitView({ padding: 0.25, includeHiddenNodes: true }); } catch {} };
-              doFit();
-              setTimeout(doFit, 120);
-              setTimeout(doFit, 400);
+              // L35: triple fitView → 1회 (레이아웃 안정 후 호출)
+              setTimeout(() => { try { inst.fitView({ padding: 0.25, includeHiddenNodes: true }); } catch {} }, 150);
             }}
             nodesDraggable={false}
             nodesConnectable={false}

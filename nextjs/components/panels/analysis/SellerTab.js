@@ -121,7 +121,7 @@ export default function SellerTab({
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={selectedUser.activity}>
                   <defs>
-                    <linearGradient id="colorProductCount" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="seller-colorProductCount" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#FFD93D" stopOpacity={0.4}/>
                       <stop offset="95%" stopColor="#FFD93D" stopOpacity={0}/>
                     </linearGradient>
@@ -131,7 +131,7 @@ export default function SellerTab({
                   <YAxis tick={{ fill: '#5C4A3D', fontSize: 11 }} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Area type="monotone" dataKey="product_count" name="상품 수" stroke="#FFD93D" fill="url(#colorProductCount)" />
+                  <Area type="monotone" dataKey="product_count" name="상품 수" stroke="#FFD93D" fill="url(#seller-colorProductCount)" />
                   <Line type="monotone" dataKey="orders" name="주문 수" stroke="#4ADE80" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>

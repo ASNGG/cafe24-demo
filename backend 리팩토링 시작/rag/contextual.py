@@ -6,17 +6,17 @@ rag/contextual.py - Contextual Retrieval (Anthropic 2024)
 import os
 import json
 import time
-import hashlib
 import threading
+from collections import OrderedDict
 from typing import Dict, Optional
 
 from core.utils import safe_str
+from rag.utils import sha1_text as _sha1_text, get_openai_client as _get_openai_client
 import state as st
 
 # ============================================================
 # Contextual Retrieval 설정
 # ============================================================
-OPENAI_CLIENT = None
 CONTEXTUAL_CACHE: Dict[str, str] = {}
 CONTEXTUAL_CACHE_FILE = None
 CONTEXTUAL_RETRIEVAL_ENABLED = True
@@ -26,35 +26,8 @@ CONTEXTUAL_MAX_WORKERS = 5
 CONTEXTUAL_MAX_RETRIES = 3
 CONTEXTUAL_CACHE_LOCK = threading.Lock()
 
-
-def _sha1_text(s: str) -> str:
-    try:
-        return hashlib.sha1((s or "").encode("utf-8", errors="ignore")).hexdigest()
-    except Exception:
-        return ""
-
-
-def _get_openai_client():
-    """Lazy initialization of OpenAI client"""
-    global OPENAI_CLIENT
-    if OPENAI_CLIENT is not None:
-        return OPENAI_CLIENT
-
-    try:
-        from openai import OpenAI
-        api_key = getattr(st, "OPENAI_API_KEY", None)
-        if not api_key:
-            st.logger.warning("OPENAI_API_KEY_NOT_SET in state.py")
-            return None
-        OPENAI_CLIENT = OpenAI(api_key=api_key)
-        st.logger.info("OPENAI_CLIENT_INITIALIZED for Contextual Retrieval")
-        return OPENAI_CLIENT
-    except ImportError as e:
-        st.logger.warning("OPENAI_IMPORT_FAIL err=%s (pip install openai)", safe_str(e))
-        return None
-    except Exception as e:
-        st.logger.warning("OPENAI_CLIENT_INIT_FAIL err=%s", safe_str(e))
-        return None
+# M27: 캐시 최대 크기 제한 (무제한 → LRU)
+CONTEXTUAL_CACHE_MAX_SIZE = 10000
 
 
 def _load_contextual_cache() -> Dict[str, str]:
@@ -123,7 +96,10 @@ def _generate_contextual_prefix(
 
     with CONTEXTUAL_CACHE_LOCK:
         if cache_key in CONTEXTUAL_CACHE:
-            return CONTEXTUAL_CACHE[cache_key]
+            # M27: LRU - move to end on access
+            val = CONTEXTUAL_CACHE.pop(cache_key)
+            CONTEXTUAL_CACHE[cache_key] = val
+            return val
 
     doc_preview = doc_content[:6000] if len(doc_content) > 6000 else doc_content
 
@@ -157,6 +133,11 @@ def _generate_contextual_prefix(
             contextual_prefix = response.choices[0].message.content.strip()
 
             with CONTEXTUAL_CACHE_LOCK:
+                # M27: LRU eviction when cache is full
+                if len(CONTEXTUAL_CACHE) >= CONTEXTUAL_CACHE_MAX_SIZE:
+                    # Remove oldest entry (first item in dict)
+                    oldest_key = next(iter(CONTEXTUAL_CACHE))
+                    del CONTEXTUAL_CACHE[oldest_key]
                 CONTEXTUAL_CACHE[cache_key] = contextual_prefix
 
             return contextual_prefix

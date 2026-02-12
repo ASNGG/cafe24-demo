@@ -1,4 +1,4 @@
-import { LogOut, Menu, ShoppingBag } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
 
 export default function Topbar({ username, onOpenSidebar, onLogout }) {
   return (

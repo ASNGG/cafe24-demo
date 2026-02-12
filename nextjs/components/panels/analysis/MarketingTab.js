@@ -1,7 +1,8 @@
 // components/panels/analysis/MarketingTab.js
-// 마케팅 최적화 탭
+// 마케팅 최적화 탭 (H29: 자체 상태 관리)
 
-import { useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import {
   DollarSign, RefreshCw, Users, Target, ShoppingBag,
   TrendingUp, ArrowUpRight, Search
@@ -18,13 +19,14 @@ const MARKETING_EXAMPLE_USERS = [
   { id: 'SEL0100', description: 'Basic, 낮은 매출' },
 ];
 
-export default function MarketingTab({
-  marketingUser, marketingUserInput, setMarketingUserInput,
-  marketingUserStatus, marketingResult, marketingOptimizing,
-  marketingLoading, loadMarketingUserStatus, runMarketingOptimization,
-  handleMarketingExampleSelect, handleMarketingDirectSearch,
-  handleMarketingInputKeyDown,
-}) {
+export default function MarketingTab({ apiCall, auth }) {
+  const [marketingUser, setMarketingUser] = useState('');
+  const [marketingUserInput, setMarketingUserInput] = useState('');
+  const [marketingUserStatus, setMarketingUserStatus] = useState(null);
+  const [marketingResult, setMarketingResult] = useState(null);
+  const [marketingOptimizing, setMarketingOptimizing] = useState(false);
+  const [marketingLoading, setMarketingLoading] = useState(false);
+
   const shopChartData = useMemo(() => {
     if (!marketingUserStatus?.shops?.length) return [];
     return marketingUserStatus.shops.slice(0, 8).map(s => ({
@@ -33,6 +35,76 @@ export default function MarketingTab({
       매출: Math.round((s.monthly_revenue || 0) / 10000),
     }));
   }, [marketingUserStatus]);
+
+  const loadMarketingUserStatus = useCallback(async (userId) => {
+    setMarketingLoading(true);
+    try {
+      const res = await apiCall({
+        endpoint: `/api/marketing/seller/${userId}`,
+        method: 'GET',
+        auth,
+        timeoutMs: 30000,
+      });
+      if (res?.status === 'success') {
+        setMarketingUserStatus(res.data);
+        toast.success(`${userId} 셀러 정보를 불러왔습니다`);
+      } else {
+        setMarketingUserStatus(null);
+        toast.error('셀러 정보를 불러올 수 없습니다');
+      }
+    } catch (error) {
+      console.error('Failed to load seller status:', error);
+      setMarketingUserStatus(null);
+      toast.error('셀러 정보 조회에 실패했습니다. 백엔드 연결을 확인하세요.');
+    } finally {
+      setMarketingLoading(false);
+    }
+  }, [apiCall, auth]);
+
+  const runMarketingOptimization = useCallback(async () => {
+    if (!marketingUserStatus) return;
+    setMarketingOptimizing(true);
+    try {
+      const res = await apiCall({
+        endpoint: '/api/marketing/optimize',
+        method: 'POST',
+        auth,
+        data: { seller_id: marketingUser, top_n: 10 },
+        timeoutMs: 60000,
+      });
+      if (res?.status === 'success') {
+        setMarketingResult(res.data);
+        toast.success('마케팅 최적화가 완료되었습니다!');
+      } else {
+        setMarketingResult(null);
+        toast.error('최적화에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Optimization failed:', error);
+      setMarketingResult(null);
+      toast.error('최적화 실행에 실패했습니다. 백엔드 연결을 확인하세요.');
+    } finally {
+      setMarketingOptimizing(false);
+    }
+  }, [apiCall, auth, marketingUser, marketingUserStatus]);
+
+  const handleMarketingExampleSelect = useCallback((userId) => {
+    setMarketingUser(userId);
+    setMarketingUserInput('');
+    setMarketingResult(null);
+    loadMarketingUserStatus(userId);
+  }, [loadMarketingUserStatus]);
+
+  const handleMarketingDirectSearch = useCallback(() => {
+    const trimmed = marketingUserInput.trim();
+    if (!trimmed) {
+      toast.error('셀러 ID를 입력해주세요');
+      return;
+    }
+    setMarketingUser(trimmed);
+    setMarketingResult(null);
+    loadMarketingUserStatus(trimmed);
+  }, [marketingUserInput, loadMarketingUserStatus]);
 
   return (
     <div className="space-y-6">
@@ -89,7 +161,7 @@ export default function MarketingTab({
               type="text"
               value={marketingUserInput}
               onChange={(e) => setMarketingUserInput(e.target.value)}
-              onKeyDown={handleMarketingInputKeyDown}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleMarketingDirectSearch(); }}
               placeholder="셀러 ID 입력 (예: SEL0001)"
               className="flex-1 px-4 py-3 rounded-xl border-2 border-cafe24-orange/20 bg-white text-cafe24-brown font-medium placeholder:text-cafe24-brown/40 focus:border-cafe24-orange focus:ring-2 focus:ring-cafe24-orange/20 outline-none transition-all"
             />

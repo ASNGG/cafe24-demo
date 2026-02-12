@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { motion } from 'framer-motion';
 import { apiCall } from '@/lib/api';
 import { saveToSession, loadFromSession, STORAGE_KEYS } from '@/lib/storage';
 import { User, Lock, ChevronDown, ShoppingBag, BarChart3, Package, Truck, CreditCard } from 'lucide-react';
@@ -90,25 +89,14 @@ export default function LoginPage() {
         ))}
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-sm relative z-10"
-      >
+      <div className="w-full max-w-sm relative z-10 animate-login-card-in">
         {/* 헤더 */}
         <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.8, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-            className="mb-4 inline-block"
-            whileHover={{ scale: 1.1, rotate: 10 }}
-          >
+          <div className="mb-4 inline-block animate-login-logo-in hover:scale-110 hover:rotate-[10deg] transition-transform">
             <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-lg flex items-center justify-center cafe24-float border-2 border-cafe24-orange/20" style={{ animationDuration: '2s' }}>
               <img src="https://img.echosting.cafe24.com/imgcafe24com/images/common/cafe24.svg" alt="CAFE24" className="w-14 h-14 object-contain" />
             </div>
-          </motion.div>
+          </div>
           <h1 className="text-xl font-semibold cafe24-text">CAFE24 AI Platform</h1>
           <p className="text-sm text-cafe24-brown/60 mt-1">이커머스 운영 · AI 에이전트 · 데이터 분석</p>
           <div className="mt-3 inline-flex items-center gap-1.5 bg-cafe24-beige px-3 py-1 rounded-full">
@@ -155,20 +143,16 @@ export default function LoginPage() {
 
             {/* 에러 메시지 */}
             {err && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-600"
-              >
+              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm text-red-600 animate-login-card-in">
                 {err}
-              </motion.div>
+              </div>
             )}
 
             {/* 로그인 버튼 */}
             <button
               onClick={onLogin}
               disabled={loading || !username || !password}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cafe24-yellow to-cafe24-orange text-white font-semibold text-base shadow-cookie transition-all hover:shadow-cafe24-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-cafe24-yellow to-cafe24-orange text-white font-semibold text-base shadow-cafe24-sm transition-all hover:shadow-cafe24-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
@@ -191,12 +175,7 @@ export default function LoginPage() {
               </button>
 
               {showAccounts && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-2 space-y-1.5"
-                >
+                <div className="mt-2 space-y-1.5 animate-login-card-in">
                   {accounts.map((acc) => (
                     <button
                       key={acc.user}
@@ -212,7 +191,7 @@ export default function LoginPage() {
                       </span>
                     </button>
                   ))}
-                </motion.div>
+                </div>
               )}
             </div>
           </div>
@@ -222,7 +201,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-xs text-cafe24-brown/40">
           &copy; 2026 CAFE24 &middot; AI 운영 플랫폼
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

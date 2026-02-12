@@ -1,14 +1,12 @@
 // components/panels/lab/utils.js - LabPanel 공통 유틸 컴포넌트
+// L37: renderMd → react-markdown 통일
 import { AlertTriangle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
-export const renderMd = (text) => {
+export function renderMd(text) {
   if (!text) return null;
-  return text.split(/(\*\*.*?\*\*)/g).map((seg, i) =>
-    seg.startsWith('**') && seg.endsWith('**')
-      ? <strong key={i} className="font-semibold">{seg.slice(2, -2)}</strong>
-      : seg
-  );
-};
+  return <ReactMarkdown>{text}</ReactMarkdown>;
+}
 
 export function KpiMini({ label, value, icon: Icon }) {
   return (

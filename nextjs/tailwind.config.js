@@ -50,24 +50,13 @@ module.exports = {
       boxShadow: {
         'cafe24': '0 4px 12px 0 rgba(91, 155, 245, 0.18)',
         'cafe24-lg': '0 8px 24px -3px rgba(91, 155, 245, 0.22)',
+        'cafe24-sm': '0 4px 12px rgba(91, 155, 245, 0.15)',
         'soft': '0 2px 8px rgba(26, 26, 46, 0.05)',
         'soft-lg': '0 8px 24px rgba(26, 26, 46, 0.08)',
       },
       animation: {
         'bounce-slow': 'bounce 3s infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'fade-in': 'fadeIn 0.3s ease-out',
-        'slide-in': 'slideIn 0.25s ease-out',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        slideIn: {
-          '0%': { opacity: '0', transform: 'translateX(-10px)' },
-          '100%': { opacity: '1', transform: 'translateX(0)' },
-        },
       },
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',

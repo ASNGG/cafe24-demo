@@ -9,10 +9,11 @@ rag/chunking.py - 텍스트 청킹 로직
 """
 import os
 import re
-import hashlib
+from collections import Counter
 from typing import List, Dict, Any, Tuple
 
 from core.utils import safe_str
+from rag.utils import sha1_text, clean_text, extract_text_from_pdf
 import state as st
 
 # ============================================================
@@ -28,22 +29,10 @@ except ImportError:
     pass
 
 # ============================================================
-# 내부 유틸
+# 내부 유틸 (M21, M22: 공통 유틸로 위임)
 # ============================================================
-def _sha1_text(s: str) -> str:
-    try:
-        return hashlib.sha1((s or "").encode("utf-8", errors="ignore")).hexdigest()
-    except Exception:
-        return ""
-
-
-def _clean_text_for_rag(txt: str) -> str:
-    if not txt:
-        return ""
-    txt = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", " ", txt)
-    txt = re.sub(r"[ \t]+", " ", txt)
-    txt = re.sub(r"\n{3,}", "\n\n", txt)
-    return txt.strip()
+_sha1_text = sha1_text
+_clean_text_for_rag = clean_text
 
 
 def _is_garbage_text(txt: str) -> bool:
@@ -79,7 +68,6 @@ def _extract_key_nouns(text: str, top_k: int = 15) -> List[str]:
         '경우', '통해', '대한', '관한', '대해', '관해', '사용', '기능', '설명',
     }
 
-    from collections import Counter
     all_terms = nouns + compound_nouns
     counter = Counter(all_terms)
 
@@ -300,51 +288,9 @@ def _split_by_sections(text: str, source: str = "") -> List[Tuple[str, str]]:
 
 
 # ============================================================
-# PDF 텍스트 추출
+# PDF 텍스트 추출 (M24: 공통 유틸로 위임)
 # ============================================================
-def _extract_text_from_pdf(path: str) -> str:
-    """PDF에서 텍스트 추출"""
-    raw_text = ""
-
-    try:
-        import fitz
-        text_parts = []
-        with fitz.open(path) as doc:
-            for page in doc:
-                page_text = page.get_text("text")
-                if page_text:
-                    text_parts.append(page_text)
-        raw_text = "\n".join(text_parts).strip()
-        if raw_text:
-            st.logger.info("PDF_EXTRACTED_PYMUPDF path=%s chars=%d",
-                          os.path.basename(path), len(raw_text))
-    except ImportError:
-        st.logger.debug("pymupdf not available, falling back to pypdf")
-    except Exception as e:
-        st.logger.warning("PYMUPDF_FAIL path=%s err=%s", path, safe_str(e))
-
-    if not raw_text:
-        try:
-            try:
-                from pypdf import PdfReader
-            except ImportError:
-                try:
-                    from PyPDF2 import PdfReader
-                except ImportError:
-                    return ""
-            reader = PdfReader(path)
-            text_parts = []
-            for page in reader.pages:
-                text_parts.append(page.extract_text() or "")
-            raw_text = "\n".join(text_parts).strip()
-            if raw_text:
-                st.logger.info("PDF_EXTRACTED_PYPDF path=%s chars=%d",
-                              os.path.basename(path), len(raw_text))
-        except Exception as e:
-            st.logger.warning("PYPDF_FAIL path=%s err=%s", path, safe_str(e))
-            return ""
-
-    return raw_text
+_extract_text_from_pdf = extract_text_from_pdf
 
 
 def _rag_read_file(path: str) -> str:
@@ -576,16 +522,25 @@ def _create_parent_child_chunks(
             with ThreadPoolExecutor(max_workers=contextual_max_workers) as executor:
                 futures = {executor.submit(process_child, i): i for i in range(len(child_infos))}
                 completed = 0
+                _contextual_errors = 0
                 for future in as_completed(futures):
-                    idx, prefix = future.result()
-                    contextual_prefixes[idx] = prefix
-                    if prefix:
-                        contextual_generated_count += 1
+                    # M29: 개별 future 에러 처리
+                    try:
+                        idx, prefix = future.result()
+                        contextual_prefixes[idx] = prefix
+                        if prefix:
+                            contextual_generated_count += 1
+                    except Exception as e:
+                        _contextual_errors += 1
+                        if _contextual_errors <= 5:
+                            st.logger.warning("CONTEXTUAL_CHILD_FAIL idx=%d err=%s",
+                                            futures[future], safe_str(e)[:80])
                     completed += 1
                     if completed % 100 == 0 or completed == len(child_infos):
-                        st.logger.info("CONTEXTUAL_PROGRESS %d/%d (%.1f%%)",
+                        st.logger.info("CONTEXTUAL_PROGRESS %d/%d (%.1f%%) errors=%d",
                                       completed, len(child_infos),
-                                      100.0 * completed / max(1, len(child_infos)))
+                                      100.0 * completed / max(1, len(child_infos)),
+                                      _contextual_errors)
 
         # Document 조합
         for idx, info in enumerate(child_infos):

@@ -5,12 +5,12 @@ CAFE24 AI 운영 플랫폼 - 전역 상태 관리
 
 모든 공유 가변 상태를 한 곳에서 관리합니다.
 """
+import json
 import os
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from threading import Lock
-from collections import deque
 
 import pandas as pd
 
@@ -147,7 +147,6 @@ SELECTED_MODELS: Dict[str, str] = {}
 
 def save_selected_models() -> bool:
     """선택된 모델 상태를 JSON 파일에 저장"""
-    import json
     try:
         with open(SELECTED_MODELS_FILE, "w", encoding="utf-8") as f:
             json.dump(SELECTED_MODELS, f, ensure_ascii=False, indent=2)
@@ -159,7 +158,6 @@ def save_selected_models() -> bool:
 
 def load_selected_models() -> Dict[str, str]:
     """저장된 모델 선택 상태 로드"""
-    import json
     global SELECTED_MODELS
     try:
         if os.path.exists(SELECTED_MODELS_FILE):
@@ -279,23 +277,6 @@ LIGHTRAG_CONFIG = {
 }
 
 # ============================================================
-# 대화 메모리
-# ============================================================
-CONVERSATION_MEMORY: Dict[str, deque] = {}
-MAX_MEMORY_TURNS = 10
-
-def get_memory(session_id: str) -> deque:
-    """세션별 대화 메모리 가져오기"""
-    if session_id not in CONVERSATION_MEMORY:
-        CONVERSATION_MEMORY[session_id] = deque(maxlen=MAX_MEMORY_TURNS * 2)
-    return CONVERSATION_MEMORY[session_id]
-
-def clear_memory(session_id: str) -> None:
-    """세션 메모리 초기화"""
-    if session_id in CONVERSATION_MEMORY:
-        CONVERSATION_MEMORY[session_id].clear()
-
-# ============================================================
 # 멀티 에이전트 상태
 # ============================================================
 AGENT_TASKS: Dict[str, Dict[str, Any]] = {}
@@ -306,17 +287,6 @@ AGENT_LOCK = Lock()
 # ============================================================
 CS_QUEUE: List[Dict[str, Any]] = []
 CS_LOCK = Lock()
-
-# ============================================================
-# API 설정
-# ============================================================
-API_RATE_LIMIT = {
-    "requests_per_minute": 60,
-    "tokens_per_minute": 100000,
-    "current_requests": 0,
-    "current_tokens": 0,
-    "last_reset": 0.0,
-}
 
 # ============================================================
 # 시스템 상태
@@ -338,7 +308,6 @@ CUSTOM_SYSTEM_PROMPT: Optional[str] = None
 
 def save_system_prompt(prompt: str) -> bool:
     """시스템 프롬프트를 파일에 저장"""
-    import json
     global CUSTOM_SYSTEM_PROMPT
     try:
         CUSTOM_SYSTEM_PROMPT = prompt
@@ -352,7 +321,6 @@ def save_system_prompt(prompt: str) -> bool:
 
 def load_system_prompt() -> Optional[str]:
     """저장된 시스템 프롬프트 로드"""
-    import json
     global CUSTOM_SYSTEM_PROMPT
     try:
         if os.path.exists(SYSTEM_PROMPT_FILE):
@@ -409,7 +377,6 @@ CUSTOM_LLM_SETTINGS: Optional[Dict[str, Any]] = None
 
 def save_llm_settings(settings: Dict[str, Any]) -> bool:
     """LLM 설정을 파일에 저장"""
-    import json
     global CUSTOM_LLM_SETTINGS
     try:
         merged = {**DEFAULT_LLM_SETTINGS, **settings}
@@ -424,7 +391,6 @@ def save_llm_settings(settings: Dict[str, Any]) -> bool:
 
 def load_llm_settings() -> Dict[str, Any]:
     """저장된 LLM 설정 로드"""
-    import json
     global CUSTOM_LLM_SETTINGS
     try:
         if os.path.exists(LLM_SETTINGS_FILE):

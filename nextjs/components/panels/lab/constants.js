@@ -20,7 +20,7 @@ export const INBOX_INQUIRIES = [
   { text: '카페24 API 웹훅 콜백이 간헐적으로 실패합니다. 서버 로그를 확인해주시고 원인 분석 부탁드립니다.', tier: 'Enterprise', preferredChannels: ['email', 'sms'] },
 ];
 
-export const SELLER_TIERS = ['Basic', 'Standard', 'Premium', 'Enterprise'];
+// L36: SELLER_TIERS 미사용 확인 후 제거
 
 export const PRIORITY_COLORS = {
   urgent: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300' },
@@ -41,4 +41,13 @@ export const TIER_COLORS = {
   Standard: 'bg-blue-100 text-blue-700',
   Premium: 'bg-purple-100 text-purple-700',
   Enterprise: 'bg-amber-100 text-amber-700',
+};
+
+// M66: 채널 라벨 매핑 통합 (StepClassify, DraggableCard에서 중복 제거)
+export const CHANNEL_LABELS = {
+  email: '이메일',
+  kakao: '카카오',
+  sms: 'SMS',
+  inapp: '인앱',
+  any: '무관',
 };

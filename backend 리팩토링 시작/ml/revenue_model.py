@@ -91,57 +91,45 @@ class RevenuePredictor:
         """
         logger.info(f"Generating {n_samples} synthetic samples from {len(base_df)} base shops")
 
-        X_list = []
-        y_list = []
-
+        # M32: numpy broadcasting으로 이중 루프 제거
         # 피처별 매출 영향도 (이커머스 도메인 기반 추정)
-        revenue_impact = {
-            'monthly_revenue':          0.85,    # 현재 매출이 높을수록 다음 달도 높음 (관성)
-            'monthly_orders':           150.0,   # 주문 1건 증가 → 매출 +150원 상당
-            'monthly_visitors':         200.0,   # 방문자 1명 증가 → 매출 +200원 상당
-            'avg_order_value':          0.5,     # AOV 1원 증가 → 매출 +0.5원 상당
-            'customer_retention_rate':  5000.0,  # 유지율 1%p 증가 → 매출 +5000원 상당
-            'conversion_rate':          8000.0,  # 전환율 1%p 증가 → 매출 +8000원 상당
-            'review_score':             20000.0, # 리뷰 평점 0.1 증가 → 매출 +2000원 상당
-        }
+        impact_values = np.array([0.85, 150.0, 200.0, 0.5, 5000.0, 8000.0, 20000.0])
 
         samples_per_shop = max(1, n_samples // len(base_df))
+        n_shops = len(base_df)
+        n_features = len(REVENUE_FEATURES)
 
-        for _, row in base_df.iterrows():
-            base_features = np.array([row[feat] for feat in REVENUE_FEATURES])
-            base_next_revenue = row.get('next_month_revenue', row['monthly_revenue'] * 1.02)
+        # 원본 데이터를 행렬로 추출
+        base_X = base_df[REVENUE_FEATURES].values  # (n_shops, n_features)
+        base_y = base_df.get('next_month_revenue',
+                            base_df['monthly_revenue'] * 1.02).values  # (n_shops,)
 
-            for _ in range(samples_per_shop):
-                # 랜덤 성과 변화 (-20% ~ +20%)
-                noise_pct = np.random.uniform(-0.2, 0.2, len(REVENUE_FEATURES))
+        # Broadcasting으로 합성 데이터 일괄 생성
+        total_synthetic = n_shops * samples_per_shop
+        noise_pct = np.random.uniform(-0.2, 0.2, (total_synthetic, n_features))
 
-                new_features = base_features.copy()
-                delta_revenue = 0
+        # 각 샵별 반복 인덱스
+        shop_indices = np.repeat(np.arange(n_shops), samples_per_shop)
+        base_features_repeated = base_X[shop_indices]  # (total_synthetic, n_features)
+        base_y_repeated = base_y[shop_indices]  # (total_synthetic,)
 
-                for i, feat in enumerate(REVENUE_FEATURES):
-                    change = base_features[i] * noise_pct[i]
-                    new_features[i] = max(0, base_features[i] + change)
+        # 변화량 계산
+        changes = base_features_repeated * noise_pct  # (total_synthetic, n_features)
+        new_features = np.maximum(0, base_features_repeated + changes)
 
-                    # 매출 변화 계산
-                    if feat == 'monthly_revenue':
-                        delta_revenue += change * revenue_impact['monthly_revenue']
-                    else:
-                        delta_revenue += change * revenue_impact[feat]
+        # 매출 변화 = 변화량 * 영향도의 내적
+        delta_revenue = np.sum(changes * impact_values, axis=1)
 
-                # 매출에 약간의 랜덤성 추가
-                noise_std = base_next_revenue * 0.05  # 5% 표준편차
-                new_next_revenue = base_next_revenue + delta_revenue + np.random.normal(0, noise_std)
-                new_next_revenue = max(0, new_next_revenue)  # 음수 방지
+        # 노이즈 추가
+        noise_std = base_y_repeated * 0.05
+        noise = np.random.normal(0, 1, total_synthetic) * noise_std
+        new_y = np.maximum(0, base_y_repeated + delta_revenue + noise)
 
-                X_list.append(new_features)
-                y_list.append(new_next_revenue)
+        # 원본 데이터 합치기
+        X_all = np.vstack([new_features, base_X])
+        y_all = np.concatenate([new_y, base_y])
 
-        # 원본 데이터도 포함
-        for _, row in base_df.iterrows():
-            X_list.append([row[feat] for feat in REVENUE_FEATURES])
-            y_list.append(row.get('next_month_revenue', row['monthly_revenue'] * 1.02))
-
-        return np.array(X_list), np.array(y_list)
+        return X_all, y_all
 
     def train(self, shop_performance_df: pd.DataFrame, n_synthetic: int = 500) -> Dict:
         """

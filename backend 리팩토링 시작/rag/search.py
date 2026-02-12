@@ -6,11 +6,13 @@ RAG-Fusion, 쿼리 확장 등 검색 관련 기능
 """
 import re
 import time
+from collections import OrderedDict
 from typing import List, Dict, Tuple, Any, Optional
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.utils import safe_str
+from rag.utils import tokenize_korean as _shared_tokenize_korean
 import state as st
 
 # ============================================================
@@ -27,6 +29,7 @@ except ImportError:
 CrossEncoder = None
 RERANKER_AVAILABLE = False
 RERANKER_MODEL = None
+_RERANKER_LOAD_FAILED = False  # M28: 실패 기억 플래그
 try:
     from sentence_transformers import CrossEncoder
     RERANKER_AVAILABLE = True
@@ -42,20 +45,9 @@ BM25_DOC_MAP: List[Dict] = []
 
 
 # ============================================================
-# Korean Tokenizer
+# Korean Tokenizer (M23: 공통 유틸로 위임)
 # ============================================================
-def _tokenize_korean(text: str) -> List[str]:
-    """한국어/영어 토큰화 (whitespace + 한글 바이그램)"""
-    if not text:
-        return []
-    tokens = text.lower().split()
-    result = []
-    for tok in tokens:
-        result.append(tok)
-        if re.search(r'[가-힣]', tok) and len(tok) >= 2:
-            for i in range(len(tok) - 1):
-                result.append(tok[i:i + 2])
-    return result
+_tokenize_korean = _shared_tokenize_korean
 
 
 # ============================================================
@@ -158,14 +150,18 @@ def _bm25_search(query: str, top_k: int = 5, parent_content_func=None) -> List[T
 # Cross-Encoder Reranking
 # ============================================================
 def _get_reranker():
-    """Reranker 모델 로드 (Lazy Loading)"""
-    global RERANKER_MODEL
+    """Reranker 모델 로드 (Lazy Loading, M28: 실패 기억)"""
+    global RERANKER_MODEL, _RERANKER_LOAD_FAILED
 
     if not RERANKER_AVAILABLE or CrossEncoder is None:
         return None
 
     if RERANKER_MODEL is not None:
         return RERANKER_MODEL
+
+    # M28: 이전에 모든 모델 로드 실패했으면 재시도 하지 않음
+    if _RERANKER_LOAD_FAILED:
+        return None
 
     models_to_try = [
         ('BAAI/bge-reranker-v2-m3', 1024),
@@ -182,7 +178,8 @@ def _get_reranker():
             st.logger.warning("RERANKER_TRY_FAIL model=%s err=%s", model_name, safe_str(e))
             continue
 
-    st.logger.warning("RERANKER_ALL_MODELS_FAILED")
+    st.logger.warning("RERANKER_ALL_MODELS_FAILED - will not retry")
+    _RERANKER_LOAD_FAILED = True
     return None
 
 
@@ -274,7 +271,8 @@ def _reciprocal_rank_fusion(
 RAG_FUSION_ENABLED = True
 RAG_FUSION_NUM_QUERIES = 2
 
-_FUSION_QUERY_CACHE: Dict[str, List[str]] = {}
+# L11: FIFO → LRU 캐시로 변경
+_FUSION_QUERY_CACHE: OrderedDict = OrderedDict()
 _FUSION_CACHE_MAX_SIZE = 200
 
 
@@ -301,17 +299,17 @@ def _is_simple_query(query: str) -> bool:
 
 
 def _get_cached_fusion_queries(query: str) -> Optional[List[str]]:
-    """캐시에서 Fusion 쿼리 조회"""
-    return _FUSION_QUERY_CACHE.get(query)
+    """캐시에서 Fusion 쿼리 조회 (L11: LRU - 접근 시 순서 갱신)"""
+    if query in _FUSION_QUERY_CACHE:
+        _FUSION_QUERY_CACHE.move_to_end(query)
+        return _FUSION_QUERY_CACHE[query]
+    return None
 
 
 def _cache_fusion_queries(query: str, queries: List[str]) -> None:
-    """Fusion 쿼리를 캐시에 저장"""
-    global _FUSION_QUERY_CACHE
-
+    """Fusion 쿼리를 캐시에 저장 (L11: LRU eviction)"""
     if len(_FUSION_QUERY_CACHE) >= _FUSION_CACHE_MAX_SIZE:
-        oldest = next(iter(_FUSION_QUERY_CACHE))
-        del _FUSION_QUERY_CACHE[oldest]
+        _FUSION_QUERY_CACHE.popitem(last=False)  # LRU: 가장 오래된 항목 제거
 
     _FUSION_QUERY_CACHE[query] = queries
 
@@ -338,8 +336,10 @@ def _generate_fusion_queries(original_query: str, api_key: str = "", num_queries
         return queries
 
     try:
-        import openai
-        client = openai.OpenAI(api_key=effective_key)
+        from rag.utils import get_openai_client
+        client = get_openai_client()
+        if client is None:
+            return queries
 
         prompt = f"""당신은 검색 쿼리 전문가입니다. 주어진 쿼리를 다양한 관점에서 {num_queries - 1}개의 변형 쿼리로 재작성하세요.
 
@@ -433,8 +433,9 @@ QUERY_EXPANSION_MAP: Dict[str, List[str]] = {
 QUERY_INJECTION_RULES: List[Tuple[str, str]] = []
 
 
+@lru_cache(maxsize=256)
 def _expand_query(query: str) -> str:
-    """쿼리를 도메인 표현에 맞게 확장"""
+    """쿼리를 도메인 표현에 맞게 확장 (L13: lru_cache 적용)"""
     if not query:
         return query
 
@@ -462,7 +463,9 @@ def _expand_query(query: str) -> str:
 # ============================================================
 # 글로서리(사전) 검색
 # ============================================================
+@lru_cache(maxsize=256)
 def rag_search_glossary(query: str, top_k: int = 3) -> List[dict]:
+    """글로서리 검색 (L13: lru_cache 적용)"""
     from core.constants import RAG_DOCUMENTS
     query_lower = (query or "").lower()
     scores = []

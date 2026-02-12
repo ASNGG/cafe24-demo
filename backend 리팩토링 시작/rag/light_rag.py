@@ -23,6 +23,11 @@ from typing import Dict, List, Any, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
 
 from core.utils import safe_str
+from rag.utils import (
+    get_openai_client as _shared_get_openai_client,
+    get_openai_async_client as _shared_get_openai_async_client,
+    extract_text_from_pdf as _shared_extract_text_from_pdf,
+)
 import state as st
 
 # ============================================================
@@ -105,39 +110,20 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 # ============================================================
-# OpenAI 클라이언트 싱글톤 (연결 오버헤드 감소)
+# OpenAI 클라이언트 싱글톤 (M25/cross-1: 공통 팩토리 사용)
 # ============================================================
-_OPENAI_SYNC_CLIENT: Optional[OpenAI] = None
-_OPENAI_ASYNC_CLIENT: Optional[AsyncOpenAI] = None
-_OPENAI_CLIENT_LOCK = threading.Lock()
-
-
-def _get_sync_client() -> Optional[OpenAI]:
-    """동기 OpenAI 클라이언트 싱글톤"""
-    global _OPENAI_SYNC_CLIENT
+def _get_sync_client():
+    """동기 OpenAI 클라이언트 (공통 팩토리 위임)"""
     if not OPENAI_AVAILABLE:
         return None
-
-    with _OPENAI_CLIENT_LOCK:
-        if _OPENAI_SYNC_CLIENT is None:
-            api_key = getattr(st, "OPENAI_API_KEY", None) or os.environ.get("OPENAI_API_KEY")
-            if api_key:
-                _OPENAI_SYNC_CLIENT = OpenAI(api_key=api_key)
-        return _OPENAI_SYNC_CLIENT
+    return _shared_get_openai_client()
 
 
-def _get_async_client() -> Optional[AsyncOpenAI]:
-    """비동기 OpenAI 클라이언트 싱글톤"""
-    global _OPENAI_ASYNC_CLIENT
+def _get_async_client():
+    """비동기 OpenAI 클라이언트 (공통 팩토리 위임)"""
     if not OPENAI_AVAILABLE:
         return None
-
-    with _OPENAI_CLIENT_LOCK:
-        if _OPENAI_ASYNC_CLIENT is None:
-            api_key = getattr(st, "OPENAI_API_KEY", None) or os.environ.get("OPENAI_API_KEY")
-            if api_key:
-                _OPENAI_ASYNC_CLIENT = AsyncOpenAI(api_key=api_key)
-        return _OPENAI_ASYNC_CLIENT
+    return _shared_get_openai_async_client()
 
 # ============================================================
 # Configuration
@@ -763,13 +749,12 @@ async def lightrag_search_dual(
             "enable_rerank": False,
         }
 
-        # 병렬로 세 가지 모드 검색
+        # M30: local + global 2개만 검색 (hybrid = local+global 중복이므로 제거)
         local_task = rag.aquery(query, param=QueryParam(mode="local", **common_params))
         global_task = rag.aquery(query, param=QueryParam(mode="global", **common_params))
-        hybrid_task = rag.aquery(query, param=QueryParam(mode="hybrid", **common_params))
 
-        local_result, global_result, hybrid_result = await asyncio.gather(
-            local_task, global_task, hybrid_task,
+        local_result, global_result = await asyncio.gather(
+            local_task, global_task,
             return_exceptions=True
         )
 
@@ -778,8 +763,7 @@ async def lightrag_search_dual(
             "query": query,
             "local_result": local_result if not isinstance(local_result, Exception) else str(local_result),
             "global_result": global_result if not isinstance(global_result, Exception) else str(global_result),
-            "hybrid_result": hybrid_result if not isinstance(hybrid_result, Exception) else str(hybrid_result),
-            "recommended": "hybrid",
+            "recommended": "local",
         }
 
     except Exception as e:
@@ -849,28 +833,8 @@ def build_lightrag_from_rag_docs(force_rebuild: bool = False) -> Dict[str, Any]:
 
 
 def _extract_text_from_pdf(pdf_path: str) -> str:
-    """PDF에서 텍스트 추출 (service.py의 함수 재사용)"""
-    try:
-        import fitz  # PyMuPDF
-        doc = fitz.open(pdf_path)
-        text_parts = []
-        for page in doc:
-            text_parts.append(page.get_text())
-        doc.close()
-        return "\n".join(text_parts)
-    except ImportError:
-        # Fallback to pypdf
-        try:
-            from pypdf import PdfReader
-            reader = PdfReader(pdf_path)
-            text_parts = []
-            for page in reader.pages:
-                text_parts.append(page.extract_text() or "")
-            return "\n".join(text_parts)
-        except Exception:
-            return ""
-    except Exception:
-        return ""
+    """PDF에서 텍스트 추출 (M24: 공통 유틸로 위임)"""
+    return _shared_extract_text_from_pdf(pdf_path)
 
 
 # ============================================================

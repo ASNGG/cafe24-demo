@@ -34,6 +34,25 @@ except NameError:
         else:
             PROJECT_ROOT = _cwd
 
+# H22: CSV 데이터 캐시 (매 호출 시 중복 I/O 방지)
+_CSV_CACHE: Dict[str, pd.DataFrame] = {}
+
+
+def _load_csv_cached(path: Path) -> Optional[pd.DataFrame]:
+    """CSV 로드 결과를 캐싱 (H22: 매 호출 시 중복 I/O 방지)"""
+    key = str(path)
+    if key in _CSV_CACHE:
+        return _CSV_CACHE[key]
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+        _CSV_CACHE[key] = df
+        return df
+    except Exception as e:
+        logger.warning(f"CSV load failed: {path} - {e}")
+        return None
+
 # ========================================
 # 마케팅 채널 정의 및 기본 파라미터
 # ========================================
@@ -125,12 +144,11 @@ class MarketingOptimizer:
         self._initialize_channel_params()
 
     def _load_data(self):
-        """셀러 데이터 로딩"""
+        """셀러 데이터 로딩 (H22: 캐시 활용으로 중복 I/O 제거)"""
         try:
             # 셀러 기본 데이터
-            sellers_path = PROJECT_ROOT / "sellers.csv"
-            if sellers_path.exists():
-                all_sellers = pd.read_csv(sellers_path)
+            all_sellers = _load_csv_cached(PROJECT_ROOT / "sellers.csv")
+            if all_sellers is not None:
                 seller_row = all_sellers[all_sellers['seller_id'] == self.seller_id]
                 if len(seller_row) > 0:
                     self.seller_data = seller_row.iloc[0].to_dict()
@@ -143,9 +161,8 @@ class MarketingOptimizer:
                 self.seller_data = {}
 
             # 셀러 분석 데이터
-            analytics_path = PROJECT_ROOT / "seller_analytics.csv"
-            if analytics_path.exists():
-                all_analytics = pd.read_csv(analytics_path)
+            all_analytics = _load_csv_cached(PROJECT_ROOT / "seller_analytics.csv")
+            if all_analytics is not None:
                 analytics_row = all_analytics[all_analytics['seller_id'] == self.seller_id]
                 if len(analytics_row) > 0:
                     self.seller_analytics = analytics_row.iloc[0].to_dict()
@@ -493,55 +510,59 @@ class MarketingOptimizer:
             lower_bounds.append(min_ratio)
             upper_bounds.append(max_ratio)
 
+        # M31: numpy vectorized fitness - 채널 파라미터 사전 추출
+        _min_budgets = np.array([self.channel_params[ch]['min_budget'] for ch in MARKETING_CHANNELS])
+        _base_roas = np.array([self.channel_params[ch]['expected_roas'] for ch in MARKETING_CHANNELS])
+        _sat_points = np.array([self.channel_params[ch]['saturation_point'] for ch in MARKETING_CHANNELS])
+        _uplifts = np.array([self.channel_params[ch]['expected_revenue_uplift'] for ch in MARKETING_CHANNELS])
+
         def fitness_function(solution):
-            """
-            solution: [0.15, 0.10, 0.20, 0.05, 0.12, 0.08] - 채널별 예산 비율
-            """
+            """M31: numpy vectorized fitness function"""
             ratios = np.array(solution)
 
-            # 합계 제약: 1.0을 초과하면 페널티
             total_ratio = np.sum(ratios)
-            if total_ratio > 1.05:  # 5% 여유
+            if total_ratio > 1.05:
                 return -1000 * (total_ratio - 1.0)
 
-            # 정규화 (합계가 1.0 이하가 되도록)
             if total_ratio > 1.0:
                 ratios = ratios / total_ratio
 
-            total_score = 0
-            total_revenue = 0
-            total_cost = 0
+            budgets = self.total_budget * ratios
+            active_mask = budgets >= _min_budgets
 
-            for i, channel in enumerate(MARKETING_CHANNELS):
-                budget = self.total_budget * ratios[i]
-                params = self.channel_params[channel]
+            # Vectorized ROAS 계산 (수확체감 모델)
+            sat_budgets = self.total_budget * _sat_points
+            over_ratios = np.where(sat_budgets > 0, budgets / sat_budgets, 1.0)
+            effective_roas = np.where(
+                budgets <= sat_budgets,
+                _base_roas,
+                _base_roas * (1.0 / (1.0 + 0.3 * np.log(np.maximum(over_ratios, 1.0))))
+            )
 
-                # 최소 예산 미달 시 0으로 처리
-                if budget < params['min_budget']:
-                    continue
+            expected_rev = budgets * effective_roas * active_mask
+            expected_uplift = np.minimum(
+                _uplifts * (budgets / (self.total_budget * 0.2)),
+                _uplifts * 2
+            ) * active_mask
 
-                result = self.calculate_channel_efficiency(channel, budget)
-                expected_rev = result.get('expected_revenue', 0)
-                effective_roas = result.get('expected_roas', 0)
-                uplift = result.get('expected_revenue_uplift', 0)
+            total_revenue = np.sum(expected_rev)
+            total_cost = np.sum(budgets * active_mask)
 
-                total_revenue += expected_rev
-                total_cost += budget
+            if self.goal == 'maximize_roas':
+                total_score = np.sum(effective_roas * budgets * active_mask)
+            elif self.goal == 'maximize_revenue':
+                total_score = total_revenue
+            else:  # balanced
+                total_score = np.sum(
+                    (effective_roas * 0.4 + expected_uplift * 100 * 0.3) * budgets * active_mask
+                    + expected_rev * 0.3
+                )
 
-                # 목표에 따른 점수 계산
-                if self.goal == 'maximize_roas':
-                    total_score += effective_roas * budget  # ROAS 가중 합
-                elif self.goal == 'maximize_revenue':
-                    total_score += expected_rev  # 매출 합
-                else:  # balanced
-                    total_score += (effective_roas * 0.4 + uplift * 100 * 0.3) * budget + expected_rev * 0.3
-
-            # 예산 활용률 보너스 (너무 적게 쓰면 감점)
             utilization = total_cost / self.total_budget if self.total_budget > 0 else 0
             if utilization < 0.7:
-                total_score *= utilization  # 70% 미만 사용 시 감점
+                total_score *= utilization
 
-            return total_score
+            return float(total_score)
 
         # mealpy 3.x 방식: FloatVar 사용
         bounds = FloatVar(lb=lower_bounds, ub=upper_bounds, name="budget_ratios")

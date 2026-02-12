@@ -168,6 +168,7 @@ def get_llm(
 
 
 def invoke_with_retry(llm: ChatOpenAI, messages: List[BaseMessage], max_retries: int = 3) -> str:
+    """M20: RateLimitError/서버 오류만 재시도, 나머지는 즉시 raise"""
     last_exception = None
     for attempt in range(max_retries):
         try:
@@ -177,7 +178,11 @@ def invoke_with_retry(llm: ChatOpenAI, messages: List[BaseMessage], max_retries:
             return txt
         except Exception as e:
             last_exception = e
-            st.logger.warning("LANGCHAIN_INVOKE_FAIL attempt=%d err=%s", attempt + 1, safe_str(e))
+            err_str = safe_str(e).lower()
+            is_retryable = any(kw in err_str for kw in ["rate_limit", "ratelimit", "429", "503", "502", "timeout", "server_error"])
+            st.logger.warning("LANGCHAIN_INVOKE_FAIL attempt=%d retryable=%s err=%s", attempt + 1, is_retryable, safe_str(e))
+            if not is_retryable:
+                raise e
             if attempt < max_retries - 1:
                 time.sleep(min(2 ** attempt, 16))
             else:

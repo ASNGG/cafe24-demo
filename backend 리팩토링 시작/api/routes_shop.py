@@ -1,7 +1,6 @@
 """
 api/routes_shop.py - 쇼핑몰/카테고리/대시보드/분석/통계
 """
-import json
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -10,7 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from core.utils import safe_str, json_sanitize
+from core.utils import safe_str, json_sanitize, get_revenue_r2
 from core.constants import CS_TICKET_CATEGORIES, CS_PRIORITY_GRADES
 from agent.tools import (
     tool_get_shop_info, tool_list_shops, tool_get_shop_services,
@@ -23,19 +22,6 @@ from api.common import verify_credentials, TextClassifyRequest
 
 
 router = APIRouter(prefix="/api", tags=["shop"])
-
-
-def _get_revenue_r2():
-    """매출 예측 모델 R2 스코어 반환"""
-    try:
-        cfg_path = st.BACKEND_DIR / "revenue_model_config.json"
-        if cfg_path.exists():
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            return cfg.get("r2_score")
-    except Exception:
-        pass
-    return None
 
 
 # ============================================================
@@ -222,6 +208,111 @@ def get_dashboard_alerts(limit: int = 5, user: dict = Depends(verify_credentials
 
 
 # ============================================================
+# 공통 헬퍼
+# ============================================================
+def _success_response(**kwargs) -> dict:
+    """표준 성공 응답 래퍼"""
+    return {"status": "success", **kwargs}
+
+
+def _extract_shap_values(shap_raw) -> np.ndarray:
+    """SHAP 결과에서 ndarray를 추출 (다양한 반환 형태 대응)"""
+    if hasattr(shap_raw, 'values'):
+        return shap_raw.values
+    if isinstance(shap_raw, list) and len(shap_raw) == 2:
+        return shap_raw[1]
+    if isinstance(shap_raw, np.ndarray):
+        if shap_raw.ndim == 3:
+            return shap_raw[:, :, 1]
+        return shap_raw
+    return shap_raw
+
+
+def _compute_correlation() -> list:
+    """DAILY_METRICS_DF에서 지표 간 상관관계를 계산"""
+    correlation = []
+    if st.DAILY_METRICS_DF is not None and len(st.DAILY_METRICS_DF) >= 7:
+        corr_cols = ["active_shops", "total_gmv", "total_orders", "new_signups"]
+        corr_labels = {"active_shops": "활성 쇼핑몰", "total_gmv": "GMV", "total_orders": "주문수", "new_signups": "신규가입"}
+        avail = [c for c in corr_cols if c in st.DAILY_METRICS_DF.columns]
+        if len(avail) >= 2:
+            corr_matrix = st.DAILY_METRICS_DF[avail].corr()
+            for i in range(len(avail)):
+                for j in range(i + 1, len(avail)):
+                    correlation.append({"var1": corr_labels.get(avail[i], avail[i]), "var2": corr_labels.get(avail[j], avail[j]), "correlation": round(float(corr_matrix.iloc[i, j]), 3)})
+    return correlation
+
+
+# ============================================================
+# 분석 헬퍼
+# ============================================================
+def _classify_severity(filtered_df, anomaly_count: int):
+    """이상 탐지 데이터의 severity별 건수 분류"""
+    if "severity" in filtered_df.columns:
+        severity_counts = filtered_df["severity"].value_counts().to_dict()
+        return int(severity_counts.get("high", 0)), int(severity_counts.get("medium", 0)), int(severity_counts.get("low", 0))
+    if "anomaly_score" in filtered_df.columns:
+        high = int((filtered_df["anomaly_score"] > 0.8).sum())
+        medium = int(((filtered_df["anomaly_score"] > 0.5) & (filtered_df["anomaly_score"] <= 0.8)).sum())
+        return high, medium, max(0, anomaly_count - high - medium)
+    return 0, 0, anomaly_count
+
+
+def _build_anomaly_trend(filtered_df, date_col: str, days: int, reference_date):
+    """이상 탐지 트렌드 데이터 생성"""
+    trend = []
+    if date_col not in filtered_df.columns or len(filtered_df) == 0:
+        return trend
+    if days == 7:
+        filtered_df = filtered_df.copy()
+        filtered_df["date_str"] = filtered_df[date_col].dt.strftime("%m/%d")
+        daily_counts = filtered_df.groupby("date_str").size().to_dict()
+        for i in range(7):
+            d = reference_date - timedelta(days=6 - i)
+            date_str = d.strftime("%m/%d")
+            trend.append({"date": date_str, "count": int(daily_counts.get(date_str, 0))})
+    else:
+        bucket_size = 5 if days == 30 else 15
+        num_buckets = 6
+        for i in range(num_buckets):
+            start_day = days - (i + 1) * bucket_size
+            end_day = days - i * bucket_size
+            start_date = reference_date - timedelta(days=end_day)
+            end_date = reference_date - timedelta(days=start_day)
+            period_df = filtered_df[(filtered_df[date_col] >= start_date) & (filtered_df[date_col] < end_date)]
+            label_offset = 2 if days == 30 else 7
+            label = (reference_date - timedelta(days=end_day - label_offset)).strftime("%m/%d")
+            trend.append({"date": label, "count": len(period_df)})
+    return trend
+
+
+def _build_recent_alerts(filtered_df, date_col: str, reference_date, count: int):
+    """최근 이상 알림 목록 생성"""
+    recent_df = filtered_df.nlargest(count, date_col) if date_col in filtered_df.columns else filtered_df.head(count)
+    alerts = []
+    for _, row in recent_df.iterrows():
+        if date_col in row.index and pd.notna(row[date_col]):
+            time_diff = reference_date - row[date_col]
+            if time_diff.days > 0:
+                time_str = f"{time_diff.days}일 전"
+            elif time_diff.seconds >= 3600:
+                time_str = f"{time_diff.seconds // 3600}시간 전"
+            else:
+                time_str = f"{max(1, time_diff.seconds // 60)}분 전"
+        else:
+            time_str = "최근"
+        if "severity" in row.index:
+            sev = str(row.get("severity", "medium"))
+        elif "anomaly_score" in row.index:
+            score = float(row.get("anomaly_score", 0))
+            sev = "high" if score > 0.8 else "medium" if score > 0.5 else "low"
+        else:
+            sev = "medium"
+        alerts.append({"id": str(row.get("seller_id", row.get("user_id", "M000000"))), "type": str(row.get("anomaly_type", "알 수 없음")), "severity": sev, "detail": str(row.get("details", row.get("detail", "이상 패턴 감지"))), "time": time_str})
+    return alerts
+
+
+# ============================================================
 # 분석 API (이상탐지, 이탈예측, 코호트, 트렌드 KPI, 상관관계, 통계)
 # ============================================================
 @router.get("/analysis/anomaly")
@@ -252,18 +343,7 @@ def get_anomaly_analysis(days: int = 7, user: dict = Depends(verify_credentials)
 
             anomaly_count = len(filtered_df)
             anomaly_rate = round(anomaly_count / total_users * 100, 2) if total_users > 0 else 0
-
-            if "severity" in filtered_df.columns:
-                severity_counts = filtered_df["severity"].value_counts().to_dict()
-                high_risk = int(severity_counts.get("high", 0))
-                medium_risk = int(severity_counts.get("medium", 0))
-                low_risk = int(severity_counts.get("low", 0))
-            elif "anomaly_score" in filtered_df.columns:
-                high_risk = int((filtered_df["anomaly_score"] > 0.8).sum())
-                medium_risk = int(((filtered_df["anomaly_score"] > 0.5) & (filtered_df["anomaly_score"] <= 0.8)).sum())
-                low_risk = max(0, anomaly_count - high_risk - medium_risk)
-            else:
-                high_risk, medium_risk, low_risk = 0, 0, anomaly_count
+            high_risk, medium_risk, low_risk = _classify_severity(filtered_df, anomaly_count)
 
             by_type = []
             id_col = "seller_id" if "seller_id" in filtered_df.columns else "user_id"
@@ -286,56 +366,9 @@ def get_anomaly_analysis(days: int = 7, user: dict = Depends(verify_credentials)
                     by_type.append({"type": row["type"], "count": int(row["count"]), "severity": row["severity"]})
                 by_type.sort(key=lambda x: x["count"], reverse=True)
 
-            trend = []
-            if date_col in filtered_df.columns and len(filtered_df) > 0:
-                if days == 7:
-                    filtered_df["date_str"] = filtered_df[date_col].dt.strftime("%m/%d")
-                    daily_counts = filtered_df.groupby("date_str").size().to_dict()
-                    for i in range(7):
-                        d = reference_date - timedelta(days=6 - i)
-                        date_str = d.strftime("%m/%d")
-                        trend.append({"date": date_str, "count": int(daily_counts.get(date_str, 0))})
-                elif days == 30:
-                    for i in range(6):
-                        start_day = 30 - (i + 1) * 5
-                        end_day = 30 - i * 5
-                        start_date = reference_date - timedelta(days=end_day)
-                        end_date = reference_date - timedelta(days=start_day)
-                        period_df = filtered_df[(filtered_df[date_col] >= start_date) & (filtered_df[date_col] < end_date)]
-                        label = (reference_date - timedelta(days=end_day - 2)).strftime("%m/%d")
-                        trend.append({"date": label, "count": len(period_df)})
-                else:
-                    for i in range(6):
-                        start_day = 90 - (i + 1) * 15
-                        end_day = 90 - i * 15
-                        start_date = reference_date - timedelta(days=end_day)
-                        end_date = reference_date - timedelta(days=start_day)
-                        period_df = filtered_df[(filtered_df[date_col] >= start_date) & (filtered_df[date_col] < end_date)]
-                        label = (reference_date - timedelta(days=end_day - 7)).strftime("%m/%d")
-                        trend.append({"date": label, "count": len(period_df)})
-
-            recent_alerts = []
+            trend = _build_anomaly_trend(filtered_df, date_col, days, reference_date)
             alert_count = {7: 4, 30: 6, 90: 8}.get(days, 4)
-            recent_df = filtered_df.nlargest(alert_count, date_col) if date_col in filtered_df.columns else filtered_df.head(alert_count)
-            for _, row in recent_df.iterrows():
-                if date_col in row.index and pd.notna(row[date_col]):
-                    time_diff = reference_date - row[date_col]
-                    if time_diff.days > 0:
-                        time_str = f"{time_diff.days}일 전"
-                    elif time_diff.seconds >= 3600:
-                        time_str = f"{time_diff.seconds // 3600}시간 전"
-                    else:
-                        time_str = f"{max(1, time_diff.seconds // 60)}분 전"
-                else:
-                    time_str = "최근"
-                if "severity" in row.index:
-                    sev = str(row.get("severity", "medium"))
-                elif "anomaly_score" in row.index:
-                    score = float(row.get("anomaly_score", 0))
-                    sev = "high" if score > 0.8 else "medium" if score > 0.5 else "low"
-                else:
-                    sev = "medium"
-                recent_alerts.append({"id": str(row.get("seller_id", row.get("user_id", "M000000"))), "type": str(row.get("anomaly_type", "알 수 없음")), "severity": sev, "detail": str(row.get("details", row.get("detail", "이상 패턴 감지"))), "time": time_str})
+            recent_alerts = _build_recent_alerts(filtered_df, date_col, reference_date, alert_count)
         else:
             anomaly_users = df[df["is_anomaly"] == True] if "is_anomaly" in df.columns else df.iloc[:0]
             anomaly_count = len(anomaly_users)
@@ -388,16 +421,7 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
 
                 if st.SHAP_EXPLAINER_CHURN is not None:
                     try:
-                        shap_values_raw = st.SHAP_EXPLAINER_CHURN.shap_values(X)
-                        if hasattr(shap_values_raw, 'values'):
-                            shap_values = shap_values_raw.values
-                        elif isinstance(shap_values_raw, list) and len(shap_values_raw) == 2:
-                            shap_values = shap_values_raw[1]
-                        elif isinstance(shap_values_raw, np.ndarray):
-                            shap_values = shap_values_raw[:, :, 1] if shap_values_raw.ndim == 3 else shap_values_raw
-                        else:
-                            shap_values = shap_values_raw
-                        shap_values = np.array(shap_values)
+                        shap_values = np.array(_extract_shap_values(st.SHAP_EXPLAINER_CHURN.shap_values(X)))
                         shap_importance = np.abs(shap_values).mean(axis=0)
                         total_imp = shap_importance.sum()
                         if total_imp > 0:
@@ -432,16 +456,10 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
                 if st.SHAP_EXPLAINER_CHURN is not None and available_features:
                     try:
                         user_X = row[available_features].values.reshape(1, -1)
-                        user_shap_raw = st.SHAP_EXPLAINER_CHURN.shap_values(user_X)
-                        if hasattr(user_shap_raw, 'values'):
-                            user_shap = user_shap_raw.values[0]
-                        elif isinstance(user_shap_raw, list) and len(user_shap_raw) == 2:
-                            user_shap = user_shap_raw[1][0]
-                        elif isinstance(user_shap_raw, np.ndarray):
-                            user_shap = user_shap_raw[0, :, 1] if user_shap_raw.ndim == 3 else user_shap_raw[0] if user_shap_raw.ndim == 2 else user_shap_raw
-                        else:
-                            user_shap = user_shap_raw[0] if hasattr(user_shap_raw, '__getitem__') else user_shap_raw
-                        user_shap = np.array(user_shap).flatten()
+                        user_shap = np.array(_extract_shap_values(st.SHAP_EXPLAINER_CHURN.shap_values(user_X)))
+                        if user_shap.ndim > 1:
+                            user_shap = user_shap[0]
+                        user_shap = user_shap.flatten()
                         sorted_idx = np.abs(user_shap).argsort()[::-1]
                         for idx in sorted_idx[:3]:
                             feat = available_features[idx]
@@ -535,16 +553,10 @@ def get_user_churn_prediction(user_id: str, user: dict = Depends(verify_credenti
         shap_factors = []
         if st.SHAP_EXPLAINER_CHURN is not None:
             try:
-                user_shap_raw = st.SHAP_EXPLAINER_CHURN.shap_values(user_X)
-                if hasattr(user_shap_raw, 'values'):
-                    user_shap = user_shap_raw.values[0]
-                elif isinstance(user_shap_raw, list) and len(user_shap_raw) == 2:
-                    user_shap = user_shap_raw[1][0]
-                elif isinstance(user_shap_raw, np.ndarray):
-                    user_shap = user_shap_raw[0, :, 1] if user_shap_raw.ndim == 3 else user_shap_raw[0] if user_shap_raw.ndim == 2 else user_shap_raw
-                else:
-                    user_shap = user_shap_raw[0] if hasattr(user_shap_raw, '__getitem__') else user_shap_raw
-                user_shap = np.array(user_shap).flatten()
+                user_shap = np.array(_extract_shap_values(st.SHAP_EXPLAINER_CHURN.shap_values(user_X)))
+                if user_shap.ndim > 1:
+                    user_shap = user_shap[0]
+                user_shap = user_shap.flatten()
                 for i, feat in enumerate(available_features):
                     shap_val = float(user_shap[i])
                     feature_val = float(user_row[feat])
@@ -668,16 +680,7 @@ def get_trend_kpis(days: int = 7, user: dict = Depends(verify_credentials)):
                     pred_date = (last_date + timedelta(days=i)).strftime("%m/%d") if last_date is not pd.NaT else f"D+{i}"
                     forecast.append({"date": pred_date, "predicted_dau": max(0, pred_val), "lower": max(0, int(pred_val - 1.5 * std_err)), "upper": int(pred_val + 1.5 * std_err)})
 
-        correlation = []
-        if len(st.DAILY_METRICS_DF) >= 7:
-            corr_cols = ["active_shops", "total_gmv", "total_orders", "new_signups"]
-            corr_labels = {"active_shops": "활성 쇼핑몰", "total_gmv": "GMV", "total_orders": "주문수", "new_signups": "신규가입"}
-            avail = [c for c in corr_cols if c in st.DAILY_METRICS_DF.columns]
-            if len(avail) >= 2:
-                corr_matrix = st.DAILY_METRICS_DF[avail].corr()
-                for i in range(len(avail)):
-                    for j in range(i + 1, len(avail)):
-                        correlation.append({"var1": corr_labels.get(avail[i], avail[i]), "var2": corr_labels.get(avail[j], avail[j]), "correlation": round(float(corr_matrix.iloc[i, j]), 3)})
+        correlation = _compute_correlation()
 
         return json_sanitize({"status": "success", "kpis": kpis, "daily_metrics": daily_metrics, "correlation": correlation, "forecast": forecast})
     except Exception as e:
@@ -687,17 +690,7 @@ def get_trend_kpis(days: int = 7, user: dict = Depends(verify_credentials)):
 @router.get("/analysis/correlation")
 def get_correlation_analysis(user: dict = Depends(verify_credentials)):
     """지표 상관관계 분석"""
-    correlation = []
-    if st.DAILY_METRICS_DF is not None and len(st.DAILY_METRICS_DF) >= 7:
-        corr_cols = ["active_shops", "total_gmv", "total_orders", "new_signups"]
-        corr_labels = {"active_shops": "활성 쇼핑몰", "total_gmv": "GMV", "total_orders": "주문수", "new_signups": "신규가입"}
-        avail = [c for c in corr_cols if c in st.DAILY_METRICS_DF.columns]
-        if len(avail) >= 2:
-            corr_matrix = st.DAILY_METRICS_DF[avail].corr()
-            for i in range(len(avail)):
-                for j in range(i + 1, len(avail)):
-                    correlation.append({"var1": corr_labels.get(avail[i], avail[i]), "var2": corr_labels.get(avail[j], avail[j]), "correlation": round(float(corr_matrix.iloc[i, j]), 3)})
-    return json_sanitize({"status": "success", "correlation": correlation})
+    return json_sanitize({"status": "success", "correlation": _compute_correlation()})
 
 
 @router.get("/stats/summary")

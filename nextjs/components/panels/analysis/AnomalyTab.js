@@ -3,6 +3,7 @@
 
 import { AlertTriangle, Shield, Eye, Activity, Zap } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
+import AnalysisEmptyState from './common/EmptyState';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, AreaChart, Area, Cell
@@ -40,11 +41,11 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
         </div>
       )}
       {!anomalyData ? (
-        <div className="text-center py-16 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80">
-          <AlertTriangle size={48} className="mx-auto mb-3 text-cafe24-brown/30" />
-          <p className="text-sm font-semibold text-cafe24-brown/50">이상탐지 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs text-cafe24-brown/40 mt-1">백엔드 API 연결을 확인하세요</p>
-        </div>
+        <AnalysisEmptyState
+          icon={AlertTriangle}
+          title="이상탐지 데이터를 불러올 수 없습니다"
+          subtitle="백엔드 API 연결을 확인하세요"
+        />
       ) : (
       <>
       {/* 이상탐지 요약 카드 */}
@@ -107,7 +108,7 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={anomalyData.trend || []}>
               <defs>
-                <linearGradient id="colorAnomaly" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="anomaly-colorAnomaly" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
                   <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
                 </linearGradient>
@@ -116,7 +117,7 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
               <XAxis dataKey="date" tick={{ fill: '#5C4A3D', fontSize: 11 }} />
               <YAxis tick={{ fill: '#5C4A3D', fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="count" name="탐지 수" stroke="#EF4444" fill="url(#colorAnomaly)" />
+              <Area type="monotone" dataKey="count" name="탐지 수" stroke="#EF4444" fill="url(#anomaly-colorAnomaly)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>

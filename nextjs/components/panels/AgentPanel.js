@@ -11,34 +11,10 @@ import { motion } from 'framer-motion';
 import EmptyState from '@/components/EmptyState';
 import SectionHeader from '@/components/SectionHeader';
 import { ArrowUpRight, Sparkles, Zap, Loader2, ShoppingBag, Copy, RefreshCcw, Check } from 'lucide-react';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-
-// CAFE24 테마 버튼 스타일 - 블루 파스텔
-const cookieBtn =
-  'w-full rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
-
-const cookieBtnSecondary =
-  'w-full rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed';
-
-const cookieBtnInline =
-  'rounded-2xl border-2 border-blue-300/50 bg-gradient-to-r from-blue-100 to-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-md transition hover:from-blue-200 hover:to-blue-100 hover:border-blue-400/50 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
-
-const cookieBtnSecondaryInline =
-  'rounded-2xl border-2 border-blue-200/50 bg-blue-50 px-4 py-3 text-sm font-extrabold text-cafe24-brown shadow-sm transition hover:bg-blue-100 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 whitespace-nowrap';
+import useAgentStream from './hooks/useAgentStream';
+import { cafe24Btn, cafe24BtnSecondary, cafe24BtnInline, cafe24BtnSecondaryInline } from '@/components/common/buttonStyles';
 
 const SEEN_KEY = 'cafe24_seen_example_hint';
-
-const DEFAULT_FALLBACK_SYSTEM_PROMPT = '';
-
-const WAITING_PLACEHOLDER = ['답변 생성 중입니다.', '잠시 기다려주세요.'].join('\n');
-
-function basicAuthHeader(username, password) {
-  return 'Basic ' + btoa(`${username}:${password}`);
-}
-
-function newMsgId() {
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
 
 function ToolCalls({ toolCalls }) {
   if (!toolCalls?.length) return null;
@@ -105,36 +81,10 @@ function TopProgressBar({ active }) {
   );
 }
 
-function useRemarkGfm() {
-  const [remarkGfm, setRemarkGfm] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const mod = await import('remark-gfm');
-        if (!mounted) return;
-        setRemarkGfm(() => (mod?.default ? mod.default : mod));
-      } catch (e) {
-        if (!mounted) return;
-        setRemarkGfm(null);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return remarkGfm;
-}
+import remarkGfmPlugin from 'remark-gfm';
 
 function MarkdownMessage({ content }) {
-  const remarkGfm = useRemarkGfm();
-  const remarkPlugins = useMemo(() => {
-    const plugins = [remarkMath];
-    if (remarkGfm) plugins.push(remarkGfm);
-    return plugins;
-  }, [remarkGfm]);
+  const remarkPlugins = useMemo(() => [remarkMath, remarkGfmPlugin], []);
 
   return (
     <ReactMarkdown
@@ -209,13 +159,16 @@ export default function AgentPanel({
 
   const chatBoxRef = useRef(null);
   const scrollRef = useRef(null);
+  // M46: 이미 렌더된 메시지 ID 추적 → 새 메시지만 애니메이션
+  const seenMsgIdsRef = useRef(new Set());
 
-  const abortRef = useRef(null);
-  const timeoutRef = useRef(null);
 
-  const stoppedRef = useRef(false);
-  const runIdRef = useRef(0);
-  const activeAssistantIdRef = useRef(null);
+  // M53: SSE 스트리밍 로직을 useAgentStream 훅으로 추출
+  const { sendQuestion, stopStream } = useAgentStream({
+    auth, selectedShop, settings,
+    setAgentMessages, setTotalQueries, setLoading: setLoading,
+    addLog,
+  });
 
   const canSend = useMemo(() => !!input?.trim() && !loading, [input, loading]);
 
@@ -225,10 +178,10 @@ export default function AgentPanel({
     if (!seen) toast('왼쪽 예시 질문을 클릭하면 바로 분석이 시작됩니다', { icon: '🛒' });
   }, []);
 
-  function markSeen() {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SEEN_KEY, '1');
-  }
+  const handleSend = useCallback((q) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(SEEN_KEY, '1');
+    sendQuestion(q);
+  }, [sendQuestion]);
 
   // CAFE24 관련 추천 질문 (이커머스 운영 분석)
   const chips = useMemo(() => {
@@ -272,60 +225,6 @@ export default function AgentPanel({
     el.scrollTop = el.scrollHeight;
   }, [agentMessages, loading]);
 
-  const stopStream = useCallback(() => {
-    setLoading(false);
-
-    try {
-      runIdRef.current += 1;
-      stoppedRef.current = true;
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
-      if (abortRef.current) {
-        abortRef.current.abort();
-        abortRef.current = null;
-      }
-
-      const aid = activeAssistantIdRef.current;
-
-      setAgentMessages((prev) => {
-        const arr = prev || [];
-
-        let targetId = aid;
-        if (!targetId) {
-          const lastPending = [...arr].reverse().find((m) => m?.role === 'assistant' && m?._pending);
-          targetId = lastPending?._id || null;
-        }
-        if (!targetId) return arr;
-
-        const idx = arr.findIndex((m) => m?._id === targetId);
-        if (idx < 0) return arr;
-
-        const msg = arr[idx] || {};
-        const content = String(msg.content || '').trim();
-        const isPending = !!msg._pending;
-        const isOnlyWaiting = content === String(WAITING_PLACEHOLDER).trim();
-
-        if (!content || isPending || isOnlyWaiting) return arr.filter((m) => m?._id !== targetId);
-
-        return arr.map((m) => {
-          if (m?._id !== targetId) return m;
-          const cur = String(m.content || '');
-          return { ...m, content: cur + '\n\n[중단됨]', _pending: false };
-        });
-      });
-
-      activeAssistantIdRef.current = null;
-    } catch (e) {
-      activeAssistantIdRef.current = null;
-    } finally {
-      setLoading(false);
-    }
-  }, [setAgentMessages]);
-
   const userKey = useMemo(() => String(auth?.username || '').trim(), [auth?.username]);
   const prevUserKeyRef = useRef(userKey);
 
@@ -342,291 +241,19 @@ export default function AgentPanel({
     setLoading(false);
   }, [userKey, stopStream, setAgentMessages, setTotalQueries]);
 
-  const sendQuestion = useCallback(
-    async (question) => {
-      const q = String(question || '').trim();
-      if (!q) return;
-
-      markSeen();
-      stopStream();
-
-      stoppedRef.current = false;
-      runIdRef.current += 1;
-      const myRunId = runIdRef.current;
-
-      setLoading(true);
-      addLog('질문', q.slice(0, 30));
-
-      const userMsg = { _id: newMsgId(), role: 'user', content: q };
-      const assistantId = newMsgId();
-      activeAssistantIdRef.current = assistantId;
-
-      const assistantMsg = {
-        _id: assistantId,
-        role: 'assistant',
-        content: WAITING_PLACEHOLDER,
-        tool_calls: [],
-        _pending: true,
-      };
-
-      setAgentMessages((prev) => [...(prev || []), userMsg, assistantMsg]);
-
-      const systemPromptToSend =
-        settings?.systemPrompt && String(settings.systemPrompt).trim().length > 0
-          ? String(settings.systemPrompt)
-          : DEFAULT_FALLBACK_SYSTEM_PROMPT;
-
-      const username = auth?.username || '';
-      const password = auth?.password || '';
-
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-
-      const timeoutMs = 60000;
-      timeoutRef.current = setTimeout(() => {
-        try {
-          stoppedRef.current = true;
-          ctrl.abort();
-        } catch (e) {}
-      }, timeoutMs);
-
-      let deltaBuf = '';
-      let flushTimer = null;
-
-      const flushDelta = () => {
-        if (!deltaBuf) return;
-        const chunk = deltaBuf;
-        deltaBuf = '';
-
-        setAgentMessages((prev) =>
-          (prev || []).map((m) => {
-            if (m?._id !== assistantId) return m;
-
-            const isPending = !!m?._pending;
-            if (isPending) return { ...m, content: chunk, _pending: false };
-            return { ...m, content: String(m.content || '') + chunk, _pending: false };
-          })
-        );
-      };
-
-      const isStale = () =>
-        myRunId !== runIdRef.current ||
-        stoppedRef.current ||
-        ctrl.signal.aborted ||
-        activeAssistantIdRef.current !== assistantId;
-
-      try {
-        await fetchEventSource(`/api/agent/stream`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'text/event-stream',
-            Authorization: basicAuthHeader(username, password),
-          },
-          body: JSON.stringify({
-            user_input: q,
-            shop_id: selectedShop || null,
-            api_key: settings?.apiKey || '',
-            model: settings?.selectedModel || 'gpt-4o-mini',
-            max_tokens: Number(settings?.maxTokens ?? 4000),
-            temperature: Number(settings?.temperature ?? 0.3),
-            system_prompt: systemPromptToSend,
-            rag_mode: settings?.ragMode || 'auto',
-            debug: true,
-          }),
-          signal: ctrl.signal,
-
-          async onopen(res) {
-            if (isStale()) return;
-            const ct = res.headers.get('content-type') || '';
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            if (!ct.includes('text/event-stream')) throw new Error('Not an SSE response');
-          },
-
-          onmessage(ev) {
-            if (isStale()) return;
-
-            let data = {};
-            try {
-              data = ev.data ? JSON.parse(ev.data) : {};
-            } catch (e) {
-              return;
-            }
-
-            // 도구 실행 시작 - 즉시 표시
-            if (ev.event === 'tool_start') {
-              const toolName = data.tool || '도구';
-              // 도구 실행 중 상태 표시
-              setAgentMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  const isPending = !!m?._pending;
-                  const statusMsg = `🔧 **${toolName}** 실행 중...`;
-                  if (isPending) return { ...m, content: statusMsg, _pending: true };
-                  return { ...m, content: String(m.content || '') + '\n' + statusMsg, _pending: true };
-                })
-              );
-              return;
-            }
-
-            // 도구 실행 완료
-            if (ev.event === 'tool_end') {
-              const toolName = data.tool || '도구';
-              // 도구 완료 상태로 업데이트
-              setAgentMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  // "실행 중" 메시지를 "완료"로 교체
-                  let content = String(m.content || '');
-                  content = content.replace(`🔧 **${toolName}** 실행 중...`, `✅ **${toolName}** 완료`);
-                  return { ...m, content, _pending: true };
-                })
-              );
-              return;
-            }
-
-            if (ev.event === 'delta') {
-              const delta = String(data.delta || '');
-              if (!delta) return;
-
-              deltaBuf += delta;
-
-              if (!flushTimer) {
-                flushTimer = setTimeout(() => {
-                  flushTimer = null;
-                  if (isStale()) return;
-                  flushDelta();
-                }, 50);
-              }
-              return;
-            }
-
-            if (ev.event === 'done') {
-              if (isStale()) return;
-
-              if (flushTimer) {
-                clearTimeout(flushTimer);
-                flushTimer = null;
-              }
-              flushDelta();
-
-              const ok = !!data.ok;
-              const finalText = String(data.final || '');
-              const toolCalls = Array.isArray(data.tool_calls) ? data.tool_calls : [];
-
-              setAgentMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  return {
-                    ...m,
-                    content: finalText || String(m.content || ''),
-                    tool_calls: toolCalls,
-                    _pending: false,
-                  };
-                })
-              );
-
-              setTotalQueries((prev) => (prev || 0) + 1);
-              setLoading(false);
-
-              if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-              }
-              abortRef.current = null;
-              activeAssistantIdRef.current = null;
-
-              if (ok) toast.success('분석 완료');
-              else toast.error('요청 실패: 백엔드/네트워크를 확인하세요');
-              return;
-            }
-
-            if (ev.event === 'error') {
-              if (isStale()) return;
-
-              if (flushTimer) {
-                clearTimeout(flushTimer);
-                flushTimer = null;
-              }
-              flushDelta();
-
-              const msg = data?.message ? String(data.message) : '스트리밍 오류';
-
-              setAgentMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  const cur = String(m.content || '');
-                  return { ...m, content: cur + `\n\n[오류]\n${msg}`, _pending: false };
-                })
-              );
-
-              toast.error(msg);
-              return;
-            }
-          },
-
-          onerror(err) {
-            throw err;
-          },
-
-          onclose() {
-            if (isStale()) return;
-            throw new Error('SSE closed');
-          },
-        });
-      } catch (e) {
-        if (isStale()) {
-          setLoading(false);
-          return;
-        }
-
-        if (flushTimer) {
-          clearTimeout(flushTimer);
-          flushTimer = null;
-        }
-        flushDelta();
-
-        const msg = String(e || '요청 실패');
-
-        setAgentMessages((prev) =>
-          (prev || []).map((m) => {
-            if (m?._id !== assistantId) return m;
-            const cur = String(m.content || '');
-            return { ...m, content: cur + `\n\n[오류]\n${msg}`, _pending: false };
-          })
-        );
-
-        setLoading(false);
-        toast.error('요청 실패');
-      } finally {
-        if (flushTimer) {
-          clearTimeout(flushTimer);
-          flushTimer = null;
-        }
-
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        abortRef.current = null;
-
-        if (activeAssistantIdRef.current === assistantId) {
-          activeAssistantIdRef.current = null;
-        }
-      }
-    },
-    [addLog, auth, settings, setAgentMessages, setTotalQueries, stopStream, selectedShop]
-  );
+  // M70: sendQuestion ref로 이벤트 리스너 재등록 방지
+  const sendQuestionRef = useRef(sendQuestion);
+  sendQuestionRef.current = handleSend;
 
   useEffect(() => {
     function handler(ev) {
       const q = ev?.detail?.q;
       if (!q) return;
-      sendQuestion(q);
+      sendQuestionRef.current(q);
     }
     window.addEventListener('cafe24_send_question', handler);
     return () => window.removeEventListener('cafe24_send_question', handler);
-  }, [sendQuestion]);
+  }, []);
 
   async function runQuick(endpoint, method = 'GET', payload = null) {
     setQuickResult(null);
@@ -657,11 +284,15 @@ export default function AgentPanel({
             {(agentMessages || []).map((m, idx) => {
               const isUser = m.role === 'user';
               const isPending = !!m?._pending;
+              // M46: 새 메시지만 애니메이션
+              const msgKey = m?._id || idx;
+              const isNew = !seenMsgIdsRef.current.has(msgKey);
+              if (isNew) seenMsgIdsRef.current.add(msgKey);
 
               return (
                 <motion.div
-                  key={m?._id || idx}
-                  initial={{ opacity: 0, y: 6 }}
+                  key={msgKey}
+                  initial={isNew ? { opacity: 0, y: 6 } : false}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18 }}
                   className={`group relative ${isUser ? 'flex justify-end mb-3' : 'flex justify-start mb-3'}`}
@@ -706,7 +337,7 @@ export default function AgentPanel({
                         {isUser && (
                           <button
                             onClick={() => {
-                              sendQuestion(m.content || '');
+                              handleSend(m.content || '');
                             }}
                             className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
                             title="다시 질문"
@@ -737,7 +368,7 @@ export default function AgentPanel({
                 key={c}
                 label={c}
                 onClick={() => {
-                  sendQuestion(c);
+                  handleSend(c);
                   setInput('');
                 }}
               />
@@ -752,16 +383,16 @@ export default function AgentPanel({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && canSend) {
-                  sendQuestion(input);
+                  handleSend(input);
                   setInput('');
                 }
               }}
             />
 
             <button
-              className={`${cookieBtnInline} w-[140px]`}
+              className={`${cafe24BtnInline} w-[140px]`}
               onClick={() => {
-                sendQuestion(input);
+                handleSend(input);
                 setInput('');
               }}
               disabled={!canSend}
@@ -772,7 +403,7 @@ export default function AgentPanel({
             </button>
 
             <button
-              className={`${cookieBtnSecondaryInline} w-[140px]`}
+              className={`${cafe24BtnSecondaryInline} w-[140px]`}
               onClick={() => {
                 stopStream();
                 toast('중단됨');
@@ -796,28 +427,28 @@ export default function AgentPanel({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
             <button
-              className={cookieBtn}
+              className={cafe24Btn}
               onClick={() => runQuick('/api/shops')}
               type="button"
             >
               쇼핑몰 목록
             </button>
             <button
-              className={cookieBtn}
+              className={cafe24Btn}
               onClick={() => runQuick('/api/categories')}
               type="button"
             >
               카테고리 목록
             </button>
             <button
-              className={cookieBtn}
+              className={cafe24Btn}
               onClick={() => runQuick('/api/cs/glossary')}
               type="button"
             >
               이커머스 용어집
             </button>
             <button
-              className={cookieBtn}
+              className={cafe24Btn}
               onClick={() => runQuick('/api/sellers/segments/statistics')}
               type="button"
             >
@@ -826,14 +457,19 @@ export default function AgentPanel({
           </div>
 
           <div className="mt-3">
-            <button className={cookieBtnSecondary} onClick={() => setAgentMessages([])} type="button">
+            <button className={cafe24BtnSecondary} onClick={() => setAgentMessages([])} type="button">
               대화 초기화
             </button>
           </div>
 
           {quickResult ? (
             <pre className="mt-3 max-h-[45vh] overflow-auto rounded-2xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown">
-              {JSON.stringify(quickResult, null, 2)}
+              {(() => {
+                // L22: 대용량 JSON 크기 제한 (50KB)
+                const str = JSON.stringify(quickResult, null, 2);
+                if (str.length > 50000) return str.slice(0, 50000) + '\n\n... (결과가 너무 깁니다. 50KB 이후 생략)';
+                return str;
+              })()}
             </pre>
           ) : (
             <div className="mt-3 text-xs text-cafe24-brown/60">버튼을 클릭하면 API 호출 결과를 확인할 수 있어요.</div>

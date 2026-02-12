@@ -1,14 +1,13 @@
 """
 api/routes_seller.py - 셀러 관련 API
 """
-import json
 from typing import Optional
 
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends
 
-from core.utils import safe_str, json_sanitize
+from core.utils import safe_str, json_sanitize, get_revenue_r2
 from agent.tools import (
     tool_analyze_seller, tool_get_seller_segment, tool_detect_fraud,
     tool_get_segment_statistics, tool_get_seller_activity_report,
@@ -20,18 +19,6 @@ from api.common import verify_credentials
 
 
 router = APIRouter(prefix="/api", tags=["seller"])
-
-
-def _get_revenue_r2():
-    try:
-        cfg_path = st.BACKEND_DIR / "revenue_model_config.json"
-        if cfg_path.exists():
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            return cfg.get("r2_score")
-    except Exception:
-        pass
-    return None
 
 
 @router.get("/sellers/autocomplete")
@@ -149,7 +136,7 @@ def search_seller(q: str, days: int = 7, user: dict = Depends(verify_credentials
     predicted_rev = seller_data.get("predicted_revenue")
     rev_growth = seller_data.get("revenue_growth_rate")
     if predicted_rev is not None and float(predicted_rev) > 0:
-        model_predictions["revenue"] = {"model": "매출 예측 (LightGBM)", "predicted_next_month": int(float(predicted_rev)), "growth_rate": round(float(rev_growth), 1) if rev_growth is not None else 0.0, "confidence": round(r2_score_val * 100, 1) if (r2_score_val := _get_revenue_r2()) is not None else None}
+        model_predictions["revenue"] = {"model": "매출 예측 (LightGBM)", "predicted_next_month": int(float(predicted_rev)), "growth_rate": round(float(rev_growth), 1) if rev_growth is not None else 0.0, "confidence": round(r2_score_val * 100, 1) if (r2_score_val := get_revenue_r2()) is not None else None}
 
     seller_obj = {
         "id": seller_data["seller_id"], "segment": seller_data["segment"],
@@ -214,7 +201,7 @@ def get_seller_activity(seller_id: str, days: int = 30, user: dict = Depends(ver
 
 
 @router.get("/sellers/performance")
-async def get_sellers_performance(user: dict = Depends(verify_credentials)):
+def get_sellers_performance(user: dict = Depends(verify_credentials)):
     try:
         if st.SELLERS_DF is None or st.SELLERS_DF.empty:
             return {"status": "error", "message": "셀러 데이터 없음"}

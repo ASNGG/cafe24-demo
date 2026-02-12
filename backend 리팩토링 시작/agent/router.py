@@ -7,21 +7,24 @@ CAFE24 AI 운영 플랫폼
 
 분류 우선순위:
 1. 키워드 기반 분류 (가장 빠름, 비용 없음)
-2. Semantic Router (임베딩 유사도, LLM 호출 없음)
-3. LLM Router (gpt-4o-mini, fallback)
+2. LLM Router (gpt-4o-mini, fallback)
 
 References:
 - https://www.anthropic.com/research/building-effective-agents
 - https://github.com/aurelio-labs/semantic-router
 """
 import re
-from typing import Literal, Optional, Tuple
+from typing import Optional
 from enum import Enum
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from core.utils import safe_str
+from agent.intent import (
+    ANALYSIS_KEYWORDS, PLATFORM_KEYWORDS, SHOP_KEYWORDS,
+    SELLER_KEYWORDS, CS_KEYWORDS, DASHBOARD_KEYWORDS, GENERAL_KEYWORDS,
+)
 import state as st
 
 
@@ -94,75 +97,8 @@ CATEGORY_TOOLS = {
 
 # ============================================================
 # 키워드 기반 빠른 분류 (LLM 호출 없이)
+# cross-6: 키워드는 intent.py에서 단일 소스로 import
 # ============================================================
-_ANALYSIS_KEYWORDS = [
-    "매출", "수익", "revenue", "arpu", "arppu", "과금", "성장률",
-    "gmv", "거래액", "총거래", "거래 금액",
-    "이탈", "churn", "고위험", "중위험", "저위험", "이탈률", "이탈 요인",
-    "코호트", "cohort", "리텐션", "retention", "잔존", "week1", "week4",
-    "트렌드", "trend", "kpi", "dau", "mau", "wau", "지표", "변화율",
-    "활성 셀러", "신규 가입", "가입 추이", "전환율", "변화 분석", "추이 분석",
-    "신규 쇼핑몰", "주문량", "주문 수", "결제 분석",
-]
-
-_PLATFORM_KEYWORDS = [
-    # 핵심 플랫폼 키워드 (RAG 검색 필수)
-    "플랫폼", "정책", "기능", "운영", "가이드", "도움말", "사용법",
-    "정산", "정산 주기", "수수료", "배송비 정책", "반품 정책", "환불 정책",
-    "앱스토어", "앱 연동", "API", "개발자", "테마", "디자인",
-    "쇼핑몰 개설", "멀티쇼핑몰", "해외 배송", "글로벌 커머스",
-    # 질문 패턴 (플랫폼 지식 요청)
-    "뜻", "용어", "설명", "정의", "개념", "meaning", "definition",
-    "뭐야", "무엇", "어떤", "알려줘", "어떻게 됐", "왜 그런",
-]
-
-_SHOP_KEYWORDS = [
-    "쇼핑몰 정보", "쇼핑몰 서비스", "쇼핑몰 성과", "쇼핑몰 매출",
-    "쇼핑몰 목록", "쇼핑몰 리스트", "쇼핑몰 현황", "쇼핑몰 분포",
-    "쇼핑몰 플랜", "쇼핑몰 등급", "쇼핑몰 티어",
-    "쇼핑몰 수", "쇼핑몰 개수", "쇼핑몰 몇", "쇼핑몰 통계",
-    "전체 쇼핑몰", "총 쇼핑몰", "쇼핑몰 총",
-    "샵 정보", "샵 성과", "샵 매출", "샵 목록", "shop",
-    "카테고리별", "업종별", "티어별", "플랜별", "등급별",
-    "카테고리 목록", "카테고리 전체", "카테고리 정보", "카테고리 현황",
-    "업종 목록", "업종 전체", "업종 정보", "업종 현황",
-    "패션", "뷰티", "식품", "가전", "리빙", "디지털",
-    "프리미엄", "스탠다드", "베이직", "엔터프라이즈",
-    "premium", "standard", "basic", "enterprise",
-    "마케팅", "광고", "ROAS", "마케팅 최적화", "광고 전략",
-]
-
-_SELLER_KEYWORDS = [
-    "셀러 분석", "셀러 정보", "셀러 이탈", "셀러 예측", "판매자 분석", "입점업체",
-    "세그먼트", "군집",
-    # 세그먼트 이름 (CSV 기준: 성장형/휴면/우수/파워/관리필요)
-    "성장형 셀러", "휴면 셀러", "우수 셀러", "파워 셀러", "관리 필요 셀러",
-    "성장형", "휴면", "관리 필요",
-    # 이상/부정행위
-    "이상 셀러", "부정행위", "이상 탐지", "이상거래", "이상 거래", "어뷰징", "사기", "비정상", "허위 주문", "리뷰 조작",
-    "fraud", "anomaly", "부정 거래", "사기 탐지", "사기 거래",
-    "SEL0", "SEL1", "SEL2", "SEL3", "SEL4", "SEL5", "SEL6", "SEL7", "SEL8", "SEL9",  # 셀러 ID 패턴
-]
-
-_CS_KEYWORDS = [
-    "CS", "고객 상담", "문의", "상담", "자동 응답", "자동응답",
-    "환불", "반품", "교환", "배송 문의", "결제 문의",
-    "CS 품질", "상담 품질", "용어집",
-    "문의 분류", "카테고리 분류", "분류해", "티켓", "응답 생성",
-    "결제 오류", "카드 오류", "배송 지연", "환불 요청", "교환 요청",
-]
-
-_DASHBOARD_KEYWORDS = [
-    "대시보드", "dashboard", "전체 현황", "요약",
-    "셀러 활동", "활동 현황", "주문 현황", "정산 현황",
-    "운영 이벤트", "이벤트 통계", "이벤트 현황", "주문 이벤트", "정산 이벤트",
-]
-
-_GENERAL_KEYWORDS = [
-    "안녕", "하이", "헬로", "hi", "hello",
-    "고마워", "감사", "thanks",
-    "뭐해", "누구", "자기소개",
-]
 
 
 def _keyword_classify(text: str) -> Optional[IntentCategory]:
@@ -181,36 +117,31 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
         return IntentCategory.SELLER
 
     # 1. 분석 키워드 (셀러 ID 없는 일반 분석)
-    if any(kw in t for kw in _ANALYSIS_KEYWORDS):
+    if any(kw in t for kw in ANALYSIS_KEYWORDS):
         return IntentCategory.ANALYSIS
 
     # 2. 셀러 분석 키워드
-    if any(kw in t for kw in _SELLER_KEYWORDS):
-        # 셀러 관련 키워드 체크
-        if re.search(r'SEL\d{1,6}', text, re.IGNORECASE):
-            return IntentCategory.SELLER
-        if any(kw in t for kw in ["셀러", "판매자", "입점업체", "세그먼트", "부정행위", "이상", "사기",
-                                    "성장형", "휴면", "우수", "파워", "관리 필요"]):
-            return IntentCategory.SELLER
+    if any(kw in t for kw in SELLER_KEYWORDS):
+        return IntentCategory.SELLER
 
     # 3. 쇼핑몰 관련 (성과, 정보, 마케팅)
-    if any(kw in t for kw in _SHOP_KEYWORDS):
+    if any(kw in t for kw in SHOP_KEYWORDS):
         return IntentCategory.SHOP
 
     # 4. CS 관련
-    if any(kw in t for kw in _CS_KEYWORDS):
+    if any(kw in t for kw in CS_KEYWORDS):
         return IntentCategory.CS
 
     # 5. 대시보드 관련
-    if any(kw in t for kw in _DASHBOARD_KEYWORDS):
+    if any(kw in t for kw in DASHBOARD_KEYWORDS):
         return IntentCategory.DASHBOARD
 
     # 6. 플랫폼 관련 (정책, 기능, 용어)
-    if any(kw in t for kw in _PLATFORM_KEYWORDS):
+    if any(kw in t for kw in PLATFORM_KEYWORDS):
         return IntentCategory.PLATFORM
 
     # 7. 일반 대화
-    if any(kw in t for kw in _GENERAL_KEYWORDS):
+    if any(kw in t for kw in GENERAL_KEYWORDS):
         return IntentCategory.GENERAL
 
     # 불확실한 경우 None 반환 → LLM Router 사용
@@ -251,12 +182,28 @@ ROUTER_SYSTEM_PROMPT = """당신은 질문 분류 전문가입니다.
 카테고리명만 반환하세요. 예: analysis"""
 
 
-async def route_intent_llm(
+# M13: LLM Router용 ChatOpenAI 모듈 캐시
+_router_llm_cache: dict = {}
+
+# M17: 카테고리 문자열 매핑 (공통)
+_CATEGORY_MAP = {
+    "analysis": IntentCategory.ANALYSIS,
+    "platform": IntentCategory.PLATFORM,
+    "shop": IntentCategory.SHOP,
+    "seller": IntentCategory.SELLER,
+    "cs": IntentCategory.CS,
+    "dashboard": IntentCategory.DASHBOARD,
+    "general": IntentCategory.GENERAL,
+}
+
+
+def route_intent_llm(
     text: str,
     api_key: str,
-    model: str = "gpt-4o-mini",  # 빠르고 저렴한 모델 사용
+    model: str = "gpt-4o-mini",
 ) -> IntentCategory:
     """
+    M17: 동기 함수로 변환 (async 오버헤드 제거)
     LLM을 사용한 의도 분류 (키워드 분류 실패 시)
 
     Args:
@@ -268,12 +215,15 @@ async def route_intent_llm(
         IntentCategory
     """
     try:
-        llm = ChatOpenAI(
-            model=model,
-            openai_api_key=api_key,
-            temperature=0,  # 결정론적 분류
-            max_tokens=20,  # 카테고리명만 반환
-        )
+        cache_key = f"{model}:{api_key[:8] if api_key else ''}"
+        if cache_key not in _router_llm_cache:
+            _router_llm_cache[cache_key] = ChatOpenAI(
+                model=model,
+                openai_api_key=api_key,
+                temperature=0,
+                max_tokens=20,
+            )
+        llm = _router_llm_cache[cache_key]
 
         messages = [
             SystemMessage(content=ROUTER_SYSTEM_PROMPT),
@@ -282,19 +232,7 @@ async def route_intent_llm(
 
         response = llm.invoke(messages)
         category_str = safe_str(response.content).strip().lower()
-
-        # 카테고리 매핑
-        category_map = {
-            "analysis": IntentCategory.ANALYSIS,
-            "platform": IntentCategory.PLATFORM,
-            "shop": IntentCategory.SHOP,
-            "seller": IntentCategory.SELLER,
-            "cs": IntentCategory.CS,
-            "dashboard": IntentCategory.DASHBOARD,
-            "general": IntentCategory.GENERAL,
-        }
-
-        category = category_map.get(category_str, IntentCategory.GENERAL)
+        category = _CATEGORY_MAP.get(category_str, IntentCategory.GENERAL)
 
         st.logger.info(
             "ROUTER_LLM_CLASSIFY query=%s result=%s",
@@ -306,47 +244,6 @@ async def route_intent_llm(
     except Exception as e:
         st.logger.warning("ROUTER_LLM_FAIL err=%s, fallback=general", safe_str(e))
         return IntentCategory.GENERAL
-
-
-def route_intent_sync(
-    text: str,
-    api_key: str,
-    model: str = "gpt-4o-mini",
-) -> IntentCategory:
-    """
-    동기 버전의 의도 분류
-
-    1. 키워드 기반 빠른 분류 시도
-    2. 실패 시 LLM Router 사용
-    """
-    # 1단계: 키워드 기반 빠른 분류
-    category = _keyword_classify(text)
-
-    if category is not None:
-        st.logger.info(
-            "ROUTER_KEYWORD_CLASSIFY query=%s result=%s",
-            text[:50], category.value,
-        )
-        return category
-
-    # 2단계: LLM Router (키워드 분류 실패 시)
-    # 동기 환경에서는 asyncio.run 사용
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # 이미 이벤트 루프가 실행 중이면 새 스레드에서 실행
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(
-                    asyncio.run,
-                    route_intent_llm(text, api_key, model)
-                )
-                return future.result(timeout=10)
-        else:
-            return loop.run_until_complete(route_intent_llm(text, api_key, model))
-    except Exception:
-        return asyncio.run(route_intent_llm(text, api_key, model))
 
 
 def get_tools_for_category(category: IntentCategory) -> list[str]:
@@ -391,7 +288,7 @@ def classify_and_get_tools(
 
     # 2단계: LLM Router (키워드 분류 실패 시 fallback)
     if use_llm_fallback and api_key:
-        category = route_intent_sync(text, api_key)
+        category = route_intent_llm(text, api_key)
         st.logger.info(
             "ROUTER_LLM query=%s category=%s",
             text[:40], category.value,

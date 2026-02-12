@@ -12,28 +12,20 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
   const [showOcrTooltip, setShowOcrTooltip] = useState(false);
   const [showDeleteTooltip, setShowDeleteTooltip] = useState(false);
 
-  // RAG 상태 로드
+  // M48: RAG 상태 + LightRAG 상태 병렬 로드
   const loadStatus = useCallback(async () => {
     if (!auth) return;
     setLoading(true);
 
     try {
-      const res = await apiCall({
-        endpoint: '/api/rag/status',
-        method: 'GET',
-        auth,
-      });
+      const [res, lightragRes] = await Promise.all([
+        apiCall({ endpoint: '/api/rag/status', method: 'GET', auth }),
+        apiCall({ endpoint: '/api/lightrag/status', method: 'GET', auth }),
+      ]);
 
       if (res?.status === 'success') {
         setStatus(res);
       }
-
-      // LightRAG 상태도 로드
-      const lightragRes = await apiCall({
-        endpoint: '/api/lightrag/status',
-        method: 'GET',
-        auth,
-      });
 
       if (lightragRes?.status === 'success') {
         setLightragStatus(lightragRes);
@@ -259,7 +251,7 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
             <button
               onClick={handleReindex}
               disabled={loading}
-              className="w-full rounded-2xl border border-cafe24-orange/30 bg-gradient-to-r from-cafe24-yellow to-cafe24-orange px-4 py-2.5 text-sm font-black text-white shadow-cookie hover:shadow-cafe24-lg transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full rounded-2xl border border-cafe24-orange/30 bg-gradient-to-r from-cafe24-yellow to-cafe24-orange px-4 py-2.5 text-sm font-black text-white shadow-cafe24-sm hover:shadow-cafe24-lg transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               type="button"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />

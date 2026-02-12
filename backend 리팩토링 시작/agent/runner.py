@@ -17,9 +17,10 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from core.constants import DEFAULT_SYSTEM_PROMPT
 from core.utils import safe_str, format_openai_error, normalize_model_name, json_sanitize, extract_seller_id, extract_shop_id, extract_order_id
 from core.memory import append_memory, memory_messages
-from agent.tool_schemas import ALL_TOOLS
+from agent.tools import ALL_TOOLS
 from agent.llm import get_llm, pick_api_key
 from agent.router import classify_and_get_tools, IntentCategory
+from agent.intent import KEYWORD_TOOL_MAPPING
 import state as st
 
 # 멀티 에이전트 지원 확인
@@ -35,30 +36,6 @@ RAG_TOOL_NAMES = {"search_platform", "search_platform_lightrag"}
 
 
 MAX_TOOL_ITERATIONS = 10  # 무한 루프 방지
-
-# 키워드-도구 매핑 (Rule-based 전처리용)
-KEYWORD_TOOL_MAPPING = {
-    "detect_fraud": ["부정행위 탐지", "비정상 셀러", "어뷰징", "사기 탐지", "허위 주문", "리뷰 조작"],
-    "get_fraud_statistics": ["이상거래", "이상 거래", "이상 셀러", "부정행위 통계", "부정행위 현황", "사기 통계", "사기 현황", "fraud 통계", "부정 거래", "이상거래 탐지", "이상거래 현황"],
-    "get_segment_statistics": ["세그먼트 통계", "셀러 세그먼트", "셀러 분포", "세그먼트 분석", "세그먼트 현황",
-                               "성장형 셀러", "휴면 셀러", "우수 셀러", "파워 셀러", "관리 필요 셀러"],
-    "get_order_statistics": ["운영 이벤트", "이벤트 통계", "주문 이벤트", "정산 이벤트", "이벤트 현황"],
-    "get_cs_statistics": ["CS 통계", "상담 현황", "상담 품질", "CS 현황"],
-    "classify_inquiry": ["카테고리 분류", "문의 분류", "분류해줘", "분류해 줘"],
-    "get_dashboard_summary": ["대시보드", "전체 현황", "요약 통계", "셀러 활동", "활동 현황", "전체 셀러", "플랜별 분포", "등급별 분포", "티어별 분포", "전체 쇼핑몰", "쇼핑몰 수", "쇼핑몰 개수", "쇼핑몰 몇", "총 쇼핑몰"],
-    # 쇼핑몰 목록/검색 도구
-    "list_shops": ["쇼핑몰 목록", "쇼핑몰 리스트", "쇼핑몰 현황", "등급 쇼핑몰", "티어 쇼핑몰", "플랜 쇼핑몰"],
-    "list_categories": ["카테고리 목록", "카테고리 전체", "카테고리 정보", "업종 목록", "업종 전체", "업종 정보", "업종 현황"],
-    # ML 모델 예측 도구
-    "predict_seller_churn": ["이탈 예측", "이탈 확률", "이탈 위험", "이탈률", "churn", "셀러 이탈"],
-    "get_shop_performance": ["성과 분석", "쇼핑몰 성과", "쇼핑몰 매출", "성과 예측", "매출 분석"],
-    "optimize_marketing": ["마케팅 추천", "마케팅 최적화", "광고 추천", "광고 전략", "마케팅 예산", "ROAS 최적화", "마케팅 예산 최적화", "광고 최적화", "마케팅 분석"],
-    # 분석 도구
-    "get_churn_prediction": ["이탈 분석", "이탈 현황", "이탈 통계", "고위험 셀러", "이탈 요인"],
-    "get_cohort_analysis": ["코호트 분석", "리텐션 분석", "코호트 리텐션", "주간 리텐션", "잔존율"],
-    "get_trend_analysis": ["트렌드 분석", "KPI 분석", "지표 분석", "DAU 분석", "상관관계", "활성 셀러", "가입 추이", "전환율", "신규 가입", "변화 분석", "추이 분석", "주문량 분석"],
-    "get_gmv_prediction": ["매출 예측", "GMV 분석", "GMV 예측", "수익 분석", "ARPU", "ARPPU", "거래액"],
-}
 
 
 def extract_days(text: str) -> int | None:
@@ -257,9 +234,19 @@ def run_agent(req, username: str) -> dict:
             SystemMessage(content=system_prompt),
         ]
 
-        # 이전 대화 기록 추가 (맥락 유지)
+        # H18: 토큰 윈도우 제한 적용 (최대 ~4000자 = ~2000 토큰)
+        MAX_MEMORY_CHARS = 4000
         prev_messages = memory_messages(username)
-        for msg in prev_messages:
+        total_chars = 0
+        trimmed = []
+        for msg in reversed(prev_messages):
+            content = msg.get("content", "")
+            total_chars += len(content)
+            if total_chars > MAX_MEMORY_CHARS:
+                break
+            trimmed.append(msg)
+        trimmed.reverse()
+        for msg in trimmed:
             role = msg.get("role", "")
             content = msg.get("content", "")
             if role == "user":
@@ -314,8 +301,7 @@ def run_agent(req, username: str) -> dict:
                         args["month"] = month
                     elif cohort:
                         # cohort에서 월 형식 추출 (예: "2024-11 W1" → "2024-11")
-                        import re as _re
-                        m = _re.search(r'(\d{4}-\d{2})', cohort)
+                        m = re.search(r'(\d{4}-\d{2})', cohort)
                         if m:
                             args["month"] = m.group(1)
                         else:
@@ -487,9 +473,15 @@ def run_agent(req, username: str) -> dict:
                     tool_call_id=tool_id,
                 ))
 
-        # 최대 반복 도달
-        st.logger.warning("AGENT_MAX_ITERATIONS user=%s", username)
-        final_text = "요청 처리 중 최대 반복 횟수에 도달했습니다."
+        # L9: 최대 반복 도달 시 마지막 AI 응답이 있으면 부분 답변 반환
+        st.logger.warning("AGENT_MAX_ITERATIONS user=%s iterations=%d", username, iteration)
+        final_text = ""
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and msg.content:
+                final_text = safe_str(msg.content).strip()
+                break
+        if not final_text:
+            final_text = "요청 처리 중 최대 반복 횟수에 도달했습니다. 지금까지의 도구 실행 결과를 확인해 주세요."
         append_memory(username, user_text, final_text)
 
         return {

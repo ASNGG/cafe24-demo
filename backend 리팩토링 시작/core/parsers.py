@@ -75,34 +75,3 @@ def _norm_key(s: Any) -> str:
     return re.sub(r"\s+", "", safe_str(s)).lower().strip()
 
 
-def extract_language_from_text(user_text: str) -> Optional[str]:
-    """텍스트에서 번역 대상 언어 추출"""
-    txt = safe_str(user_text).strip().lower()
-
-    lang_map = {
-        "영어": "en",
-        "english": "en",
-        "일본어": "ja",
-        "japanese": "ja",
-        "중국어": "zh",
-        "chinese": "zh",
-        "간체": "zh",
-        "번체": "zh-TW",
-        "태국어": "th",
-        "thai": "th",
-        "인도네시아어": "id",
-        "indonesian": "id",
-        "독일어": "de",
-        "german": "de",
-        "프랑스어": "fr",
-        "french": "fr",
-        "스페인어": "es",
-        "spanish": "es",
-        "포르투갈어": "pt",
-        "portuguese": "pt",
-    }
-
-    for key, value in lang_map.items():
-        if key in txt:
-            return value
-    return None

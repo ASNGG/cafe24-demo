@@ -99,7 +99,7 @@ nextjs/
 │   ├── EmptyState.js               # 빈 상태 UI
 │   ├── Skeleton.js                 # 로딩 스켈레톤 (CSS shimmer)
 │   ├── ToastProvider.js            # 전역 토스트 알림 (react-hot-toast)
-│   ├── next.config.js              # next.config.js 사본 (기본 포트 8000, 루트는 8001)
+│   ├── next.config.js              # next.config.js 사본 (백엔드 기본 포트 8001)
 │   │
 │   ├── common/                     # 공통 컴포넌트 (신규)
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
@@ -247,7 +247,7 @@ flowchart TB
 |------|-----|
 | 쇼핑몰 전체 조회 | `GET /api/shops` |
 | 카테고리 조회 | `GET /api/categories` |
-| 이커머스 용어집 | `GET /api/cs/terms` |
+| 이커머스 용어집 | `GET /api/cs/glossary` |
 | 세그먼트 통계 | `GET /api/sellers/segments/statistics` |
 
 **인터랙션 패턴:**
@@ -353,7 +353,7 @@ flowchart TB
 | **API** | `GET /api/mlflow/models`, `GET /api/mlflow/experiments`, `GET /api/mlflow/models/selected`, `POST /api/mlflow/models/select` |
 | **권한** | 관리자 전용 |
 
-**등록 모델 11종:**
+**관리 모델 13종** (MLflow 등록 11 + 프로세스마이너 비등록 2):
 
 | 모델명 | 알고리즘 | 용도 |
 |--------|----------|------|
@@ -368,6 +368,8 @@ flowchart TB
 | 상품수요예측 | XGBoost | 상품별 수요 예측 |
 | 정산이상탐지 | DBSCAN | 정산 이상 패턴 탐지 |
 | Guardian감사로그이상탐지 | IsolationForest | 감사 로그 이상 패턴 탐지 |
+| 다음활동예측 | RandomForest Classifier | 프로세스 다음 활동 Top-3 예측 |
+| 이상프로세스탐지 | IsolationForest | 경로 기반 이상 프로세스 케이스 탐지 |
 
 ---
 
@@ -791,7 +793,7 @@ flowchart LR
 | `formatMinutes(min)` | 분 → 초/분/시간/일 자동 변환 |
 | `formatNumber(n)` | 숫자 콤마 포맷 |
 | `formatPercent(n)` | 소수 → 백분율 변환 (예: 0.85 → "85.0%") |
-| `isSuccess(res)` | API 응답 성공 여부 (`SUCCESS` or `OK`) |
+| `isSuccess(res)` | API 응답 성공 여부 (`success` or `ok`) |
 
 ---
 

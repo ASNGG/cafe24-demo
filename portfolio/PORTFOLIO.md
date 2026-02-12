@@ -59,7 +59,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 
 **자연어 한 마디로 셀러 이탈 예측, 이상거래 탐지, CS 자동화, 매출 예측을 수행하는 AI 에이전트 플랫폼**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org) [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com) [![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org) [![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com) [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/) [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com) [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org) [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square)](https://github.com/facebookresearch/faiss) [![SHAP](https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square)](https://shap.readthedocs.io)
+<p style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px;"><a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a> <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"></a> <a href="https://langchain.com"><img src="https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square" alt="LangChain"></a> <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square" alt="LangGraph"></a> <a href="https://openai.com"><img src="https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI"></a> <a href="https://mlflow.org"><img src="https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white" alt="MLflow"></a> <a href="https://github.com/facebookresearch/faiss"><img src="https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square" alt="FAISS"></a> <a href="https://shap.readthedocs.io"><img src="https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square" alt="SHAP"></a></p>
 
 [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) · [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) · 개발 기간: 2026.02.06 ~ 진행 중
 
@@ -446,8 +446,8 @@ SEL0123 이탈 확률: 73% (high)
 피처                              SHAP     영향
 ──────────────────────────────────────────────
 days_since_last_login (14일)      +0.35   이탈 증가 ← 가장 큰 기여
-order_count (감소)                +0.22   이탈 증가
-total_gmv (높음)                  -0.12   이탈 감소 (방어 요인)
+total_orders (감소)               +0.22   이탈 증가
+total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
 ```
 
 ### 5.2 마케팅 최적화 (P-PSO)
@@ -665,7 +665,7 @@ flowchart LR
 | 분류 | 기술 | 선택 이유 |
 |------|------|----------|
 | **프레임워크** | FastAPI | 비동기, SSE 네이티브 지원, OpenAPI 자동 문서화 |
-| **LLM** | OpenAI GPT-4o-mini | Tool Calling 정확도 + 비용 효율 |
+| **LLM** | OpenAI GPT-4o / GPT-4o-mini | Tool Calling 정확도 + 비용 효율 (Coordinator: GPT-4o) |
 | **에이전트** | LangChain + LangGraph | Tool Calling 추상화 + StateGraph 멀티 에이전트 |
 | **벡터 검색** | FAISS (faiss-cpu) | 로컬 실행, 별도 서버 불필요 |
 | **GraphRAG** | LightRAG | 99% 토큰 절감, 경량 지식 그래프 |
@@ -847,7 +847,7 @@ flowchart LR
 
 ### 기술 요약
 
-**LLM**: GPT-4o-mini (Tool Calling + SSE 스트리밍)
+**LLM**: GPT-4o / GPT-4o-mini (Tool Calling + SSE 스트리밍)
 **ML**: RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO
 **RAG**: FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · LightRAG · K2RAG · CRAG
 **Backend**: FastAPI · LangChain · LangGraph · MLflow · n8n · Resend

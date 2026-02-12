@@ -811,7 +811,7 @@ export default function AgentPanel({
             </button>
             <button
               className={cookieBtn}
-              onClick={() => runQuick('/api/cs/terms')}
+              onClick={() => runQuick('/api/cs/glossary')}
               type="button"
             >
               이커머스 용어집

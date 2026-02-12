@@ -6,12 +6,13 @@ api/routes_automation.py - 자동화 엔진 API 라우터
   2. CS FAQ 자동 생성
   3. 운영 리포트 자동 생성
 """
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from api.common import verify_credentials
+from core.constants import CS_TICKET_CATEGORIES
 from core.utils import safe_str
 import state as st
 
@@ -52,6 +53,14 @@ class FaqGenerateRequest(BaseModel):
 class FaqUpdateRequest(BaseModel):
     question: Optional[str] = None
     answer: Optional[str] = None
+
+
+class RetentionBulkExecuteRequest(BaseModel):
+    seller_ids: List[str]
+    action_type: str = Field("custom_message", description="coupon | upgrade_offer | manager_assign | custom_message")
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
 
 
 class ReportGenerateRequest(BaseModel):
@@ -285,4 +294,54 @@ def get_actions_stats(
         return {"status": "success", **stats}
     except Exception as e:
         st.logger.error("ACTION_STATS_ERROR: %s", safe_str(e))
+        raise HTTPException(status_code=500, detail=safe_str(e))
+
+
+# ============================================================
+# 5. 공통 유틸리티
+# ============================================================
+@router.get("/categories")
+def get_categories(
+    user=Depends(verify_credentials),
+):
+    """CS 카테고리 목록 조회"""
+    return {"status": "success", "categories": CS_TICKET_CATEGORIES}
+
+
+@router.get("/pipeline/{run_id}")
+def get_pipeline_status(
+    run_id: str,
+    user=Depends(verify_credentials),
+):
+    """파이프라인 실행 상태 조회"""
+    run = action_logger.get_pipeline_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="파이프라인 실행을 찾을 수 없습니다.")
+    return {"status": "success", **run}
+
+
+@router.post("/retention/execute-bulk")
+def execute_retention_bulk(
+    req: RetentionBulkExecuteRequest,
+    user=Depends(verify_credentials),
+):
+    """이탈 방지 벌크 조치 실행"""
+    try:
+        results = []
+        for seller_id in req.seller_ids:
+            result = retention_engine.execute_retention_action(
+                seller_id=seller_id,
+                action_type=req.action_type,
+                api_key=req.api_key,
+            )
+            results.append({"seller_id": seller_id, **result})
+        success_count = sum(1 for r in results if r.get("status") == "success")
+        return {
+            "status": "success",
+            "total": len(results),
+            "success_count": success_count,
+            "results": results,
+        }
+    except Exception as e:
+        st.logger.error("RETENTION_BULK_ERROR: %s", safe_str(e))
         raise HTTPException(status_code=500, detail=safe_str(e))

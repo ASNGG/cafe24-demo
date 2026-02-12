@@ -13,7 +13,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from core.utils import safe_str, safe_int, safe_float
 import state as st
 from agent.llm import get_llm, invoke_with_retry, pick_api_key
-from automation.action_logger import save_report, get_report_history, log_action
+from automation.action_logger import save_report, get_report_history, log_action, create_pipeline_run, update_pipeline_step, complete_pipeline_run
 
 
 # ── 리포트 타입별 라벨 ──
@@ -148,10 +148,16 @@ def generate_report(report_type: str = "daily", api_key: str = "") -> Dict[str, 
     """LLM으로 운영 리포트를 자동 생성합니다."""
     report_id = str(uuid.uuid4())[:8]
     type_label = _REPORT_TYPE_LABELS.get(report_type, report_type)
+    run_id = create_pipeline_run("report", ["collect", "aggregate", "write", "save"])
+    update_pipeline_step(run_id, "collect", "processing")
 
     try:
         # 데이터 수집
         data = collect_report_data()
+
+        update_pipeline_step(run_id, "collect", "complete", {"kpi_count": len(data.get("kpi", {}))})
+        update_pipeline_step(run_id, "aggregate", "complete", {"trends": len(data.get("trends", {}))})
+        update_pipeline_step(run_id, "write", "processing")
 
         # LLM 호출 준비
         resolved_key = pick_api_key(api_key)
@@ -202,6 +208,8 @@ def generate_report(report_type: str = "daily", api_key: str = "") -> Dict[str, 
         ]
 
         content = invoke_with_retry(llm, messages)
+        update_pipeline_step(run_id, "write", "complete")
+        update_pipeline_step(run_id, "save", "processing")
 
         result = {
             "report_id": report_id,
@@ -209,6 +217,7 @@ def generate_report(report_type: str = "daily", api_key: str = "") -> Dict[str, 
             "content": content,
             "data_summary": data,
             "timestamp": time.time(),
+            "pipeline_run_id": run_id,
         }
 
         # 히스토리 저장
@@ -219,10 +228,15 @@ def generate_report(report_type: str = "daily", api_key: str = "") -> Dict[str, 
             "kpi_keys": list(data.get("kpi", {}).keys()),
         })
 
+        update_pipeline_step(run_id, "save", "complete")
+        complete_pipeline_run(run_id)
+
         st.logger.info("REPORT_GENERATED id=%s type=%s model=%s", report_id, report_type, model)
         return result
 
     except Exception as e:
+        if run_id:
+            update_pipeline_step(run_id, "write", "error", {"error": safe_str(e)})
         st.logger.error("REPORT_GENERATE_FAIL id=%s err=%s", report_id, safe_str(e))
         log_action("report_generate", report_id, {
             "report_type": report_type,

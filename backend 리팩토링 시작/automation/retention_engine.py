@@ -15,7 +15,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from core.constants import FEATURE_COLS_CHURN, FEATURE_LABELS, PLAN_TIERS
 from core.utils import safe_str, safe_int, safe_float
 from agent.llm import get_llm, invoke_with_retry, pick_api_key
-from automation.action_logger import log_action, save_retention_action
+from automation.action_logger import log_action, save_retention_action, create_pipeline_run, update_pipeline_step, complete_pipeline_run
 import state as st
 
 
@@ -25,6 +25,9 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
     SELLER_CHURN_MODEL로 예측하고 SHAP으로 요인을 분석합니다.
     threshold 이상인 셀러만 필터링, 확률 높은 순 정렬.
     """
+    run_id = create_pipeline_run("retention", ["detect", "analyze"])
+    update_pipeline_step(run_id, "detect", "processing")
+
     if st.SELLER_ANALYTICS_DF is None:
         st.logger.warning("RETENTION get_at_risk_sellers: SELLER_ANALYTICS_DF is None")
         return []
@@ -122,6 +125,9 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
 
     # 확률 높은 순 정렬 + limit
     results.sort(key=lambda x: x["churn_probability"], reverse=True)
+    update_pipeline_step(run_id, "detect", "complete", {"count": len(results)})
+    update_pipeline_step(run_id, "analyze", "complete")
+    complete_pipeline_run(run_id)
     return results[:limit]
 
 
@@ -352,6 +358,9 @@ def execute_retention_action(seller_id: str, action_type: str, api_key: str = ""
     리텐션 조치를 실행합니다 (시뮬레이션).
     action_type: "coupon" | "upgrade_offer" | "manager_assign" | "custom_message"
     """
+    run_id = create_pipeline_run("retention_action", ["execute", "log"])
+    update_pipeline_step(run_id, "execute", "processing")
+
     valid_actions = {"coupon", "upgrade_offer", "manager_assign", "custom_message"}
     if action_type not in valid_actions:
         return {
@@ -424,10 +433,15 @@ def execute_retention_action(seller_id: str, action_type: str, api_key: str = ""
         action_id, action_type, seller_id,
     )
 
+    update_pipeline_step(run_id, "execute", "complete", {"action_type": action_type})
+    update_pipeline_step(run_id, "log", "complete")
+    complete_pipeline_run(run_id)
+
     return {
         "status": "success",
         "action_id": action_id,
         "action_type": action_type,
         "seller_id": seller_id,
         "detail": detail["detail"],
+        "pipeline_run_id": run_id,
     }

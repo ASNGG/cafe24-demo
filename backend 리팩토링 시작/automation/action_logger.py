@@ -27,6 +27,10 @@ _REPORT_LOCK = Lock()
 _RETENTION_HISTORY: List[Dict[str, Any]] = []
 _RETENTION_LOCK = Lock()
 
+# 파이프라인 실행 추적
+_PIPELINE_RUNS: Dict[str, Dict[str, Any]] = {}
+_PIPELINE_LOCK = Lock()
+
 
 def log_action(
     action_type: str,
@@ -130,3 +134,61 @@ def save_retention_action(action: Dict[str, Any]) -> None:
 def get_retention_history(limit: int = 50) -> List[Dict[str, Any]]:
     with _RETENTION_LOCK:
         return sorted(_RETENTION_HISTORY, key=lambda x: x.get("timestamp", 0), reverse=True)[:limit]
+
+
+# ── 파이프라인 실행 추적 ──
+def create_pipeline_run(pipeline_type: str, steps: List[str]) -> str:
+    """파이프라인 실행을 생성하고 run_id를 반환합니다."""
+    run_id = str(uuid.uuid4())[:8]
+    run = {
+        "run_id": run_id,
+        "pipeline_type": pipeline_type,
+        "steps": {
+            s: {"status": "pending", "started_at": None, "completed_at": None, "result": None}
+            for s in steps
+        },
+        "current_step": None,
+        "status": "running",
+        "created_at": time.time(),
+    }
+    with _PIPELINE_LOCK:
+        _PIPELINE_RUNS[run_id] = run
+    return run_id
+
+
+def update_pipeline_step(
+    run_id: str, step: str, status: str, result: Any = None,
+) -> None:
+    """파이프라인 스텝 상태를 업데이트합니다."""
+    with _PIPELINE_LOCK:
+        run = _PIPELINE_RUNS.get(run_id)
+        if not run:
+            return
+        if step in run["steps"]:
+            run["steps"][step]["status"] = status
+            run["current_step"] = step
+            if status == "processing":
+                run["steps"][step]["started_at"] = time.time()
+            elif status in ("complete", "error"):
+                run["steps"][step]["completed_at"] = time.time()
+                run["steps"][step]["result"] = result
+        # 전체 파이프라인 상태 갱신
+        all_statuses = [s["status"] for s in run["steps"].values()]
+        if all(s == "complete" for s in all_statuses):
+            run["status"] = "complete"
+        elif any(s == "error" for s in all_statuses):
+            run["status"] = "error"
+
+
+def complete_pipeline_run(run_id: str) -> None:
+    """파이프라인 실행을 완료 처리합니다."""
+    with _PIPELINE_LOCK:
+        run = _PIPELINE_RUNS.get(run_id)
+        if run:
+            run["status"] = "complete"
+
+
+def get_pipeline_run(run_id: str) -> Optional[Dict[str, Any]]:
+    """파이프라인 실행 상태를 조회합니다."""
+    with _PIPELINE_LOCK:
+        return _PIPELINE_RUNS.get(run_id)

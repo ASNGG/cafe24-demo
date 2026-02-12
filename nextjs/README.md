@@ -120,6 +120,10 @@ nextjs/
 │       ├── ProcessMinerPanel.js    # 프로세스 마이닝
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
 │       │
+│       ├── automation/            # 자동화 엔진 공통 컴포넌트
+│       │   ├── PipelineFlow.js    # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
+│       │   └── constants.js       # 파이프라인 스텝 상수 (RETENTION/FAQ/REPORT_STEPS) + CS 카테고리
+│       │
 │       ├── lab/                    # LabPanel 분리 (11개 파일)
 │       │   ├── LabPanel.js         # 메인 컨테이너
 │       │   ├── StepIndicator.js    # 5단계 진행 표시기
@@ -806,26 +810,35 @@ flowchart LR
 |------|------|
 | **파일** | `components/panels/AutomationPanel.js` |
 | **역할** | 탐지 → 자동 실행: 셀러 이탈 방지 + CS FAQ 자동 생성 + 운영 리포트 자동 생성 |
-| **API** | `/api/automation/retention/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` (14개) |
+| **API** | `/api/automation/retention/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*`, `/api/automation/categories`, `/api/automation/pipeline/*` (17개) |
 | **권한** | 전체 사용자 |
 
 > **핵심 컨셉**: 기존 ML 탐지 결과를 LLM으로 자동 조치까지 연결 (카페24 PRO CS/Marketing 패턴)
 
+**개요 헤더:** 탭 상단에 통계 카드 4개 (위험 셀러 수, 생성 FAQ 수, 생성 리포트 수, 총 액션 수) — `/api/automation/actions/stats`
+
+**인터랙티브 파이프라인 시각화:** 각 탭 상단에 `PipelineFlow` 컴포넌트 배치. 5단계 수평 노드 + 연결선으로 API 호출 진행 상태를 실시간 표시.
+- **pending**: 회색 노드
+- **processing**: cafe24 그라데이션 + 펄스 애니메이션 + 흐르는 연결선
+- **complete**: 초록 체크 배지 + 결과 미니 배지 (예: "23명 탐지", "5개 생성")
+- **error**: 빨간 X 배지
+
 **3개 서브탭:**
 
-| 탭 | 이름 | 기능 |
-|-----|------|------|
-| 1 | **이탈 방지** | ML 이탈 예측(threshold 조절) → 위험 셀러 목록 → LLM 맞춤 메시지 생성 → 자동 조치 (쿠폰/업그레이드/매니저/메시지) |
-| 2 | **FAQ 자동 생성** | CS 패턴 분석 → LLM FAQ Q&A 생성 → 초안/승인/수정/삭제 관리 |
-| 3 | **운영 리포트** | 리포트 유형 선택(일간/주간/월간) → LLM 마크다운 리포트 생성 → 이력 조회 |
+| 탭 | 이름 | 파이프라인 스텝 | 기능 |
+|-----|------|----------------|------|
+| 1 | **이탈 방지** | 위험탐지 → 이탈분석 → 메시지생성 → 조치실행 → 결과기록 | ML 이탈 예측(threshold 조절) → 셀러 프리뷰 카드(5개 KPI) + 리스크 게이지 → LLM 메시지 → 자동 조치 + 벌크 액션(체크박스 다중 선택) |
+| 2 | **FAQ 자동 생성** | 패턴분석 → 카테고리 → FAQ생성 → 검토/편집 → 승인/배포 | CS 패턴 분석 → 카테고리 드롭다운(9종 선택) → LLM FAQ 생성 → 텍스트/상태/카테고리 검색·필터 → 모달 편집 → 승인/삭제 |
+| 3 | **운영 리포트** | 데이터수집 → KPI집계 → 리포트작성 → 결과저장 → 이력관리 | 리포트 유형 선택 → LLM 마크다운 리포트 → KPI 트렌드 표시(↑↓ + WoW 변화율) → 섹션 네비게이션 pill → 이력 조회 |
 
 **내부 컴포넌트:**
 
 | 컴포넌트 | 역할 |
 |----------|------|
-| `RetentionTab` | 이탈 위험 셀러 탐지 + LLM 메시지 생성 + 4종 자동 조치 실행 |
-| `FaqTab` | CS 패턴 분석 + FAQ 생성/승인/수정/삭제 CRUD |
-| `ReportTab` | 리포트 생성 + 마크다운 뷰어 + 생성 이력 |
+| `RetentionTab` | 이탈 위험 셀러 탐지 + 셀러 프리뷰(주문수/매출/접속일/환불률/상품수) + 리스크 게이지 바 + LLM 메시지 생성 + 4종 자동 조치 + 벌크 액션 |
+| `FaqTab` | CS 패턴 분석 + 카테고리 드롭다운 + FAQ 생성/검색·필터/모달 편집/승인/삭제 CRUD |
+| `ReportTab` | 리포트 생성 + KPI 트렌드 카드 + 마크다운 뷰어 + 섹션 네비게이션 + 생성 이력 |
+| `PipelineFlow` | 공통 파이프라인 시각화 — 5단계 수평 노드 + 상태 애니메이션 + 결과 배지 (`automation/PipelineFlow.js`) |
 
 ---
 
@@ -1501,6 +1514,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 8.0.0** · Last Updated 2026-02-10
+**Version 8.2.0** · Last Updated 2026-02-12
 
 </div>

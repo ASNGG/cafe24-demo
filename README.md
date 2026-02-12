@@ -14,13 +14,25 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v8.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
 ---
 
 ## 최신 업데이트
+
+> **v8.3.0** (2026-02-12) — 전체 코드 최적화 150건 (백엔드 + 프론트엔드)
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **코드 감축** | 99파일, 순 -7,000줄 — 거대 파일 4개 분리 (ProcessMiner 1293→107, Guardian 884→67, Automation 1131→87, Agent 905→539) |
+| **백엔드 중복 제거** | 함수 중복 통합, OpenAI 클라이언트 팩토리, 키워드/인텐트 분류 단일 소스화, tool_schemas.py→tools.py 통합 |
+| **백엔드 성능** | CRAG 배치 평가, LangGraph 캐시, RAG BM25 직렬화 캐시, k2rag O(1) 룩업, CSV/모델 병렬 로딩, PSO numpy 벡터화 |
+| **프론트 번들** | plotly.js 제거 (-1MB), 12개 패널 next/dynamic 전환, recharts 코드 스플리팅, framer-motion login 분리 |
+| **프론트 아키텍처** | AnalysisPanel useState 38→15개, SSE 프록시 3개 통합, 공통 컴포넌트 6개 추출, 커스텀 훅 3개 생성 |
+| **브랜딩 통일** | cookie-* 전면 제거, cafe24-* 네이밍 100% 통일 |
+| **접근성** | WAI-ARIA 탭 키보드 네비게이션, Escape 모달 닫기 |
 
 > **v8.2.0** (2026-02-12) — 자동화 엔진 고도화 (파이프라인 시각화 + 버그 수정)
 

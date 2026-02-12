@@ -619,7 +619,7 @@ flowchart LR
 |:-:|------|----------|----------|
 | 1 | **AI 에이전트** | 자연어 채팅 + 도구 호출 + 수학 수식 | SSE, react-markdown, KaTeX |
 | 2 | **대시보드** | KPI, 차트, AI 인사이트, 알림 | Recharts (6종 차트) |
-| 3 | **분석 (9탭)** | 셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅 | RadarChart, HeatMap, Plotly |
+| 3 | **분석 (9탭)** | 셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅 | RadarChart, HeatMap, Recharts |
 | 4 | **ML 모델** | MLflow 레지스트리, 버전 선택 | 실시간 모델 교체 |
 | 5 | **RAG 관리** | 모드 선택, 인덱스 빌드, 상태 모니터링 | FAISS/LightRAG/K2RAG |
 | 6 | **설정** | LLM 파라미터, 프리셋 3종, 시스템 프롬프트 | 슬라이더 UI |
@@ -681,7 +681,7 @@ flowchart LR
 |------|------|----------|
 | **프레임워크** | Next.js 14 (Pages Router) | SSR/CSR 하이브리드, API Route로 SSE 프록시 |
 | **스타일링** | Tailwind CSS 3.4 | 유틸리티 퍼스트, CAFE24 브랜드 커스텀 |
-| **차트** | Recharts + Plotly.js | 선언적 React 차트 + 고급 시각화 |
+| **차트** | Recharts | 선언적 React 차트 |
 | **SSE** | @microsoft/fetch-event-source | POST SSE 지원, 재연결 |
 | **워크플로우** | @xyflow/react (React Flow) | n8n 워크플로우 시각화, 노드 상태 애니메이션 |
 | **애니메이션** | Framer Motion | 스텝 전환, 아코디언, 스프링 로고 |
@@ -851,7 +851,7 @@ flowchart LR
 **ML**: RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO
 **RAG**: FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · LightRAG · K2RAG · CRAG
 **Backend**: FastAPI · LangChain · LangGraph · MLflow · n8n · Resend
-**Frontend**: Next.js 14 · Tailwind CSS · Recharts · Plotly · React Flow · Framer Motion · KaTeX
+**Frontend**: Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX
 
 ---
 

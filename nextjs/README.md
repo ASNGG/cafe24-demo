@@ -16,7 +16,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (11개)](#2-패널-11개)
+2. [패널 (12개)](#2-패널-12개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -32,13 +32,13 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝 등 **11개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["11개 패널"]
+        Panels["12개 패널"]
         SSEProxy["SSE 프록시<br/>(5개 API Route)"]
     end
 
@@ -79,7 +79,7 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth)
-│   ├── app.js                      # 메인 앱 (탭 기반 11개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   └── stream.js           # SSE 프록시 (AI 에이전트)
@@ -106,7 +106,7 @@ nextjs/
 │   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
 │   │   └── constants.js            # 공통 상수 (COLORS 등)
 │   │
-│   └── panels/                     # 기능별 패널 (11개)
+│   └── panels/                     # 기능별 패널 (12개)
 │       ├── AgentPanel.js           # AI 에이전트 채팅
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
@@ -118,6 +118,7 @@ nextjs/
 │       ├── LabPanel.js             # CS 자동화 파이프라인 (→ lab/ 위임)
 │       ├── GuardianPanel.js        # DB 보안 감시
 │       ├── ProcessMinerPanel.js    # 프로세스 마이닝
+│       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
 │       │
 │       ├── lab/                    # LabPanel 분리 (11개 파일)
 │       │   ├── LabPanel.js         # 메인 컨테이너
@@ -163,15 +164,15 @@ nextjs/
 
 ---
 
-## 2. 패널 (11개)
+## 2. 패널 (12개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["11개 탭 전부"]
-    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["6개 탭"]
+    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
+    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["7개 탭"]
 
     Admin --> A1["AI 에이전트"]
     Admin --> A2["대시보드"]
@@ -181,9 +182,10 @@ graph TD
     Admin --> A6["CS 자동화"]
     Admin --> A7["DB 보안 감시"]
     Admin --> A8["프로세스 마이너"]
-    Admin --> A9["LLM 설정"]
-    Admin --> A10["셀러 관리"]
-    Admin --> A11["로그"]
+    Admin --> A9["자동화 엔진"]
+    Admin --> A10["LLM 설정"]
+    Admin --> A11["셀러 관리"]
+    Admin --> A12["로그"]
 
     User --> U1["AI 에이전트"]
     User --> U2["대시보드"]
@@ -191,12 +193,13 @@ graph TD
     User --> U4["CS 자동화"]
     User --> U5["DB 보안 감시"]
     User --> U6["프로세스 마이너"]
+    User --> U7["자동화 엔진"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 11개 전부 | 11 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner | 6 |
+| **관리자** (Admin) | 12개 전부 | 12 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation | 7 |
 
 ---
 
@@ -797,6 +800,35 @@ flowchart LR
 
 ---
 
+### 2.12 AutomationPanel (자동화 엔진)
+
+| 항목 | 내용 |
+|------|------|
+| **파일** | `components/panels/AutomationPanel.js` |
+| **역할** | 탐지 → 자동 실행: 셀러 이탈 방지 + CS FAQ 자동 생성 + 운영 리포트 자동 생성 |
+| **API** | `/api/automation/retention/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` (14개) |
+| **권한** | 전체 사용자 |
+
+> **핵심 컨셉**: 기존 ML 탐지 결과를 LLM으로 자동 조치까지 연결 (카페24 PRO CS/Marketing 패턴)
+
+**3개 서브탭:**
+
+| 탭 | 이름 | 기능 |
+|-----|------|------|
+| 1 | **이탈 방지** | ML 이탈 예측(threshold 조절) → 위험 셀러 목록 → LLM 맞춤 메시지 생성 → 자동 조치 (쿠폰/업그레이드/매니저/메시지) |
+| 2 | **FAQ 자동 생성** | CS 패턴 분석 → LLM FAQ Q&A 생성 → 초안/승인/수정/삭제 관리 |
+| 3 | **운영 리포트** | 리포트 유형 선택(일간/주간/월간) → LLM 마크다운 리포트 생성 → 이력 조회 |
+
+**내부 컴포넌트:**
+
+| 컴포넌트 | 역할 |
+|----------|------|
+| `RetentionTab` | 이탈 위험 셀러 탐지 + LLM 메시지 생성 + 4종 자동 조치 실행 |
+| `FaqTab` | CS 패턴 분석 + FAQ 생성/승인/수정/삭제 CRUD |
+| `ReportTab` | 리포트 생성 + 마크다운 뷰어 + 생성 이력 |
+
+---
+
 ### 인터랙션 & 애니메이션 패턴
 
 **Framer Motion 애니메이션:**
@@ -1278,7 +1310,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 11개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1297,7 +1329,7 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 11개 전부 |
+| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
 | 운영자 | `operator` | `oper123` | Operator | 6개 (공개) |
 | 분석가 | `analyst` | `analyst123` | Analyst | 6개 (공개) |
 | 사용자 | `user` | `user123` | User | 6개 (공개) |

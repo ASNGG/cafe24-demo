@@ -18,6 +18,7 @@ import RagPanel from '@/components/panels/RagPanel';
 import LabPanel from '@/components/panels/LabPanel';
 import GuardianPanel from '@/components/panels/GuardianPanel';
 import ProcessMinerPanel from '@/components/panels/ProcessMinerPanel';
+import AutomationPanel from '@/components/panels/AutomationPanel';
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {
@@ -152,6 +153,7 @@ export default function AppPage() {
         { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
         { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
         { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
+        { key: 'automation', label: '⚡ 자동화 엔진' },
         { key: 'settings', label: '⚙️ LLM 설정' },
         { key: 'users', label: '👥 셀러 관리' },
         { key: 'logs', label: '📋 로그' },
@@ -164,6 +166,7 @@ export default function AppPage() {
       { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
       { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
       { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
+      { key: 'automation', label: '⚡ 자동화 엔진' },
     ];
   }, [isAdmin]);
 
@@ -456,6 +459,10 @@ export default function AppPage() {
 
       {activeTab === 'process-miner' ? (
         <ProcessMinerPanel auth={auth} apiCall={apiCall} />
+      ) : null}
+
+      {activeTab === 'automation' ? (
+        <AutomationPanel auth={auth} apiCall={apiCall} />
       ) : null}
     </Layout>
   );

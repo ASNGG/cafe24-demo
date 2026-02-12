@@ -31,12 +31,13 @@
 13. [Core 모듈](#13-core-모듈)
 14. [DB 보안 감시 (Data Guardian)](#14-db-보안-감시-data-guardian)
 15. [AI 프로세스 마이너](#15-ai-프로세스-마이너)
+16. [자동화 엔진](#16-자동화-엔진)
 
 ---
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **8개 도메인별 라우터(89개 REST API)**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(103개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
 - **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 7개 IntentCategory로 28개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 포함
@@ -62,7 +63,7 @@ flowchart TB
     end
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
-        ROUTES["api/ 도메인별 라우터 8개<br/>(89개 엔드포인트)"]
+        ROUTES["api/ 도메인별 라우터 9개<br/>(103개 엔드포인트)"]
         PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
@@ -173,13 +174,14 @@ backend 리팩토링 시작/
 │
 ├── api/                             # REST API (도메인별 라우터 분리)
 │   ├── common.py                    # 공통 유틸리티 (응답 형식, 인증 헬퍼)
-│   ├── routes.py                    # 라우터 통합 모듈 (8개 도메인 라우터를 단일 APIRouter로 통합)
+│   ├── routes.py                    # 라우터 통합 모듈 (9개 도메인 라우터를 단일 APIRouter로 통합)
 │   ├── routes_shop.py               # 쇼핑몰/상품 API
 │   ├── routes_seller.py             # 셀러 분석 API
 │   ├── routes_cs.py                 # CS/고객지원 API (X-Callback-Token 인증)
 │   ├── routes_rag.py                # RAG/LightRAG/K2RAG API
 │   ├── routes_ml.py                 # ML/MLflow/마케팅 API
 │   ├── routes_guardian.py           # Guardian/보안감시 API
+│   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/FAQ/리포트, 14개 엔드포인트)
 │   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
@@ -215,6 +217,12 @@ backend 리팩토링 시작/
 │   ├── utils.py                     # 유틸 함수 (extract_seller_id 등 중복 통합)
 │   ├── memory.py                    # 대화 메모리 관리 (세션별 최대 10턴)
 │   └── parsers.py                   # 텍스트 파서 (레거시 함수 정리됨)
+│
+├── automation/                      # 자동화 엔진 (탐지→자동실행)
+│   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소
+│   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
+│   ├── faq_engine.py                # CS FAQ 자동 생성 (패턴분석→LLM)
+│   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
 │
 ├── process_miner/                   # AI 프로세스 마이너
 │   ├── __init__.py
@@ -1478,7 +1486,7 @@ python ml/train_models.py
 
 ## 10. API 엔드포인트
 
-모든 API는 `/api` prefix를 사용합니다. `routes.py`가 **8개 도메인별 라우터**를 단일 `APIRouter`로 통합하며, `main.py`에서 이 라우터 하나만 include합니다.
+모든 API는 `/api` prefix를 사용합니다. `routes.py`가 **9개 도메인별 라우터**를 단일 `APIRouter`로 통합하며, `main.py`에서 이 라우터 하나만 include합니다.
 
 ### 라우터 파일 매핑
 
@@ -1491,6 +1499,7 @@ python ml/train_models.py
 | `routes_ml.py` | ML/MLflow/마케팅 | `/api/mlflow/*`, `/api/marketing/*` |
 | `routes_guardian.py` | Guardian/보안감시 | `/api/guardian/*` |
 | `routes_agent.py` | 에이전트/채팅 | `/api/agent/*` |
+| `routes_automation.py` | 자동화 엔진 | `/api/automation/retention/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` |
 | `routes_admin.py` | 관리/설정/사용자 | `/api/settings/*`, `/api/users`, `/api/login` |
 
 ### API 응답 형식
@@ -2859,7 +2868,7 @@ flowchart TD
 | **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률, SHA256 해시 캐싱) | `predictor.py` |
 | **Path-based Anomaly Detection** | IsolationForest 기반 경로 이상 탐지 (bottleneck의 시간 기반 IQR과 상호보완) | `anomaly_detector.py` |
 | **시드 기반 재현성** | `random.Random(seed=42)` -- 동일 파라미터 시 동일 결과 (데모 안정성) | `event_generator.py` |
-| **독립 패키지** | 기존 API 코드와 분리 (8개 도메인 라우터), `main.py`에 2줄 추가로 통합 | `process_miner/` |
+| **독립 패키지** | 기존 API 코드와 분리 (9개 도메인 라우터), `main.py`에 2줄 추가로 통합 | `process_miner/` |
 
 ### 15.7 프로세스 마이너 vs 기존 ML 모델 비교
 
@@ -2874,8 +2883,67 @@ flowchart TD
 
 ---
 
+## 16. 자동화 엔진
+
+`automation/` 패키지는 기존 ML 탐지 결과를 **자동 조치로 연결**하는 "데이터 분석 → AI 판단 → 자동 실행" 패턴을 구현합니다.
+
+### 16.1 아키텍처
+
+```mermaid
+flowchart LR
+    subgraph Detection["탐지 (기존)"]
+        CHURN["이탈 예측<br/>(RandomForest + SHAP)"]
+        CS["CS 문의 분류<br/>(TF-IDF + RF)"]
+        KPI["KPI 집계<br/>(16개 DataFrame)"]
+    end
+
+    subgraph Automation["자동 실행 (신규)"]
+        RET["retention_engine<br/>리텐션 메시지 생성"]
+        FAQ["faq_engine<br/>FAQ 자동 생성"]
+        RPT["report_engine<br/>리포트 자동 작성"]
+    end
+
+    subgraph LLM["LLM"]
+        GPT["GPT-4o-mini"]
+    end
+
+    CHURN --> RET --> GPT
+    CS --> FAQ --> GPT
+    KPI --> RPT --> GPT
+```
+
+### 16.2 모듈 구성
+
+| 모듈 | 역할 | 주요 함수 |
+|------|------|----------|
+| `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()` |
+| `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
+| `faq_engine.py` | CS 패턴 분석 → LLM FAQ 생성 → 승인 관리 | `analyze_cs_patterns()`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
+| `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
+
+### 16.3 API 엔드포인트 (14개)
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/automation/retention/at-risk` | 이탈 위험 셀러 목록 (threshold, limit) |
+| POST | `/api/automation/retention/message` | LLM 리텐션 메시지 생성 |
+| POST | `/api/automation/retention/execute` | 자동 조치 실행 (coupon/upgrade/manager/message) |
+| GET | `/api/automation/retention/history` | 리텐션 조치 이력 |
+| POST | `/api/automation/faq/analyze` | CS 문의 패턴 분석 |
+| POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 |
+| GET | `/api/automation/faq/list` | FAQ 목록 (status 필터) |
+| PUT | `/api/automation/faq/{id}/approve` | FAQ 승인 |
+| PUT | `/api/automation/faq/{id}` | FAQ 수정 |
+| DELETE | `/api/automation/faq/{id}` | FAQ 삭제 |
+| POST | `/api/automation/report/generate` | LLM 운영 리포트 생성 (daily/weekly/monthly) |
+| GET | `/api/automation/report/history` | 리포트 생성 이력 |
+| GET | `/api/automation/actions/log` | 자동화 액션 로그 |
+| GET | `/api/automation/actions/stats` | 자동화 액션 통계 |
+
+---
+
 <div align="center">
 
-**Version 8.0.0** | 2026-02-10
+**Version 8.1.0** | 2026-02-12
 
 </div>

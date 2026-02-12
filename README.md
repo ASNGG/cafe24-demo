@@ -26,7 +26,7 @@ v8.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 |------|------|
 | **AI 도구** | 28개 (Tool Calling 기반) |
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
-| **RAG 엔진** | Triple RAG (Hybrid + LightRAG + K2RAG) + Corrective RAG |
+| **RAG 엔진** | 8종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · CRAG · Cross-Encoder) |
 | **API 엔드포인트** | 89개 REST API |
 | **프론트엔드 패널** | 11개 (Dashboard, Agent, Analysis, Lab, DB 보안 감시 등) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
@@ -65,15 +65,15 @@ v8.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **매출 예측** | 경험 기반 예측 | LightGBM 기반 다변량 매출 예측 |
 | **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 28 Tools) |
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
+| **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
 
 ### 핵심 기술 하이라이트
 
 | 특징 | 설명 |
 |------|------|
-| **LLM + ML 하이브리드** | GPT-4o-mini가 28개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 |
+| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 28개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator Agent: GPT-4o) |
 | **2단계 라우터** | 키워드 분류(비용 0, <1ms) -> LLM Router(gpt-4o-mini fallback) |
-| **Triple RAG** | FAISS Hybrid Search + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q+Hybrid) + BM25 한국어 토큰화 |
-| **Corrective RAG** | 검색 결과 품질 자동 평가 -> 쿼리 재작성 -> 재검색 ([CRAG 논문](https://arxiv.org/abs/2401.15884) 기반) |
+| **RAG 8종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + CRAG(검색 품질 교정) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
 | **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 |
 | **DB 보안 감시** | 룰엔진(<1ms) + Isolation Forest + SHAP + LangChain Agent + Recovery Agent |
@@ -136,7 +136,7 @@ flowchart TB
     end
 
     subgraph External["외부 서비스"]
-        OpenAI["OpenAI API<br/>(GPT-4o-mini)"]
+        OpenAI["OpenAI API<br/>(GPT-4o / GPT-4o-mini)"]
         n8n["n8n<br/>워크플로우 자동화"]
         Resend["Resend<br/>이메일 알림"]
     end
@@ -227,7 +227,7 @@ flowchart LR
 |------|------|-----------|
 | **AI 에이전트** | 자연어로 데이터 분석/예측 요청 (Single/Multi 모드) | GPT-4o-mini + Tool Calling + 28개 도구 |
 | **멀티 에이전트** | Coordinator가 질의 분석 후 전문 에이전트에 라우팅 | LangGraph (Coordinator/Search/Analysis/CS Agent) |
-| **Triple RAG** | 3가지 RAG 엔진 선택적 검색 | FAISS Hybrid + LightRAG(GraphRAG) + K2RAG |
+| **RAG 8종 기법** | 8가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + CRAG + Cross-Encoder |
 | **Corrective RAG** | 검색 결과 자동 품질 평가 및 교정 | RetrievalGrader + QueryRewriter (CRAG 패턴) |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
 | **이상거래 탐지** | 사기 거래/비정상 패턴 자동 탐지 | Isolation Forest |
@@ -330,7 +330,7 @@ flowchart LR
 | 분류 | 기술 | 용도 |
 |------|------|------|
 | **프레임워크** | FastAPI 0.110+ | REST API, SSE 스트리밍 |
-| **LLM** | OpenAI GPT-4o-mini | 에이전트 추론, RAG 답변 생성 |
+| **LLM** | OpenAI GPT-4o / GPT-4o-mini | 에이전트 추론, RAG 답변 생성 (Coordinator: GPT-4o) |
 | **에이전트** | LangChain 0.2+, LangGraph 0.2+ | Tool Calling, 멀티 에이전트 |
 | **벡터 검색** | FAISS (faiss-cpu) | Dense Vector Search |
 | **GraphRAG** | LightRAG (lightrag-hku) | 지식 그래프 기반 검색 |
@@ -347,7 +347,7 @@ flowchart LR
 |------|------|------|
 | **프레임워크** | Next.js 14 (Pages Router) | SSR/CSR 하이브리드 |
 | **스타일링** | Tailwind CSS 3.4 | 유틸리티 퍼스트 CSS |
-| **차트** | Plotly.js, Recharts | 대시보드 시각화 |
+| **차트** | Recharts 3.7 | 대시보드 시각화 |
 | **SSE** | @microsoft/fetch-event-source | 에이전트 스트리밍 |
 | **마크다운** | react-markdown + remark-gfm + KaTeX | 에이전트 응답 렌더링 (GFM + 수식) |
 | **워크플로우** | @xyflow/react (React Flow) | n8n 워크플로우 시각화 |

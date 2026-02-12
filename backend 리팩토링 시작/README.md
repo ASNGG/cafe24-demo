@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python)](https://python.org)
 [![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
-[![MLflow](https://img.shields.io/badge/MLflow-2.x-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
+[![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
 </div>
 
@@ -195,7 +195,7 @@ backend 리팩토링 시작/
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
-│   ├── service.py                   # RAG 파사드 (823줄, 검색 인터페이스 통합)
+│   ├── service.py                   # RAG 파사드 (831줄, 검색 인터페이스 통합)
 │   ├── chunking.py                  # 청킹 로직 (Parent-Child Chunking)
 │   ├── search.py                    # 검색 엔진 (BM25, Vector, Hybrid, RAG-Fusion)
 │   ├── kg.py                        # Knowledge Graph
@@ -788,7 +788,7 @@ flowchart TD
 | 설정 | 값 | 설명 |
 |------|-----|------|
 | `MAX_MEMORY_TURNS` | 10 | 세션당 최대 대화 턴 |
-| `MEMORY_TTL_SEC` | 1800 | 대화 메모리 TTL (30분, 미사용 세션 자동 정리) |
+| `SESSION_TTL_SEC` | 1800 | 대화 메모리 TTL (30분, 미사용 세션 자동 정리) |
 | `MAX_SESSIONS` | 1000 | 최대 동시 세션 수 (초과 시 오래된 세션 제거) |
 | `LAST_CONTEXT_TTL_SEC` | 600 | 컨텍스트 캐시 유효시간 (10분) |
 
@@ -863,7 +863,7 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 
 | 모듈 | 줄 수 | 역할 |
 |------|-------|------|
-| `service.py` | 823 | RAG 파사드 (검색 인터페이스 통합, content 짧을 시 parent chunk 보강) |
+| `service.py` | 831 | RAG 파사드 (검색 인터페이스 통합, content 짧을 시 parent chunk 보강) |
 | `chunking.py` | - | 청킹 로직 (Parent 3,000자 / Child 500자) |
 | `search.py` | - | 검색 엔진 (BM25, Vector, Hybrid, RAG-Fusion) |
 | `kg.py` | - | Knowledge Graph |
@@ -1484,8 +1484,8 @@ python ml/train_models.py
 
 | 라우터 파일 | 도메인 | 주요 엔드포인트 |
 |------------|--------|---------------|
-| `routes_shop.py` | 쇼핑몰/상품 | `/api/shops/*`, `/api/categories/*` |
-| `routes_seller.py` | 셀러 분석 | `/api/sellers/*`, `/api/analysis/*` |
+| `routes_shop.py` | 쇼핑몰/상품/대시보드/분석 | `/api/shops/*`, `/api/categories/*`, `/api/orders/*`, `/api/dashboard/*`, `/api/analysis/*`, `/api/stats/*`, `/api/classify/*` |
+| `routes_seller.py` | 셀러 관리 | `/api/sellers/*`, `/api/users/segments/*` |
 | `routes_cs.py` | CS/고객지원 | `/api/cs/*`, `/api/classify/*` |
 | `routes_rag.py` | RAG/LightRAG/K2RAG | `/api/rag/*`, `/api/lightrag/*`, `/api/k2rag/*` |
 | `routes_ml.py` | ML/MLflow/마케팅 | `/api/mlflow/*`, `/api/marketing/*` |
@@ -1518,7 +1518,6 @@ python ml/train_models.py
 | GET | `/api/shops` | 쇼핑몰 목록 |
 | GET | `/api/shops/{id}` | 쇼핑몰 상세 |
 | GET | `/api/shops/{id}/services` | 쇼핑몰 서비스 |
-| GET | `/api/shops/{id}/performance` | 쇼핑몰 성과 |
 | GET | `/api/categories` | 카테고리 목록 |
 | GET | `/api/categories/{id}` | 카테고리 상세 |
 

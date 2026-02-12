@@ -216,30 +216,6 @@ async def _n8n_trigger(job_id, n8n_url, callback_base, inquiries, queue):
         await queue.put(None)
 
 
-async def _replay_steps(inquiries, all_channels, queue):
-    try:
-        await queue.put({"type": "step", "data": {"node": "validate", "status": "running"}})
-        await asyncio.sleep(0.4)
-        await queue.put({"type": "step", "data": {"node": "validate", "status": "completed", "detail": f"{len(inquiries)}건 검증 완료"}})
-        await queue.put({"type": "step", "data": {"node": "router", "status": "running"}})
-        await asyncio.sleep(0.3)
-        await queue.put({"type": "step", "data": {"node": "router", "status": "completed", "detail": f"{len(all_channels)}개 채널"}})
-        for ch in all_channels:
-            ch_count = sum(1 for inq in inquiries if ch in inq.get("channels", []))
-            await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "running"}})
-            await asyncio.sleep(0.3)
-            await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": f"{ch_count}건 전송"}})
-        await queue.put({"type": "step", "data": {"node": "log", "status": "running"}})
-        await asyncio.sleep(0.3)
-        await queue.put({"type": "step", "data": {"node": "log", "status": "completed", "detail": "이력 저장 완료"}})
-        await queue.put({"type": "done", "data": {"total": len(inquiries), "channels": all_channels}})
-    except Exception as e:
-        st.logger.error("replay_steps error: %s", e)
-        await queue.put({"type": "error", "data": str(e)})
-    finally:
-        await queue.put(None)
-
-
 async def _send_email_resend(to_email, subject, body_html):
     resend_key = os.environ.get("RESEND_API_KEY", "")
     if not resend_key or not to_email:
@@ -255,19 +231,19 @@ async def _send_email_resend(to_email, subject, body_html):
         return False
 
 
-async def _simulate_workflow(job_id, inquiries, queue):
+async def _replay_steps(inquiries, all_channels, queue, *, send_emails: bool = False):
+    """워크플로우 단계를 재생. send_emails=True이면 이메일 실제 발송 시도."""
     try:
         await queue.put({"type": "step", "data": {"node": "validate", "status": "running"}})
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.4)
         await queue.put({"type": "step", "data": {"node": "validate", "status": "completed", "detail": f"{len(inquiries)}건 검증 완료"}})
         await queue.put({"type": "step", "data": {"node": "router", "status": "running"}})
         await asyncio.sleep(0.3)
-        all_channels = sorted({ch for inq in inquiries for ch in inq.get("channels", [])})
         await queue.put({"type": "step", "data": {"node": "router", "status": "completed", "detail": f"{len(all_channels)}개 채널"}})
         for ch in all_channels:
             ch_count = sum(1 for inq in inquiries if ch in inq.get("channels", []))
             await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "running"}})
-            if ch == "이메일":
+            if send_emails and ch == "이메일":
                 email_sent = 0
                 for inq in inquiries:
                     if "이메일" not in inq.get("channels", []):
@@ -286,21 +262,28 @@ async def _simulate_workflow(job_id, inquiries, queue):
                 detail = f"{email_sent}건 발송 완료" if email_sent > 0 else f"{ch_count}건 전송 (시뮬레이션)"
                 await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": detail}})
             else:
-                await asyncio.sleep(0.5)
-                await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": f"{ch_count}건 전송 (시뮬레이션)"}})
+                await asyncio.sleep(0.3)
+                suffix = "" if not send_emails else " (시뮬레이션)"
+                await queue.put({"type": "step", "data": {"node": f"channel_{ch}", "status": "completed", "detail": f"{ch_count}건 전송{suffix}"}})
         await queue.put({"type": "step", "data": {"node": "log", "status": "running"}})
         await asyncio.sleep(0.3)
         await queue.put({"type": "step", "data": {"node": "log", "status": "completed", "detail": "이력 저장 완료"}})
         await queue.put({"type": "done", "data": {"total": len(inquiries), "channels": all_channels}})
     except Exception as e:
-        st.logger.error("simulate_workflow error: %s", e)
+        st.logger.error("replay_steps error: %s", e)
         await queue.put({"type": "error", "data": str(e)})
     finally:
         await queue.put(None)
 
 
+async def _simulate_workflow(job_id, inquiries, queue):
+    all_channels = sorted({ch for inq in inquiries for ch in inq.get("channels", [])})
+    await _replay_steps(inquiries, all_channels, queue, send_emails=True)
+
+
 @router.get("/cs/stream")
 async def cs_stream(job_id: str, user: dict = Depends(verify_credentials)):
+    _cleanup_expired_jobs()
     queue = _cs_job_queues.get(job_id)
     if not queue:
         return JSONResponse({"status": "error", "message": "유효하지 않은 job_id"}, status_code=404)

@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from core.constants import DEFAULT_SYSTEM_PROMPT
 from core.utils import safe_str
 from core.memory import clear_memory
-from agent.tools import AVAILABLE_TOOLS
+from agent.tools import ALL_TOOLS
 import state as st
 from api.common import (
     verify_credentials, security,
@@ -250,9 +250,9 @@ def export_excel(user: dict = Depends(verify_credentials)):
 @router.get("/tools")
 def get_available_tools(user: dict = Depends(verify_credentials)):
     tools = []
-    for name, func in AVAILABLE_TOOLS.items():
+    for t in ALL_TOOLS:
         tools.append({
-            "name": name,
-            "description": func.__doc__ or "",
+            "name": t.name,
+            "description": t.description or "",
         })
     return {"status": "success", "tools": tools}

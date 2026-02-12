@@ -50,7 +50,7 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
         try:
             from langgraph.prebuilt import create_react_agent
             from langchain_openai import ChatOpenAI
-            from agent.tool_schemas import ALL_TOOLS
+            from agent.tools import ALL_TOOLS
             from agent.router import classify_and_get_tools, IntentCategory
 
             user_text = safe_str(req.user_input)
@@ -78,7 +78,6 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                     tools = [t for t in tools if t.name not in ["search_platform_docs", "search_platform_lightrag"]]
 
             st.logger.info("AGENT_TOOLS rag_mode=%s category=%s tools=%d (%s)", rag_mode, category.value, len(tools), [t.name for t in tools] if len(tools) <= 10 else f"{len(tools)} tools")
-            api_key = pick_api_key(req.api_key)
 
             if not api_key:
                 yield sse_pack("done", {"ok": False, "final": "처리 오류: OpenAI API Key가 없습니다.", "tool_calls": []})

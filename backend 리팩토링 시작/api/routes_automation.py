@@ -301,7 +301,7 @@ def get_actions_stats(
 # 5. 공통 유틸리티
 # ============================================================
 @router.get("/categories")
-def get_categories(
+def get_cs_categories(
     user=Depends(verify_credentials),
 ):
     """CS 카테고리 목록 조회"""

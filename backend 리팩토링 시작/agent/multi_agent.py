@@ -16,9 +16,6 @@ agent/multi_agent.py - LangGraph 기반 멀티 에이전트 시스템
 import json
 import operator
 from typing import TypedDict, Annotated, Sequence, Literal, Any, List, Optional, Dict
-from datetime import datetime
-from dataclasses import dataclass, field
-from enum import Enum
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -33,7 +30,7 @@ except ImportError:
     END = None
     ToolNode = None
 
-from agent.tool_schemas import (
+from agent.tools import (
     SEARCH_AGENT_TOOLS,
     ANALYSIS_AGENT_TOOLS,
     TRANSLATION_AGENT_TOOLS,
@@ -324,6 +321,20 @@ def build_multi_agent_graph(llm):
 
 
 # ============================================================
+# H15: 모델별 그래프 캐시 (매 요청마다 재빌드 방지)
+# ============================================================
+_graph_cache: Dict[str, Any] = {}
+
+
+def _get_cached_graph(llm, model_key: str):
+    """모델별로 컴파일된 LangGraph를 캐시하여 반환"""
+    if model_key not in _graph_cache:
+        _graph_cache[model_key] = build_multi_agent_graph(llm)
+        st.logger.info("MULTI_AGENT_GRAPH_BUILD model=%s (cached)", model_key)
+    return _graph_cache[model_key]
+
+
+# ============================================================
 # 멀티 에이전트 실행
 # ============================================================
 def run_multi_agent(req, username: str) -> dict:
@@ -358,7 +369,8 @@ def run_multi_agent(req, username: str) -> dict:
             seed=req.seed, timeout_ms=req.timeout_ms, max_retries=req.retries,
         )
 
-        graph = build_multi_agent_graph(llm)
+        # H15: 모델별로 컴파일된 그래프 캐시
+        graph = _get_cached_graph(llm, normalize_model_name(req.model))
 
         prev_messages = memory_messages(username)
         messages = []
@@ -426,78 +438,4 @@ def run_multi_agent(req, username: str) -> dict:
         }
 
 
-# ============================================================
-# 레거시 호환 (기존 API 유지)
-# ============================================================
-class AgentType(str, Enum):
-    COORDINATOR = "coordinator"
-    TRANSLATOR = "translator"
-    ANALYST = "analyst"
-    SEARCHER = "searcher"
-
-
-class TaskStatus(str, Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-@dataclass
-class AgentTask:
-    task_id: str
-    agent_type: AgentType
-    description: str
-    input_data: Dict[str, Any]
-    status: TaskStatus = TaskStatus.PENDING
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-
-
-class MultiAgentSystem:
-    """레거시 호환용 멀티 에이전트 시스템"""
-
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or st.OPENAI_API_KEY
-        self.tasks: Dict[str, AgentTask] = {}
-        self._task_counter = 0
-
-    def route_request(self, user_request: str, input_data: Optional[Dict] = None) -> Dict[str, Any]:
-        """요청 라우팅 (레거시 호환)"""
-        from dataclasses import dataclass as dc
-
-        @dc
-        class MockReq:
-            user_input: str = user_request
-            model: str = "gpt-4o-mini"
-            api_key: str = self.api_key
-            max_tokens: int = 2000
-            temperature: float = 0.3
-            top_p: float = None
-            presence_penalty: float = None
-            frequency_penalty: float = None
-            seed: int = None
-            timeout_ms: int = None
-            retries: int = 3
-            debug: bool = False
-
-        result = run_multi_agent(MockReq(), "system")
-        return result
-
-
-_multi_agent_system: Optional[MultiAgentSystem] = None
-
-
-def get_multi_agent_system() -> MultiAgentSystem:
-    global _multi_agent_system
-    if _multi_agent_system is None:
-        _multi_agent_system = MultiAgentSystem()
-    return _multi_agent_system
-
-
-def process_request(user_request: str, input_data: Optional[Dict] = None) -> Dict[str, Any]:
-    """레거시 호환"""
-    system = get_multi_agent_system()
-    return system.route_request(user_request, input_data)
+# M19/I7: 레거시 호환 코드 제거 (AgentType, TaskStatus, MultiAgentSystem 등)

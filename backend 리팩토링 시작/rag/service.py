@@ -35,6 +35,7 @@ from rag.chunking import (
     _split_by_sections, _extract_text_from_pdf, _rag_read_file,
     _create_parent_child_chunks,
 )
+from rag.utils import get_openai_client as _shared_get_openai_client
 import rag.search as _search_mod
 import rag.kg as _kg_mod
 from rag.search import (
@@ -260,35 +261,76 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
                 idx = _safe_faiss_load(st.RAG_FAISS_DIR, emb)
 
                 bm25_built = False
+                kg_built = False
 
-                load_docs: List[Any] = []
-                for p in paths:
-                    txt = _rag_read_file(p)
-                    if not txt:
-                        continue
-                    rel = os.path.relpath(p, st.RAG_DOCS_DIR).replace("\\", "/")
+                # H19: BM25/KG 직렬화 캐시 로드 시도
+                bm25_cache_path = os.path.join(st.RAG_FAISS_DIR, "bm25_cache.json")
+                kg_cache_path = os.path.join(st.RAG_FAISS_DIR, "kg_cache.json")
+                _bm25_cache_loaded = False
+                _kg_cache_loaded = False
+
+                if os.path.exists(bm25_cache_path):
                     try:
-                        load_docs.append(Document(page_content=txt, metadata={"source": rel}))
-                    except Exception:
-                        continue
+                        with open(bm25_cache_path, "r", encoding="utf-8") as f:
+                            bm25_data = json.load(f)
+                        if bm25_data.get("hash") == fp:
+                            _search_mod.BM25_CORPUS = bm25_data["corpus"]
+                            _search_mod.BM25_DOC_MAP = bm25_data["doc_map"]
+                            from rank_bm25 import BM25Okapi as _BM25
+                            tokenized = [_search_mod._tokenize_korean(doc) for doc in _search_mod.BM25_CORPUS]
+                            _search_mod.BM25_INDEX = _BM25(tokenized)
+                            bm25_built = True
+                            _bm25_cache_loaded = True
+                            st.logger.info("BM25_CACHE_LOADED corpus=%d", len(_search_mod.BM25_CORPUS))
+                    except Exception as e:
+                        st.logger.warning("BM25_CACHE_LOAD_FAIL err=%s", safe_str(e))
 
-                if load_docs:
-                    child_chunks, parent_store, child_to_parent = _create_parent_child_chunks(
-                        load_docs,
-                        parent_size=3000,
-                        parent_overlap=500,
-                        child_size=500,
-                        child_overlap=100,
-                        enable_contextual=False
-                    )
-                    PARENT_CHUNKS_STORE = parent_store
-                    CHILD_TO_PARENT_MAP = child_to_parent
+                if os.path.exists(kg_cache_path):
+                    try:
+                        with open(kg_cache_path, "r", encoding="utf-8") as f:
+                            kg_data = json.load(f)
+                        if kg_data.get("hash") == fp:
+                            _kg_mod.KNOWLEDGE_GRAPH = kg_data["kg"]
+                            kg_built = bool(kg_data["kg"].get("entities"))
+                            _kg_cache_loaded = True
+                            st.logger.info("KG_CACHE_LOADED entities=%d",
+                                          len(kg_data["kg"].get("entities", {})))
+                    except Exception as e:
+                        st.logger.warning("KG_CACHE_LOAD_FAIL err=%s", safe_str(e))
 
-                    bm25_built = _build_bm25_index(child_chunks)
+                # 캐시 미스 시에만 재구축
+                if not _bm25_cache_loaded or not _kg_cache_loaded:
+                    load_docs: List[Any] = []
+                    for p in paths:
+                        txt = _rag_read_file(p)
+                        if not txt:
+                            continue
+                        rel = os.path.relpath(p, st.RAG_DOCS_DIR).replace("\\", "/")
+                        try:
+                            load_docs.append(Document(page_content=txt, metadata={"source": rel}))
+                        except Exception:
+                            continue
 
-                    kg_result = build_knowledge_graph(child_chunks)
-                    kg_built = bool(kg_result and kg_result.get("entities"))
-                    st.logger.info("BM25_KG_REBUILT_ON_LOAD docs=%d bm25=%s kg=%s", len(load_docs), bm25_built, kg_built)
+                    if load_docs:
+                        child_chunks, parent_store, child_to_parent = _create_parent_child_chunks(
+                            load_docs,
+                            parent_size=3000,
+                            parent_overlap=500,
+                            child_size=500,
+                            child_overlap=100,
+                            enable_contextual=False
+                        )
+                        PARENT_CHUNKS_STORE = parent_store
+                        CHILD_TO_PARENT_MAP = child_to_parent
+
+                        if not _bm25_cache_loaded:
+                            bm25_built = _build_bm25_index(child_chunks)
+                        if not _kg_cache_loaded:
+                            kg_result = build_knowledge_graph(child_chunks)
+                            kg_built = bool(kg_result and kg_result.get("entities"))
+
+                        st.logger.info("BM25_KG_REBUILT_ON_LOAD docs=%d bm25=%s kg=%s",
+                                      len(load_docs), bm25_built, kg_built)
 
                 with st.RAG_LOCK:
                     st.RAG_STORE.update({
@@ -372,6 +414,30 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
         kg_result = build_knowledge_graph(chunks)
         kg_built = bool(kg_result and kg_result.get("entities"))
 
+        # H19: BM25/KG 직렬화 캐시 저장
+        try:
+            os.makedirs(st.RAG_FAISS_DIR, exist_ok=True)
+            if bm25_built and _search_mod.BM25_CORPUS:
+                bm25_cache_path = os.path.join(st.RAG_FAISS_DIR, "bm25_cache.json")
+                with open(bm25_cache_path, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "hash": fp,
+                        "corpus": _search_mod.BM25_CORPUS,
+                        "doc_map": _search_mod.BM25_DOC_MAP,
+                    }, f, ensure_ascii=False)
+                st.logger.info("BM25_CACHE_SAVED corpus=%d", len(_search_mod.BM25_CORPUS))
+
+            if kg_built and _kg_mod.KNOWLEDGE_GRAPH:
+                kg_cache_path = os.path.join(st.RAG_FAISS_DIR, "kg_cache.json")
+                with open(kg_cache_path, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "hash": fp,
+                        "kg": _kg_mod.KNOWLEDGE_GRAPH,
+                    }, f, ensure_ascii=False)
+                st.logger.info("KG_CACHE_SAVED")
+        except Exception as e:
+            st.logger.warning("BM25_KG_CACHE_SAVE_FAIL err=%s", safe_str(e))
+
         with st.RAG_LOCK:
             st.RAG_STORE.update({
                 "ready": True, "hash": fp,
@@ -428,7 +494,8 @@ def rag_search_local(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str 
             return [{"title": "RAG_ERROR", "source": "", "score": 0.0, "content": err}] if err else []
 
     try:
-        pairs = idx.similarity_search_with_score(q, k=k * 3)
+        # M26: 과다 검색 축소 (k*3 → k*2, 불필요한 결과 줄임)
+        pairs = idx.similarity_search_with_score(q, k=k * 2)
 
         max_dist = float(getattr(st, "RAG_MAX_DISTANCE", 1.6))
 

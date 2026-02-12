@@ -5,6 +5,7 @@ api/routes_guardian.py - Data Guardian 보안 감시 API
 import os
 import sqlite3
 import time as _time
+from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
@@ -19,6 +20,12 @@ from api.common import verify_credentials
 router = APIRouter(prefix="/api", tags=["guardian"])
 
 # ─────────────────────────────────────────────────────────
+# 공통 상수
+# ─────────────────────────────────────────────────────────
+_ACTION_MAP = {"INSERT": 0, "SELECT": 0, "UPDATE": 1, "DELETE": 2,
+               "ALTER": 3, "DROP": 4, "TRUNCATE": 4}
+
+# ─────────────────────────────────────────────────────────
 # DB
 # ─────────────────────────────────────────────────────────
 _GUARDIAN_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "guardian.db")
@@ -30,67 +37,75 @@ def _guardian_conn():
     return conn
 
 
+@contextmanager
+def _guardian_db():
+    """Guardian DB 연결 컨텍스트 매니저 (자동 commit/close)"""
+    conn = _guardian_conn()
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _guardian_init():
     """감사 로그 테이블 + 시드 데이터 초기화"""
-    conn = _guardian_conn()
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS audit_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        action TEXT NOT NULL,
-        table_name TEXT NOT NULL,
-        row_count INTEGER DEFAULT 0,
-        affected_amount REAL DEFAULT 0,
-        status TEXT DEFAULT 'executed',
-        risk_level TEXT DEFAULT 'LOW',
-        agent_reason TEXT DEFAULT '',
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS incidents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action TEXT NOT NULL,
-        table_name TEXT NOT NULL,
-        row_count INTEGER,
-        was_mistake INTEGER DEFAULT 0,
-        description TEXT
-    )""")
-    # 시드 데이터 (없을 때만)
-    if c.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0:
-        import random
-        from datetime import timedelta
-        _now = datetime.now()
-        _users = ["kim", "park", "lee", "choi", "jung"]
-        _tables = ["orders", "payments", "users", "products", "shipments", "logs", "temp_reports"]
-        for _ in range(200):
-            ts = (_now - timedelta(days=random.randint(0, 30), hours=random.randint(0, 12))).isoformat()
-            u = random.choice(_users)
-            act = random.choice(["INSERT", "UPDATE", "DELETE"])
-            tbl = random.choice(_tables)
-            rc = random.randint(1, 8) if act == "DELETE" else random.randint(1, 20)
-            amt = rc * random.randint(30000, 120000) if tbl in ("orders", "payments") else 0
-            c.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
-                      (ts, u, act, tbl, rc, amt, "executed", "LOW"))
-        # 과거 사건 (유사 사례 검색용)
-        _incidents = [
-            ("DELETE", "orders", 250, 1, "신입 직원이 WHERE 없이 DELETE 실행, 전체 복구"),
-            ("DELETE", "orders", 180, 1, "테스트 DB와 혼동하여 프로덕션에서 삭제"),
-            ("DELETE", "payments", 320, 1, "정산 데이터 삭제 실수, DBA가 백업에서 복구"),
-            ("DELETE", "orders", 150, 1, "퇴근 전 급하게 작업하다 실수"),
-            ("DELETE", "users", 500, 1, "탈퇴 처리 스크립트 오류로 활성 유저 삭제"),
-            ("DELETE", "products", 200, 1, "카테고리 정리 중 실수로 전체 삭제"),
-            ("DELETE", "orders", 400, 1, "연말 정산 중 데이터 혼동"),
-            ("DELETE", "logs", 10000, 0, "정기 로그 정리 (스케줄 작업)"),
-            ("DELETE", "temp_reports", 5000, 0, "임시 리포트 정리"),
-            ("UPDATE", "orders", 300, 1, "금액 필드 일괄 0으로 업데이트 실수"),
-            ("UPDATE", "products", 150, 1, "가격 일괄 변경 시 WHERE 조건 누락"),
-            ("UPDATE", "users", 1000, 1, "권한 일괄 변경 실수"),
-        ]
-        for act, tbl, rc, mis, desc in _incidents:
-            c.execute("INSERT INTO incidents (action,table_name,row_count,was_mistake,description) VALUES (?,?,?,?,?)",
-                      (act, tbl, rc, mis, desc))
-    conn.commit()
-    conn.close()
+    with _guardian_db() as conn:
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            row_count INTEGER DEFAULT 0,
+            affected_amount REAL DEFAULT 0,
+            status TEXT DEFAULT 'executed',
+            risk_level TEXT DEFAULT 'LOW',
+            agent_reason TEXT DEFAULT '',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS incidents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            row_count INTEGER,
+            was_mistake INTEGER DEFAULT 0,
+            description TEXT
+        )""")
+        # 시드 데이터 (없을 때만)
+        if c.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0:
+            import random
+            from datetime import timedelta
+            _now = datetime.now()
+            _users = ["kim", "park", "lee", "choi", "jung"]
+            _tables = ["orders", "payments", "users", "products", "shipments", "logs", "temp_reports"]
+            for _ in range(200):
+                ts = (_now - timedelta(days=random.randint(0, 30), hours=random.randint(0, 12))).isoformat()
+                u = random.choice(_users)
+                act = random.choice(["INSERT", "UPDATE", "DELETE"])
+                tbl = random.choice(_tables)
+                rc = random.randint(1, 8) if act == "DELETE" else random.randint(1, 20)
+                amt = rc * random.randint(30000, 120000) if tbl in ("orders", "payments") else 0
+                c.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
+                          (ts, u, act, tbl, rc, amt, "executed", "LOW"))
+            _incidents = [
+                ("DELETE", "orders", 250, 1, "신입 직원이 WHERE 없이 DELETE 실행, 전체 복구"),
+                ("DELETE", "orders", 180, 1, "테스트 DB와 혼동하여 프로덕션에서 삭제"),
+                ("DELETE", "payments", 320, 1, "정산 데이터 삭제 실수, DBA가 백업에서 복구"),
+                ("DELETE", "orders", 150, 1, "퇴근 전 급하게 작업하다 실수"),
+                ("DELETE", "users", 500, 1, "탈퇴 처리 스크립트 오류로 활성 유저 삭제"),
+                ("DELETE", "products", 200, 1, "카테고리 정리 중 실수로 전체 삭제"),
+                ("DELETE", "orders", 400, 1, "연말 정산 중 데이터 혼동"),
+                ("DELETE", "logs", 10000, 0, "정기 로그 정리 (스케줄 작업)"),
+                ("DELETE", "temp_reports", 5000, 0, "임시 리포트 정리"),
+                ("UPDATE", "orders", 300, 1, "금액 필드 일괄 0으로 업데이트 실수"),
+                ("UPDATE", "products", 150, 1, "가격 일괄 변경 시 WHERE 조건 누락"),
+                ("UPDATE", "users", 1000, 1, "권한 일괄 변경 실수"),
+            ]
+            for act, tbl, rc, mis, desc in _incidents:
+                c.execute("INSERT INTO incidents (action,table_name,row_count,was_mistake,description) VALUES (?,?,?,?,?)",
+                          (act, tbl, rc, mis, desc))
 
 
 # ── 룰엔진 ──
@@ -149,25 +164,22 @@ def _guardian_train_model():
         return
 
     # (2) pkl 없으면 DB에서 인라인 학습
-    conn = _guardian_conn()
-    rows = conn.execute(
-        "SELECT user_id, action, table_name, row_count, affected_amount, timestamp "
-        "FROM audit_log WHERE status='executed'"
-    ).fetchall()
-    conn.close()
+    with _guardian_db() as conn:
+        rows = conn.execute(
+            "SELECT user_id, action, table_name, row_count, affected_amount, timestamp "
+            "FROM audit_log WHERE status='executed'"
+        ).fetchall()
 
     if len(rows) < 20:
         st.logger.warning("Guardian ML: 학습 데이터 부족 (%d건) — pkl 파일도 없음", len(rows))
         return
 
-    ACTION_MAP = {"INSERT": 0, "SELECT": 0, "UPDATE": 1, "DELETE": 2,
-                  "ALTER": 3, "DROP": 4, "TRUNCATE": 4}
     features = []
     for r in rows:
         ts = r["timestamp"] or ""
         hour = int(ts[11:13]) if len(ts) > 13 else 12
         features.append([
-            ACTION_MAP.get(r["action"], 0),
+            _ACTION_MAP.get(r["action"], 0),
             1 if r["table_name"] in _CORE_TABLES else 0,
             r["row_count"],
             np.log1p(r["row_count"]),
@@ -207,13 +219,11 @@ def _guardian_anomaly_score(user_id: str, action: str, table: str, row_count: in
         else:
             return None
 
-    ACTION_MAP = {"INSERT": 0, "SELECT": 0, "UPDATE": 1, "DELETE": 2,
-                  "ALTER": 3, "DROP": 4, "TRUNCATE": 4}
     avg_amounts = {"orders": 67500, "payments": 67500, "products": 35000}
     amount = row_count * avg_amounts.get(table, 0)
 
     feat = np.array([[
-        ACTION_MAP.get(action, 0),
+        _ACTION_MAP.get(action, 0),
         1 if table in _CORE_TABLES else 0,
         row_count,
         np.log1p(row_count),
@@ -226,13 +236,12 @@ def _guardian_anomaly_score(user_id: str, action: str, table: str, row_count: in
     score = min(max((raw_score + 0.5) / 1.0, 0.0), 1.0)
 
     # 사용자별 이탈도
-    conn = _guardian_conn()
-    user_avg = conn.execute(
-        "SELECT AVG(row_count) as avg_rc FROM audit_log "
-        "WHERE user_id=? AND action=? AND status='executed'",
-        (user_id, action)
-    ).fetchone()
-    conn.close()
+    with _guardian_db() as conn:
+        user_avg = conn.execute(
+            "SELECT AVG(row_count) as avg_rc FROM audit_log "
+            "WHERE user_id=? AND action=? AND status='executed'",
+            (user_id, action)
+        ).fetchone()
 
     user_deviation = 0.0
     if user_avg and user_avg["avg_rc"] and user_avg["avg_rc"] > 0:
@@ -432,8 +441,11 @@ def _extract_agent_steps(messages):
 
 def _run_guardian_agent(user_id: str, action: str, table: str, row_count: int, api_key: str):
     """LangChain create_agent로 위험도 상세 분석"""
-    from langchain.agents import create_agent
-    from langchain_openai import ChatOpenAI
+    try:
+        from langchain.agents import create_agent
+        from langchain_openai import ChatOpenAI
+    except ImportError as e:
+        return {"output": f"LangChain 미설치: {e}", "steps": []}
 
     conn = _guardian_conn()
     tools = _guardian_tool_defs(conn, row_count)
@@ -460,8 +472,11 @@ def _run_guardian_agent(user_id: str, action: str, table: str, row_count: int, a
 
 def _run_recovery_agent(message: str, api_key: str):
     """복구 요청 처리 Agent"""
-    from langchain.agents import create_agent
-    from langchain_openai import ChatOpenAI
+    try:
+        from langchain.agents import create_agent
+        from langchain_openai import ChatOpenAI
+    except ImportError as e:
+        return {"output": f"LangChain 미설치: {e}", "steps": []}
 
     conn = _guardian_conn()
     tools = _recovery_tool_defs(conn)
@@ -486,12 +501,21 @@ def _run_recovery_agent(message: str, api_key: str):
     return {"output": final_output, "steps": steps}
 
 
-# 서버 시작 시 초기화
-try:
-    _guardian_init()
-    _guardian_train_model()
-except Exception as _e:
-    st.logger.warning("Guardian init failed: %s", _e)
+# ── Lazy 초기화 ──
+_GUARDIAN_INITIALIZED = False
+
+
+def _ensure_guardian_init():
+    """Guardian DB + ML 모델 lazy 초기화"""
+    global _GUARDIAN_INITIALIZED
+    if _GUARDIAN_INITIALIZED:
+        return
+    try:
+        _guardian_init()
+        _guardian_train_model()
+        _GUARDIAN_INITIALIZED = True
+    except Exception as e:
+        st.logger.warning("Guardian init failed: %s", e)
 
 
 # ── Endpoints ──
@@ -499,6 +523,7 @@ except Exception as _e:
 @router.post("/guardian/analyze")
 async def guardian_analyze(request: Request, user: dict = Depends(verify_credentials)):
     """Data Guardian: 쿼리 위험도 분석 (룰엔진 + ML 이상탐지 + AI Agent)"""
+    _ensure_guardian_init()
     body = await request.json()
     user_id = body.get("user_id", "unknown")
     action = body.get("action", "DELETE")
@@ -557,17 +582,15 @@ async def guardian_analyze(request: Request, user: dict = Depends(verify_credent
 
     # 통과/경고 -> 로그만 기록
     if effective_level == "pass":
-        conn = _guardian_conn()
-        conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
-                     (datetime.now().isoformat(), user_id, action, table, row_count, 0, "executed", "LOW"))
-        conn.commit(); conn.close()
+        with _guardian_db() as conn:
+            conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
+                         (datetime.now().isoformat(), user_id, action, table, row_count, 0, "executed", "LOW"))
         return {"status": "success", "rule": rule, "ml": ml, "agent": None}
 
     if effective_level == "warn":
-        conn = _guardian_conn()
-        conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
-                     (datetime.now().isoformat(), user_id, action, table, row_count, 0, "warned", "MEDIUM"))
-        conn.commit(); conn.close()
+        with _guardian_db() as conn:
+            conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level) VALUES (?,?,?,?,?,?,?,?)",
+                         (datetime.now().isoformat(), user_id, action, table, row_count, 0, "warned", "MEDIUM"))
         return {"status": "success", "rule": rule, "ml": ml, "agent": None}
 
     # 차단 -> Agent 호출
@@ -584,10 +607,9 @@ async def guardian_analyze(request: Request, user: dict = Depends(verify_credent
     # 차단 로그 기록
     avg_amounts = {"orders": 67500, "payments": 67500, "products": 35000}
     amount = row_count * avg_amounts.get(table, 0)
-    conn = _guardian_conn()
-    conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level,agent_reason) VALUES (?,?,?,?,?,?,?,?,?)",
-                 (datetime.now().isoformat(), user_id, action, table, row_count, amount, "blocked", "HIGH", agent_result["output"][:300]))
-    conn.commit(); conn.close()
+    with _guardian_db() as conn:
+        conn.execute("INSERT INTO audit_log (timestamp,user_id,action,table_name,row_count,affected_amount,status,risk_level,agent_reason) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (datetime.now().isoformat(), user_id, action, table, row_count, amount, "blocked", "HIGH", agent_result["output"][:300]))
 
     return {"status": "success", "rule": rule, "ml": ml, "agent": agent_result}
 
@@ -615,26 +637,26 @@ async def guardian_recover(request: Request, user: dict = Depends(verify_credent
 @router.get("/guardian/logs")
 async def guardian_logs(user: dict = Depends(verify_credentials), limit: int = 30, status_filter: str = ""):
     """Data Guardian: 감사 로그 조회"""
-    conn = _guardian_conn()
-    if status_filter:
-        rows = conn.execute("SELECT * FROM audit_log WHERE status=? ORDER BY id DESC LIMIT ?", (status_filter, limit)).fetchall()
-    else:
-        rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-    conn.close()
+    _ensure_guardian_init()
+    with _guardian_db() as conn:
+        if status_filter:
+            rows = conn.execute("SELECT * FROM audit_log WHERE status=? ORDER BY id DESC LIMIT ?", (status_filter, limit)).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     return {"status": "success", "logs": [dict(r) for r in rows]}
 
 
 @router.get("/guardian/stats")
 async def guardian_stats(user: dict = Depends(verify_credentials)):
     """Data Guardian: 통계"""
-    conn = _guardian_conn()
-    total = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
-    blocked = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='blocked'").fetchone()[0]
-    warned = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='warned'").fetchone()[0]
-    restored = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='restored'").fetchone()[0]
-    saved = conn.execute("SELECT COALESCE(SUM(affected_amount),0) FROM audit_log WHERE status='blocked'").fetchone()[0]
-    daily = conn.execute("SELECT date(timestamp) as d, COUNT(*) as cnt FROM audit_log WHERE status='blocked' AND timestamp > datetime('now','-7 days') GROUP BY d ORDER BY d").fetchall()
-    conn.close()
+    _ensure_guardian_init()
+    with _guardian_db() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+        blocked = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='blocked'").fetchone()[0]
+        warned = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='warned'").fetchone()[0]
+        restored = conn.execute("SELECT COUNT(*) FROM audit_log WHERE status='restored'").fetchone()[0]
+        saved = conn.execute("SELECT COALESCE(SUM(affected_amount),0) FROM audit_log WHERE status='blocked'").fetchone()[0]
+        daily = conn.execute("SELECT date(timestamp) as d, COUNT(*) as cnt FROM audit_log WHERE status='blocked' AND timestamp > datetime('now','-7 days') GROUP BY d ORDER BY d").fetchall()
     return {
         "status": "success",
         "total": total, "blocked": blocked, "warned": warned, "restored": restored,

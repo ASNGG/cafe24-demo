@@ -5,10 +5,6 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
-# recommenders가 np.NaN을 참조하는 케이스 방어
-if not hasattr(np, "NaN"):
-    np.NaN = np.nan  # noqa: N816
-
 
 def safe_str(x: Any, default: str = "") -> str:
     """안전한 문자열 변환"""
@@ -144,3 +140,18 @@ def extract_order_id(text: str) -> Optional[str]:
         return None
     match = re.search(r'O\d{4,8}', text.upper())
     return match.group() if match else None
+
+
+def get_revenue_r2() -> Optional[float]:
+    """매출 예측 모델 R2 스코어 반환 (revenue_model_config.json)"""
+    import json as _json
+    from pathlib import Path
+    try:
+        cfg_path = Path(__file__).resolve().parent.parent / "revenue_model_config.json"
+        if cfg_path.exists():
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = _json.load(f)
+            return cfg.get("r2_score")
+    except Exception:
+        pass
+    return None

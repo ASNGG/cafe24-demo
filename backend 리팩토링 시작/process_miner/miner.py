@@ -7,6 +7,13 @@
 
 from collections import Counter, defaultdict
 from datetime import datetime
+from functools import lru_cache
+
+
+# M34: 타임스탬프 파싱 캐싱 (중복 파싱 방지)
+@lru_cache(maxsize=4096)
+def _parse_ts(ts: str) -> datetime:
+    return datetime.fromisoformat(ts)
 
 
 def _group_by_case(events: list[dict]) -> dict[str, list[dict]]:
@@ -49,8 +56,8 @@ def _compute_transitions(cases: dict[str, list[dict]]) -> list[dict]:
             outgoing_counts[from_act] += 1
 
             # 소요시간 계산
-            t1 = datetime.fromisoformat(events[i]["timestamp"])
-            t2 = datetime.fromisoformat(events[i + 1]["timestamp"])
+            t1 = _parse_ts(events[i]["timestamp"])
+            t2 = _parse_ts(events[i + 1]["timestamp"])
             duration_minutes = (t2 - t1).total_seconds() / 60.0
             transition_durations[pair].append(duration_minutes)
 
@@ -75,8 +82,8 @@ def _compute_case_duration_hours(events: list[dict]) -> float:
     """단일 케이스의 전체 소요시간(시간)을 계산한다."""
     if len(events) < 2:
         return 0.0
-    t_start = datetime.fromisoformat(events[0]["timestamp"])
-    t_end = datetime.fromisoformat(events[-1]["timestamp"])
+    t_start = _parse_ts(events[0]["timestamp"])
+    t_end = _parse_ts(events[-1]["timestamp"])
     return (t_end - t_start).total_seconds() / 3600.0
 
 

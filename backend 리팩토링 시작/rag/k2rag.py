@@ -18,56 +18,20 @@ import os
 import re
 import json
 import time
-import hashlib
 import asyncio
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 
-_KOREAN_CHAR_RE = re.compile(r'[가-힣]')
-
-
-def _tokenize_korean(text: str) -> List[str]:
-    """
-    한국어 토큰화 (정규식 기반, 외부 패키지 불필요)
-
-    1. 공백 기준 토큰 분리
-    2. 한글 토큰은 2-gram으로도 분리하여 부분 매칭 지원
-    3. 한글 조사/어미 패턴 제거 (간이 형태소 분석)
-    """
-    if not text:
-        return []
-
-    tokens = text.lower().split()
-    result = []
-
-    # 간이 한국어 조사/어미 제거 패턴
-    suffix_pattern = re.compile(
-        r'(은|는|이|가|을|를|에|에서|으로|로|와|과|의|도|만|까지|부터|에게|한테|께)$'
-    )
-
-    for tok in tokens:
-        result.append(tok)
-
-        # 한글이 포함된 토큰 처리
-        if _KOREAN_CHAR_RE.search(tok):
-            # 조사 제거 버전도 추가
-            stripped = suffix_pattern.sub('', tok)
-            if stripped and stripped != tok and len(stripped) >= 2:
-                result.append(stripped)
-
-            # 2-gram 생성 (부분 매칭 지원)
-            if len(tok) >= 2:
-                for i in range(len(tok) - 1):
-                    bigram = tok[i:i + 2]
-                    if _KOREAN_CHAR_RE.search(bigram):
-                        result.append(bigram)
-
-    return result
-
 import state as st
 from core.utils import safe_str
+from rag.utils import (
+    tokenize_korean as _tokenize_korean,  # M23: 공통 유틸
+    clean_text as _clean_text,             # M22: 공통 유틸
+    sha1_text,                             # M21: 공통 유틸
+    get_openai_client as _get_openai_client,  # M25/cross-1: 공통 팩토리
+)
 
 # ============================================================
 # Optional Dependencies
@@ -107,10 +71,6 @@ try:
     from langchain_openai import OpenAIEmbeddings
 except ImportError:
     pass
-
-# OpenAI Client for LLM
-OPENAI_CLIENT = None
-
 
 # ============================================================
 # Configuration
@@ -167,28 +127,8 @@ K2RAG_STATE = {
 
 
 # ============================================================
-# Initialization
+# Initialization (M25: OpenAI client → rag.utils.get_openai_client)
 # ============================================================
-def _get_openai_client():
-    """Lazy OpenAI client initialization"""
-    global OPENAI_CLIENT
-    if OPENAI_CLIENT is not None:
-        return OPENAI_CLIENT
-
-    try:
-        from openai import OpenAI
-        api_key = getattr(st, "OPENAI_API_KEY", None)
-        if not api_key:
-            st.logger.warning("K2RAG_OPENAI_KEY_NOT_SET")
-            return None
-        OPENAI_CLIENT = OpenAI(api_key=api_key)
-        st.logger.info("K2RAG_OPENAI_CLIENT_INITIALIZED")
-        return OPENAI_CLIENT
-    except Exception as e:
-        st.logger.warning("K2RAG_OPENAI_INIT_FAIL err=%s", safe_str(e))
-        return None
-
-
 def _load_summarizer():
     """Longformer Summarizer 로드 (LED-base-book-summary)"""
     global SUMMARIZER, SUMMARIZER_TOKENIZER, SUMMARIZER_AVAILABLE
@@ -225,21 +165,11 @@ def _load_summarizer():
 
 
 # ============================================================
-# Text Processing Utilities
+# Text Processing Utilities (M21, M22: 공통 유틸로 위임)
 # ============================================================
 def _sha1(text: str) -> str:
-    """텍스트 해시 생성"""
-    return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()[:12]
-
-
-def _clean_text(text: str) -> str:
-    """텍스트 정제"""
-    if not text:
-        return ""
-    text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", " ", text)
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
+    """텍스트 해시 생성 (short 12-char version)"""
+    return sha1_text(text)[:12]
 
 
 def _chunk_text(text: str, chunk_size: int, overlap: int) -> List[str]:
@@ -401,6 +331,9 @@ def hybrid_search(
 
     results = {}  # chunk_idx -> {"dense": score, "sparse": score, "text": text}
 
+    # H20: O(N) list.index() → O(1) dict lookup
+    _chunk_text_to_idx = {text: idx for idx, text in enumerate(chunk_texts)}
+
     # 1. Dense Search (FAISS)
     if dense_store is not None:
         try:
@@ -409,7 +342,7 @@ def hybrid_search(
                 # FAISS는 거리 반환, 유사도로 변환
                 similarity = 1 / (1 + score)
                 text = doc.page_content
-                idx = chunk_texts.index(text) if text in chunk_texts else -1
+                idx = _chunk_text_to_idx.get(text, -1)
                 if idx >= 0:
                     if idx not in results:
                         results[idx] = {"text": text, "dense": 0, "sparse": 0}
@@ -945,14 +878,12 @@ def update_config(config_updates: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ============================================================
-# Initialization on import
+# Initialization (H21: lazy init - import 시 자동 실행 제거)
 # ============================================================
 def _init_k2rag():
-    """모듈 로드시 초기화"""
+    """수동 초기화 (필요 시 호출)"""
     st.logger.info("K2RAG_MODULE_INIT")
-
-    # 기존 RAG 데이터 로드 시도
     load_from_existing_rag()
 
 
-_init_k2rag()
+# H21: import 시 자동 실행 제거 → k2rag_search 내부에서 lazy 로드

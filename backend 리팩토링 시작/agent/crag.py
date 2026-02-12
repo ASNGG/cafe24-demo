@@ -97,8 +97,8 @@ class RetrievalGrader:
             self._llm = ChatOpenAI(
                 model=self.model,
                 openai_api_key=self.api_key,
-                temperature=0,  # 결정론적
-                max_tokens=10,  # yes/no만
+                temperature=0,
+                max_tokens=20,  # L4: yes/no + 여유 (10 → 20)
             )
         return self._llm
 
@@ -172,6 +172,78 @@ class RetrievalGrader:
                 latency_ms=latency_ms,
             )
 
+    def grade_batch(
+        self,
+        query: str,
+        documents: List[str],
+    ) -> List[GradeResult]:
+        """
+        여러 문서를 단일 LLM 호출로 배치 평가 (H13)
+
+        Args:
+            query: 사용자 질문
+            documents: 검색된 문서 목록
+
+        Returns:
+            개별 평가 결과 목록
+        """
+        if not documents:
+            return []
+
+        start_time = time.time()
+
+        try:
+            llm = self._get_llm()
+
+            # 문서들을 번호 매겨서 하나의 프롬프트로 결합
+            doc_parts = []
+            for i, doc in enumerate(documents):
+                preview = doc[:1000] if len(doc) > 1000 else doc
+                doc_parts.append(f"[문서 {i+1}]\n{preview}")
+
+            combined = "\n\n".join(doc_parts)
+
+            messages = [
+                SystemMessage(content=GRADER_SYSTEM_PROMPT + f"\n\n총 {len(documents)}개 문서를 평가합니다. 각 문서에 대해 yes 또는 no를 쉼표로 구분하여 반환하세요.\n예시: yes,no,yes"),
+                HumanMessage(content=f"질문: {query}\n\n{combined}\n\n각 문서의 관련성을 쉼표 구분으로 답하세요:"),
+            ]
+
+            # 배치 평가는 더 많은 토큰 필요
+            old_max = getattr(self._llm, 'max_tokens', 10)
+            self._llm.max_tokens = max(50, len(documents) * 5)
+            response = llm.invoke(messages)
+            self._llm.max_tokens = old_max
+
+            answer = safe_str(response.content).strip().lower()
+            latency_ms = (time.time() - start_time) * 1000
+
+            # 쉼표 구분 파싱
+            verdicts = [v.strip() for v in answer.split(",")]
+
+            results = []
+            for i, doc in enumerate(documents):
+                verdict = verdicts[i] if i < len(verdicts) else "no"
+                is_relevant = verdict.startswith("yes")
+                results.append(GradeResult(
+                    decision=RetrievalDecision.CORRECT if is_relevant else RetrievalDecision.INCORRECT,
+                    score=1.0 if is_relevant else 0.0,
+                    reason=f"Batch grader: {verdict}",
+                    latency_ms=latency_ms / len(documents),
+                ))
+
+            st.logger.info(
+                "CRAG_GRADER_BATCH query=%s docs=%d latency=%.0fms",
+                query[:30], len(documents), latency_ms,
+            )
+
+            return results
+
+        except Exception as e:
+            latency_ms = (time.time() - start_time) * 1000
+            st.logger.warning("CRAG_GRADER_BATCH_FAIL err=%s, fallback to individual", safe_str(e))
+            # 실패 시 개별 평가로 폴백
+            return [self.grade(query, doc) for doc in documents]
+
     def grade_documents(
         self,
         query: str,
@@ -179,7 +251,7 @@ class RetrievalGrader:
         min_relevant_ratio: float = 0.3,
     ) -> Tuple[RetrievalDecision, List[GradeResult]]:
         """
-        여러 문서 평가 후 종합 결정
+        여러 문서 평가 후 종합 결정 (배치 평가 사용)
 
         Args:
             query: 사용자 질문
@@ -192,14 +264,9 @@ class RetrievalGrader:
         if not documents:
             return RetrievalDecision.INCORRECT, []
 
-        results = []
-        relevant_count = 0
-
-        for doc in documents:
-            result = self.grade(query, doc)
-            results.append(result)
-            if result.decision == RetrievalDecision.CORRECT:
-                relevant_count += 1
+        # H13: 배치 평가로 LLM 호출 1회로 축소
+        results = self.grade_batch(query, documents)
+        relevant_count = sum(1 for r in results if r.decision == RetrievalDecision.CORRECT)
 
         relevant_ratio = relevant_count / len(documents)
 
@@ -438,9 +505,14 @@ class CRAGWorkflow:
 
             if search_result.get("status") != "success":
                 st.logger.warning(
-                    "CRAG_SEARCH_FAIL iteration=%d err=%s",
-                    iteration, search_result.get("message"),
+                    "CRAG_SEARCH_FAIL iteration=%d err=%s query=%s",
+                    iteration, search_result.get("message"), current_query[:40],
                 )
+                # L8: 검색 실패 시에도 쿼리 재작성 시도
+                if iteration < self.max_retries:
+                    rewrite_result = self.rewriter.rewrite(current_query)
+                    all_rewrite_results.append(rewrite_result)
+                    current_query = rewrite_result.rewritten_query
                 continue
 
             # 2. 문서 추출
@@ -521,6 +593,10 @@ class CRAGWorkflow:
 # ============================================================
 # 편의 함수
 # ============================================================
+# M12: CRAGWorkflow 싱글톤 캐시 (매번 새 인스턴스 방지)
+_crag_cache: Dict[str, CRAGWorkflow] = {}
+
+
 def run_crag_search(
     query: str,
     api_key: str,
@@ -529,7 +605,7 @@ def run_crag_search(
     max_retries: int = 2,
 ) -> CRAGResult:
     """
-    CRAG 검색 실행 (원스톱 함수)
+    CRAG 검색 실행 (원스톱 함수, 싱글톤 캐시)
 
     Args:
         query: 사용자 질문
@@ -541,11 +617,16 @@ def run_crag_search(
     Returns:
         CRAGResult
     """
-    workflow = CRAGWorkflow(
-        api_key=api_key,
-        search_func=search_func,
-        max_retries=max_retries,
-    )
+    cache_key = api_key[:8] if api_key else "default"
+    if cache_key not in _crag_cache:
+        _crag_cache[cache_key] = CRAGWorkflow(
+            api_key=api_key,
+            search_func=search_func,
+            max_retries=max_retries,
+        )
+    workflow = _crag_cache[cache_key]
+    # search_func은 호출마다 다를 수 있으므로 업데이트
+    workflow.search_func = search_func
 
     return workflow.run(query, top_k)
 

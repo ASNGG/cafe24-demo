@@ -122,7 +122,7 @@ def build_knowledge_graph(chunks: List[Any]) -> Dict:
 
 
 def search_knowledge_graph(query: str, top_k: int = 5) -> List[Dict]:
-    """Knowledge Graph에서 관련 엔티티 검색"""
+    """Knowledge Graph에서 관련 엔티티 검색 (L14: 효과 측정 로깅)"""
     global KNOWLEDGE_GRAPH
 
     if not KNOWLEDGE_GRAPH or "entities" not in KNOWLEDGE_GRAPH:
@@ -130,6 +130,8 @@ def search_knowledge_graph(query: str, top_k: int = 5) -> List[Dict]:
 
     results = []
     query_lower = query.lower()
+    _total_entities = len(KNOWLEDGE_GRAPH.get("entities", {}))
+    _matched = 0
 
     for entity, sources in KNOWLEDGE_GRAPH.get("entities", {}).items():
         entity_lower = entity.lower()
@@ -141,6 +143,7 @@ def search_knowledge_graph(query: str, top_k: int = 5) -> List[Dict]:
             score = 5
 
         if score > 0:
+            _matched += 1
             related_relations = [
                 r for r in KNOWLEDGE_GRAPH.get("relations", [])
                 if r.get("source") == entity or r.get("target") == entity
@@ -154,4 +157,9 @@ def search_knowledge_graph(query: str, top_k: int = 5) -> List[Dict]:
             })
 
     results.sort(key=lambda x: x["score"], reverse=True)
+
+    # L14: KG 효과 측정 로깅
+    st.logger.info("KG_SEARCH query=%s total_entities=%d matched=%d returned=%d",
+                   query[:30], _total_entities, _matched, min(len(results), top_k))
+
     return results[:top_k]

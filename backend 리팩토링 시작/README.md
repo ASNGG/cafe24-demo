@@ -37,10 +37,10 @@
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **28개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(103개 REST API)**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(103개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 7개 IntentCategory로 28개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 포함
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 + 서브에이전트(Retention) 포함
 - **RAG 시스템 (8종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), CRAG([논문](https://arxiv.org/abs/2401.15884) 기반 검색 품질 자동 교정), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -68,8 +68,9 @@ flowchart TB
 
         subgraph Agent["AI 에이전트"]
             ROUTER["2단계 라우터<br/>(키워드 + LLM)"]
-            TOOLS["28개 도구<br/>(tool_schemas.py)"]
+            TOOLS["31개 도구<br/>(tool_schemas.py)"]
             RUNNER["runner.py<br/>(Tool Calling)"]
+            SUBAGENT["서브에이전트<br/>(Retention Agent)"]
         end
 
         subgraph RAG["RAG 시스템"]
@@ -182,16 +183,16 @@ backend 리팩토링 시작/
 │   ├── routes_ml.py                 # ML/MLflow/마케팅 API
 │   ├── routes_guardian.py           # Guardian/보안감시 API
 │   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/FAQ/리포트, 14개 엔드포인트)
-│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍)
+│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 서브에이전트 RETENTION 모드 분기)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
 ├── agent/                           # AI 에이전트 시스템
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
-│   ├── tools.py                     # 28개 도구 함수 구현체 (실제 비즈니스 로직)
+│   ├── tools.py                     # 31개 도구 함수 구현체 (실제 비즈니스 로직, Retention 도구 3개 포함)
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
-│   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router)
-│   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류)
-│   ├── multi_agent.py               # LangGraph 멀티 에이전트 (Coordinator → Search/Analysis/CS)
+│   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
+│   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
+│   ├── multi_agent.py               # LangGraph 멀티 에이전트 (Coordinator → Search/Analysis/CS) + 서브에이전트 (Retention Agent)
 │   ├── crag.py                      # Corrective RAG (검색 품질 평가 + 쿼리 재작성)
 │   ├── semantic_router.py           # Semantic Router (레거시 카테고리 정리됨, 현재 비활성)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
@@ -502,6 +503,7 @@ flowchart TB
 | **Analyst** | 셀러/쇼핑몰 데이터 분석 | GPT-4o-mini | 분석, 통계, 세그먼트, 이탈, 이상거래, 매출 |
 | **Searcher** | 플랫폼 정보 검색 | GPT-4o-mini | 플랫폼, 정책, 정산, 가이드 |
 | **CS Agent** | 셀러 문의 분류/응답 관리 | GPT-4o-mini | CS, 셀러 문의, 기술지원, 용어 |
+| **Retention** | 이탈 방지 서브에이전트 (위험 탐지 → 메시지 생성 → 조치 실행) | GPT-4o | 이탈 위험, 리텐션, retention, churn, at-risk |
 | **Coordinator** | 복잡한 요청 조율 | GPT-4o | 기타 일반 질문, 대시보드 |
 
 ### 6.3 RAG 모드 선택
@@ -533,7 +535,7 @@ flowchart TD
 
 > **설계 출처**: Anthropic [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) - "For complex systems, rather than letting agents decide all tools, narrow the tool set by classifying the intent first" 패턴 적용
 
-**문제**: 28개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
+**문제**: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
 
 **해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-4o-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(DB 보안 감시의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
 
@@ -562,7 +564,7 @@ flowchart TB
 - `agent/intent.py` - `detect_intent()` + `run_deterministic_tools()` (router.py와 키워드 분류 로직 통합)
 - `agent/runner.py` - `KEYWORD_TOOL_MAPPING` 강제 도구 실행 + `run_agent()`
 
-#### 6.4.1 IntentCategory (7개)
+#### 6.4.1 IntentCategory (8개)
 
 `agent/router.py`에서 정의하는 질문 의도 카테고리:
 
@@ -573,6 +575,7 @@ class IntentCategory(str, Enum):
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출
     SELLER = "seller"           # 셀러 분석, 세그먼트, 부정행위 탐지
     CS = "cs"                   # CS 자동응답, 품질 검사, 문의 분류
+    RETENTION = "retention"     # 이탈 방지, 리텐션, churn, at-risk (서브에이전트 트리거)
     DASHBOARD = "dashboard"     # 대시보드, 전체 현황
     GENERAL = "general"         # 일반 대화, 인사
 ```
@@ -603,7 +606,10 @@ KEYWORD_TOOL_MAPPING = {
     "get_cs_statistics": ["CS 통계", "상담 현황", ...],
     "classify_inquiry": ["카테고리 분류", "문의 분류", ...],
     "get_shop_performance": ["성과 분석", "쇼핑몰 성과", ...],
-    # ... 총 16개 도구 매핑
+    "get_at_risk_sellers": ["이탈 위험", "리텐션", "at-risk", ...],
+    "generate_retention_message": ["리텐션 메시지", "이탈 방지 메시지", ...],
+    "execute_retention_action": ["리텐션 조치", "이탈 방지 실행", ...],
+    # ... 총 19개 도구 매핑
 }
 ```
 
@@ -633,6 +639,7 @@ KEYWORD_TOOL_MAPPING = {
 | `shop` | 쇼핑몰, 매출, 성과, 카테고리 | `get_shop_info`, `list_shops`, `get_shop_services`, `get_shop_performance`, `predict_shop_revenue`, `optimize_marketing`, `get_category_info`, `list_categories`, `get_dashboard_summary`, `search_platform`, `search_platform_lightrag` | |
 | `seller` | 셀러, SEL0001, 세그먼트, 이상 | `analyze_seller`, `predict_seller_churn`, `get_seller_segment`, `detect_fraud`, `get_fraud_statistics`, `get_segment_statistics`, `optimize_marketing`, `get_shop_performance`, `predict_shop_revenue` | |
 | `cs` | CS, 문의, 상담, 용어집 | `auto_reply_cs`, `check_cs_quality`, `get_ecommerce_glossary`, `get_cs_statistics`, `classify_inquiry` | |
+| `retention` | 이탈 위험, 리텐션, churn, at-risk | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics` | **서브에이전트 모드** |
 | `dashboard` | 대시보드, 전체 현황 | `get_dashboard_summary`, `get_segment_statistics`, `get_cs_statistics`, `get_order_statistics` | |
 | `general` | 안녕, 고마워 | (도구 없음 - 직접 대화) | |
 
@@ -645,13 +652,14 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     if re.search(r'SEL\d{1,6}', text, re.IGNORECASE):
         return IntentCategory.SELLER
 
-    # 1. 분석 키워드 (매출, 이탈, GMV, 코호트, 트렌드, 활성 셀러)
-    # 2. 셀러 분석 (세그먼트 이름, 이상 셀러 등)
-    # 3. 쇼핑몰 관련 (성과, 정보, 마케팅)
-    # 4. CS 관련
-    # 5. 대시보드 관련
-    # 6. 플랫폼 관련 (정책, 기능, 용어)
-    # 7. 일반 대화
+    # 1. 리텐션 키워드 (이탈 위험, 리텐션, retention, churn, at-risk) — ANALYSIS보다 우선
+    # 2. 분석 키워드 (매출, 이탈, GMV, 코호트, 트렌드, 활성 셀러)
+    # 3. 셀러 분석 (세그먼트 이름, 이상 셀러 등)
+    # 4. 쇼핑몰 관련 (성과, 정보, 마케팅)
+    # 5. CS 관련
+    # 6. 대시보드 관련
+    # 7. 플랫폼 관련 (정책, 기능, 용어)
+    # 8. 일반 대화
     # 불확실 -> None -> LLM Router (2단계 fallback)
 ```
 
@@ -690,7 +698,7 @@ flowchart LR
 | **GENERAL 모드** | 인사/단답은 도구 없이 직접 LLM 응답 |
 | **MAX_TOOL_ITERATIONS** | 무한 루프 방지 (최대 10회) |
 
-### 6.5 도구 함수 목록 (28개)
+### 6.5 도구 함수 목록 (31개)
 
 | # | 도구명 | 설명 | 에이전트 |
 |---|--------|------|----------|
@@ -722,6 +730,9 @@ flowchart LR
 | 26 | `get_ecommerce_glossary` | 이커머스 용어 조회 (검색 또는 전체) | CS Agent |
 | 27 | `get_cs_statistics` | CS 통계 (카테고리별/채널별) | CS Agent |
 | 28 | `get_dashboard_summary` | 대시보드 요약 (쇼핑몰/셀러/CS/주문) | Coordinator |
+| 29 | `get_at_risk_sellers` | ML 이탈 예측 + SHAP 분석 (threshold, limit) | Retention |
+| 30 | `generate_retention_message` | LLM 맞춤 리텐션 메시지 생성 (셀러별) | Retention |
+| 31 | `execute_retention_action` | 리텐션 조치 실행 (coupon/upgrade_offer/manager_assign/custom_message) | Retention |
 
 ### 6.6 멀티 에이전트 시스템 (LangGraph)
 
@@ -746,18 +757,94 @@ class AgentState(TypedDict):
     tool_calls_log: List[dict] # 도구 호출 이력
     iteration: int            # 반복 횟수 (최대 3회)
     final_response: str       # 최종 응답
+    plan: List[dict]          # 서브에이전트 실행 계획 (키워드 기반)
+    current_step: int         # 현재 plan 실행 단계
+    agent_results: List[dict] # 단계별 에이전트 실행 결과
 ```
 
 **에이전트별 도구 분류:**
 - `SEARCH_AGENT_TOOLS`: 7개 (쇼핑몰/카테고리/RAG 검색)
 - `ANALYSIS_AGENT_TOOLS`: 16개 (셀러 분석, ML 예측, 통계)
 - `CS_AGENT_TOOLS`: 5개 (CS 응답, 품질, 용어, 분류)
+- `RETENTION_AGENT_TOOLS`: 5개 (`get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics`)
 
 **모드 선택 (`agent_mode`):**
 - `"single"` (기본값): 단일 에이전트 + 다중 도구 (Tool Calling) — 실제 운영 모드
 - `"multi"`: LangGraph 기반 멀티 에이전트 (langgraph 설치 필요) — Coordinator가 질의를 분석하여 Search/Analysis/CS 에이전트로 라우팅
 
-> **참고**: 기본 운영은 single 모드로, 하나의 LLM이 2단계 라우터(키워드 + LLM)로 필터링된 도구 세트를 tool calling 방식으로 호출합니다. multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험적 기능입니다.
+> **참고**: 기본 운영은 single 모드로, 하나의 LLM이 2단계 라우터(키워드 + LLM)로 필터링된 도구 세트를 tool calling 방식으로 호출합니다. multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험적 기능입니다. RETENTION 인텐트 감지 시 서브에이전트 모드가 자동 활성화됩니다.
+
+### 6.6.1 서브에이전트 시스템 (Retention Agent)
+
+RETENTION 카테고리가 감지되면 기존 single/multi 모드 대신 **서브에이전트 전용 그래프**가 활성화됩니다. 복합 요청(이탈 위험 탐지 + 메시지 생성 + 조치 실행)을 plan 기반으로 순차 실행합니다.
+
+```mermaid
+flowchart TD
+    USER["사용자 요청"] --> ROUTER["router(RETENTION 감지)"]
+    ROUTER --> ROUTE_AGENT["routes_agent.py<br/>(서브에이전트 모드 분기)"]
+    ROUTE_AGENT --> STREAM["run_sub_agent_stream()"]
+
+    subgraph SubAgent["서브에이전트 그래프 (LangGraph)"]
+        COORD["coordinator_node"]
+        SUBCOORD["sub_agent_coordinator_node<br/>(plan 생성)"]
+        DISP["dispatcher_node<br/>(plan 순차 실행)"]
+        RET["retention_agent_node<br/>(RETENTION_AGENT_TOOLS 바인딩)"]
+        TOOL["tools_node"]
+
+        COORD --> SUBCOORD
+        SUBCOORD --> DISP
+        DISP --> RET
+        RET --> TOOL
+        TOOL --> RET
+        RET -->|"다음 단계"| DISP
+        DISP -->|"plan 완료"| FIN["END"]
+    end
+
+    STREAM --> SubAgent
+
+    subgraph SSE["SSE 이벤트"]
+        E1["agent_start (단계 시작)"]
+        E2["tool_end (도구 결과)"]
+        E3["agent_end (단계 완료)"]
+        E4["delta (최종 응답)"]
+        E5["done"]
+    end
+
+    SubAgent --> SSE
+```
+
+**서브에이전트 핵심 컴포넌트:**
+
+| 노드 | 역할 | 상세 |
+|------|------|------|
+| `sub_agent_coordinator_node` | 복합 요청을 plan으로 분해 | 키워드 기반 plan 생성 (예: 탐지 → 분석 → 메시지 → 조치) |
+| `dispatcher_node` | plan 순차 실행 | `current_step` 기반 라우팅, 단계별 에이전트 호출 |
+| `retention_agent_node` | Retention 도구 호출 | RETENTION_AGENT_TOOLS 바인딩, 이전 단계 결과를 컨텍스트로 전달 |
+| `_retention_should_continue` | 분기 판단 | tools(추가 도구 호출) / dispatcher(다음 단계) 분기 |
+
+**SSE 콜백 브릿지 (`routes_agent.py`):**
+```python
+# asyncio.Queue + create_task로 SSE 콜백 연결
+queue = asyncio.Queue()
+
+async def sse_callback(event_type, data):
+    await queue.put((event_type, data))
+
+task = asyncio.create_task(run_sub_agent_stream(req, username, sse_callback))
+
+# SSE 이벤트: agent_start/agent_end x N → tool_end x M → delta → done
+```
+
+**서브에이전트 데이터 흐름:**
+```
+사용자 → router(RETENTION) → routes_agent(서브에이전트 모드)
+  → run_sub_agent_stream → graph.invoke
+    → coordinator → sub_agent_coordinator(plan 생성)
+    → dispatcher → retention_agent(도구 호출) → tools → retention_agent
+    → dispatcher → ... (plan 순차 반복)
+    → END
+  → SSE: agent_start/end x N → tool_end x M → delta → done
+```
 
 ### 6.7 Corrective RAG (CRAG)
 
@@ -1368,7 +1455,7 @@ noise ~ Uniform(-0.1, +0.1)
 - **검증**: 5-Fold Cross-Validation (R2 score)
 - **배치 예측**: `predict_batch(df)` 메서드로 전체 쇼핑몰 일괄 예측 지원
 
-### 8.7 에이전트 도구 레지스트리 (28개 Tool)
+### 8.7 에이전트 도구 레지스트리 (31개 Tool)
 
 모든 ML 모델은 `agent/tool_schemas.py`의 `ALL_TOOLS` 리스트에 등록되어, AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 2단계 인텐트 라우터(키워드 + LLM fallback)가 적절한 도구를 선택합니다.
 
@@ -1402,6 +1489,9 @@ noise ~ Uniform(-0.1, +0.1)
 | **ML 예측** | `predict_seller_churn` | RandomForest+SHAP | 개별 셀러 이탈 확률 + SHAP 해석 |
 | | `predict_shop_revenue` | LightGBM | 쇼핑몰 다음달 매출 예측 + 성과 분석 |
 | | `optimize_marketing` | P-PSO | 마케팅 예산 최적 배분 (6채널) |
+| **리텐션** | `get_at_risk_sellers` | RandomForest+SHAP | ML 이탈 예측 + SHAP 분석 (threshold/limit) |
+| | `generate_retention_message` | LLM | 셀러별 맞춤 리텐션 메시지 생성 |
+| | `execute_retention_action` | - | 리텐션 조치 실행 (coupon/upgrade_offer/manager_assign/custom_message) |
 
 **Heuristic Fallback 패턴**: `predict_seller_churn`은 ML 모델 미로드 시 규칙 기반 스코어링(접속 경과일, 주문수, 매출, 환불률, CS 건수 가중합)으로 대체 작동합니다.
 
@@ -1697,7 +1787,7 @@ Connection: keep-alive
 X-Accel-Buffering: no
 ```
 
-**이벤트 흐름:**
+**이벤트 흐름 (일반 모드):**
 ```
 event: tool_start
 data: {"tool": "get_churn_prediction"}
@@ -1713,6 +1803,33 @@ data: {"content": " 예측"}
 
 event: done
 data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
+```
+
+**이벤트 흐름 (서브에이전트 모드 - RETENTION):**
+```
+event: agent_start
+data: {"agent": "retention", "step": 1, "task": "이탈 위험 셀러 탐지"}
+
+event: tool_end
+data: {"tool": "get_at_risk_sellers", "result": {...}}
+
+event: agent_end
+data: {"agent": "retention", "step": 1, "status": "completed"}
+
+event: agent_start
+data: {"agent": "retention", "step": 2, "task": "리텐션 메시지 생성"}
+
+event: tool_end
+data: {"tool": "generate_retention_message", "result": {...}}
+
+event: agent_end
+data: {"agent": "retention", "step": 2, "status": "completed"}
+
+event: delta
+data: {"content": "..."}
+
+event: done
+data: {"full_response": "...", "tool_calls": [...]}
 ```
 
 **구현 메커니즘:**
@@ -1785,7 +1902,7 @@ data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | `/api/tools` | 사용 가능한 AI 도구 목록 (28개 도구 메타데이터) |
+| GET | `/api/tools` | 사용 가능한 AI 도구 목록 (31개 도구 메타데이터) |
 
 ### Pydantic 요청 모델
 
@@ -2419,7 +2536,7 @@ SQLite objects created in a thread can only be used in that same thread
 4. **다음 활동 예측 (Predictive Process Mining)** — RandomForest가 현재 상태에서 다음 활동을 확률적으로 예측 (Top-3)
 5. **이상 프로세스 탐지** — IsolationForest가 정상 경로에서 벗어난 비정상 케이스를 자동 식별
 
-을 수행합니다. 기존 에이전트 시스템(28개 도구)과 완전히 독립된 별도 패키지로, `main.py`에 2줄 추가만으로 통합됩니다.
+을 수행합니다. 기존 에이전트 시스템(31개 도구)과 완전히 독립된 별도 패키지로, `main.py`에 2줄 추가만으로 통합됩니다.
 
 ### 15.2 설계 철학
 
@@ -2957,6 +3074,6 @@ flowchart LR
 
 <div align="center">
 
-**Version 8.2.0** | 2026-02-12
+**Version 8.4.0** | 2026-02-16
 
 </div>

@@ -24,6 +24,7 @@ from core.utils import safe_str
 from agent.intent import (
     ANALYSIS_KEYWORDS, PLATFORM_KEYWORDS, SHOP_KEYWORDS,
     SELLER_KEYWORDS, CS_KEYWORDS, DASHBOARD_KEYWORDS, GENERAL_KEYWORDS,
+    RETENTION_KEYWORDS,
 )
 import state as st
 
@@ -38,6 +39,7 @@ class IntentCategory(str, Enum):
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출
     SELLER = "seller"           # 셀러 분석, 세그먼트, 부정행위 탐지
     CS = "cs"                   # CS 자동응답, 품질 검사, 문의 분류
+    RETENTION = "retention"     # 이탈 방지, 리텐션 전략, 위험 셀러 관리
     DASHBOARD = "dashboard"     # 대시보드, 전체 현황
     GENERAL = "general"         # 일반 대화, 인사
 
@@ -85,6 +87,13 @@ CATEGORY_TOOLS = {
         "get_cs_statistics",
         "classify_inquiry",
     ],
+    IntentCategory.RETENTION: [
+        "get_at_risk_sellers",
+        "generate_retention_message",
+        "execute_retention_action",
+        "analyze_seller",
+        "get_cs_statistics",
+    ],
     IntentCategory.DASHBOARD: [
         "get_dashboard_summary",
         "get_segment_statistics",
@@ -110,11 +119,15 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     """
     t = text.lower()
 
-    # 우선순위: 셀러ID감지 > 분석 > 셀러 > 쇼핑몰 > CS > 플랫폼 > 대시보드 > 일반
+    # 우선순위: 셀러ID감지 > 리텐션 > 분석 > 셀러 > 쇼핑몰 > CS > 대시보드 > 플랫폼 > 일반
 
     # 0. 셀러 ID(SEL0001)가 포함되면 SELLER 우선 (분석보다 높은 우선순위)
     if re.search(r'SEL\d{1,6}', text, re.IGNORECASE):
         return IntentCategory.SELLER
+
+    # 0.5. 리텐션 키워드 (ANALYSIS보다 우선 - 이탈 방지/위험 셀러 관리)
+    if any(kw in t for kw in RETENTION_KEYWORDS):
+        return IntentCategory.RETENTION
 
     # 1. 분석 키워드 (셀러 ID 없는 일반 분석)
     if any(kw in t for kw in ANALYSIS_KEYWORDS):
@@ -163,6 +176,7 @@ ROUTER_SYSTEM_PROMPT = """당신은 질문 분류 전문가입니다.
 | shop | 쇼핑몰 정보/목록/분포, 카테고리 목록, 서비스, 성과, 마케팅 | "S0001 쇼핑몰 정보", "쇼핑몰 플랜별 분포", "Premium 등급 쇼핑몰 목록", "카테고리 전체 목록", "패션 카테고리 쇼핑몰 현황" |
 | seller | 특정 셀러 분석, 세그먼트, 부정행위 탐지 | "SEL0001 분석", "셀러 세그먼트 통계" |
 | cs | CS 자동응답, 품질 검사, 문의 분류, 용어집 | "환불 문의 응답해줘", "CS 품질 분석" |
+| retention | 이탈 방지, 리텐션 전략, 위험 셀러 관리, 맞춤 메시지 | "이탈 위험 셀러 분석", "리텐션 전략 실행" |
 | dashboard | 대시보드, 전체 현황, 요약 통계 | "대시보드 보여줘", "전체 현황" |
 | general | 일반 대화, 인사, 도움말 | "안녕", "뭐해?" |
 
@@ -176,6 +190,7 @@ ROUTER_SYSTEM_PROMPT = """당신은 질문 분류 전문가입니다.
 6. 쇼핑몰 목록/분포/현황, 카테고리 목록/정보, 플랜별/등급별/티어별 → shop
 7. 특정 셀러 (SEL0001 등) → seller
 8. 고객 문의/상담 → cs
+9. 이탈 방지/리텐션 전략/위험 셀러 → retention
 
 ## 출력 형식
 
@@ -192,6 +207,7 @@ _CATEGORY_MAP = {
     "shop": IntentCategory.SHOP,
     "seller": IntentCategory.SELLER,
     "cs": IntentCategory.CS,
+    "retention": IntentCategory.RETENTION,
     "dashboard": IntentCategory.DASHBOARD,
     "general": IntentCategory.GENERAL,
 }

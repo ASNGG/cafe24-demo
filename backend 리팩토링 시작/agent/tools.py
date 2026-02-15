@@ -1940,6 +1940,49 @@ def tool_optimize_marketing(
 
 
 # ============================================================
+# 16. 리텐션(이탈 방지) 도구
+# ============================================================
+def tool_get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> dict:
+    """이탈 위험 셀러 목록을 조회합니다."""
+    try:
+        from automation.retention_engine import get_at_risk_sellers
+        results = get_at_risk_sellers(threshold=threshold, limit=limit)
+        return {
+            "status": "success",
+            "total": len(results),
+            "threshold": threshold,
+            "sellers": results,
+        }
+    except Exception as e:
+        st.logger.exception("이탈 위험 셀러 조회 실패")
+        return {"status": "error", "message": str(e)}
+
+
+def tool_generate_retention_message(seller_id: str, api_key: str = "") -> dict:
+    """특정 셀러에 대한 맞춤 리텐션 메시지를 생성합니다."""
+    try:
+        from automation.retention_engine import generate_retention_message
+        result = generate_retention_message(seller_id=seller_id, api_key=api_key)
+        if result.get("error"):
+            return {"status": "error", "message": result["error"]}
+        return {"status": "success", **result}
+    except Exception as e:
+        st.logger.exception("리텐션 메시지 생성 실패")
+        return {"status": "error", "message": str(e)}
+
+
+def tool_execute_retention_action(seller_id: str, action_type: str, api_key: str = "") -> dict:
+    """리텐션 조치를 실행합니다 (coupon, upgrade_offer, manager_assign, custom_message)."""
+    try:
+        from automation.retention_engine import execute_retention_action
+        result = execute_retention_action(seller_id=seller_id, action_type=action_type, api_key=api_key)
+        return result
+    except Exception as e:
+        st.logger.exception("리텐션 조치 실행 실패")
+        return {"status": "error", "message": str(e)}
+
+
+# ============================================================
 # cross-3: LangChain @tool 래핑 (LLM Tool Calling용)
 # ============================================================
 # plain 함수(tool_*)는 routes_*.py에서 직접 호출하므로 그대로 유지.
@@ -2400,6 +2443,55 @@ def get_gmv_prediction(days: int = None, start_date: str = None, end_date: str =
     return tool_get_gmv_prediction(days=days, start_date=start_date, end_date=end_date)
 
 
+# -- 리텐션(이탈 방지) 도구 --
+@tool
+def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> dict:
+    """
+    이탈 위험이 높은 셀러 목록을 조회합니다.
+    ML 이탈 예측 모델과 SHAP 분석으로 위험 셀러를 탐지합니다.
+
+    Args:
+        threshold: 이탈 확률 임계값 (0.0~1.0, 기본값 0.6)
+        limit: 최대 반환 셀러 수 (기본값 20)
+
+    Returns:
+        이탈 위험 셀러 목록 (이탈 확률, 위험 등급, 주요 이탈 요인)
+    """
+    return tool_get_at_risk_sellers(threshold=threshold, limit=limit)
+
+
+@tool
+def generate_retention_message(seller_id: str, api_key: str = "") -> dict:
+    """
+    특정 셀러에 대한 맞춤 리텐션 메시지를 LLM으로 생성합니다.
+    할인 쿠폰, 프리미엄 업그레이드, 전담 매니저 배정 등 추천 포함.
+
+    Args:
+        seller_id: 셀러 ID (예: SEL0001)
+        api_key: OpenAI API 키 (선택사항, 미지정 시 환경변수 사용)
+
+    Returns:
+        맞춤 리텐션 메시지, 추천 조치 목록, 긴급도
+    """
+    return tool_generate_retention_message(seller_id=seller_id, api_key=api_key)
+
+
+@tool
+def execute_retention_action(seller_id: str, action_type: str, api_key: str = "") -> dict:
+    """
+    리텐션 조치를 실행합니다.
+
+    Args:
+        seller_id: 셀러 ID (예: SEL0001)
+        action_type: 조치 유형 ("coupon", "upgrade_offer", "manager_assign", "custom_message")
+        api_key: OpenAI API 키 (선택사항, custom_message 시 필요)
+
+    Returns:
+        조치 실행 결과 (action_id, 상세 내역)
+    """
+    return tool_execute_retention_action(seller_id=seller_id, action_type=action_type, api_key=api_key)
+
+
 # ============================================================
 # 에이전트별 도구 분류 (Multi-Agent용)
 # ============================================================
@@ -2445,6 +2537,15 @@ CS_AGENT_TOOLS = [
 ]
 TRANSLATION_AGENT_TOOLS = CS_AGENT_TOOLS  # multi_agent.py 호환 alias
 
+# 리텐션 에이전트 도구: 이탈 방지, 맞춤 메시지, 자동 조치
+RETENTION_AGENT_TOOLS = [
+    get_at_risk_sellers,
+    generate_retention_message,
+    execute_retention_action,
+    analyze_seller,
+    get_cs_statistics,
+]
+
 # ============================================================
 # 모든 도구 리스트 (LLM에 바인딩할 때 사용)
 # ============================================================
@@ -2487,4 +2588,8 @@ ALL_TOOLS = [
     get_cohort_analysis,
     get_trend_analysis,
     get_gmv_prediction,
+    # 리텐션(이탈 방지) 도구
+    get_at_risk_sellers,
+    generate_retention_message,
+    execute_retention_action,
 ]

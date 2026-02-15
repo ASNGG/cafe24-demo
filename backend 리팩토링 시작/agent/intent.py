@@ -76,6 +76,12 @@ DASHBOARD_KEYWORDS: List[str] = [
     "운영 이벤트", "이벤트 통계", "이벤트 현황", "주문 이벤트", "정산 이벤트",
 ]
 
+RETENTION_KEYWORDS: List[str] = [
+    "이탈 위험", "이탈 분석", "리텐션", "retention", "churn",
+    "at-risk", "맞춤 전략", "자동 발송", "리텐션 전략", "이탈 방지",
+    "위험 셀러", "이탈 예측",
+]
+
 GENERAL_KEYWORDS: List[str] = [
     "안녕", "하이", "헬로", "hi", "hello",
     "고마워", "감사", "thanks",
@@ -107,6 +113,10 @@ KEYWORD_TOOL_MAPPING: Dict[str, List[str]] = {
     "get_cohort_analysis": ["코호트 분석", "리텐션 분석", "코호트 리텐션", "주간 리텐션", "잔존율"],
     "get_trend_analysis": ["트렌드 분석", "KPI 분석", "지표 분석", "DAU 분석", "상관관계", "활성 셀러", "가입 추이", "전환율", "신규 가입", "변화 분석", "추이 분석", "주문량 분석"],
     "get_gmv_prediction": ["매출 예측", "GMV 분석", "GMV 예측", "수익 분석", "ARPU", "ARPPU", "거래액"],
+    # 리텐션(이탈 방지) 도구
+    "get_at_risk_sellers": ["이탈 위험", "위험 셀러", "at-risk", "이탈 방지"],
+    "generate_retention_message": ["리텐션 메시지", "맞춤 전략", "리텐션 전략"],
+    "execute_retention_action": ["자동 발송", "리텐션 실행", "이탈 방지 실행"],
 }
 
 

@@ -14,13 +14,24 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v8.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
 ---
 
 ## 최신 업데이트
+
+> **v8.4.0** (2026-02-16) — 서브에이전트 오케스트레이션 아키텍처 `🚧 개발중`
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **서브에이전트 탭** | 🧬 실험실 - 서브에이전트: 복합 요청을 단계별로 분해하여 순차 실행하는 오케스트레이션 UI |
+| **Retention 서브에이전트** | 셀러 이탈 분석 → CS 확인 → 리텐션 전략 생성 → 자동 발송 파이프라인 |
+| **새 도구 3개** | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action` (28→31개) |
+| **인텐트 라우팅** | `IntentCategory.RETENTION` 추가 — 리텐션 키워드 기반 라우팅 (ANALYSIS보다 우선) |
+| **SSE 이벤트 확장** | `agent_start`, `agent_end` 2종 추가 (기존 delta/tool_start/tool_end/done/error + 2종) |
+| **오케스트레이션 흐름** | Coordinator → sub_agent_coordinator(plan) → dispatcher(순차 실행) → retention_agent(도구 호출) → 결과 누적 → 최종 응답 |
 
 > **v8.3.0** (2026-02-12) — 전체 코드 최적화 150건 (백엔드 + 프론트엔드)
 
@@ -55,11 +66,11 @@ v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 | 지표 | 수치 |
 |------|------|
-| **AI 도구** | 28개 (Tool Calling 기반) |
+| **AI 도구** | 31개 (Tool Calling 기반) |
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
 | **RAG 엔진** | 8종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · CRAG · Cross-Encoder) |
 | **API 엔드포인트** | 106개 REST API |
-| **프론트엔드 패널** | 12개 (Dashboard, Agent, Analysis, Lab, DB 보안 감시, 자동화 엔진 등) |
+| **프론트엔드 패널** | 12개 (Dashboard, Agent, Analysis, Lab, 서브에이전트, DB 보안 감시, 자동화 엔진 등) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
 > **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -83,7 +94,7 @@ v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ### 배경 및 목적
 
-**CAFE24 AI 운영 플랫폼**은 이커머스 플랫폼(카페24) 운영에 필요한 다양한 AI/ML 기능을 하나의 통합 플랫폼으로 제공합니다. 자연어 질의 기반의 AI 에이전트가 28개의 전문 도구를 활용하여 데이터 분석, 예측, CS 자동화를 수행합니다.
+**CAFE24 AI 운영 플랫폼**은 이커머스 플랫폼(카페24) 운영에 필요한 다양한 AI/ML 기능을 하나의 통합 플랫폼으로 제공합니다. 자연어 질의 기반의 AI 에이전트가 31개의 전문 도구를 활용하여 데이터 분석, 예측, CS 자동화를 수행합니다.
 
 ### 해결하는 문제
 
@@ -94,10 +105,10 @@ v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **CS 문의 처리** | CS 담당자 수동 분류/응답 | TF-IDF + RF 일괄 분류 + RAG+LLM 답변 생성 + DnD 자동/수동 분기 |
 | **정산 이상** | 수작업 정산 검증 | DBSCAN 기반 정산 이상 패턴 탐지 |
 | **매출 예측** | 경험 기반 예측 | LightGBM 기반 다변량 매출 예측 |
-| **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 28 Tools) |
+| **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 31 Tools) |
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
 | **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
-| **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) |
+| **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) + 서브에이전트 오케스트레이션 (분석→CS확인→전략→발송 자동화) |
 | **CS FAQ** | 수동 FAQ 작성·관리 | CS 문의 패턴 분석 → LLM FAQ 자동 생성 → 승인 워크플로우 |
 | **운영 리포트** | 수동 KPI 집계·보고서 작성 | 전체 DF 자동 집계 → LLM 마크다운 리포트 (일간/주간/월간) |
 
@@ -105,11 +116,12 @@ v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 | 특징 | 설명 |
 |------|------|
-| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 28개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator Agent: GPT-4o) |
+| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 서브에이전트: GPT-4o-mini) |
 | **2단계 라우터** | 키워드 분류(비용 0, <1ms) -> LLM Router(gpt-4o-mini fallback) |
 | **RAG 8종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + CRAG(검색 품질 교정) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
-| **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 |
+| **서브에이전트 오케스트레이션** | 복합 요청 자동 분해 → 단계별 순차 실행 (Coordinator → Plan → Dispatch → Agent → 결과 누적) |
+| **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 (delta/tool_start/tool_end/agent_start/agent_end/done/error) |
 | **DB 보안 감시** | 룰엔진(<1ms) + Isolation Forest + SHAP + LangChain Agent + Recovery Agent |
 | **CS 자동화** | 접수(DnD 분류) -> 답변(RAG+LLM) -> 회신(n8n) 워크플로우 |
 | **마케팅 최적화** | P-PSO(Particle Swarm Optimization) 기반 채널별 예산 배분 최적화 |
@@ -128,7 +140,7 @@ v8.3.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 flowchart TB
     subgraph Frontend["Frontend (Next.js 14 + Tailwind CSS)"]
         Login[로그인]
-        Panels["12개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab · Process Miner<br/>DB 보안 감시 · 자동화 엔진<br/>Settings · Users · Logs"]
+        Panels["12개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab(서브에이전트) · Process Miner<br/>DB 보안 감시 · 자동화 엔진<br/>Settings · Users · Logs"]
     end
 
     subgraph Backend["Backend (FastAPI + Python 3.10+)"]
@@ -144,7 +156,8 @@ flowchart TB
         subgraph Agent["AI 에이전트"]
             Runner["runner.py<br/>Tool Calling 실행기"]
             MultiAgent["multi_agent.py<br/>LangGraph 멀티 에이전트"]
-            Tools["28개 도구 함수"]
+            SubAgent["서브에이전트 오케스트레이션<br/>coordinator → dispatcher<br/>→ retention_agent"]
+            Tools["31개 도구 함수"]
             CRAG["crag.py<br/>Corrective RAG"]
         end
 
@@ -191,6 +204,7 @@ flowchart TB
     RAGSystem --> OpenAI
     Runner --> Tools
     MultiAgent --> Tools
+    SubAgent --> Tools
     Backend --> n8n
     Backend --> Resend
     State --> DataLoader
@@ -259,8 +273,9 @@ flowchart LR
 
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
-| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 (Single/Multi 모드) | GPT-4o-mini + Tool Calling + 28개 도구 |
+| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 (Single/Multi/서브에이전트 모드) | GPT-4o-mini + Tool Calling + 31개 도구 |
 | **멀티 에이전트** | Coordinator가 질의 분석 후 전문 에이전트에 라우팅 | LangGraph (Coordinator/Search/Analysis/CS Agent) |
+| **서브에이전트 오케스트레이션** `🚧 개발중` | 복합 요청을 자동 분해 → 단계별 순차 실행 (Retention 서브에이전트) | sub_agent_coordinator + dispatcher + retention_agent |
 | **RAG 8종 기법** | 8가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + CRAG + Cross-Encoder |
 | **Corrective RAG** | 검색 결과 자동 품질 평가 및 교정 | RetrievalGrader + QueryRewriter (CRAG 패턴) |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
@@ -355,6 +370,42 @@ flowchart LR
     B --> F["다음 활동 예측<br/>RandomForest"]
 ```
 
+### 서브에이전트 오케스트레이션
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as 사용자
+    participant FE as Frontend (실험실 탭)
+    participant Coord as Coordinator
+    participant Plan as sub_agent_coordinator
+    participant Disp as dispatcher
+    participant RA as retention_agent
+    participant Tools as 도구 (3개)
+
+    User->>FE: "이탈 위험 셀러 분석하고 리텐션 메시지 보내줘"
+    FE->>Coord: SSE 연결
+
+    Note over Coord: IntentCategory.RETENTION 감지
+    Coord->>Plan: 복합 요청 분해
+
+    Note over Plan: Plan 생성:<br/>1. 이탈 위험 셀러 조회<br/>2. CS 이력 확인<br/>3. 리텐션 메시지 생성<br/>4. 자동 발송
+
+    loop 각 단계 순차 실행
+        Plan->>Disp: 다음 단계 전달
+        FE-->>User: SSE agent_start
+        Disp->>RA: 단계 실행 요청
+        RA->>Tools: get_at_risk_sellers / generate_retention_message / execute_retention_action
+        Tools-->>RA: 결과 반환
+        RA-->>Disp: 단계 결과
+        FE-->>User: SSE agent_end
+    end
+
+    Disp-->>Coord: 전체 결과 누적
+    Coord-->>FE: SSE 최종 응답 스트리밍
+    FE-->>User: 분석 결과 + 발송 완료 표시
+```
+
 ---
 
 ## 4. 기술 스택
@@ -427,14 +478,18 @@ flowchart LR
 │   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
 │   ├── agent/                         # AI 에이전트
 │   │   ├── runner.py                  # Tool Calling 실행기
-│   │   ├── tools.py                   # 28개 도구 함수 (비즈니스 로직)
-│   │   ├── tool_schemas.py            # 28개 @tool 래퍼 (LLM 인터페이스)
+│   │   ├── tools.py                   # 31개 도구 함수 (비즈니스 로직)
+│   │   ├── tool_schemas.py            # 31개 @tool 래퍼 (LLM 인터페이스)
 │   │   ├── router.py                  # 에이전트 라우팅
 │   │   ├── llm.py                     # LLM 클라이언트 설정
-│   │   ├── intent.py                  # 의도 분류
+│   │   ├── intent.py                  # 의도 분류 (RETENTION 인텐트 포함)
 │   │   ├── semantic_router.py         # 시맨틱 라우터
 │   │   ├── crag.py                    # Corrective RAG
-│   │   └── multi_agent.py             # LangGraph 멀티 에이전트
+│   │   ├── multi_agent.py             # LangGraph 멀티 에이전트
+│   │   └── sub_agent/                 # 서브에이전트 오케스트레이션
+│   │       ├── coordinator.py         # 복합 요청 분해 (plan 생성)
+│   │       ├── dispatcher.py          # 서브에이전트 순차 실행
+│   │       └── retention_agent.py     # Retention 서브에이전트 (이탈분석→CS확인→전략→발송)
 │   ├── rag/                           # RAG 시스템 (모듈별 분리)
 │   │   ├── service.py                 # RAG 파사드 (통합 인터페이스)
 │   │   ├── chunking.py                # 문서 청킹 로직
@@ -466,7 +521,7 @@ flowchart LR
     │   │   └── constants.js         # 파이프라인 스텝 상수 + CS 카테고리
     │   └── panels/                    # 12개 기능 패널
     │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
-    │       ├── lab/                   # CS 자동화 실험실 (11개 파일로 분리)
+    │       ├── lab/                   # CS 자동화 실험실 + 🧬 서브에이전트 탭 (11개+ 파일)
     │       ├── analysis/              # 분석 패널 (9개 탭 + 1 컨테이너, 10개 파일)
     │       └── ...                    # 기타 패널
     ├── lib/                           # 유틸리티 (api, storage, cn, sse)
@@ -582,6 +637,9 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 8.4.0 | 2026-02-16 | `🚧 개발중` 서브에이전트 오케스트레이션: 복합 요청 자동 분해→순차 실행 아키텍처, Retention 서브에이전트(이탈분석→CS확인→전략→발송), 도구 3개 추가(31개), IntentCategory.RETENTION 라우팅, SSE agent_start/agent_end 이벤트, 실험실 서브에이전트 탭 |
+| 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 백엔드 중복 제거/캐시/병렬화, 프론트 번들 -1MB/dynamic import, WAI-ARIA 접근성 |
+| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 인터랙티브 파이프라인 시각화, RetentionTab/FaqTab/ReportTab 고도화, API 17개 |
 | 8.1.0 | 2026-02-12 | 자동화 엔진 3대 기능: 셀러 이탈 방지(ML+SHAP→LLM→자동조치), CS FAQ 자동 생성(패턴분석→LLM→승인관리), 운영 리포트 자동 생성(KPI집계→LLM 마크다운). API 14개, 자동화 패널 추가 |
 | 8.0.0 | 2026-02-10 | 대규모 리팩토링: routes.py 8개 도메인 라우터 분리, service.py 파사드+모듈 분리, LabPanel/AnalysisPanel 컴포넌트 분리, 보안 강화(프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL), CSS 변수 리네이밍, 접근성 개선 |
 | 7.6.0 | 2026-02-10 | README 체계화: 루트(프로젝트 개요) / 백엔드(기술 상세) / 프론트엔드(UI 상세) 역할 분리 |

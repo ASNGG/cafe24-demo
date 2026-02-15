@@ -4,6 +4,7 @@ api/routes_agent.py - 에이전트/채팅 API
 """
 import json
 import time as _time
+import asyncio
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -13,6 +14,7 @@ from core.utils import safe_str
 from core.memory import clear_memory, append_memory
 from agent.llm import pick_api_key
 from agent.runner import run_agent
+from agent.multi_agent import run_sub_agent_stream
 from rag.service import tool_rag_search
 from rag.light_rag import lightrag_search_sync, LIGHTRAG_AVAILABLE
 from rag.k2rag import k2rag_search_sync
@@ -59,6 +61,32 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
             category, allowed_tool_names = classify_and_get_tools(user_text, api_key, use_llm_fallback=False)
 
             st.logger.info("STREAM_ROUTER category=%s allowed_tools=%s", category.value, allowed_tool_names)
+
+            # RETENTION 카테고리 → 서브에이전트 모드로 분기
+            if category == IntentCategory.RETENTION:
+                st.logger.info("STREAM_RETENTION_MODE sub_agent user=%s", username)
+                queue = asyncio.Queue()
+
+                async def sse_callback(event_type: str, data: dict):
+                    await queue.put((event_type, data))
+
+                async def run_task():
+                    try:
+                        await run_sub_agent_stream(req, username, sse_callback)
+                    finally:
+                        await queue.put(None)  # sentinel
+
+                task = asyncio.create_task(run_task())
+
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        break
+                    event_type, data = item
+                    yield sse_pack(event_type, data)
+
+                await task
+                return
 
             if allowed_tool_names:
                 tools = [t for t in ALL_TOOLS if t.name in allowed_tool_names]

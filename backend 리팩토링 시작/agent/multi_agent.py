@@ -8,10 +8,12 @@ agent/multi_agent.py - LangGraph 기반 멀티 에이전트 시스템
 - Search Agent: 플랫폼 정보 검색 (쇼핑몰, 카테고리, RAG)
 - Analysis Agent: 셀러 분석, ML 예측, 통계
 - CS Agent: CS 응답 생성, 품질 평가
+- Sub-Agent (서브에이전트): 복합 리텐션 요청 오케스트레이션
 
 에이전트 간 협업:
 - 검색 + 분석이 필요한 경우 순차 실행
 - 예: "S0001 쇼핑몰 셀러의 이탈 예측" → Search → Analysis
+- 복합 리텐션 요청 → Sub-Agent Coordinator → Dispatcher → Retention 사이클
 """
 import json
 import operator
@@ -36,6 +38,11 @@ from agent.tools import (
     TRANSLATION_AGENT_TOOLS,
     ALL_TOOLS,
 )
+
+try:
+    from agent.tools import RETENTION_AGENT_TOOLS
+except ImportError:
+    RETENTION_AGENT_TOOLS = []
 from agent.llm import get_llm, pick_api_key
 from agent.router import _keyword_classify, IntentCategory
 from core.constants import DEFAULT_SYSTEM_PROMPT
@@ -55,6 +62,10 @@ class AgentState(TypedDict):
     tool_calls_log: List[dict]
     iteration: int
     final_response: str
+    # 서브에이전트 오케스트레이션 필드
+    plan: List[str]            # 서브에이전트 실행 순서
+    current_step: int          # 현재 단계 인덱스
+    agent_results: List[dict]  # 단계별 결과 누적
 
 
 # ============================================================
@@ -132,6 +143,34 @@ TRANSLATION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **CS 전
 CS 응답 결과와 품질 평가를 제공하세요.
 """
 
+RETENTION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 리텐션 전문가**입니다.
+
+## 담당 업무:
+- 이탈 위험 셀러 조회 (get_at_risk_sellers) - ML 이탈 예측 + SHAP 분석
+- 맞춤 리텐션 메시지 생성 (generate_retention_message) - LLM 기반 메시지 작성
+- 리텐션 조치 실행 (execute_retention_action) - 쿠폰, 업그레이드, 매니저 배정
+- 셀러 상세 분석 (analyze_seller) - 셀러 정보 및 이탈 위험도 확인
+- CS 통계 확인 (get_cs_statistics) - CS 현황 파악
+
+## 분석 규칙:
+- 이전 단계의 분석 결과를 반드시 참고하여 전략을 수립
+- 이탈 위험 수준(고위험/중위험/저위험)에 따라 맞춤형 전략 제시
+- CS 통계가 있으면 불만 패턴을 반영한 전략 수립
+- 실행 가능한 구체적 액션을 포함 (action_type: coupon, upgrade_offer, manager_assign, custom_message)
+
+이전 단계 결과를 종합하여 효과적인 리텐션 전략을 제시하세요.
+"""
+
+# 서브에이전트 복합 요청 감지용 키워드 패턴
+_SUB_AGENT_PATTERNS = [
+    ["이탈", "전략"],
+    ["이탈", "CS"],
+    ["리텐션", "분석"],
+    ["이탈", "분석", "발송"],
+    ["위험", "전략"],
+    ["이탈", "확인", "전략"],
+]
+
 
 # ============================================================
 # 에이전트 노드 함수
@@ -145,8 +184,17 @@ def create_agent_executor(llm, tools, system_prompt: str):
     return prompt | llm.bind_tools(tools)
 
 
+def _is_sub_agent_request(text: str) -> bool:
+    """복합 리텐션 요청 여부를 키워드 패턴으로 감지"""
+    t = text.lower()
+    for pattern in _SUB_AGENT_PATTERNS:
+        if all(kw in t for kw in pattern):
+            return True
+    return False
+
+
 def coordinator_node(state: AgentState, llm) -> dict:
-    """코디네이터: 다음 에이전트 결정"""
+    """코디네이터: 다음 에이전트 결정 (서브에이전트 복합 요청 포함)"""
     messages = state["messages"]
 
     user_message = ""
@@ -155,11 +203,17 @@ def coordinator_node(state: AgentState, llm) -> dict:
             user_message = msg.content
             break
 
-    category = _keyword_classify(user_message)
     iteration = state.get("iteration", 0)
 
     if iteration >= 3:
         return {"next_agent": "end", "iteration": iteration + 1}
+
+    # 복합 리텐션 요청 → 서브에이전트 오케스트레이션
+    if _is_sub_agent_request(user_message) and RETENTION_AGENT_TOOLS:
+        st.logger.info("COORDINATOR sub_agent detected: %s", user_message[:60])
+        return {"next_agent": "sub_agent", "iteration": iteration + 1}
+
+    category = _keyword_classify(user_message)
 
     # IntentCategory → 에이전트 매핑
     _CATEGORY_AGENT_MAP = {
@@ -212,6 +266,129 @@ def translation_agent_node(state: AgentState, llm) -> dict:
     }
 
 
+# ============================================================
+# 서브에이전트 오케스트레이션 노드
+# ============================================================
+def sub_agent_coordinator_node(state: AgentState, llm) -> dict:
+    """복합 요청을 분석하여 실행 계획(plan)을 생성"""
+    user_message = ""
+    for msg in reversed(state["messages"]):
+        if isinstance(msg, HumanMessage):
+            user_message = msg.content
+            break
+
+    # 키워드 기반 plan 생성 (LLM 호출 없이 빠르게 결정)
+    t = user_message.lower()
+    plan = []
+
+    # 항상 이탈 위험 분석부터
+    plan.append("analyze_churn")
+
+    # CS 관련 키워드가 있으면 CS 확인 단계 추가
+    if any(kw in t for kw in ["cs", "상담", "문의", "불만"]):
+        plan.append("check_cs")
+
+    # 전략/발송/조치 관련 키워드 → 전략 생성
+    plan.append("generate_strategy")
+
+    # 실행/발송/자동/조치 → 액션 실행
+    if any(kw in t for kw in ["실행", "발송", "자동", "조치", "액션"]):
+        plan.append("execute_action")
+
+    st.logger.info("SUB_AGENT_PLAN plan=%s steps=%d", plan, len(plan))
+
+    return {
+        "plan": plan,
+        "current_step": 0,
+        "agent_results": [],
+        "current_agent": "sub_agent_coordinator",
+    }
+
+
+def dispatcher_node(state: AgentState) -> dict:
+    """plan[current_step]에 따라 다음 서브에이전트 노드로 라우팅"""
+    plan = state.get("plan", [])
+    current_step = state.get("current_step", 0)
+
+    if current_step >= len(plan):
+        # 모든 단계 완료
+        return {"next_agent": "end"}
+
+    step_name = plan[current_step]
+    st.logger.info(
+        "DISPATCHER step=%d/%d action=%s",
+        current_step + 1, len(plan), step_name,
+    )
+
+    return {"next_agent": step_name, "current_agent": "dispatcher"}
+
+
+def _dispatch_route(state: AgentState) -> str:
+    """dispatcher 조건부 엣지: plan의 현재 단계에 따라 라우팅"""
+    plan = state.get("plan", [])
+    step = state.get("current_step", 0)
+    if step >= len(plan):
+        return "end"
+    return plan[step]
+
+
+def retention_agent_node(state: AgentState, llm) -> dict:
+    """리텐션 에이전트: RETENTION_AGENT_TOOLS로 이탈 방지 작업 수행"""
+    # 이전 단계 결과를 컨텍스트로 포함
+    agent_results = state.get("agent_results", [])
+    context_parts = []
+    for i, res in enumerate(agent_results):
+        context_parts.append(f"[단계 {i+1} 결과] {res.get('step', '')}: {res.get('summary', '')}")
+    context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
+
+    plan = state.get("plan", [])
+    current_step = state.get("current_step", 0)
+    step_name = plan[current_step] if current_step < len(plan) else "unknown"
+
+    # 원본 사용자 메시지 추출
+    user_message = ""
+    for msg in reversed(state["messages"]):
+        if isinstance(msg, HumanMessage):
+            user_message = msg.content
+            break
+
+    augmented_prompt = (
+        f"{RETENTION_AGENT_PROMPT}\n\n"
+        f"## 현재 단계: {step_name} ({current_step + 1}/{len(plan)})\n"
+        f"## 이전 단계 결과:\n{context_str}\n\n"
+        f"사용자 요청: {user_message}"
+    )
+
+    tools = RETENTION_AGENT_TOOLS if RETENTION_AGENT_TOOLS else ANALYSIS_AGENT_TOOLS
+    agent = create_agent_executor(llm, tools, augmented_prompt)
+    result = agent.invoke({"messages": state["messages"]})
+
+    # 결과를 agent_results에 누적
+    new_results = list(agent_results)
+    result_summary = result.content[:200] if hasattr(result, "content") and result.content else ""
+    new_results.append({"step": step_name, "summary": result_summary})
+
+    return {
+        "messages": [result],
+        "current_agent": "retention",
+        "agent_results": new_results,
+        "current_step": current_step + 1,
+    }
+
+
+def _retention_should_continue(state: AgentState) -> str:
+    """리텐션 에이전트 후 분기: tool_calls가 있으면 tools, 없으면 dispatcher로 복귀"""
+    messages = state["messages"]
+    if not messages:
+        return "dispatcher"
+
+    last_message = messages[-1]
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+
+    return "dispatcher"
+
+
 def tool_executor_node(state: AgentState) -> dict:
     """도구 실행 노드"""
     messages = state["messages"]
@@ -223,6 +400,8 @@ def tool_executor_node(state: AgentState) -> dict:
     tool_calls_log = state.get("tool_calls_log", [])
     new_messages = []
     tool_map = {t.name: t for t in ALL_TOOLS}
+    if RETENTION_AGENT_TOOLS:
+        tool_map.update({t.name: t for t in RETENTION_AGENT_TOOLS})
 
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]
@@ -284,26 +463,40 @@ def route_to_agent(state: AgentState) -> str:
 # 그래프 빌드
 # ============================================================
 def build_multi_agent_graph(llm):
-    """멀티 에이전트 그래프 생성"""
+    """멀티 에이전트 그래프 생성 (서브에이전트 경로 포함)"""
     if not LANGGRAPH_AVAILABLE:
         raise ImportError("langgraph가 설치되지 않았습니다. 'pip install langgraph'")
 
     workflow = StateGraph(AgentState)
 
+    # 기존 노드
     workflow.add_node("coordinator", lambda state: coordinator_node(state, llm))
     workflow.add_node("search", lambda state: search_agent_node(state, llm))
     workflow.add_node("analysis", lambda state: analysis_agent_node(state, llm))
     workflow.add_node("translation", lambda state: translation_agent_node(state, llm))
     workflow.add_node("tools", tool_executor_node)
 
+    # 서브에이전트 노드
+    workflow.add_node("sub_agent_coordinator", lambda state: sub_agent_coordinator_node(state, llm))
+    workflow.add_node("dispatcher", dispatcher_node)
+    workflow.add_node("retention", lambda state: retention_agent_node(state, llm))
+
     workflow.set_entry_point("coordinator")
 
+    # coordinator → 에이전트 라우팅 (sub_agent 경로 추가)
     workflow.add_conditional_edges(
         "coordinator",
         route_to_agent,
-        {"search": "search", "analysis": "analysis", "translation": "translation", "end": END}
+        {
+            "search": "search",
+            "analysis": "analysis",
+            "translation": "translation",
+            "sub_agent": "sub_agent_coordinator",
+            "end": END,
+        }
     )
 
+    # 기존 에이전트 → tools / end / coordinator
     for agent in ["search", "analysis", "translation"]:
         workflow.add_conditional_edges(
             agent,
@@ -311,10 +504,37 @@ def build_multi_agent_graph(llm):
             {"tools": "tools", "end": END, "coordinator": "coordinator"}
         )
 
+    # tools → 호출한 에이전트로 복귀 (retention 추가)
     workflow.add_conditional_edges(
         "tools",
         lambda state: state.get("current_agent", "coordinator"),
-        {"search": "search", "analysis": "analysis", "translation": "translation", "coordinator": "coordinator"}
+        {
+            "search": "search",
+            "analysis": "analysis",
+            "translation": "translation",
+            "retention": "retention",
+            "coordinator": "coordinator",
+        }
+    )
+
+    # 서브에이전트 경로: coordinator → sub_agent_coordinator → dispatcher → retention → tools → retention → dispatcher → END
+    workflow.add_edge("sub_agent_coordinator", "dispatcher")
+
+    # dispatcher → 각 단계별 에이전트 or END
+    _dispatch_targets = {
+        "analyze_churn": "retention",
+        "check_cs": "retention",
+        "generate_strategy": "retention",
+        "execute_action": "retention",
+        "end": END,
+    }
+    workflow.add_conditional_edges("dispatcher", _dispatch_route, _dispatch_targets)
+
+    # retention → tools(도구 호출) or dispatcher(다음 단계)
+    workflow.add_conditional_edges(
+        "retention",
+        _retention_should_continue,
+        {"tools": "tools", "dispatcher": "dispatcher"}
     )
 
     return workflow.compile()
@@ -390,6 +610,9 @@ def run_multi_agent(req, username: str) -> dict:
             "tool_calls_log": [],
             "iteration": 0,
             "final_response": "",
+            "plan": [],
+            "current_step": 0,
+            "agent_results": [],
         }
 
         final_state = graph.invoke(initial_state)
@@ -436,6 +659,136 @@ def run_multi_agent(req, username: str) -> dict:
             "log_file": st.LOG_FILE,
             "debug_error": err if req.debug else None,
         }
+
+
+# ============================================================
+# 서브에이전트 스트림 실행 (routes_agent.py에서 호출)
+# ============================================================
+async def run_sub_agent_stream(req, username: str, sse_callback):
+    """서브에이전트 스트리밍 실행 - 각 단계마다 SSE 이벤트 전송
+
+    Args:
+        req: AgentRequest (user_input, model, api_key 등)
+        username: 사용자명
+        sse_callback: async callable(event_type: str, data: dict) -> None
+            event_type: "agent_start" | "agent_end" | "tool_start" | "tool_end" | "delta" | "done"
+    """
+    if not LANGGRAPH_AVAILABLE:
+        await sse_callback("done", {"ok": False, "final": "langgraph를 설치하세요.", "tool_calls": []})
+        return
+
+    user_text = safe_str(req.user_input)
+    api_key = pick_api_key(req.api_key)
+    if not api_key:
+        await sse_callback("done", {"ok": False, "final": "OpenAI API Key가 없습니다.", "tool_calls": []})
+        return
+
+    st.logger.info("SUB_AGENT_STREAM_START user=%s input=%s", username, user_text[:80])
+
+    try:
+        llm = get_llm(
+            req.model, api_key, req.max_tokens, streaming=False,
+            temperature=req.temperature if req.temperature is not None else 0.3,
+            top_p=req.top_p,
+            presence_penalty=req.presence_penalty, frequency_penalty=req.frequency_penalty,
+            seed=req.seed, timeout_ms=req.timeout_ms, max_retries=req.retries,
+        )
+
+        graph = _get_cached_graph(llm, normalize_model_name(req.model))
+
+        prev_messages = memory_messages(username)
+        messages = []
+        for msg in prev_messages:
+            role, content = msg.get("role", ""), msg.get("content", "")
+            if role == "user":
+                messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                messages.append(AIMessage(content=content))
+        messages.append(HumanMessage(content=user_text))
+
+        initial_state = {
+            "messages": messages,
+            "next_agent": "",
+            "current_agent": "",
+            "tool_calls_log": [],
+            "iteration": 0,
+            "final_response": "",
+            "plan": [],
+            "current_step": 0,
+            "agent_results": [],
+        }
+
+        # 동기 실행 후 단계별 결과 전송
+        final_state = graph.invoke(initial_state)
+
+        plan = final_state.get("plan", [])
+        agent_results = final_state.get("agent_results", [])
+        tool_calls_log = final_state.get("tool_calls_log", [])
+
+        # 각 단계 결과를 SSE로 전송
+        for i, result in enumerate(agent_results):
+            step_name = result.get("step", f"step_{i}")
+            await sse_callback("agent_start", {
+                "agent": step_name,
+                "step": i + 1,
+                "total_steps": len(plan),
+            })
+            await sse_callback("agent_end", {
+                "agent": step_name,
+                "step": i + 1,
+                "total_steps": len(plan),
+                "summary": result.get("summary", ""),
+            })
+
+        # 도구 호출 로그 전송
+        for tc in tool_calls_log:
+            await sse_callback("tool_end", {
+                "tool": tc.get("tool", ""),
+                "agent": tc.get("agent", ""),
+                "status": "success",
+            })
+
+        # 최종 응답 추출
+        final_response = final_state.get("final_response", "")
+        if not final_response:
+            for msg in reversed(final_state.get("messages", [])):
+                if isinstance(msg, AIMessage) and msg.content:
+                    final_response = msg.content
+                    break
+
+        if not final_response:
+            final_response = "서브에이전트 처리를 완료했습니다."
+
+        # 최종 응답을 delta로 전송
+        await sse_callback("delta", {"delta": final_response})
+
+        append_memory(username, user_text, final_response)
+        agents_used = list(set(tc.get("agent", "") for tc in tool_calls_log))
+
+        await sse_callback("done", {
+            "ok": True,
+            "final": final_response,
+            "tool_calls": tool_calls_log,
+            "agents_used": agents_used,
+            "plan": plan,
+            "agent_results": agent_results,
+        })
+
+        st.logger.info(
+            "SUB_AGENT_STREAM_COMPLETE user=%s steps=%d tools=%d",
+            username, len(agent_results), len(tool_calls_log),
+        )
+
+    except Exception as e:
+        err = format_openai_error(e)
+        st.logger.exception("SUB_AGENT_STREAM_FAIL err=%s", err)
+        msg = f"서브에이전트 오류: {err.get('type', 'Unknown')} - {err.get('message', str(e))}"
+        append_memory(username, user_text, msg)
+        await sse_callback("done", {
+            "ok": False,
+            "final": msg if req.debug else "서브에이전트 처리 오류가 발생했습니다.",
+            "tool_calls": [],
+        })
 
 
 # M19/I7: 레거시 호환 코드 제거 (AgentType, TaskStatus, MultiAgentSystem 등)

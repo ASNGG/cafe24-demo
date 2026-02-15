@@ -21,6 +21,7 @@ const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: fa
 const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false });
 const ProcessMinerPanel = dynamic(() => import('@/components/panels/ProcessMinerPanel'), { ssr: false });
 const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false });
+const SubAgentPanel = dynamic(() => import('@/components/panels/SubAgentPanel'), { ssr: false });
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {
@@ -155,6 +156,7 @@ export default function AppPage() {
         { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
         { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
         { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
+        { key: 'sub-agent', label: '🧬 실험실 - 서브에이전트' },
         { key: 'automation', label: '⚡ 자동화 엔진' },
         { key: 'settings', label: '⚙️ LLM 설정' },
         { key: 'users', label: '👥 셀러 관리' },
@@ -168,6 +170,7 @@ export default function AppPage() {
       { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
       { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
       { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
+      { key: 'sub-agent', label: '🧬 실험실 - 서브에이전트' },
       { key: 'automation', label: '⚡ 자동화 엔진' },
     ];
   }, [isAdmin]);
@@ -475,6 +478,10 @@ export default function AppPage() {
 
       {activeTab === 'process-miner' ? (
         <ProcessMinerPanel auth={auth} apiCall={apiCall} />
+      ) : null}
+
+      {activeTab === 'sub-agent' ? (
+        <SubAgentPanel auth={auth} selectedShop={selectedShop} addLog={addLog} settings={settings} apiCall={apiCall} />
       ) : null}
 
       {activeTab === 'automation' ? (

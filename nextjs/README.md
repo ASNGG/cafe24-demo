@@ -16,7 +16,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (12개)](#2-패널-12개)
+2. [패널 (13개)](#2-패널-13개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -32,13 +32,13 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝, 서브에이전트 실험 등 **13개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["12개 패널"]
+        Panels["13개 패널"]
         SSEProxy["SSE 프록시<br/>(5개 API Route)"]
     end
 
@@ -79,7 +79,7 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth)
-│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 13개 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   └── stream.js           # SSE 프록시 (AI 에이전트)
@@ -106,7 +106,7 @@ nextjs/
 │   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
 │   │   └── constants.js            # 공통 상수 (COLORS 등)
 │   │
-│   └── panels/                     # 기능별 패널 (12개)
+│   └── panels/                     # 기능별 패널 (13개)
 │       ├── AgentPanel.js           # AI 에이전트 채팅
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
@@ -119,6 +119,10 @@ nextjs/
 │       ├── GuardianPanel.js        # DB 보안 감시
 │       ├── ProcessMinerPanel.js    # 프로세스 마이닝
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
+│       ├── SubAgentPanel.js      # 서브에이전트 (파이프라인 실행 + 채팅)
+│       │
+│       ├── hooks/                 # 패널 전용 커스텀 훅
+│       │   └── useSubAgentStream.js  # 서브에이전트 SSE 스트리밍 (7종 이벤트)
 │       │
 │       ├── automation/            # 자동화 엔진 공통 컴포넌트
 │       │   ├── PipelineFlow.js    # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
@@ -168,15 +172,15 @@ nextjs/
 
 ---
 
-## 2. 패널 (12개)
+## 2. 패널 (13개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
-    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["7개 탭"]
+    Role -->|"관리자<br/>(Admin)"| Admin["13개 탭 전부"]
+    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["8개 탭"]
 
     Admin --> A1["AI 에이전트"]
     Admin --> A2["대시보드"]
@@ -187,9 +191,10 @@ graph TD
     Admin --> A7["DB 보안 감시"]
     Admin --> A8["프로세스 마이너"]
     Admin --> A9["자동화 엔진"]
-    Admin --> A10["LLM 설정"]
-    Admin --> A11["셀러 관리"]
-    Admin --> A12["로그"]
+    Admin --> A10["서브에이전트"]
+    Admin --> A11["LLM 설정"]
+    Admin --> A12["셀러 관리"]
+    Admin --> A13["로그"]
 
     User --> U1["AI 에이전트"]
     User --> U2["대시보드"]
@@ -198,12 +203,13 @@ graph TD
     User --> U5["DB 보안 감시"]
     User --> U6["프로세스 마이너"]
     User --> U7["자동화 엔진"]
+    User --> U8["서브에이전트"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 12개 전부 | 12 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation | 7 |
+| **관리자** (Admin) | 13개 전부 | 13 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation, SubAgent | 8 |
 
 ---
 
@@ -842,6 +848,85 @@ flowchart LR
 
 ---
 
+### 2.13 SubAgentPanel (실험실 - 서브에이전트)
+
+| 항목 | 내용 |
+|------|------|
+| **파일** | `components/panels/SubAgentPanel.js` (~467줄) |
+| **역할** | 서브에이전트 파이프라인 실행 -- 다단계 AI 에이전트가 순차적으로 분석/실행하고 결과를 실시간 스트리밍 |
+| **훅** | `components/panels/hooks/useSubAgentStream.js` (~440줄) |
+| **API** | `POST /api/agent/stream` (SSE, `sub_agent: true` 플래그) |
+| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `framer-motion` |
+| **권한** | 전체 사용자 |
+
+> **핵심 컨셉**: 복합 업무를 여러 서브에이전트가 파이프라인으로 분담 처리. 각 단계의 진행 상태와 결과를 실시간으로 시각화
+
+**아키텍처:**
+
+```mermaid
+flowchart LR
+    Q["사용자 입력"] --> SSE["/api/agent/stream<br/>(sub_agent: true)"]
+    SSE --> AS["agent_start<br/>단계 시작"]
+    SSE --> D["delta<br/>토큰 스트리밍"]
+    SSE --> AE["agent_end<br/>단계 완료"]
+    SSE --> DN["done<br/>파이프라인 완료"]
+    AS & D & AE & DN --> UI["실시간 UI 업데이트"]
+```
+
+**UI 구성:**
+
+| 영역 | 내용 |
+|------|------|
+| **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 |
+| **StepResultCard** | 단계별 결과 접기/펼치기 -- 마크다운 렌더링 (`react-markdown` + `remark-gfm`) |
+| **채팅 UI** | messages 기반 대화 인터페이스 -- AgentPanel과 동일 패턴 |
+| **추천 질문 칩** | 4개 추천 질문 (예: "셀러 이탈 분석 후 리텐션 전략 자동 실행") |
+| **사이드바** | 파이프라인 정보 요약 + LLM 설정 요약 |
+
+**추천 질문 (4개):**
+
+| # | 질문 |
+|---|------|
+| 1 | 셀러 이탈 분석 후 리텐션 전략 자동 실행 |
+| 2 | CS 문의 패턴 분석 후 FAQ 자동 생성 |
+| 3 | 이상거래 탐지 후 보안 조치 자동 실행 |
+| 4 | 운영 KPI 분석 후 자동 리포트 생성 |
+
+**SSE 이벤트 스펙 (7종):**
+
+| 이벤트 | data 필드 | 처리 |
+|--------|-----------|------|
+| `agent_start` | `{agent, step, total_steps}` | steps 배열에 단계 추가 + currentStep 업데이트 |
+| `agent_end` | `{agent, step, summary}` | stepResults에 결과 저장, steps.status → `done` |
+| `delta` | `{delta: "..."}` | 50ms 버퍼 → 어시스턴트 메시지 실시간 업데이트 |
+| `tool_start` | `{tool, args}` | 도구 실행 시작 표시 |
+| `tool_end` | `{tool, status}` | 도구 실행 완료 표시 |
+| `done` | `{ok, final, tool_calls, agent_results}` | 최종 결과 반영, 파이프라인 완료 처리 |
+| `error` | `{message}` | 에러 메시지 표시 |
+
+**useSubAgentStream 훅 (~440줄):**
+
+| 기능 | 설명 |
+|------|------|
+| **SSE 7종 이벤트 핸들링** | agent_start, agent_end, delta, tool_start, tool_end, done, error |
+| **메시지 상태 관리** | `messages`, `setMessages` -- 채팅 히스토리 |
+| **파이프라인 상태** | `steps` (단계 배열), `currentStep` (현재 단계), `stepResults` (결과 맵), `pipelineStatus` (전체 상태) |
+| **50ms 델타 버퍼** | delta 이벤트를 50ms 간격으로 버퍼링하여 렌더링 최적화 |
+| **120초 타임아웃** | 서브에이전트 응답 대기 최대 시간 |
+| **abort/stale 가드** | AbortController + stale 플래그로 중복 요청 방지 |
+| **sub_agent 플래그** | 요청 시 `sub_agent: true`로 서브에이전트 모드 활성화 |
+
+**내부 컴포넌트:**
+
+| 컴포넌트 | 역할 |
+|----------|------|
+| `PipelineSteps` | 파이프라인 단계 시각화 -- 완료/진행중/대기 3상태, 단계 수 동적 |
+| `StepResultCard` | 단계별 결과 카드 -- 접기/펼치기 토글, 마크다운 렌더링 |
+
+**디자인:** cafe24 테마, Framer Motion 애니메이션 (단계 전환, 결과 카드 등장)
+
+---
+
 ### 인터랙션 & 애니메이션 패턴
 
 **Framer Motion 애니메이션:**
@@ -849,6 +934,8 @@ flowchart LR
 | 패턴 | 적용 위치 | 설정 |
 |------|----------|------|
 | 슬라이드 전환 | LabPanel 스텝 전환 | `AnimatePresence` + `x: 20→0→-20`, 0.2s |
+| 단계 전환 | SubAgentPanel 파이프라인 | 단계 시작/완료 시 `motion.div` 등장/상태 전환 |
+| 결과 카드 등장 | SubAgentPanel StepResultCard | 접기/펼치기 `AnimatePresence` 애니메이션 |
 | 스프링 로고 | Login 페이지 CAFE24 로고 | `spring` 이징, 바운스 |
 | 플로팅 아이콘 | Login 배경 이커머스 아이콘 5개 | `y` 반복 애니메이션 |
 | 에러 메시지 | Login 에러 텍스트 | 페이드 인 + 슬라이드 |
@@ -981,6 +1068,8 @@ await fetchEventSource('/api/agent/stream', {
 | `delta` | 토큰 스트리밍 | `{"delta": "이탈"}` |
 | `done` | 응답 완료 | `{"ok": true, "final": "...", "tool_calls": [...]}` |
 | `error` | 오류 발생 | `{"message": "..."}` |
+| `agent_start` | 서브에이전트 단계 시작 | `{"agent": "...", "step": 1, "total_steps": 3}` |
+| `agent_end` | 서브에이전트 단계 완료 | `{"agent": "...", "step": 1, "summary": "..."}` |
 
 ### 4.4 SSE 프록시 (5개)
 
@@ -1323,7 +1412,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 13개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1342,10 +1431,10 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
-| 운영자 | `operator` | `oper123` | Operator | 6개 (공개) |
-| 분석가 | `analyst` | `analyst123` | Analyst | 6개 (공개) |
-| 사용자 | `user` | `user123` | User | 6개 (공개) |
+| 관리자 | `admin` | `admin123` | Admin | 13개 전부 |
+| 운영자 | `operator` | `oper123` | Operator | 8개 (공개) |
+| 분석가 | `analyst` | `analyst123` | Analyst | 8개 (공개) |
+| 사용자 | `user` | `user123` | User | 8개 (공개) |
 
 ### 8.3 앱 초기화 (`pages/app.js`)
 
@@ -1491,6 +1580,10 @@ sequenceDiagram
 | **mount 가드** | `pages/app.js` | `mounted` 플래그로 언마운트 후 상태 업데이트 방지 |
 | **SSE 유틸 공통화** | `lib/sse.js` | LabPanel 내 SSE 파싱/인증 헤더 3회 반복 코드를 공통 모듈로 추출 |
 | **컴포넌트 분리** | `panels/lab/`, `panels/analysis/` | 대형 단일 파일을 기능별 모듈로 분리하여 번들 최적화 |
+| **dynamic import** | `SubAgentPanel` | `next/dynamic` SSR 비활성화로 클라이언트 전용 로딩 |
+| **50ms 델타 버퍼** | `useSubAgentStream` | SSE delta 이벤트를 50ms 간격 버퍼링하여 렌더링 횟수 절감 |
+| **120초 타임아웃** | `useSubAgentStream` | 서브에이전트 장시간 실행 대비 타임아웃 가드 |
+| **abort/stale 가드** | `useSubAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
 
 ---
 
@@ -1514,6 +1607,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 8.2.0** · Last Updated 2026-02-12
+**Version 8.4.0** · Last Updated 2026-02-16
 
 </div>

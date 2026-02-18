@@ -55,12 +55,16 @@ async def lifespan(app: FastAPI):
 
         init_data_models()
 
+        # RAG 인덱스 비동기 백그라운드 로딩 (서버 시작 블로킹 방지)
         _skip_rag = os.environ.get("SKIP_RAG_STARTUP", "").strip() in ("1", "true", "yes")
         _k = st.OPENAI_API_KEY
         if _skip_rag:
             st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
         elif _k:
-            rag_build_or_load_index(api_key=_k, force_rebuild=False)
+            import asyncio
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, lambda: rag_build_or_load_index(api_key=_k, force_rebuild=False))
+            st.logger.info("RAG_INDEX 백그라운드 로딩 시작")
         else:
             st.logger.info("RAG_SKIP_STARTUP no_env_api_key docs_dir=%s", st.RAG_DOCS_DIR)
 

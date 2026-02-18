@@ -174,24 +174,43 @@ def load_all_data():
         st.logger.warning(f"마케팅 최적화 모듈 로드 실패: {e}")
 
     # ========================================
-    # 라벨 인코더 로드
+    # 라벨 인코더 병렬 로드
     # ========================================
-    st.LE_TICKET_CATEGORY = load_model_safe(get_data_path("le_ticket_category.pkl"))
-    st.LE_SELLER_TIER = load_model_safe(get_data_path("le_seller_tier.pkl"))
-    st.LE_CS_PRIORITY = load_model_safe(get_data_path("le_cs_priority.pkl"))
-    st.LE_INQUIRY_CATEGORY = load_model_safe(get_data_path("le_inquiry_category.pkl"))
+    le_tasks = {
+        "LE_TICKET_CATEGORY": "le_ticket_category.pkl",
+        "LE_SELLER_TIER": "le_seller_tier.pkl",
+        "LE_CS_PRIORITY": "le_cs_priority.pkl",
+        "LE_INQUIRY_CATEGORY": "le_inquiry_category.pkl",
+    }
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        le_futures = [
+            executor.submit(_load_model_task, attr, fname)
+            for attr, fname in le_tasks.items()
+        ]
+        for future in as_completed(le_futures):
+            try:
+                attr_name, le_model = future.result()
+                setattr(st, attr_name, le_model)
+            except Exception as e:
+                st.logger.error(f"라벨 인코더 병렬 로드 실패: {e}")
 
     # ========================================
-    # 매출 예측 모델 초기화
+    # 매출 예측 모델 초기화 (학습 필요 시 백그라운드)
     # ========================================
     try:
         from ml.revenue_model import get_predictor, train_and_save
         predictor = get_predictor()
 
         if not predictor.is_fitted and st.SHOP_PERFORMANCE_DF is not None:
-            st.logger.info("매출 예측 모델 학습 시작...")
-            result = train_and_save(st.SHOP_PERFORMANCE_DF)
-            st.logger.info(f"매출 예측 모델 학습 완료: R2={result['cv_r2_mean']:.3f}")
+            def _train_revenue_bg():
+                try:
+                    result = train_and_save(st.SHOP_PERFORMANCE_DF)
+                    st.logger.info(f"매출 예측 모델 학습 완료: R2={result['cv_r2_mean']:.3f}")
+                except Exception as ex:
+                    st.logger.warning(f"매출 예측 모델 백그라운드 학습 실패: {ex}")
+            st.logger.info("매출 예측 모델 백그라운드 학습 시작...")
+            import threading
+            threading.Thread(target=_train_revenue_bg, daemon=True).start()
         elif predictor.is_fitted:
             st.logger.info("매출 예측 모델 로드 완료")
         else:
@@ -252,6 +271,10 @@ def load_all_data():
     # 저장된 모델 선택 상태 로드 및 MLflow 모델 로드
     # ========================================
     load_selected_mlflow_models()
+
+
+# MLflow 모델 경로 캐시 (version meta YAML → model_pkl_path)
+_mlflow_path_cache: dict = {}
 
 
 def load_selected_mlflow_models():
@@ -322,27 +345,34 @@ def load_selected_mlflow_models():
                 st.logger.debug(f"MLflow API 실패, fallback 시도: {e}")
                 loaded_model = None
 
-        # 2차 시도: joblib 직접 로드
+        # 2차 시도: joblib 직접 로드 (경로 캐싱)
         if loaded_model is None:
+            cache_key = f"{model_name}:{version}"
             try:
-                version_meta_path = os.path.join(
-                    ml_mlruns, "models", model_name, f"version-{version}", "meta.yaml"
-                )
-                if not os.path.exists(version_meta_path):
-                    st.logger.warning(f"버전 메타 없음: {version_meta_path}")
-                    continue
+                # 캐시된 pkl 경로 확인
+                model_pkl_path = _mlflow_path_cache.get(cache_key)
+                if model_pkl_path is None:
+                    version_meta_path = os.path.join(
+                        ml_mlruns, "models", model_name, f"version-{version}", "meta.yaml"
+                    )
+                    if not os.path.exists(version_meta_path):
+                        st.logger.warning(f"버전 메타 없음: {version_meta_path}")
+                        continue
 
-                with open(version_meta_path, "r", encoding="utf-8") as f:
-                    version_meta = yaml.safe_load(f)
+                    with open(version_meta_path, "r", encoding="utf-8") as f:
+                        version_meta = yaml.safe_load(f)
 
-                model_id = version_meta.get("model_id")
-                if not model_id:
-                    st.logger.warning(f"model_id 없음: {model_name} v{version}")
-                    continue
+                    model_id = version_meta.get("model_id")
+                    if not model_id:
+                        st.logger.warning(f"model_id 없음: {model_name} v{version}")
+                        continue
 
-                model_pkl_path = os.path.join(
-                    ml_mlruns, experiment_id, "models", model_id, "artifacts", "model.pkl"
-                )
+                    model_pkl_path = os.path.join(
+                        ml_mlruns, experiment_id, "models", model_id, "artifacts", "model.pkl"
+                    )
+                    # 경로 캐싱
+                    _mlflow_path_cache[cache_key] = model_pkl_path
+
                 if not os.path.exists(model_pkl_path):
                     st.logger.warning(f"모델 파일 없음: {model_pkl_path}")
                     continue
@@ -359,20 +389,14 @@ def load_selected_mlflow_models():
 
 
 def build_caches():
-    """캐시 데이터 구성"""
-    # 쇼핑몰별 서비스 매핑
+    """캐시 데이터 구성 (groupby 벡터화)"""
+    # 쇼핑몰별 서비스 매핑 — iterrows → groupby
     if st.SERVICES_DF is not None and st.SHOPS_DF is not None:
-        for _, row in st.SERVICES_DF.iterrows():
-            shop_id = row.get("shop_id")
-            if shop_id:
-                if shop_id not in st.SHOP_SERVICE_MAP:
-                    st.SHOP_SERVICE_MAP[shop_id] = []
-                st.SHOP_SERVICE_MAP[shop_id].append({
-                    "service_name": row.get("service_name"),
-                    "service_type": row.get("service_type"),
-                    "status": row.get("status"),
-                    "description": row.get("description"),
-                })
+        svc_df = st.SERVICES_DF.dropna(subset=["shop_id"])
+        cols = ["service_name", "service_type", "status", "description"]
+        avail_cols = [c for c in cols if c in svc_df.columns]
+        for shop_id, group in svc_df.groupby("shop_id"):
+            st.SHOP_SERVICE_MAP[shop_id] = group[avail_cols].to_dict("records")
         st.logger.info(f"쇼핑몰 서비스 캐시 구성: {len(st.SHOP_SERVICE_MAP)}개")
 
 

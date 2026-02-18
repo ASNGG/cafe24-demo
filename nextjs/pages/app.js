@@ -175,6 +175,7 @@ export default function AppPage() {
     ];
   }, [isAdmin]);
 
+  // apiCallRaw는 모듈 스코프 함수이므로 안정 참조 유지
   const apiCall = useCallback((args) => apiCallRaw(args), []);
 
   const addLog = useCallback(
@@ -209,9 +210,15 @@ export default function AppPage() {
     setActivityLog([]);
   }, []);
 
+  // 반응형 zoom: 작은 화면에서 축소, 큰 화면에서 기본
   useEffect(() => {
-    document.documentElement.style.zoom = '0.9';
+    function applyZoom() {
+      document.documentElement.style.zoom = window.innerWidth < 1280 ? '0.85' : '0.9';
+    }
+    applyZoom();
+    window.addEventListener('resize', applyZoom);
     return () => {
+      window.removeEventListener('resize', applyZoom);
       document.documentElement.style.zoom = '1';
     };
   }, []);
@@ -345,29 +352,18 @@ export default function AppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiCall, auth]);
 
-  useEffect(() => {
-    if (settingsLoaded && settings) {
-      saveToStorage(STORAGE_KEYS.SETTINGS, settings);
-    }
-  }, [settings, settingsLoaded]);
-
+  // localStorage 저장 통합 debounce (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (settingsLoaded && settings) {
+        saveToStorage(STORAGE_KEYS.SETTINGS, settings);
+      }
       saveToStorage(STORAGE_KEYS.AGENT_MESSAGES, agentMessages);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [agentMessages]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
       saveToStorage(STORAGE_KEYS.ACTIVITY_LOG, activityLog);
+      saveToStorage(STORAGE_KEYS.TOTAL_QUERIES, totalQueries);
     }, 300);
     return () => clearTimeout(timer);
-  }, [activityLog]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.TOTAL_QUERIES, totalQueries);
-  }, [totalQueries]);
+  }, [settings, settingsLoaded, agentMessages, activityLog, totalQueries]);
 
   const onExampleQuestion = useCallback((q) => {
     setActiveTab('agent');

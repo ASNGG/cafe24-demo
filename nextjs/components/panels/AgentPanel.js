@@ -1,7 +1,7 @@
 // components/panels/AgentPanel.js
 // CAFE24 AI 운영 플랫폼 - 에이전트 패널
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -16,7 +16,8 @@ import { cafe24Btn, cafe24BtnSecondary, cafe24BtnInline, cafe24BtnSecondaryInlin
 
 const SEEN_KEY = 'cafe24_seen_example_hint';
 
-function ToolCalls({ toolCalls }) {
+// React.memo로 불필요한 리렌더링 방지
+const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
   if (!toolCalls?.length) return null;
   return (
     <details className="details mt-2">
@@ -44,7 +45,7 @@ function ToolCalls({ toolCalls }) {
       </div>
     </details>
   );
-}
+});
 
 function Chip({ label, onClick }) {
   return (
@@ -83,13 +84,15 @@ function TopProgressBar({ active }) {
 
 import remarkGfmPlugin from 'remark-gfm';
 
-function MarkdownMessage({ content }) {
-  const remarkPlugins = useMemo(() => [remarkMath, remarkGfmPlugin], []);
+// 모듈 레벨 상수: 매 렌더마다 새 배열 생성 방지
+const REMARK_PLUGINS = [remarkMath, remarkGfmPlugin];
+const REHYPE_PLUGINS = [rehypeKatex];
 
+function MarkdownMessage({ content }) {
   return (
     <ReactMarkdown
-      remarkPlugins={remarkPlugins}
-      rehypePlugins={[rehypeKatex]}
+      remarkPlugins={REMARK_PLUGINS}
+      rehypePlugins={REHYPE_PLUGINS}
       components={{
         table: ({ node, ...props }) => (
           <div className="overflow-x-auto -mx-1 my-2">
@@ -140,6 +143,73 @@ function MarkdownMessage({ content }) {
     </ReactMarkdown>
   );
 }
+
+// ChatMessage: 개별 메시지 렌더링 컴포넌트 (React.memo로 불필요한 리렌더링 방지)
+const ChatMessage = React.memo(function ChatMessage({ msg, isNew, username, onCopy, onResend }) {
+  const isUser = msg.role === 'user';
+  const isPending = !!msg._pending;
+
+  return (
+    <motion.div
+      initial={isNew ? { opacity: 0, y: 6 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
+      className={`group relative ${isUser ? 'flex justify-end mb-3' : 'flex justify-start mb-3'}`}
+    >
+      <div
+        className={
+          isUser
+            ? 'chat-bubble chat-bubble-user w-full md:max-w-[78%]'
+            : 'chat-bubble chat-bubble-ai w-full md:max-w-[78%]'
+        }
+      >
+        <div className="text-[11px] font-extrabold text-cafe24-brown/60 mb-2 flex items-center justify-between">
+          <span>{isUser ? username || 'USER' : 'CAFE24 AI'}</span>
+
+          {!isUser && isPending ? (
+            <span className="inline-flex items-center gap-2 text-cafe24-orange">
+              <span className="h-3 w-3 rounded-full border-2 border-cafe24-yellow border-t-cafe24-orange animate-spin" />
+              <span className="text-[10px]">streaming</span>
+            </span>
+          ) : null}
+        </div>
+
+        <div className="prose prose-sm max-w-none">
+          {!isUser && isPending ? <TypingDots /> : <MarkdownMessage content={msg.content || ''} />}
+        </div>
+
+        <ToolCalls toolCalls={msg.tool_calls} />
+
+        {/* 호버 시 나타나는 액션 버튼 */}
+        {!isPending && (
+          <div className={`absolute ${isUser ? 'left-0' : 'right-0'} top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1`}>
+            <button
+              onClick={() => onCopy(msg.content || '')}
+              className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-brown hover:bg-cafe24-beige transition shadow-sm"
+              title="복사"
+            >
+              <Copy size={14} />
+            </button>
+            {isUser && (
+              <button
+                onClick={() => onResend(msg.content || '')}
+                className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
+                title="다시 질문"
+              >
+                <RefreshCcw size={14} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}, (prev, next) => {
+  // content, role, _pending만 비교하여 리렌더링 결정
+  return prev.msg.content === next.msg.content
+    && prev.msg.role === next.msg.role
+    && prev.msg._pending === next.msg._pending;
+});
 
 export default function AgentPanel({
   auth,
@@ -225,6 +295,12 @@ export default function AgentPanel({
     el.scrollTop = el.scrollHeight;
   }, [agentMessages, loading]);
 
+  // ChatMessage에서 사용할 안정적인 콜백
+  const handleCopy = useCallback((content) => {
+    navigator.clipboard.writeText(content || '');
+    toast.success('복사되었습니다');
+  }, []);
+
   const userKey = useMemo(() => String(auth?.username || '').trim(), [auth?.username]);
   const prevUserKeyRef = useRef(userKey);
 
@@ -282,73 +358,20 @@ export default function AgentPanel({
         <div className="card">
           <div ref={chatBoxRef} className="max-h-[62vh] md:max-h-[70vh] overflow-auto pr-1">
             {(agentMessages || []).map((m, idx) => {
-              const isUser = m.role === 'user';
-              const isPending = !!m?._pending;
               // M46: 새 메시지만 애니메이션
               const msgKey = m?._id || idx;
               const isNew = !seenMsgIdsRef.current.has(msgKey);
               if (isNew) seenMsgIdsRef.current.add(msgKey);
 
               return (
-                <motion.div
+                <ChatMessage
                   key={msgKey}
-                  initial={isNew ? { opacity: 0, y: 6 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className={`group relative ${isUser ? 'flex justify-end mb-3' : 'flex justify-start mb-3'}`}
-                >
-                  <div
-                    className={
-                      isUser
-                        ? 'chat-bubble chat-bubble-user w-full md:max-w-[78%]'
-                        : 'chat-bubble chat-bubble-ai w-full md:max-w-[78%]'
-                    }
-                  >
-                    <div className="text-[11px] font-extrabold text-cafe24-brown/60 mb-2 flex items-center justify-between">
-                      <span>{isUser ? auth?.username || 'USER' : 'CAFE24 AI'}</span>
-
-                      {!isUser && isPending ? (
-                        <span className="inline-flex items-center gap-2 text-cafe24-orange">
-                          <span className="h-3 w-3 rounded-full border-2 border-cafe24-yellow border-t-cafe24-orange animate-spin" />
-                          <span className="text-[10px]">streaming</span>
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="prose prose-sm max-w-none">
-                      {!isUser && isPending ? <TypingDots /> : <MarkdownMessage content={m.content || ''} />}
-                    </div>
-
-                    <ToolCalls toolCalls={m.tool_calls} />
-
-                    {/* 호버 시 나타나는 액션 버튼 */}
-                    {!isPending && (
-                      <div className={`absolute ${isUser ? 'left-0' : 'right-0'} top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1`}>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(m.content || '');
-                            toast.success('복사되었습니다');
-                          }}
-                          className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-brown hover:bg-cafe24-beige transition shadow-sm"
-                          title="복사"
-                        >
-                          <Copy size={14} />
-                        </button>
-                        {isUser && (
-                          <button
-                            onClick={() => {
-                              handleSend(m.content || '');
-                            }}
-                            className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
-                            title="다시 질문"
-                          >
-                            <RefreshCcw size={14} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                  msg={m}
+                  isNew={isNew}
+                  username={auth?.username}
+                  onCopy={handleCopy}
+                  onResend={handleSend}
+                />
               );
             })}
 

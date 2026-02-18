@@ -220,7 +220,7 @@ def reset_llm_settings(user: dict = Depends(verify_credentials)):
 @router.get("/export/csv")
 def export_csv(user: dict = Depends(verify_credentials)):
     output = StringIO()
-    export_df = st.OPERATION_LOGS_DF.copy() if st.OPERATION_LOGS_DF is not None else pd.DataFrame()
+    export_df = st.OPERATION_LOGS_DF if st.OPERATION_LOGS_DF is not None else pd.DataFrame()
     export_df.to_csv(output, index=False, encoding="utf-8-sig")
     output.seek(0)
     return StreamingResponse(
@@ -233,7 +233,7 @@ def export_csv(user: dict = Depends(verify_credentials)):
 @router.get("/export/excel")
 def export_excel(user: dict = Depends(verify_credentials)):
     output = BytesIO()
-    export_df = st.OPERATION_LOGS_DF.copy() if st.OPERATION_LOGS_DF is not None else pd.DataFrame()
+    export_df = st.OPERATION_LOGS_DF if st.OPERATION_LOGS_DF is not None else pd.DataFrame()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         export_df.to_excel(writer, index=False, sheet_name="OperationLogs")
     output.seek(0)

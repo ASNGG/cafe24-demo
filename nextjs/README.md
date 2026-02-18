@@ -1214,7 +1214,7 @@ flowchart LR
 | 함수 | 대상 | 설명 |
 |------|------|------|
 | `loadFromStorage(key, fallback)` | localStorage | JSON 파싱, 실패 시 fallback 반환 |
-| `saveToStorage(key, value)` | localStorage | JSON 직렬화 후 저장 |
+| `saveToStorage(key, value)` | localStorage | JSON 직렬화 후 저장 (1MB 크기 제한 + QuotaExceededError 핸들링) |
 | `removeFromStorage(key)` | localStorage | 키 삭제 |
 | `loadFromSession(key, fallback)` | sessionStorage | JSON 파싱, 실패 시 fallback 반환 |
 | `saveToSession(key, value)` | sessionStorage | JSON 직렬화 후 저장 |
@@ -1585,6 +1585,24 @@ sequenceDiagram
 | **120초 타임아웃** | `useSubAgentStream` | 서브에이전트 장시간 실행 대비 타임아웃 가드 |
 | **abort/stale 가드** | `useSubAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
 
+### v8.5.0 최적화 (2026-02-18)
+
+| 기법 | 적용 위치 | 설명 |
+|------|----------|------|
+| **useEffect 통합 debounce** | `pages/app.js` | localStorage 저장 4개 useEffect → 1개 통합 debounce (300ms) |
+| **반응형 zoom** | `pages/app.js` | resize 리스너 기반 반응형 zoom (`innerWidth < 1280 → 0.85`) |
+| **ChatMessage 추출 + React.memo** | `AgentPanel.js` | ChatMessage 컴포넌트 추출, `content/role/_pending` 비교 메모이제이션 |
+| **ToolCalls React.memo** | `AgentPanel.js` | ToolCalls 컴포넌트 React.memo 적용 |
+| **remarkPlugins/rehypePlugins 상수화** | `AgentPanel.js` | 모듈 레벨 상수로 추출하여 매 렌더링 재생성 방지 |
+| **useMemo 의존성 세분화** | `DashboardPanel.js` | `dashboard` 전체 객체 대신 구체적 하위 경로로 의존성 최적화 |
+| **자동 폴링 document.hidden 체크** | `DashboardPanel.js` | 탭 비활성 시 불필요한 폴링 방지 |
+| **flushTimer debounce 개선** | `useAgentStream.js` | 델타 버퍼 flush 타이머 debounce 방식 개선 |
+| **cleanup 강화** | `useAgentStream.js` | `timeoutRef`/`abortRef` 정리 강화로 메모리 누수 방지 |
+| **flushTimer debounce 개선** | `useSubAgentStream.js` | 델타 버퍼 flush 타이머 debounce 방식 개선 |
+| **cleanup 강화** | `useSubAgentStream.js` | cleanup 시 `timeoutRef`/`abortRef` 정리 강화 |
+| **done 이벤트 통합** | `useSubAgentStream.js` | done 이벤트 중복 상태 업데이트를 단일 호출로 통합 |
+| **saveToStorage 크기 제한** | `lib/storage.js` | 1MB 크기 제한 + `QuotaExceededError` 핸들링 |
+
 ---
 
 ## 12. 접근성
@@ -1607,6 +1625,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 8.4.0** · Last Updated 2026-02-16
+**Version 8.5.0** · Last Updated 2026-02-18
 
 </div>

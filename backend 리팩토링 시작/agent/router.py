@@ -28,6 +28,9 @@ from agent.intent import (
 )
 import state as st
 
+# 셀러 ID 패턴 사전 컴파일
+_SELLER_ID_RE = re.compile(r'SEL\d{1,6}', re.IGNORECASE)
+
 
 # ============================================================
 # 카테고리 정의
@@ -122,7 +125,7 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     # 우선순위: 셀러ID감지 > 리텐션 > 분석 > 셀러 > 쇼핑몰 > CS > 대시보드 > 플랫폼 > 일반
 
     # 0. 셀러 ID(SEL0001)가 포함되면 SELLER 우선 (분석보다 높은 우선순위)
-    if re.search(r'SEL\d{1,6}', text, re.IGNORECASE):
+    if _SELLER_ID_RE.search(text):
         return IntentCategory.SELLER
 
     # 0.5. 리텐션 키워드 (ANALYSIS보다 우선 - 이탈 방지/위험 셀러 관리)

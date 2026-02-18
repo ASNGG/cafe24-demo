@@ -27,12 +27,20 @@ export default function useAgentStream({
   const runIdRef = useRef(0);
   const activeAssistantIdRef = useRef(null);
 
-  // 컴포넌트 언마운트 시 flushTimer 클린업
+  // 컴포넌트 언마운트 시 모든 타이머/abort 클린업
   useEffect(() => {
     return () => {
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
       }
     };
   }, []);
@@ -240,13 +248,15 @@ export default function useAgentStream({
 
               deltaBuf += delta;
 
-              if (!flushTimerRef.current) {
-                flushTimerRef.current = setTimeout(() => {
-                  flushTimerRef.current = null;
-                  if (isStale()) return;
-                  flushDelta();
-                }, 50);
+              // 기존 타이머 clear 후 재설정 (debounce 방식으로 마지막 delta 기준 50ms 후 flush)
+              if (flushTimerRef.current) {
+                clearTimeout(flushTimerRef.current);
               }
+              flushTimerRef.current = setTimeout(() => {
+                flushTimerRef.current = null;
+                if (isStale()) return;
+                flushDelta();
+              }, 50);
               return;
             }
 

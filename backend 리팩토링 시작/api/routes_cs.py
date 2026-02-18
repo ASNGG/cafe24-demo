@@ -37,9 +37,15 @@ _cs_job_timestamps: dict = {}  # job_id -> 생성 시각
 _CS_JOB_TTL_SEC = 10 * 60     # 10분 후 자동 정리
 
 
+_last_cleanup_ts = 0.0
+
 def _cleanup_expired_jobs() -> None:
-    """만료된 CS job 큐 정리"""
+    """만료된 CS job 큐 정리 (최소 30초 간격으로 실행)"""
+    global _last_cleanup_ts
     now = _time.time()
+    if now - _last_cleanup_ts < 30:
+        return  # 빈번한 정리 방지
+    _last_cleanup_ts = now
     expired = [k for k, ts in _cs_job_timestamps.items() if now - ts > _CS_JOB_TTL_SEC]
     for k in expired:
         _cs_job_queues.pop(k, None)

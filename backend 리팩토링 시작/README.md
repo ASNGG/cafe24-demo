@@ -10,7 +10,30 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
+v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
+
 </div>
+
+---
+
+## 최신 업데이트
+
+> **v8.5.0** (2026-02-18) — 백엔드 전체 코드 최적화 및 성능 개선 (13파일)
+
+| 영역 | 파일 | 주요 변경 |
+|------|------|-----------|
+| **전역 상태** | `state.py` | 로깅 싱글톤 패턴 적용, 설정 로드 1회 캐시 (`load_selected_models`, `load_system_prompt`, `load_llm_settings`) |
+| **데이터 로딩** | `data/loader.py` | 라벨 인코더 `ThreadPoolExecutor` 병렬 로드, `build_caches` groupby 벡터화, `revenue_model` 비동기 학습(`threading.Thread`), MLflow 모델 경로 캐싱 |
+| **서버 시작** | `main.py` | RAG 인덱스 비동기 백그라운드 로딩 (`run_in_executor`) |
+| **API 라우트** | `routes_shop.py` | `set_index` 캐싱 (`_get_perf_indexed`), 대시보드 인사이트 60초 TTL 캐싱 |
+| | `routes_cs.py` | cleanup 호출 빈도 제한 (30초 간격) |
+| | `routes_admin.py` | 불필요한 `.copy()` 제거 |
+| **에이전트 도구** | `agent/tools.py` | `.copy()` 5건 제거, 세그먼트명 캐시, JSON 파싱 헬퍼 (`_sum_order_amount_from_json`) 통합 |
+| **멀티 에이전트** | `agent/multi_agent.py` | 도구 매핑 캐시 (`_all_tool_map`), 프롬프트 캐시, 카테고리-에이전트 매핑 모듈 레벨 이동 |
+| **인텐트 라우팅** | `agent/router.py` | 정규식 사전 컴파일 (`_SELLER_ID_RE`) |
+| | `agent/intent.py` | 키워드 `list` → `frozenset` 변환 |
+| **LLM 팩토리** | `agent/llm.py` | LLM 인스턴스 캐시 (`_llm_cache`) |
+| **에이전트 실행** | `agent/runner.py` | 도구 매핑 캐시, 정규식 6개 사전 컴파일 |
 
 ---
 

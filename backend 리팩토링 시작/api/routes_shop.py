@@ -1,6 +1,7 @@
 """
 api/routes_shop.py - 쇼핑몰/카테고리/대시보드/분석/통계
 """
+import time as _time
 from typing import Optional
 from datetime import datetime, timedelta
 
@@ -23,6 +24,27 @@ from api.common import verify_credentials, TextClassifyRequest
 
 router = APIRouter(prefix="/api", tags=["shop"])
 
+# ── set_index 캐싱 ──
+_perf_indexed = None       # shop_id 인덱싱된 SHOP_PERFORMANCE_DF 캐시
+_perf_indexed_id = None    # 원본 DF id()로 변경 감지
+
+def _get_perf_indexed():
+    """SHOP_PERFORMANCE_DF의 set_index('shop_id') 결과를 캐싱"""
+    global _perf_indexed, _perf_indexed_id
+    if st.SHOP_PERFORMANCE_DF is None:
+        return None
+    cur_id = id(st.SHOP_PERFORMANCE_DF)
+    if _perf_indexed is not None and _perf_indexed_id == cur_id:
+        return _perf_indexed
+    _perf_indexed = st.SHOP_PERFORMANCE_DF.set_index("shop_id")
+    _perf_indexed_id = cur_id
+    return _perf_indexed
+
+# ── 인사이트 캐싱 ──
+_insights_cache = None
+_insights_cache_ts = 0.0
+_INSIGHTS_CACHE_TTL = 60  # 60초
+
 
 # ============================================================
 # 쇼핑몰 API
@@ -35,8 +57,8 @@ def get_shops(
 ):
     """쇼핑몰 목록 조회 (성과 데이터 포함)"""
     result = tool_list_shops(plan_tier=plan_tier, category=category)
-    if result.get("status") == "success" and st.SHOP_PERFORMANCE_DF is not None:
-        perf = st.SHOP_PERFORMANCE_DF.set_index("shop_id")
+    perf = _get_perf_indexed()
+    if result.get("status") == "success" and perf is not None:
         for shop in result.get("shops", []):
             sid = shop.get("shop_id", "")
             if sid in perf.index:
@@ -100,7 +122,14 @@ def get_dashboard_summary(user: dict = Depends(verify_credentials)):
 
 @router.get("/dashboard/insights")
 def get_dashboard_insights(user: dict = Depends(verify_credentials)):
-    """AI 인사이트 - 실제 데이터 기반 동적 생성"""
+    """AI 인사이트 - 실제 데이터 기반 동적 생성 (60초 캐싱)"""
+    global _insights_cache, _insights_cache_ts
+
+    # 캐시 히트
+    now = _time.time()
+    if _insights_cache is not None and (now - _insights_cache_ts) < _INSIGHTS_CACHE_TTL:
+        return _insights_cache
+
     insights = []
 
     try:
@@ -154,7 +183,10 @@ def get_dashboard_insights(user: dict = Depends(verify_credentials)):
         if not insights:
             insights.append({"type": "neutral", "icon": "info", "title": "데이터 분석 중", "description": "충분한 데이터가 수집되면 AI 인사이트가 제공됩니다."})
 
-        return json_sanitize({"status": "success", "insights": insights[:3]})
+        result = json_sanitize({"status": "success", "insights": insights[:3]})
+        _insights_cache = result
+        _insights_cache_ts = _time.time()
+        return result
 
     except Exception as e:
         st.logger.exception("인사이트 생성 실패")

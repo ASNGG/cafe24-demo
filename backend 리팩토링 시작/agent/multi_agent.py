@@ -51,6 +51,19 @@ from core.memory import append_memory, memory_messages
 import state as st
 
 
+# 도구 매핑 캐시 (매 호출마다 dict 재생성 방지)
+_all_tool_map: Dict[str, Any] = {}
+
+
+def _get_all_tool_map() -> Dict[str, Any]:
+    """ALL_TOOLS + RETENTION_AGENT_TOOLS의 name→tool 매핑 캐시"""
+    if not _all_tool_map:
+        _all_tool_map.update({t.name: t for t in ALL_TOOLS})
+        if RETENTION_AGENT_TOOLS:
+            _all_tool_map.update({t.name: t for t in RETENTION_AGENT_TOOLS})
+    return _all_tool_map
+
+
 # ============================================================
 # 상태 정의
 # ============================================================
@@ -171,16 +184,40 @@ _SUB_AGENT_PATTERNS = [
     ["이탈", "확인", "전략"],
 ]
 
+# IntentCategory → 에이전트 매핑 (모듈 레벨 캐싱)
+_CATEGORY_AGENT_MAP = {
+    IntentCategory.CS: "translation",
+    IntentCategory.ANALYSIS: "analysis",
+    IntentCategory.SELLER: "analysis",
+    IntentCategory.DASHBOARD: "analysis",
+    IntentCategory.PLATFORM: "search",
+    IntentCategory.SHOP: "search",
+    IntentCategory.GENERAL: "search",
+}
+
+
+# ============================================================
+# 에이전트 프롬프트 템플릿 사전 컴파일 (매 호출마다 재생성 방지)
+# ============================================================
+_prompt_cache: Dict[str, ChatPromptTemplate] = {}
+
+
+def _get_prompt(system_prompt: str) -> ChatPromptTemplate:
+    """시스템 프롬프트별 ChatPromptTemplate 캐시"""
+    if system_prompt not in _prompt_cache:
+        _prompt_cache[system_prompt] = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="messages"),
+        ])
+    return _prompt_cache[system_prompt]
+
 
 # ============================================================
 # 에이전트 노드 함수
 # ============================================================
 def create_agent_executor(llm, tools, system_prompt: str):
-    """에이전트 실행기 생성"""
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        MessagesPlaceholder(variable_name="messages"),
-    ])
+    """에이전트 실행기 생성 (프롬프트 캐시 활용)"""
+    prompt = _get_prompt(system_prompt)
     return prompt | llm.bind_tools(tools)
 
 
@@ -214,18 +251,6 @@ def coordinator_node(state: AgentState, llm) -> dict:
         return {"next_agent": "sub_agent", "iteration": iteration + 1}
 
     category = _keyword_classify(user_message)
-
-    # IntentCategory → 에이전트 매핑
-    _CATEGORY_AGENT_MAP = {
-        IntentCategory.CS: "translation",
-        IntentCategory.ANALYSIS: "analysis",
-        IntentCategory.SELLER: "analysis",
-        IntentCategory.DASHBOARD: "analysis",
-        IntentCategory.PLATFORM: "search",
-        IntentCategory.SHOP: "search",
-        IntentCategory.GENERAL: "search",
-    }
-
     next_agent = _CATEGORY_AGENT_MAP.get(category, "search")
     return {"next_agent": next_agent, "iteration": iteration + 1}
 
@@ -399,9 +424,7 @@ def tool_executor_node(state: AgentState) -> dict:
 
     tool_calls_log = state.get("tool_calls_log", [])
     new_messages = []
-    tool_map = {t.name: t for t in ALL_TOOLS}
-    if RETENTION_AGENT_TOOLS:
-        tool_map.update({t.name: t for t in RETENTION_AGENT_TOOLS})
+    tool_map = _get_all_tool_map()
 
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]

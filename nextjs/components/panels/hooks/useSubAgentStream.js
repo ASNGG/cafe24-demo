@@ -28,12 +28,20 @@ export default function useSubAgentStream({ auth, selectedShop, settings }) {
   const runIdRef = useRef(0);
   const activeAssistantIdRef = useRef(null);
 
-  // 컴포넌트 언마운트 시 타이머 클린업
+  // 컴포넌트 언마운트 시 모든 타이머/abort 클린업
   useEffect(() => {
     return () => {
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
       }
     };
   }, []);
@@ -275,13 +283,15 @@ export default function useSubAgentStream({ auth, selectedShop, settings }) {
 
                 deltaBuf += delta;
 
-                if (!flushTimerRef.current) {
-                  flushTimerRef.current = setTimeout(() => {
-                    flushTimerRef.current = null;
-                    if (isStale()) return;
-                    flushDelta();
-                  }, 50);
+                // 기존 타이머 clear 후 재설정 (debounce)
+                if (flushTimerRef.current) {
+                  clearTimeout(flushTimerRef.current);
                 }
+                flushTimerRef.current = setTimeout(() => {
+                  flushTimerRef.current = null;
+                  if (isStale()) return;
+                  flushDelta();
+                }, 50);
                 break;
               }
 
@@ -309,22 +319,21 @@ export default function useSubAgentStream({ auth, selectedShop, settings }) {
                   })
                 );
 
-                // done 이벤트의 agent_results로 누락된 stepResults 보충
+                // done 이벤트의 agent_results로 누락된 stepResults 보충 + 모든 단계 완료 (통합 업데이트)
                 const agentResults = Array.isArray(data.agent_results) ? data.agent_results : [];
-                if (agentResults.length > 0) {
-                  setStepResults((prev) => {
-                    const merged = { ...prev };
-                    agentResults.forEach((ar) => {
-                      if (ar.step && ar.summary && !merged[ar.step]) {
-                        merged[ar.step] = ar.summary;
-                      }
-                    });
-                    return merged;
+                setStepResults((prev) => {
+                  if (agentResults.length === 0) return prev;
+                  const merged = { ...prev };
+                  agentResults.forEach((ar) => {
+                    if (ar.step && ar.summary && !merged[ar.step]) {
+                      merged[ar.step] = ar.summary;
+                    }
                   });
-                }
-
-                // 모든 단계를 완료 상태로
+                  return merged;
+                });
                 setSteps((prev) => prev.map((s) => ({ ...s, status: 'done' })));
+
+                // 파이프라인 완료 상태 일괄 반영
                 setPipelineStatus('done');
                 setIsLoading(false);
 

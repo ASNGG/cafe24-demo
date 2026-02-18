@@ -79,6 +79,7 @@ class AgentState(TypedDict):
     plan: List[str]            # 서브에이전트 실행 순서
     current_step: int          # 현재 단계 인덱스
     agent_results: List[dict]  # 단계별 결과 누적
+    pipeline_type: str         # 파이프라인 타입 (retention, seller_diagnosis 등)
 
 
 # ============================================================
@@ -174,14 +175,159 @@ RETENTION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 �
 이전 단계 결과를 종합하여 효과적인 리텐션 전략을 제시하세요.
 """
 
+SELLER_DIAGNOSIS_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 진단 전문가**입니다.
+
+## 담당 업무:
+- 셀러 상세 분석 (analyze_seller) - 운영 패턴, 매출, 이상 여부
+- 셀러 세그먼트 분류 (get_seller_segment) - K-Means 클러스터링
+- 이탈 예측 (predict_seller_churn) - SHAP 기반 요인 분석
+- 이상거래 탐지 (detect_fraud) - 부정행위 리스크
+- 마케팅 최적화 (optimize_marketing) - P-PSO 알고리즘
+- 세그먼트 통계 (get_segment_statistics)
+
+## 규칙:
+- 이전 단계 결과를 반드시 참고하여 종합 진단
+- 셀러의 강점과 개선점을 구분하여 제시
+- 구체적인 수치와 비교 데이터 포함"""
+
+SHOP_PERFORMANCE_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **쇼핑몰 성과 분석가**입니다.
+
+## 담당 업무:
+- 쇼핑몰 정보 조회 (get_shop_info, list_shops)
+- 성과 분석 (get_shop_performance)
+- 매출 예측 (predict_shop_revenue) - LightGBM
+- 마케팅 최적화 (optimize_marketing) - P-PSO
+- 카테고리 정보 (get_category_info)
+
+## 규칙:
+- 쇼핑몰의 현재 성과와 예측을 비교 분석
+- 마케팅 투자 대비 효과(ROAS) 중심 인사이트
+- 동일 카테고리/티어 대비 포지셔닝 제시"""
+
+DASHBOARD_DEEP_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **KPI 분석 전문가**입니다.
+
+## 담당 업무:
+- 대시보드 요약 (get_dashboard_summary)
+- 이탈 현황 (get_churn_prediction)
+- 코호트 분석 (get_cohort_analysis)
+- KPI 트렌드 (get_trend_analysis) - DAU, ARPU, 전환율
+- GMV 예측 (get_gmv_prediction)
+
+## 규칙:
+- 핵심 KPI 지표를 종합적으로 분석
+- 전월/전분기 대비 변화율 강조
+- 향후 트렌드 예측과 리스크 요인 제시"""
+
+FRAUD_INVESTIGATION_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **이상거래 조사관**입니다.
+
+## 담당 업무:
+- 이상거래 통계 (get_fraud_statistics) - 전체 현황
+- 부정행위 탐지 (detect_fraud) - 개별 셀러 조사
+- 셀러 분석 (analyze_seller) - 상세 행동 패턴
+- 셀러 활동 리포트 (get_seller_activity_report)
+- 세그먼트 통계 (get_segment_statistics)
+
+## 규칙:
+- 의심 패턴(허위주문, 리뷰조작, 비정상환불)을 구체적으로 분류
+- 위험도 수준별 대응 방안 제시
+- 이상 행동 근거 데이터를 명확히 제시"""
+
+CS_QUALITY_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **CS 품질 관리자**입니다.
+
+## 담당 업무:
+- CS 통계 (get_cs_statistics) - 카테고리별, 채널별 현황
+- 문의 분류 (classify_inquiry) - TF-IDF + RandomForest
+- CS 품질 평가 (check_cs_quality)
+- 자동 응답 생성 (auto_reply_cs) - LLM 기반
+- 용어집 (get_ecommerce_glossary)
+
+## 규칙:
+- CS 처리 시간, 만족도, 품질 등급 기준 분석
+- 개선이 필요한 카테고리/채널 우선순위 제시
+- 자동 응답 품질 향상 방안 포함"""
+
+# 스텝별 (도구, 프롬프트) 매핑
+_STEP_CONFIG = {
+    # 리텐션 (기존)
+    "analyze_churn": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
+    "check_cs": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
+    "generate_strategy": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
+    "execute_action": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
+    # 셀러 진단
+    "seller_analyze": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
+    "seller_risk": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
+    "seller_optimize": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
+    # 쇼핑몰 성과
+    "shop_info": (SEARCH_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
+    "shop_performance": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
+    "shop_marketing": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
+    # 딥 분석
+    "dashboard_overview": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
+    "trend_analysis": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
+    "gmv_forecast": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
+    # 이상거래
+    "fraud_overview": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
+    "fraud_detect": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
+    "fraud_report": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
+    # CS 품질
+    "cs_statistics": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+    "cs_classify": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+    "cs_auto_reply": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+}
+
+# 스텝별 한글 설명 (SSE agent_start에 포함)
+_STEP_DESCRIPTIONS = {
+    "analyze_churn": "이탈 위험 셀러 분석",
+    "check_cs": "CS 현황 확인",
+    "generate_strategy": "맞춤 전략 생성",
+    "execute_action": "리텐션 조치 실행",
+    "seller_analyze": "셀러 상세 분석",
+    "seller_risk": "리스크 평가",
+    "seller_optimize": "최적화 전략 도출",
+    "shop_info": "쇼핑몰 정보 수집",
+    "shop_performance": "성과 분석",
+    "shop_marketing": "마케팅 최적화",
+    "dashboard_overview": "대시보드 현황 집계",
+    "trend_analysis": "KPI 트렌드 분석",
+    "gmv_forecast": "GMV 예측",
+    "fraud_overview": "이상거래 현황 조회",
+    "fraud_detect": "부정행위 탐지",
+    "fraud_report": "조사 보고서 생성",
+    "cs_statistics": "CS 통계 분석",
+    "cs_classify": "문의 분류 실행",
+    "cs_auto_reply": "자동 응답 생성",
+}
+
 # 서브에이전트 복합 요청 감지용 키워드 패턴
 _SUB_AGENT_PATTERNS = [
+    # 리텐션 (기존)
     ["이탈", "전략"],
     ["이탈", "CS"],
     ["리텐션", "분석"],
     ["이탈", "분석", "발송"],
     ["위험", "전략"],
     ["이탈", "확인", "전략"],
+    # 셀러 종합 진단
+    ["셀러", "종합"],
+    ["셀러", "진단"],
+    ["셀러", "분석", "세그먼트"],
+    # 쇼핑몰 성과
+    ["쇼핑몰", "성과", "리포트"],
+    ["쇼핑몰", "종합"],
+    ["쇼핑몰", "마케팅"],
+    # 딥 분석
+    ["전체", "딥"],
+    ["kpi", "종합"],
+    ["현황", "트렌드"],
+    ["대시보드", "분석"],
+    # 이상거래
+    ["이상거래", "조사"],
+    ["부정행위", "분석"],
+    ["이상", "탐지", "보고"],
+    # CS 품질
+    ["cs", "품질"],
+    ["상담", "품질"],
+    ["cs", "분석", "개선"],
 ]
 
 # IntentCategory → 에이전트 매핑 (모듈 레벨 캐싱)
@@ -194,6 +340,48 @@ _CATEGORY_AGENT_MAP = {
     IntentCategory.SHOP: "search",
     IntentCategory.GENERAL: "search",
 }
+
+# 파이프라인 타입별 plan 정의
+_PIPELINE_PLANS = {
+    "retention": ["analyze_churn", "generate_strategy"],
+    "seller_diagnosis": ["seller_analyze", "seller_risk", "seller_optimize"],
+    "shop_performance": ["shop_info", "shop_performance", "shop_marketing"],
+    "deep_analysis": ["dashboard_overview", "trend_analysis", "gmv_forecast"],
+    "fraud_investigation": ["fraud_overview", "fraud_detect", "fraud_report"],
+    "cs_quality": ["cs_statistics", "cs_classify", "cs_auto_reply"],
+}
+
+# IntentCategory → 파이프라인 타입 fallback 매핑
+_CATEGORY_PIPELINE_MAP = {
+    IntentCategory.SELLER: "seller_diagnosis",
+    IntentCategory.SHOP: "shop_performance",
+    IntentCategory.ANALYSIS: "deep_analysis",
+    IntentCategory.DASHBOARD: "deep_analysis",
+    IntentCategory.CS: "cs_quality",
+}
+
+
+def _detect_pipeline_type(text: str, category=None) -> str:
+    """텍스트와 카테고리로 파이프라인 타입 결정"""
+    t = text.lower()
+
+    # 키워드 기반 감지
+    if any(kw in t for kw in ["셀러 종합", "셀러 진단", "셀러 전체 분석"]):
+        return "seller_diagnosis"
+    if any(kw in t for kw in ["쇼핑몰 성과", "쇼핑몰 종합", "쇼핑몰 리포트", "쇼핑몰 마케팅"]):
+        return "shop_performance"
+    if any(kw in t for kw in ["딥 분석", "kpi 종합", "현황 트렌드", "대시보드 분석", "전체 현황 딥"]):
+        return "deep_analysis"
+    if any(kw in t for kw in ["이상거래 조사", "부정행위 분석", "이상 탐지", "부정행위 리포트"]):
+        return "fraud_investigation"
+    if any(kw in t for kw in ["cs 품질", "상담 품질", "cs 분석", "cs 개선", "자동 응답 개선"]):
+        return "cs_quality"
+
+    # 카테고리 기반 fallback
+    if category and category in _CATEGORY_PIPELINE_MAP:
+        return _CATEGORY_PIPELINE_MAP[category]
+
+    return "retention"  # 기본값
 
 
 # ============================================================
@@ -302,31 +490,33 @@ def sub_agent_coordinator_node(state: AgentState, llm) -> dict:
             user_message = msg.content
             break
 
-    # 키워드 기반 plan 생성 (LLM 호출 없이 빠르게 결정)
-    t = user_message.lower()
-    plan = []
+    pipeline_type = state.get("pipeline_type", "") or "retention"
 
-    # 항상 이탈 위험 분석부터
-    plan.append("analyze_churn")
+    # 파이프라인 타입이 이미 설정되어 있으면 그것 사용, 없으면 감지
+    if not state.get("pipeline_type"):
+        pipeline_type = _detect_pipeline_type(user_message)
 
-    # CS 관련 키워드가 있으면 CS 확인 단계 추가
-    if any(kw in t for kw in ["cs", "상담", "문의", "불만"]):
-        plan.append("check_cs")
+    # 기본 plan 가져오기
+    plan = list(_PIPELINE_PLANS.get(pipeline_type, _PIPELINE_PLANS["retention"]))
 
-    # 전략/발송/조치 관련 키워드 → 전략 생성
-    plan.append("generate_strategy")
+    # 리텐션 타입에는 추가 키워드 기반 단계 삽입 (기존 로직 호환)
+    if pipeline_type == "retention":
+        t = user_message.lower()
+        plan = ["analyze_churn"]
+        if any(kw in t for kw in ["cs", "상담", "문의", "불만"]):
+            plan.append("check_cs")
+        plan.append("generate_strategy")
+        if any(kw in t for kw in ["실행", "발송", "자동", "조치", "액션"]):
+            plan.append("execute_action")
 
-    # 실행/발송/자동/조치 → 액션 실행
-    if any(kw in t for kw in ["실행", "발송", "자동", "조치", "액션"]):
-        plan.append("execute_action")
-
-    st.logger.info("SUB_AGENT_PLAN plan=%s steps=%d", plan, len(plan))
+    st.logger.info("SUB_AGENT_PLAN pipeline=%s plan=%s steps=%d", pipeline_type, plan, len(plan))
 
     return {
         "plan": plan,
         "current_step": 0,
         "agent_results": [],
         "current_agent": "sub_agent_coordinator",
+        "pipeline_type": pipeline_type,
     }
 
 
@@ -411,6 +601,61 @@ def _retention_should_continue(state: AgentState) -> str:
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
 
+    return "dispatcher"
+
+
+def sub_step_node(state: AgentState, llm) -> dict:
+    """제네릭 서브에이전트 스텝 노드: _STEP_CONFIG에서 도구/프롬프트 결정"""
+    agent_results = state.get("agent_results", [])
+    plan = state.get("plan", [])
+    current_step = state.get("current_step", 0)
+    step_name = plan[current_step] if current_step < len(plan) else "unknown"
+
+    # 스텝 설정 가져오기
+    tools, base_prompt = _STEP_CONFIG.get(step_name, (ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT))
+
+    # 이전 단계 결과 컨텍스트
+    context_parts = []
+    for i, res in enumerate(agent_results):
+        context_parts.append(f"[단계 {i+1} 결과] {res.get('step', '')}: {res.get('summary', '')}")
+    context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
+
+    user_message = ""
+    for msg in reversed(state["messages"]):
+        if isinstance(msg, HumanMessage):
+            user_message = msg.content
+            break
+
+    augmented_prompt = (
+        f"{base_prompt}\n\n"
+        f"## 현재 단계: {step_name} ({current_step + 1}/{len(plan)})\n"
+        f"## 이전 단계 결과:\n{context_str}\n\n"
+        f"사용자 요청: {user_message}"
+    )
+
+    agent = create_agent_executor(llm, tools, augmented_prompt)
+    result = agent.invoke({"messages": state["messages"]})
+
+    new_results = list(agent_results)
+    result_summary = result.content[:200] if hasattr(result, "content") and result.content else ""
+    new_results.append({"step": step_name, "summary": result_summary})
+
+    return {
+        "messages": [result],
+        "current_agent": "sub_step",
+        "agent_results": new_results,
+        "current_step": current_step + 1,
+    }
+
+
+def _sub_step_should_continue(state: AgentState) -> str:
+    """sub_step 노드 후 분기: tool_calls → tools, 없으면 → dispatcher"""
+    messages = state["messages"]
+    if not messages:
+        return "dispatcher"
+    last_message = messages[-1]
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
     return "dispatcher"
 
 
@@ -503,6 +748,7 @@ def build_multi_agent_graph(llm):
     workflow.add_node("sub_agent_coordinator", lambda state: sub_agent_coordinator_node(state, llm))
     workflow.add_node("dispatcher", dispatcher_node)
     workflow.add_node("retention", lambda state: retention_agent_node(state, llm))
+    workflow.add_node("sub_step", lambda state: sub_step_node(state, llm))
 
     workflow.set_entry_point("coordinator")
 
@@ -527,7 +773,7 @@ def build_multi_agent_graph(llm):
             {"tools": "tools", "end": END, "coordinator": "coordinator"}
         )
 
-    # tools → 호출한 에이전트로 복귀 (retention 추가)
+    # tools → 호출한 에이전트로 복귀 (retention, sub_step 포함)
     workflow.add_conditional_edges(
         "tools",
         lambda state: state.get("current_agent", "coordinator"),
@@ -536,6 +782,7 @@ def build_multi_agent_graph(llm):
             "analysis": "analysis",
             "translation": "translation",
             "retention": "retention",
+            "sub_step": "sub_step",
             "coordinator": "coordinator",
         }
     )
@@ -545,10 +792,27 @@ def build_multi_agent_graph(llm):
 
     # dispatcher → 각 단계별 에이전트 or END
     _dispatch_targets = {
+        # 리텐션 (기존 → retention 노드)
         "analyze_churn": "retention",
         "check_cs": "retention",
         "generate_strategy": "retention",
         "execute_action": "retention",
+        # 신규 → sub_step 노드
+        "seller_analyze": "sub_step",
+        "seller_risk": "sub_step",
+        "seller_optimize": "sub_step",
+        "shop_info": "sub_step",
+        "shop_performance": "sub_step",
+        "shop_marketing": "sub_step",
+        "dashboard_overview": "sub_step",
+        "trend_analysis": "sub_step",
+        "gmv_forecast": "sub_step",
+        "fraud_overview": "sub_step",
+        "fraud_detect": "sub_step",
+        "fraud_report": "sub_step",
+        "cs_statistics": "sub_step",
+        "cs_classify": "sub_step",
+        "cs_auto_reply": "sub_step",
         "end": END,
     }
     workflow.add_conditional_edges("dispatcher", _dispatch_route, _dispatch_targets)
@@ -557,6 +821,13 @@ def build_multi_agent_graph(llm):
     workflow.add_conditional_edges(
         "retention",
         _retention_should_continue,
+        {"tools": "tools", "dispatcher": "dispatcher"}
+    )
+
+    # sub_step → tools(도구 호출) or dispatcher(다음 단계)
+    workflow.add_conditional_edges(
+        "sub_step",
+        _sub_step_should_continue,
         {"tools": "tools", "dispatcher": "dispatcher"}
     )
 
@@ -636,6 +907,7 @@ def run_multi_agent(req, username: str) -> dict:
             "plan": [],
             "current_step": 0,
             "agent_results": [],
+            "pipeline_type": "",
         }
 
         final_state = graph.invoke(initial_state)
@@ -687,7 +959,7 @@ def run_multi_agent(req, username: str) -> dict:
 # ============================================================
 # 서브에이전트 스트림 실행 (routes_agent.py에서 호출)
 # ============================================================
-async def run_sub_agent_stream(req, username: str, sse_callback):
+async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
     """서브에이전트 스트리밍 실행 - 각 단계마다 SSE 이벤트 전송
 
     Args:
@@ -695,6 +967,7 @@ async def run_sub_agent_stream(req, username: str, sse_callback):
         username: 사용자명
         sse_callback: async callable(event_type: str, data: dict) -> None
             event_type: "agent_start" | "agent_end" | "tool_start" | "tool_end" | "delta" | "done"
+        category: IntentCategory (파이프라인 타입 결정용 fallback)
     """
     if not LANGGRAPH_AVAILABLE:
         await sse_callback("done", {"ok": False, "final": "langgraph를 설치하세요.", "tool_calls": []})
@@ -729,6 +1002,8 @@ async def run_sub_agent_stream(req, username: str, sse_callback):
                 messages.append(AIMessage(content=content))
         messages.append(HumanMessage(content=user_text))
 
+        pipeline_type = _detect_pipeline_type(user_text, category)
+
         initial_state = {
             "messages": messages,
             "next_agent": "",
@@ -739,6 +1014,7 @@ async def run_sub_agent_stream(req, username: str, sse_callback):
             "plan": [],
             "current_step": 0,
             "agent_results": [],
+            "pipeline_type": pipeline_type,
         }
 
         # 동기 실행 후 단계별 결과 전송
@@ -748,19 +1024,22 @@ async def run_sub_agent_stream(req, username: str, sse_callback):
         agent_results = final_state.get("agent_results", [])
         tool_calls_log = final_state.get("tool_calls_log", [])
 
-        # 각 단계 결과를 SSE로 전송
+        # 각 단계 결과를 SSE로 전송 (description 포함)
         for i, result in enumerate(agent_results):
             step_name = result.get("step", f"step_{i}")
+            description = _STEP_DESCRIPTIONS.get(step_name, step_name)
             await sse_callback("agent_start", {
                 "agent": step_name,
                 "step": i + 1,
                 "total_steps": len(plan),
+                "description": description,
             })
             await sse_callback("agent_end", {
                 "agent": step_name,
                 "step": i + 1,
                 "total_steps": len(plan),
                 "summary": result.get("summary", ""),
+                "description": description,
             })
 
         # 도구 호출 로그 전송

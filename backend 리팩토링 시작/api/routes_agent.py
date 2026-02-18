@@ -62,9 +62,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
             st.logger.info("STREAM_ROUTER category=%s allowed_tools=%s", category.value, allowed_tool_names)
 
-            # RETENTION 카테고리 → 서브에이전트 모드로 분기
-            if category == IntentCategory.RETENTION:
-                st.logger.info("STREAM_RETENTION_MODE sub_agent user=%s", username)
+            # sub_agent 플래그 또는 RETENTION 카테고리면 서브에이전트 모드
+            if req.sub_agent or category == IntentCategory.RETENTION:
+                st.logger.info("STREAM_SUB_AGENT_MODE category=%s sub_agent=%s user=%s", category.value, req.sub_agent, username)
                 queue = asyncio.Queue()
 
                 async def sse_callback(event_type: str, data: dict):
@@ -72,7 +72,7 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
                 async def run_task():
                     try:
-                        await run_sub_agent_stream(req, username, sse_callback)
+                        await run_sub_agent_stream(req, username, sse_callback, category=category)
                     finally:
                         await queue.put(None)  # sentinel
 

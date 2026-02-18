@@ -77,6 +77,10 @@ def build_langchain_messages(system_prompt: str, username: str, user_text: str, 
     return msgs
 
 
+# LLM 인스턴스 캐시 (동일 파라미터 조합 시 재사용)
+_llm_cache: Dict[str, ChatOpenAI] = {}
+
+
 def get_llm(
     model: str,
     api_key: str,
@@ -91,6 +95,11 @@ def get_llm(
     max_retries: Optional[int] = None,
 ) -> ChatOpenAI:
     model_final = normalize_model_name(model)
+
+    # 캐시 키 생성 (주요 파라미터 조합)
+    cache_key = f"{model_final}:{api_key[:8] if api_key else ''}:{max_tokens}:{streaming}:{temperature}:{top_p}"
+    if cache_key in _llm_cache:
+        return _llm_cache[cache_key]
     is_gpt5 = model_final.lower().startswith("gpt-5")
 
     kwargs: Dict[str, Any] = {
@@ -164,7 +173,9 @@ def get_llm(
     except Exception:
         pass
 
-    return ChatOpenAI(**kwargs)
+    llm_instance = ChatOpenAI(**kwargs)
+    _llm_cache[cache_key] = llm_instance
+    return llm_instance
 
 
 def invoke_with_retry(llm: ChatOpenAI, messages: List[BaseMessage], max_retries: int = 3) -> str:

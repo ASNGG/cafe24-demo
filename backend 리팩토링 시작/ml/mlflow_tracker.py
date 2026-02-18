@@ -69,7 +69,7 @@ def get_latest_model_version(model_name: str) -> Optional[str]:
         versions = client.get_latest_versions(model_name)
         if versions:
             return versions[0].version
-    except Exception:
+    except (AttributeError, ValueError, RuntimeError):
         pass
     return None
 

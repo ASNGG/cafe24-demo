@@ -95,7 +95,7 @@ def build_knowledge_graph(chunks: List[Any]) -> Dict:
 
             relations = _extract_relations_simple(content, entities)
             all_relations.extend(relations)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             continue
 
     # 중복 관계 제거

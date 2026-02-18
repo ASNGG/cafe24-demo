@@ -84,13 +84,38 @@ def tool_get_shop_info(shop_id: str) -> dict:
     }
 
 
+# 세그먼트명 캐시 (DataFrame 반복 조회 방지)
+_segment_name_cache: dict = {}
+
+
+def _sum_order_amount_from_json(series) -> int:
+    """details_json 시리즈에서 order_amount 합산 (중복 파싱 로직 통합)"""
+    total = 0
+    for val in series.dropna():
+        try:
+            parsed = json.loads(val) if isinstance(val, str) else val
+            if isinstance(parsed, dict) and "order_amount" in parsed:
+                total += int(parsed["order_amount"])
+        except (ValueError, TypeError, json.JSONDecodeError):
+            pass
+    return total
+
+
 def _get_segment_name(cluster: int) -> str:
-    """CSV segment_name 컬럼에서 클러스터 번호에 해당하는 이름 반환"""
+    """CSV segment_name 컬럼에서 클러스터 번호에 해당하는 이름 반환 (캐시)"""
+    if cluster in _segment_name_cache:
+        return _segment_name_cache[cluster]
+
     if st.SELLER_ANALYTICS_DF is not None and "segment_name" in st.SELLER_ANALYTICS_DF.columns:
         match = st.SELLER_ANALYTICS_DF[st.SELLER_ANALYTICS_DF["cluster"] == cluster]
         if not match.empty:
-            return str(match.iloc[0]["segment_name"])
-    return SELLER_SEGMENT_NAMES.get(cluster, f"세그먼트 {cluster}")
+            name = str(match.iloc[0]["segment_name"])
+            _segment_name_cache[cluster] = name
+            return name
+
+    name = SELLER_SEGMENT_NAMES.get(cluster, f"세그먼트 {cluster}")
+    _segment_name_cache[cluster] = name
+    return name
 
 
 def tool_list_shops(
@@ -106,7 +131,7 @@ def tool_list_shops(
     # tier와 plan_tier 둘 다 지원
     effective_tier = plan_tier or tier
 
-    df = st.SHOPS_DF.copy()
+    df = st.SHOPS_DF
 
     if category:
         df = df[df["category"].str.contains(category, na=False, case=False)]
@@ -582,7 +607,7 @@ def tool_get_segment_statistics() -> dict:
         return {"status": "error", "message": "셀러 분석 데이터가 로드되지 않았습니다."}
 
     try:
-        df = st.SELLER_ANALYTICS_DF.copy()
+        df = st.SELLER_ANALYTICS_DF
 
         # 세그먼트 분류가 되어 있는 경우
         if "cluster" in df.columns or "segment" in df.columns:
@@ -609,8 +634,9 @@ def tool_get_segment_statistics() -> dict:
                 "segments": stats,
             }
 
-        # 세그먼트 분류가 안 되어 있으면 모델로 분류
+        # 세그먼트 분류가 안 되어 있으면 모델로 분류 (원본 변경 방지를 위해 copy)
         if st.SELLER_SEGMENT_MODEL is not None and st.SCALER_CLUSTER is not None:
+            df = df.copy()
             X = df[FEATURE_COLS_SELLER_SEGMENT].fillna(0)
             X_scaled = st.SCALER_CLUSTER.transform(X)
             df["cluster"] = st.SELLER_SEGMENT_MODEL.predict(X_scaled)
@@ -731,17 +757,8 @@ def tool_get_order_statistics(event_type: Optional[str] = None, days: int = 30) 
     daily_counts = df.groupby(df[date_col].dt.date).size().to_dict()
     daily_counts = {str(k): v for k, v in daily_counts.items()}
 
-    # details_json에서 주문 금액 합산 시도
-    total_amount = 0
-    if "details_json" in df.columns:
-        import json as _json
-        for val in df["details_json"].dropna():
-            try:
-                parsed = _json.loads(val) if isinstance(val, str) else val
-                if isinstance(parsed, dict) and "order_amount" in parsed:
-                    total_amount += int(parsed["order_amount"])
-            except (ValueError, TypeError, _json.JSONDecodeError):
-                pass
+    # details_json에서 주문 금액 합산
+    total_amount = _sum_order_amount_from_json(df["details_json"]) if "details_json" in df.columns else 0
 
     # 셀러별 이벤트 수
     seller_event_counts = df["seller_id"].value_counts().head(10).to_dict() if "seller_id" in df.columns else {}
@@ -810,17 +827,8 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
     event_summary = df["event_type"].value_counts().to_dict()
     active_days = df[date_col].dt.date.nunique()
 
-    # details_json에서 주문 금액 합산 시도
-    total_amount = 0
-    if "details_json" in df.columns:
-        import json as _json
-        for val in df["details_json"].dropna():
-            try:
-                parsed = _json.loads(val) if isinstance(val, str) else val
-                if isinstance(parsed, dict) and "order_amount" in parsed:
-                    total_amount += int(parsed["order_amount"])
-            except (ValueError, TypeError, _json.JSONDecodeError):
-                pass
+    # details_json에서 주문 금액 합산
+    total_amount = _sum_order_amount_from_json(df["details_json"]) if "details_json" in df.columns else 0
 
     return {
         "status": "success",
@@ -934,7 +942,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
         return {"status": "error", "message": "셀러 분석 데이터가 없습니다."}
 
     try:
-        df = st.SELLER_ANALYTICS_DF.copy()
+        df = st.SELLER_ANALYTICS_DF
         original_total = len(df)
 
         # 특정 위험 등급 필터링
@@ -969,7 +977,7 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
         total = len(df) if not risk_level else original_total
 
         # 실제 데이터에서 이탈 위험 분류
-        full_df = st.SELLER_ANALYTICS_DF.copy()
+        full_df = st.SELLER_ANALYTICS_DF
         if 'churn_risk_level' in full_df.columns:
             high_risk = len(full_df[full_df['churn_risk_level'] == 'high'])
             low_risk = len(full_df[full_df['churn_risk_level'] == 'low'])
@@ -1061,14 +1069,14 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
         return {"status": "error", "message": "코호트 리텐션 데이터가 없습니다."}
 
     try:
-        df = st.COHORT_RETENTION_DF.copy()
+        df = st.COHORT_RETENTION_DF
 
         # 월 필터링 (cohort 또는 month 사용)
         filter_month = month or cohort
         if filter_month:
             # "2024-11 W1" 같은 형식에서 월만 추출
-            import re as _re
-            m = _re.search(r'(\d{4}-\d{2})', filter_month)
+            import re
+            m = re.search(r'(\d{4}-\d{2})', filter_month)
             if m:
                 filter_month = m.group(1)
             df = df[df['cohort_month'].astype(str).str.contains(filter_month, case=False, na=False)]
@@ -1118,14 +1126,14 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
         return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
+        # 날짜 컬럼 파싱이 원본을 변경하므로 copy 필요
         df = st.DAILY_METRICS_DF.copy()
 
-        # 날짜 컬럼 파싱
         if 'date' in df.columns:
             df['date'] = pd.to_datetime(df['date'])
 
         # 날짜 필터링
-        full_df = df.copy()  # fallback용 원본 보관
+        full_df = df  # fallback용 원본 참조
         if start_date and end_date:
             try:
                 start = pd.to_datetime(start_date)
@@ -1284,9 +1292,9 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
         return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
+        # 날짜 컬럼 파싱이 원본을 변경하므로 copy 필요
         metrics_df = st.DAILY_METRICS_DF.copy()
 
-        # 날짜 컬럼 파싱
         if 'date' in metrics_df.columns:
             metrics_df['date'] = pd.to_datetime(metrics_df['date'])
 

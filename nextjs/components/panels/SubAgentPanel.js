@@ -1,7 +1,7 @@
 // components/panels/SubAgentPanel.js
 // CAFE24 AI 운영 플랫폼 - 서브에이전트 패널
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfmPlugin from 'remark-gfm';
 import { motion } from 'framer-motion';
@@ -12,7 +12,7 @@ import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, R
 import useSubAgentStream from './hooks/useSubAgentStream';
 import { cafe24BtnInline, cafe24BtnSecondaryInline, cafe24BtnSecondary } from '@/components/common/buttonStyles';
 
-function PipelineSteps({ steps }) {
+const PipelineSteps = React.memo(function PipelineSteps({ steps }) {
   if (!steps?.length) return null;
   return (
     <div className="flex items-center gap-2 p-4 bg-white rounded-xl shadow-cafe24-sm overflow-x-auto">
@@ -37,7 +37,7 @@ function PipelineSteps({ steps }) {
       ))}
     </div>
   );
-}
+});
 
 function StepResultCard({ stepNum, result, agentName }) {
   const [open, setOpen] = useState(true);
@@ -84,49 +84,51 @@ function TypingDots() {
   );
 }
 
-function MarkdownMessage({ content }) {
-  const remarkPlugins = useMemo(() => [remarkGfmPlugin], []);
+// 모듈 레벨 상수: ReactMarkdown components 객체 리렌더 시 재생성 방지
+const SUB_MARKDOWN_COMPONENTS = {
+  table: ({ node, ...props }) => (
+    <div className="overflow-x-auto -mx-1 my-2">
+      <table className="w-full border-collapse" {...props} />
+    </div>
+  ),
+  thead: ({ node, ...props }) => <thead className="bg-cafe24-yellow/20" {...props} />,
+  th: ({ node, ...props }) => (
+    <th className="border-2 border-cafe24-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cafe24-brown" {...props} />
+  ),
+  td: ({ node, ...props }) => (
+    <td className="border border-cafe24-orange/15 px-3 py-2 align-top text-xs text-cafe24-brown whitespace-nowrap" {...props} />
+  ),
+  pre: ({ node, ...props }) => (
+    <pre className="overflow-x-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown" {...props} />
+  ),
+  code: ({ node, inline, className, children, ...props }) => {
+    if (inline) {
+      return (
+        <code className="rounded bg-cafe24-yellow/20 px-1 py-0.5 text-[11px] text-cafe24-brown" {...props}>
+          {children}
+        </code>
+      );
+    }
+    return <code className={className} {...props}>{children}</code>;
+  },
+  a: ({ node, ...props }) => (
+    <a {...props} target="_blank" rel="noopener noreferrer" className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown" />
+  ),
+};
+const SUB_REMARK_PLUGINS = [remarkGfmPlugin];
 
+const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
   return (
     <ReactMarkdown
-      remarkPlugins={remarkPlugins}
-      components={{
-        table: ({ node, ...props }) => (
-          <div className="overflow-x-auto -mx-1 my-2">
-            <table className="w-full border-collapse" {...props} />
-          </div>
-        ),
-        thead: ({ node, ...props }) => <thead className="bg-cafe24-yellow/20" {...props} />,
-        th: ({ node, ...props }) => (
-          <th className="border-2 border-cafe24-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cafe24-brown" {...props} />
-        ),
-        td: ({ node, ...props }) => (
-          <td className="border border-cafe24-orange/15 px-3 py-2 align-top text-xs text-cafe24-brown whitespace-nowrap" {...props} />
-        ),
-        pre: ({ node, ...props }) => (
-          <pre className="overflow-x-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown" {...props} />
-        ),
-        code: ({ node, inline, className, children, ...props }) => {
-          if (inline) {
-            return (
-              <code className="rounded bg-cafe24-yellow/20 px-1 py-0.5 text-[11px] text-cafe24-brown" {...props}>
-                {children}
-              </code>
-            );
-          }
-          return <code className={className} {...props}>{children}</code>;
-        },
-        a: ({ node, ...props }) => (
-          <a {...props} target="_blank" rel="noopener noreferrer" className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown" />
-        ),
-      }}
+      remarkPlugins={SUB_REMARK_PLUGINS}
+      components={SUB_MARKDOWN_COMPONENTS}
     >
       {content || ''}
     </ReactMarkdown>
   );
-}
+});
 
-function ToolCalls({ toolCalls }) {
+const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
   if (!toolCalls?.length) return null;
   return (
     <details className="details mt-2">
@@ -151,7 +153,7 @@ function ToolCalls({ toolCalls }) {
       </div>
     </details>
   );
-}
+});
 
 function Chip({ label, onClick }) {
   return (

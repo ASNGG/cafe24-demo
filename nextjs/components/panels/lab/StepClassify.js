@@ -1,6 +1,6 @@
 // components/panels/lab/StepClassify.js - Step 1: 접수 - 일괄 분류 + DnD 자동/수동 분기
 // L34: onDragOver throttle 적용
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Inbox, Zap, AlertTriangle, Loader2, RotateCcw,
@@ -19,8 +19,17 @@ export default function StepClassify({
   const hasResults = classifyResults.length > 0;
   const hasSplit = autoIdxs.length > 0 || manualIdxs.length > 0;
 
-  // L34: onDragOver throttle - 과도한 setDragOverZone 호출 방지
+  // L34: onDragOver throttle - 과도한 setDragOverZone 호출 방지 (useRef 안정화)
   const dragOverThrottleRef = useRef(null);
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (dragOverThrottleRef.current) {
+        clearTimeout(dragOverThrottleRef.current);
+        dragOverThrottleRef.current = null;
+      }
+    };
+  }, []);
   const throttledDragOver = useCallback((e, zone) => {
     e.preventDefault();
     if (dragOverThrottleRef.current) return;

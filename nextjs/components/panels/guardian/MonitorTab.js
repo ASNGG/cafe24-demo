@@ -4,10 +4,11 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
 import {
-  Shield, AlertTriangle, Loader2, ChevronDown, ChevronRight,
-  CheckCircle2, XCircle, AlertCircle, Database, User, Zap, Search,
-  FileText, Lock, Unlock, Bot, Play,
+  Shield, AlertTriangle, Loader2,
+  CheckCircle2, XCircle, AlertCircle, Zap, Search,
+  Lock, Unlock, Bot, Play,
 } from 'lucide-react';
+import ToolStep from './common/ToolStep';
 
 const ACTION_META = {
   DELETE:   { danger: 'high',   rowRelevant: true,  label: 'DELETE',   desc: '행 삭제' },
@@ -45,29 +46,6 @@ const PRESETS = [
   { label: '반복 소량 삭제', color: 'yellow', user_id: 'lee', action: 'DELETE', table: 'orders', row_count: 8, hour: 15 },
   { label: '신규 테이블 접근', color: 'yellow', user_id: 'jung', action: 'UPDATE', table: 'payments', row_count: 50, hour: 10 },
 ];
-
-// L19: ToolStep 기본 open=false
-function ToolStep({ index, step }) {
-  const [open, setOpen] = useState(false);
-  const toolIcons = { analyze_impact: Database, get_user_pattern: User, search_similar: Search, execute_decision: Shield };
-  const Icon = toolIcons[step.tool] || FileText;
-  const toolNames = { analyze_impact: '영향도 분석', get_user_pattern: '사용자 패턴', search_similar: '유사 사례 검색', execute_decision: '판단 실행' };
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white/60 overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors">
-        {open ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-        <Icon size={14} className="text-indigo-500" />
-        <span className="text-xs font-semibold text-gray-700">Tool {index}: {toolNames[step.tool] || step.tool}</span>
-      </button>
-      {open && (
-        <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2">
-          <pre className="whitespace-pre-wrap text-xs text-gray-600 leading-relaxed">{step.output}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function AnalysisResult({ result, form, auth, apiCall }) {
   const { rule, ml, agent, _mode } = result;

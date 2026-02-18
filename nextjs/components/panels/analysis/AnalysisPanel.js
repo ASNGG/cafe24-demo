@@ -44,6 +44,25 @@ const DATE_OPTIONS = [
   { value: '90d', label: '최근 90일' },
 ];
 
+// setSelectedUser 매핑 중복 제거용 헬퍼
+function mapUserData(user) {
+  return {
+    id: user.id,
+    segment: user.segment || '알 수 없음',
+    plan_tier: user.plan_tier,
+    monthly_revenue: user.monthly_revenue || 0,
+    product_count: user.product_count || 0,
+    order_count: user.order_count || 0,
+    top_shops: user.top_shops || [],
+    stats: user.stats || {},
+    activity: user.activity || [],
+    model_predictions: user.model_predictions || {},
+    period_stats: user.period_stats || {},
+    is_anomaly: user.is_anomaly,
+    region: user.region,
+  };
+}
+
 export default function AnalysisPanel({ auth, apiCall }) {
   const [activeTab, setActiveTab] = useState('seller');
   const [dateRange, setDateRange] = useState('7d');
@@ -73,6 +92,35 @@ export default function AnalysisPanel({ auth, apiCall }) {
   // 선택된 셀러 ID ref (dateRange 변경 시 재검색용)
   const selectedUserIdRef = useRef(null);
   selectedUserIdRef.current = selectedUser?.id || null;
+
+  // 쇼핑몰 목록은 dateRange 무관 → 별도 useEffect로 분리 (불변 API 재호출 방지)
+  useEffect(() => {
+    if (!auth) return;
+    async function fetchShops() {
+      try {
+        const shopsRes = await apiCall({
+          endpoint: '/api/shops',
+          auth,
+          timeoutMs: 10000,
+        });
+        if (shopsRes?.status === 'success' && shopsRes.shops) {
+          const transformed = shopsRes.shops.slice(0, 10).map(c => ({
+            name: c.name || c.shop_id,
+            plan_tier: c.plan_tier,
+            usage: c.usage ?? 0,
+            cvr: c.cvr ?? 0,
+            popularity: c.popularity ?? 0,
+          }));
+          if (transformed.length > 0) {
+            setShopsData(transformed);
+          }
+        }
+      } catch (e) {
+        console.log('쇼핑몰 API 실패');
+      }
+    }
+    fetchShops();
+  }, [auth, apiCall]);
 
   // API 데이터 로드 (H30: Promise.all 병렬, M58: useEffect 통합)
   useEffect(() => {
@@ -111,30 +159,6 @@ export default function AnalysisPanel({ auth, apiCall }) {
             });
             if (Object.keys(segments).length > 0) {
               setSegmentsData(segments);
-            }
-          }
-
-          if (summaryRes.plan_tier_stats || summaryRes.shops_count > 0) {
-            try {
-              const shopsRes = await apiCall({
-                endpoint: '/api/shops',
-                auth,
-                timeoutMs: 10000,
-              });
-              if (shopsRes?.status === 'success' && shopsRes.shops) {
-                const transformed = shopsRes.shops.slice(0, 10).map(c => ({
-                  name: c.name || c.shop_id,
-                  plan_tier: c.plan_tier,
-                  usage: c.usage ?? 0,
-                  cvr: c.cvr ?? 0,
-                  popularity: c.popularity ?? 0,
-                }));
-                if (transformed.length > 0) {
-                  setShopsData(transformed);
-                }
-              }
-            } catch (e) {
-              console.log('쇼핑몰 API 실패');
             }
           }
 
@@ -198,21 +222,7 @@ export default function AnalysisPanel({ auth, apiCall }) {
               timeoutMs: 10000,
             });
             if (res?.status === 'success' && res.user) {
-              setSelectedUser({
-                id: res.user.id,
-                segment: res.user.segment || '알 수 없음',
-                plan_tier: res.user.plan_tier,
-                monthly_revenue: res.user.monthly_revenue || 0,
-                product_count: res.user.product_count || 0,
-                order_count: res.user.order_count || 0,
-                top_shops: res.user.top_shops || [],
-                stats: res.user.stats || {},
-                activity: res.user.activity || [],
-                model_predictions: res.user.model_predictions || {},
-                period_stats: res.user.period_stats || {},
-                is_anomaly: res.user.is_anomaly,
-                region: res.user.region,
-              });
+              setSelectedUser(mapUserData(res.user));
             }
           } catch (e) {
             console.log('셀러 데이터 재조회 실패');
@@ -245,21 +255,7 @@ export default function AnalysisPanel({ auth, apiCall }) {
       });
 
       if (res?.status === 'success' && res.user) {
-        setSelectedUser({
-          id: res.user.id,
-          segment: res.user.segment,
-          plan_tier: res.user.plan_tier,
-          monthly_revenue: res.user.monthly_revenue,
-          product_count: res.user.product_count,
-          order_count: res.user.order_count,
-          top_shops: res.user.top_shops || [],
-          stats: res.user.stats || {},
-          activity: res.user.activity || [],
-          model_predictions: res.user.model_predictions || {},
-          period_stats: res.user.period_stats || {},
-          is_anomaly: res.user.is_anomaly,
-          region: res.user.region,
-        });
+        setSelectedUser(mapUserData(res.user));
         toast.success(`${res.user.id} 셀러 데이터를 불러왔습니다`);
       } else {
         toast.error('셀러를 찾을 수 없습니다');

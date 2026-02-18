@@ -3,39 +3,14 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
-import {
-  RotateCcw, Loader2, ChevronDown, ChevronRight,
-  Database, User, Search, Shield, FileText,
-} from 'lucide-react';
+import { RotateCcw, Loader2 } from 'lucide-react';
+import ToolStep from './common/ToolStep';
 
 const EXAMPLES = [
   '아까 실수로 삭제한 12월 주문 데이터 347건 복구해주세요',
   'kim 사용자가 삭제한 payments 데이터 복구해줘',
   '오늘 차단된 orders 삭제 건 복구 SQL 만들어줘',
 ];
-
-// L19: ToolStep 기본 open=false
-function ToolStep({ index, step }) {
-  const [open, setOpen] = useState(false);
-  const toolIcons = { analyze_impact: Database, get_user_pattern: User, search_similar: Search, execute_decision: Shield };
-  const Icon = toolIcons[step.tool] || FileText;
-  const toolNames = { analyze_impact: '영향도 분석', get_user_pattern: '사용자 패턴', search_similar: '유사 사례 검색', execute_decision: '판단 실행' };
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white/60 overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors">
-        {open ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
-        <Icon size={14} className="text-indigo-500" />
-        <span className="text-xs font-semibold text-gray-700">Tool {index}: {toolNames[step.tool] || step.tool}</span>
-      </button>
-      {open && (
-        <div className="border-t border-gray-100 bg-gray-50/50 px-3 py-2">
-          <pre className="whitespace-pre-wrap text-xs text-gray-600 leading-relaxed">{step.output}</pre>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function RecoverTab({ auth, apiCall }) {
   const [message, setMessage] = useState('');

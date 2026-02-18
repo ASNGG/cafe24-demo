@@ -1,6 +1,6 @@
 // components/panels/automation/RetentionTab.js
 // M68: AutomationPanel 분리 - 탭 1: 셀러 이탈 방지 자동 조치
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
 import {
@@ -16,6 +16,85 @@ const ACTION_TYPES = [
   { key: 'manager_assign', label: '전담 매니저 배정', icon: Users },
   { key: 'custom_message', label: '맞춤 메시지 발송', icon: Send },
 ];
+
+// React.memo로 셀러 카드 리렌더링 방지
+const SellerCard = React.memo(function SellerCard({ s, i, isSelected, isChecked, msgLoading, onSelect, onToggleCheck, onGenerateMessage, riskColor }) {
+  return (
+    <div
+      className={`rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md ${
+        isSelected ? 'ring-2 ring-cafe24-yellow border-cafe24-yellow' : 'border-gray-200'
+      }`}
+      onClick={() => onSelect(s.seller_id)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleCheck(s.seller_id);
+            }}
+            className="rounded border-gray-300 text-cafe24-yellow focus:ring-cafe24-yellow"
+          />
+          <span className="text-sm font-bold text-gray-800">{s.seller_id}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${riskColor(s.risk_level)}`}>
+            {s.risk_level === 'high' ? '고위험' : '중위험'}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">
+              이탈확률: <strong className="text-red-600">{Number(s.churn_probability).toFixed(1)}%</strong>
+            </span>
+            <div className="w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  s.churn_probability > 80 ? 'bg-red-500' :
+                  s.churn_probability > 60 ? 'bg-orange-500' : 'bg-yellow-500'
+                }`}
+                style={{ width: `${Math.min(Number(s.churn_probability), 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onGenerateMessage(s.seller_id); }}
+          disabled={msgLoading}
+          className="flex items-center gap-1 rounded-lg bg-cafe24-yellow px-2.5 py-1 text-xs font-semibold text-cafe24-brown hover:bg-cafe24-orange hover:text-white disabled:opacity-50"
+        >
+          {msgLoading && isSelected
+            ? <Loader2 size={12} className="animate-spin" />
+            : <MessageSquare size={12} />}
+          메시지 생성
+        </button>
+      </div>
+      {s.top_factors && s.top_factors.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {s.top_factors.slice(0, 5).map((f, fi) => (
+            <span key={fi} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+              {typeof f === 'string' ? f : f.factor || f.feature || f.name || JSON.stringify(f)}
+            </span>
+          ))}
+        </div>
+      )}
+      {s.seller_info && (
+        <div className="mt-2 grid grid-cols-5 gap-1.5">
+          {[
+            { label: '주문', value: s.seller_info.total_orders?.toLocaleString() },
+            { label: '매출', value: `${Math.round((s.seller_info.total_revenue || 0) / 10000)}만` },
+            { label: '접속', value: `${s.seller_info.days_since_last_login}일전` },
+            { label: '환불률', value: `${s.seller_info.refund_rate}%` },
+            { label: '상품', value: s.seller_info.product_count },
+          ].map((stat, si) => (
+            <div key={si} className="text-center p-1.5 rounded-lg bg-gray-50">
+              <div className="text-[9px] text-gray-400">{stat.label}</div>
+              <div className="text-[11px] font-bold text-gray-700">{stat.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export default function RetentionTab({ auth, apiCall }) {
   const [sellers, setSellers] = useState([]);
@@ -240,85 +319,25 @@ export default function RetentionTab({ auth, apiCall }) {
           )}
           <div className="space-y-2">
             {sellers.map((s, i) => (
-              <div
+              <SellerCard
                 key={s.seller_id || i}
-                className={`rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md ${
-                  selectedSeller === s.seller_id ? 'ring-2 ring-cafe24-yellow border-cafe24-yellow' : 'border-gray-200'
-                }`}
-                onClick={() => setSelectedSeller(s.seller_id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedSellers.has(s.seller_id)}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setSelectedSellers(prev => {
-                          const next = new Set(prev);
-                          if (next.has(s.seller_id)) next.delete(s.seller_id);
-                          else next.add(s.seller_id);
-                          return next;
-                        });
-                      }}
-                      className="rounded border-gray-300 text-cafe24-yellow focus:ring-cafe24-yellow"
-                    />
-                    <span className="text-sm font-bold text-gray-800">{s.seller_id}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${riskColor(s.risk_level)}`}>
-                      {s.risk_level === 'high' ? '고위험' : '중위험'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        이탈확률: <strong className="text-red-600">{Number(s.churn_probability).toFixed(1)}%</strong>
-                      </span>
-                      <div className="w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-1000 ${
-                            s.churn_probability > 80 ? 'bg-red-500' :
-                            s.churn_probability > 60 ? 'bg-orange-500' : 'bg-yellow-500'
-                          }`}
-                          style={{ width: `${Math.min(Number(s.churn_probability), 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); generateMessage(s.seller_id); }}
-                    disabled={msgLoading}
-                    className="flex items-center gap-1 rounded-lg bg-cafe24-yellow px-2.5 py-1 text-xs font-semibold text-cafe24-brown hover:bg-cafe24-orange hover:text-white disabled:opacity-50"
-                  >
-                    {msgLoading && selectedSeller === s.seller_id
-                      ? <Loader2 size={12} className="animate-spin" />
-                      : <MessageSquare size={12} />}
-                    메시지 생성
-                  </button>
-                </div>
-                {s.top_factors && s.top_factors.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {s.top_factors.slice(0, 5).map((f, fi) => (
-                      <span key={fi} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-                        {typeof f === 'string' ? f : f.factor || f.feature || f.name || JSON.stringify(f)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {s.seller_info && (
-                  <div className="mt-2 grid grid-cols-5 gap-1.5">
-                    {[
-                      { label: '주문', value: s.seller_info.total_orders?.toLocaleString() },
-                      { label: '매출', value: `${Math.round((s.seller_info.total_revenue || 0) / 10000)}만` },
-                      { label: '접속', value: `${s.seller_info.days_since_last_login}일전` },
-                      { label: '환불률', value: `${s.seller_info.refund_rate}%` },
-                      { label: '상품', value: s.seller_info.product_count },
-                    ].map((stat, si) => (
-                      <div key={si} className="text-center p-1.5 rounded-lg bg-gray-50">
-                        <div className="text-[9px] text-gray-400">{stat.label}</div>
-                        <div className="text-[11px] font-bold text-gray-700">{stat.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                s={s}
+                i={i}
+                isSelected={selectedSeller === s.seller_id}
+                isChecked={selectedSellers.has(s.seller_id)}
+                msgLoading={msgLoading}
+                onSelect={setSelectedSeller}
+                onToggleCheck={(sellerId) => {
+                  setSelectedSellers(prev => {
+                    const next = new Set(prev);
+                    if (next.has(sellerId)) next.delete(sellerId);
+                    else next.add(sellerId);
+                    return next;
+                  });
+                }}
+                onGenerateMessage={generateMessage}
+                riskColor={riskColor}
+              />
             ))}
           </div>
         </div>

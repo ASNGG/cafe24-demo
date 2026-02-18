@@ -376,8 +376,8 @@ export default function LabPanel({ auth, apiCall, settings }) {
     if (abortRef.current) abortRef.current.abort();
   }, []);
 
-  // ─── 단계 이동 ───
-  const goNext = () => {
+  // ─── 단계 이동 (useCallback 안정화) ───
+  const goNext = useCallback(() => {
     if (currentStep < 4) {
       const isAutoMode = autoIdxs.length > 0 && !pipelineResult;
       if (currentStep === 0 && isAutoMode) {
@@ -388,10 +388,10 @@ export default function LabPanel({ auth, apiCall, settings }) {
         dispatch({ type: 'SET', payload: { currentStep: currentStep + 1 } });
       }
     }
-  };
-  const goPrev = () => {
+  }, [currentStep, autoIdxs.length, pipelineResult]);
+  const goPrev = useCallback(() => {
     if (currentStep > 0) setCurrentStep(currentStep - 1);
-  };
+  }, [currentStep]);
 
   // ─── 렌더링 ───
   return (

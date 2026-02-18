@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
+  reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.echosting.cafe24.com',
+      },
+    ],
+  },
   async rewrites() {
     const backendBase = process.env.BACKEND_INTERNAL_URL || 'http://127.0.0.1:8001';
     const backend = String(backendBase).replace(/\/$/, '');

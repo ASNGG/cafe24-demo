@@ -15,7 +15,7 @@ from agent.tools import (
     tool_predict_shop_revenue,
 )
 import state as st
-from api.common import verify_credentials
+from api.common import verify_credentials, error_response
 
 
 router = APIRouter(prefix="/api", tags=["seller"])
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["seller"])
 @router.get("/sellers/autocomplete")
 def sellers_autocomplete(q: str = "", limit: int = 8, user: dict = Depends(verify_credentials)):
     if st.SELLERS_DF is None:
-        return {"status": "error", "message": "셀러 데이터 없음"}
+        return error_response("셀러 데이터 없음")
     q = q.strip().upper()
     if not q:
         return {"status": "success", "users": []}
@@ -41,7 +41,7 @@ def sellers_autocomplete(q: str = "", limit: int = 8, user: dict = Depends(verif
 def search_seller(q: str, days: int = 7, user: dict = Depends(verify_credentials)):
     """셀러 검색"""
     if st.SELLERS_DF is None or st.SELLER_ANALYTICS_DF is None:
-        return {"status": "error", "message": "셀러 데이터가 로드되지 않았습니다."}
+        return error_response("셀러 데이터가 로드되지 않았습니다.")
     if days not in [7, 30, 90]:
         days = 7
     q = q.strip().upper()
@@ -49,7 +49,7 @@ def search_seller(q: str, days: int = 7, user: dict = Depends(verify_credentials
     if seller_row.empty:
         seller_row = st.SELLERS_DF[st.SELLERS_DF["seller_id"].str.contains(q, case=False, na=False)]
     if seller_row.empty:
-        return {"status": "error", "message": "셀러를 찾을 수 없습니다."}
+        return error_response("셀러를 찾을 수 없습니다.")
 
     seller_data = seller_row.iloc[0].to_dict()
     seller_id = seller_data["seller_id"]
@@ -175,12 +175,12 @@ def get_segment_stats(user: dict = Depends(verify_credentials)):
 def get_segment_details(segment_name: str, user: dict = Depends(verify_credentials)):
     try:
         if st.SELLER_ANALYTICS_DF is None:
-            return {"status": "error", "message": "셀러 분석 데이터 없음"}
+            return error_response("셀러 분석 데이터 없음")
         df = st.SELLER_ANALYTICS_DF
         if "segment_name" in df.columns:
             seg = df[df["segment_name"] == segment_name]
         else:
-            return {"status": "error", "message": f"알 수 없는 세그먼트: {segment_name}"}
+            return error_response(f"알 수 없는 세그먼트: {segment_name}")
         total = len(df)
         count = len(seg)
         return json_sanitize({
@@ -192,7 +192,7 @@ def get_segment_details(segment_name: str, user: dict = Depends(verify_credentia
             "top_activities": [], "retention_rate": None,
         })
     except Exception as e:
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/sellers/{seller_id}/activity")
@@ -204,11 +204,11 @@ def get_seller_activity(seller_id: str, days: int = 30, user: dict = Depends(ver
 def get_sellers_performance(user: dict = Depends(verify_credentials)):
     try:
         if st.SELLERS_DF is None or st.SELLERS_DF.empty:
-            return {"status": "error", "message": "셀러 데이터 없음"}
+            return error_response("셀러 데이터 없음")
         sellers = []
         for _, row in st.SELLERS_DF.head(100).iterrows():
             sellers.append({"id": row.get("seller_id", ""), "name": row.get("seller_id", ""), "plan_tier": row.get("plan_tier", "Standard"), "segment": row.get("segment", "알 수 없음")})
         return {"status": "success", "sellers": sellers}
     except Exception as e:
         st.logger.error(f"셀러 목록 조회 오류: {e}")
-        return {"status": "error", "message": str(e)}
+        return error_response(str(e))

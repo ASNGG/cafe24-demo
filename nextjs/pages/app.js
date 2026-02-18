@@ -175,6 +175,7 @@ export default function AppPage() {
     ];
   }, [isAdmin]);
 
+  // apiCallRaw는 모듈 스코프 함수이므로 안정 참조 유지
   const apiCall = useCallback((args) => apiCallRaw(args), []);
 
   const addLog = useCallback(
@@ -209,9 +210,15 @@ export default function AppPage() {
     setActivityLog([]);
   }, []);
 
+  // 반응형 zoom: 작은 화면에서 축소, 큰 화면에서 기본
   useEffect(() => {
-    document.documentElement.style.zoom = '0.9';
+    function applyZoom() {
+      document.documentElement.style.zoom = window.innerWidth < 1280 ? '0.85' : '0.9';
+    }
+    applyZoom();
+    window.addEventListener('resize', applyZoom);
     return () => {
+      window.removeEventListener('resize', applyZoom);
       document.documentElement.style.zoom = '1';
     };
   }, []);
@@ -220,7 +227,7 @@ export default function AppPage() {
     if (!router.isReady) return;
 
     const a = loadFromSession(STORAGE_KEYS.AUTH, null);
-    if (!a?.username || !a?.password) {
+    if (!a?.username || !a?.password_b64) {
       safeReplace('/login');
       return;
     }
@@ -242,7 +249,7 @@ export default function AppPage() {
   const systemPromptLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (!auth?.username || !auth?.password) return;
+    if (!auth?.username || !auth?.password_b64) return;
     if (systemPromptLoadedRef.current) return;
 
     const cur = settings?.systemPrompt ? String(settings.systemPrompt).trim() : '';
@@ -303,7 +310,7 @@ export default function AppPage() {
 
   // 쇼핑몰/카테고리 데이터 로드
   useEffect(() => {
-    if (!auth?.username || !auth?.password) return;
+    if (!auth?.username || !auth?.password_b64) return;
 
     let mounted = true;
 
@@ -345,34 +352,23 @@ export default function AppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiCall, auth]);
 
-  useEffect(() => {
-    if (settingsLoaded && settings) {
-      saveToStorage(STORAGE_KEYS.SETTINGS, settings);
-    }
-  }, [settings, settingsLoaded]);
-
+  // localStorage 저장 통합 debounce (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (settingsLoaded && settings) {
+        saveToStorage(STORAGE_KEYS.SETTINGS, settings);
+      }
       saveToStorage(STORAGE_KEYS.AGENT_MESSAGES, agentMessages);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [agentMessages]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
       saveToStorage(STORAGE_KEYS.ACTIVITY_LOG, activityLog);
+      saveToStorage(STORAGE_KEYS.TOTAL_QUERIES, totalQueries);
     }, 300);
     return () => clearTimeout(timer);
-  }, [activityLog]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.TOTAL_QUERIES, totalQueries);
-  }, [totalQueries]);
+  }, [settings, settingsLoaded, agentMessages, activityLog, totalQueries]);
 
   const onExampleQuestion = useCallback((q) => {
     setActiveTab('agent');
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('cafe24_example_question', { detail: { q } }));
+      window.dispatchEvent(new CustomEvent('cafe24_send_question', { detail: { q } }));
     }
   }, []);
 
@@ -432,7 +428,6 @@ export default function AppPage() {
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'agent' ? (
-        <ExampleQuestionBridge>
           <AgentPanel
             auth={auth}
             selectedShop={selectedShop}
@@ -445,7 +440,6 @@ export default function AppPage() {
             setTotalQueries={setTotalQueries}
             apiCall={apiCall}
           />
-        </ExampleQuestionBridge>
       ) : null}
 
       {activeTab === 'dashboard' ? (
@@ -489,18 +483,4 @@ export default function AppPage() {
       ) : null}
     </Layout>
   );
-}
-
-function ExampleQuestionBridge({ children }) {
-  useEffect(() => {
-    function handler(ev) {
-      const q = ev?.detail?.q;
-      if (!q) return;
-      window.dispatchEvent(new CustomEvent('cafe24_send_question', { detail: { q } }));
-    }
-    window.addEventListener('cafe24_example_question', handler);
-    return () => window.removeEventListener('cafe24_example_question', handler);
-  }, []);
-
-  return children;
 }

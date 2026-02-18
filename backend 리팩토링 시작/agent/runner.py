@@ -34,20 +34,49 @@ except ImportError:
 # RAG 도구 이름 (분석 질문에서 제외)
 RAG_TOOL_NAMES = {"search_platform", "search_platform_lightrag"}
 
-
 MAX_TOOL_ITERATIONS = 10  # 무한 루프 방지
+
+# 도구 이름 → 도구 객체 매핑 캐시 (매 호출마다 순회 방지)
+_tool_map_cache: dict = {}
+
+
+def _get_tool_map() -> dict:
+    """ALL_TOOLS의 name→tool 매핑을 캐시하여 반환"""
+    if not _tool_map_cache:
+        _tool_map_cache.update({t.name: t for t in ALL_TOOLS})
+    return _tool_map_cache
+
+
+# KEYWORD_TOOL_MAPPING의 키워드를 set으로 사전 변환 (O(1) lookup)
+_KEYWORD_TOOL_SET: dict = {}
+
+
+def _get_keyword_tool_set() -> dict:
+    """키워드-도구 매핑을 set 기반으로 캐시"""
+    if not _KEYWORD_TOOL_SET:
+        for tool_name, keywords in KEYWORD_TOOL_MAPPING.items():
+            _KEYWORD_TOOL_SET[tool_name] = set(keywords)
+    return _KEYWORD_TOOL_SET
+
+
+# 정규식 사전 컴파일 (extract_* 함수용)
+_RE_DAYS = [
+    re.compile(r'최근\s*(\d+)\s*일'),
+    re.compile(r'(\d+)\s*일\s*(?:간|동안|기준)'),
+    re.compile(r'지난\s*(\d+)\s*일'),
+    re.compile(r'(\d+)days?', re.IGNORECASE),
+]
+_RE_DATE = re.compile(r'(\d{4}-\d{2}-\d{2})')
+_RE_MONTH = re.compile(r'(\d{4}-\d{2})')
+_RE_MONTH_KR = re.compile(r'(\d{1,2})월')
+_RE_YEAR_KR = re.compile(r'(\d{4})년')
+_RE_COHORT = re.compile(r'(\d{4}-\d{2}\s*W\d)', re.IGNORECASE)
 
 
 def extract_days(text: str) -> int | None:
     """텍스트에서 일수 추출 (최근 N일, N일간 등)"""
-    patterns = [
-        r'최근\s*(\d+)\s*일',
-        r'(\d+)\s*일\s*(?:간|동안|기준)',
-        r'지난\s*(\d+)\s*일',
-        r'(\d+)days?',
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+    for pattern in _RE_DAYS:
+        match = pattern.search(text)
         if match:
             return int(match.group(1))
     return None
@@ -55,9 +84,7 @@ def extract_days(text: str) -> int | None:
 
 def extract_date_range(text: str) -> tuple[str | None, str | None]:
     """텍스트에서 날짜 범위 추출 (YYYY-MM-DD 형식)"""
-    # YYYY-MM-DD 패턴
-    date_pattern = r'(\d{4}-\d{2}-\d{2})'
-    dates = re.findall(date_pattern, text)
+    dates = _RE_DATE.findall(text)
     if len(dates) >= 2:
         return dates[0], dates[1]
     elif len(dates) == 1:
@@ -67,22 +94,16 @@ def extract_date_range(text: str) -> tuple[str | None, str | None]:
 
 def extract_month(text: str) -> str | None:
     """텍스트에서 월 추출 (YYYY-MM 또는 N월 형식)"""
-    # YYYY-MM 패턴
-    match = re.search(r'(\d{4}-\d{2})', text)
+    match = _RE_MONTH.search(text)
     if match:
         return match.group(1)
 
-    # N월 패턴 (현재 연도 기준)
-    match = re.search(r'(\d{1,2})월', text)
+    match = _RE_MONTH_KR.search(text)
     if match:
         month = int(match.group(1))
         if 1 <= month <= 12:
-            # 연도 추출 시도
-            year_match = re.search(r'(\d{4})년', text)
-            if year_match:
-                year = int(year_match.group(1))
-            else:
-                year = datetime.now().year
+            year_match = _RE_YEAR_KR.search(text)
+            year = int(year_match.group(1)) if year_match else datetime.now().year
             return f"{year}-{month:02d}"
     return None
 
@@ -101,7 +122,7 @@ def extract_risk_level(text: str) -> str | None:
 
 def extract_cohort(text: str) -> str | None:
     """텍스트에서 코호트명 추출 (YYYY-MM WN 형식)"""
-    match = re.search(r'(\d{4}-\d{2}\s*W\d)', text, re.IGNORECASE)
+    match = _RE_COHORT.search(text)
     if match:
         return match.group(1).upper().replace(' ', ' ')
     return None
@@ -122,13 +143,14 @@ def detect_required_tools(text: str) -> Set[str]:
 
 
 def execute_tool_by_name(tool_name: str, args: dict) -> dict:
-    """도구 이름으로 실행"""
-    for t in ALL_TOOLS:
-        if t.name == tool_name:
-            try:
-                return t.invoke(args)
-            except Exception as e:
-                return {"status": "error", "message": safe_str(e)}
+    """도구 이름으로 실행 (캐시된 매핑 사용)"""
+    tool_map = _get_tool_map()
+    t = tool_map.get(tool_name)
+    if t:
+        try:
+            return t.invoke(args)
+        except Exception as e:
+            return {"status": "error", "message": safe_str(e)}
     return {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
 
 
@@ -444,16 +466,17 @@ def run_agent(req, username: str) -> dict:
                     username, tool_name, json.dumps(tool_args, ensure_ascii=False),
                 )
 
-                # 도구 찾기 및 실행
-                tool_result = {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
-                for t in ALL_TOOLS:
-                    if t.name == tool_name:
-                        try:
-                            tool_result = t.invoke(tool_args)
-                        except Exception as e:
-                            tool_result = {"status": "error", "message": safe_str(e)}
-                            st.logger.exception("TOOL_EXEC_FAIL tool=%s err=%s", tool_name, e)
-                        break
+                # 도구 찾기 및 실행 (캐시된 매핑 사용)
+                tool_map = _get_tool_map()
+                t = tool_map.get(tool_name)
+                if t:
+                    try:
+                        tool_result = t.invoke(tool_args)
+                    except Exception as e:
+                        tool_result = {"status": "error", "message": safe_str(e)}
+                        st.logger.exception("TOOL_EXEC_FAIL tool=%s err=%s", tool_name, e)
+                else:
+                    tool_result = {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
 
                 # 결과 로깅
                 tool_calls_log.append({

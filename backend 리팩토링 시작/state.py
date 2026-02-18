@@ -26,7 +26,16 @@ LOG_FILE = os.path.join(LOG_DIR, "backend.log")
 # ============================================================
 # 로깅
 # ============================================================
+_logging_initialized = False
+
 def setup_logging() -> logging.Logger:
+    """로깅 초기화 (싱글톤 — 중복 호출 시 기존 로거 반환)"""
+    global _logging_initialized
+    lg = logging.getLogger("cafe24-ai")
+    if _logging_initialized:
+        return lg
+    _logging_initialized = True
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -36,7 +45,6 @@ def setup_logging() -> logging.Logger:
         ],
         force=True,
     )
-    lg = logging.getLogger("cafe24-ai")
     lg.setLevel(logging.INFO)
     lg.propagate = True
     for uvn in ("uvicorn", "uvicorn.error", "uvicorn.access"):
@@ -156,17 +164,23 @@ def save_selected_models() -> bool:
         logger.error(f"선택된 모델 상태 저장 실패: {e}")
         return False
 
+_selected_models_loaded = False
+
 def load_selected_models() -> Dict[str, str]:
-    """저장된 모델 선택 상태 로드"""
-    global SELECTED_MODELS
+    """저장된 모델 선택 상태 로드 (1회 캐시 — 이미 로드된 경우 디스크 I/O 스킵)"""
+    global SELECTED_MODELS, _selected_models_loaded
+    if _selected_models_loaded and SELECTED_MODELS:
+        return SELECTED_MODELS
     try:
         if os.path.exists(SELECTED_MODELS_FILE):
             with open(SELECTED_MODELS_FILE, "r", encoding="utf-8") as f:
                 SELECTED_MODELS = json.load(f)
+                _selected_models_loaded = True
                 logger.info(f"선택된 모델 상태 로드 완료: {SELECTED_MODELS}")
                 return SELECTED_MODELS
     except Exception as e:
         logger.warning(f"선택된 모델 상태 로드 실패: {e}")
+    _selected_models_loaded = True
     return {}
 
 # ── 핵심 6개 모델 (리팩토링) ──
@@ -238,11 +252,47 @@ SHOP_SERVICE_MAP: Dict[str, Dict[str, Any]] = {}
 SELLER_CACHE: Dict[str, Dict[str, Any]] = {}
 
 # ============================================================
-# 최근 컨텍스트 저장 (요약 재활용)
+# 최근 컨텍스트 저장 (요약 재활용, 크기 제한 + TTL)
 # ============================================================
 LAST_CONTEXT_STORE: Dict[str, Dict[str, Any]] = {}
 LAST_CONTEXT_LOCK = Lock()
 LAST_CONTEXT_TTL_SEC = 600
+LAST_CONTEXT_MAX_ENTRIES = 200
+
+
+def set_last_context(key: str, value: Dict[str, Any]) -> None:
+    """컨텍스트 저장 (TTL 타임스탬프 자동 부여, 크기 제한 적용)"""
+    import time as _time
+    with LAST_CONTEXT_LOCK:
+        value["_ts"] = _time.time()
+        LAST_CONTEXT_STORE[key] = value
+        _evict_context_if_needed()
+
+
+def get_last_context(key: str) -> Optional[Dict[str, Any]]:
+    """컨텍스트 조회 (TTL 만료 시 None 반환)"""
+    import time as _time
+    with LAST_CONTEXT_LOCK:
+        entry = LAST_CONTEXT_STORE.get(key)
+        if entry is None:
+            return None
+        if _time.time() - entry.get("_ts", 0) > LAST_CONTEXT_TTL_SEC:
+            LAST_CONTEXT_STORE.pop(key, None)
+            return None
+        return entry
+
+
+def _evict_context_if_needed() -> None:
+    """컨텍스트 스토어가 최대 크기 초과 시 가장 오래된 항목부터 제거 (lock 내부에서 호출)"""
+    if len(LAST_CONTEXT_STORE) <= LAST_CONTEXT_MAX_ENTRIES:
+        return
+    sorted_keys = sorted(
+        LAST_CONTEXT_STORE.keys(),
+        key=lambda k: LAST_CONTEXT_STORE[k].get("_ts", 0),
+    )
+    to_remove = len(LAST_CONTEXT_STORE) - LAST_CONTEXT_MAX_ENTRIES
+    for k in sorted_keys[:to_remove]:
+        LAST_CONTEXT_STORE.pop(k, None)
 
 # ============================================================
 # RAG 설정/상태
@@ -308,9 +358,10 @@ CUSTOM_SYSTEM_PROMPT: Optional[str] = None
 
 def save_system_prompt(prompt: str) -> bool:
     """시스템 프롬프트를 파일에 저장"""
-    global CUSTOM_SYSTEM_PROMPT
+    global CUSTOM_SYSTEM_PROMPT, _system_prompt_loaded
     try:
         CUSTOM_SYSTEM_PROMPT = prompt
+        _system_prompt_loaded = True  # 메모리 캐시 갱신
         with open(SYSTEM_PROMPT_FILE, "w", encoding="utf-8") as f:
             json.dump({"system_prompt": prompt}, f, ensure_ascii=False, indent=2)
         logger.info("시스템 프롬프트 저장 완료")
@@ -319,9 +370,14 @@ def save_system_prompt(prompt: str) -> bool:
         logger.error(f"시스템 프롬프트 저장 실패: {e}")
         return False
 
+_system_prompt_loaded = False
+
 def load_system_prompt() -> Optional[str]:
-    """저장된 시스템 프롬프트 로드"""
-    global CUSTOM_SYSTEM_PROMPT
+    """저장된 시스템 프롬프트 로드 (1회 캐시)"""
+    global CUSTOM_SYSTEM_PROMPT, _system_prompt_loaded
+    if _system_prompt_loaded:
+        return CUSTOM_SYSTEM_PROMPT
+    _system_prompt_loaded = True
     try:
         if os.path.exists(SYSTEM_PROMPT_FILE):
             with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
@@ -377,10 +433,11 @@ CUSTOM_LLM_SETTINGS: Optional[Dict[str, Any]] = None
 
 def save_llm_settings(settings: Dict[str, Any]) -> bool:
     """LLM 설정을 파일에 저장"""
-    global CUSTOM_LLM_SETTINGS
+    global CUSTOM_LLM_SETTINGS, _llm_settings_loaded
     try:
         merged = {**DEFAULT_LLM_SETTINGS, **settings}
         CUSTOM_LLM_SETTINGS = merged
+        _llm_settings_loaded = True  # 메모리 캐시 갱신
         with open(LLM_SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(merged, f, ensure_ascii=False, indent=2)
         logger.info(f"LLM 설정 저장 완료: model={merged.get('selectedModel')}")
@@ -389,9 +446,14 @@ def save_llm_settings(settings: Dict[str, Any]) -> bool:
         logger.error(f"LLM 설정 저장 실패: {e}")
         return False
 
+_llm_settings_loaded = False
+
 def load_llm_settings() -> Dict[str, Any]:
-    """저장된 LLM 설정 로드"""
-    global CUSTOM_LLM_SETTINGS
+    """저장된 LLM 설정 로드 (1회 캐시)"""
+    global CUSTOM_LLM_SETTINGS, _llm_settings_loaded
+    if _llm_settings_loaded:
+        return CUSTOM_LLM_SETTINGS if CUSTOM_LLM_SETTINGS else DEFAULT_LLM_SETTINGS.copy()
+    _llm_settings_loaded = True
     try:
         if os.path.exists(LLM_SETTINGS_FILE):
             with open(LLM_SETTINGS_FILE, "r", encoding="utf-8") as f:

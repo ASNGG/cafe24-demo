@@ -109,9 +109,12 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
     loadData();
   }, [loadData]);
 
-  // L20: 대시보드 자동 폴링 (60초 간격)
+  // L20: 대시보드 자동 폴링 (60초 간격, 탭 비활성 시 건너뛰기)
   useEffect(() => {
-    const interval = setInterval(loadData, 60000);
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      loadData();
+    }, 60000);
     return () => clearInterval(interval);
   }, [loadData]);
 
@@ -178,55 +181,59 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [drilldownSegment, closeDrilldown]);
 
-  // 세그먼트 분포 차트 데이터
+  // 세그먼트 분포 차트 데이터 (의존성 세분화: dashboard 전체 → 하위 경로)
+  const sellerSegments = dashboard?.seller_stats?.segments;
   const segmentData = useMemo(() => {
-    if (!dashboard?.seller_stats?.segments) return [];
-    const segments = dashboard.seller_stats.segments;
-    const total = Object.values(segments).reduce((a, b) => a + b, 0);
-    return Object.entries(segments).map(([name, value], idx) => ({
+    if (!sellerSegments) return [];
+    const total = Object.values(sellerSegments).reduce((a, b) => a + b, 0);
+    return Object.entries(sellerSegments).map(([name, value], idx) => ({
       name,
       value,
       total,
       fill: COLORS.primary[idx % COLORS.primary.length],
     }));
-  }, [dashboard]);
+  }, [sellerSegments]);
 
   // 운영 이벤트 통계 차트 데이터
+  const orderByType = dashboard?.order_stats?.by_type;
   const eventData = useMemo(() => {
-    if (!dashboard?.order_stats?.by_type) return [];
-    return Object.entries(dashboard.order_stats.by_type).map(([name, value], idx) => ({
+    if (!orderByType) return [];
+    return Object.entries(orderByType).map(([name, value], idx) => ({
       name,
       value,
       fill: COLORS.primary[idx % COLORS.primary.length],
     }));
-  }, [dashboard]);
+  }, [orderByType]);
 
   // 쇼핑몰 플랜별 데이터
+  const shopByTier = dashboard?.shop_stats?.by_tier;
   const tierData = useMemo(() => {
-    if (!dashboard?.shop_stats?.by_tier) return [];
-    return Object.entries(dashboard.shop_stats.by_tier).map(([name, value]) => ({
+    if (!shopByTier) return [];
+    return Object.entries(shopByTier).map(([name, value]) => ({
       name,
       value,
       fill: COLORS.tiers[name] || '#1B6FF0',
     }));
-  }, [dashboard]);
+  }, [shopByTier]);
 
   // GMV 데이터
+  const dailyGmv = dashboard?.daily_gmv;
   const gmvData = useMemo(() => {
-    return dashboard?.daily_gmv || [];
-  }, [dashboard]);
+    return dailyGmv || [];
+  }, [dailyGmv]);
 
   // CS 문의 카테고리별 데이터
+  const csByCategory = dashboard?.cs_stats?.by_category;
   const categoryData = useMemo(() => {
-    if (!dashboard?.cs_stats?.by_category) return [];
-    return Object.entries(dashboard.cs_stats.by_category)
+    if (!csByCategory) return [];
+    return Object.entries(csByCategory)
       .map(([name, value], idx) => ({
         name,
         value,
         fill: COLORS.primary[idx % COLORS.primary.length],
       }))
       .sort((a, b) => b.value - a.value);
-  }, [dashboard]);
+  }, [csByCategory]);
 
   return (
     <div>

@@ -10,16 +10,25 @@ from typing import Dict, List
 MAX_MEMORY_TURNS = 10
 MAX_SESSIONS = 1000           # 최대 동시 세션 수
 SESSION_TTL_SEC = 30 * 60     # 30분 비활성 시 만료
+_CLEANUP_INTERVAL_SEC = 60    # cleanup 최소 간격 (초)
 
 # Store
 MEMORY_STORE: Dict[str, deque] = {}
 MEMORY_TIMESTAMPS: Dict[str, float] = {}  # 세션별 마지막 접근 시간
 MEMORY_LOCK = Lock()
+_last_cleanup_time: float = 0.0
 
 
 def _cleanup_expired() -> None:
-    """만료된 세션 정리 (lock 내부에서 호출)"""
+    """만료된 세션 정리 (lock 내부에서 호출, 스로틀 적용)"""
+    global _last_cleanup_time
     now = time.time()
+
+    # 스로틀: 마지막 cleanup으로부터 일정 시간 미경과 시 스킵
+    if now - _last_cleanup_time < _CLEANUP_INTERVAL_SEC:
+        return
+    _last_cleanup_time = now
+
     expired = [k for k, ts in MEMORY_TIMESTAMPS.items() if now - ts > SESSION_TTL_SEC]
     for k in expired:
         MEMORY_STORE.pop(k, None)

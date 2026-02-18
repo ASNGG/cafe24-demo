@@ -1,6 +1,7 @@
 """
 api/routes_rag.py - RAG/LightRAG/K2RAG/OCR API
 """
+import asyncio
 import os
 from datetime import datetime
 
@@ -263,9 +264,23 @@ def k2rag_summarize_endpoint(text: str = Body(..., embed=True), max_length: int 
 # ============================================================
 # OCR
 # ============================================================
+def _ocr_init_reader():
+    """EasyOCR Reader 초기화 (CPU 바운드, 스레드에서 실행)"""
+    global OCR_READER
+    if OCR_READER is None:
+        st.logger.info("OCR_INIT: EasyOCR Reader 초기화 중...")
+        OCR_READER = easyocr.Reader(['ko', 'en'], gpu=False)
+        st.logger.info("OCR_INIT: EasyOCR Reader 초기화 완료")
+    return OCR_READER
+
+
+def _ocr_readtext(reader, contents: bytes) -> list:
+    """OCR 텍스트 추출 (CPU 바운드, 스레드에서 실행)"""
+    return reader.readtext(contents)
+
+
 @router.post("/ocr/extract")
 async def ocr_extract(file: UploadFile = File(...), api_key: str = "", save_to_rag: bool = True, user: dict = Depends(verify_credentials)):
-    global OCR_READER
     if not OCR_AVAILABLE:
         return {"status": "error", "message": "OCR 라이브러리(easyocr)가 설치되지 않았습니다."}
     try:
@@ -277,11 +292,11 @@ async def ocr_extract(file: UploadFile = File(...), api_key: str = "", save_to_r
         contents = await file.read()
         if len(contents) > MAX_FILE_SIZE:
             return {"status": "error", "message": "파일 크기는 20MB를 초과할 수 없습니다."}
-        if OCR_READER is None:
-            st.logger.info("OCR_INIT: EasyOCR Reader 초기화 중...")
-            OCR_READER = easyocr.Reader(['ko', 'en'], gpu=False)
-            st.logger.info("OCR_INIT: EasyOCR Reader 초기화 완료")
-        result_list = OCR_READER.readtext(contents)
+
+        # OCR 초기화 + 텍스트 추출을 스레드에서 비동기 실행 (이벤트 루프 블로킹 방지)
+        reader = await asyncio.to_thread(_ocr_init_reader)
+        result_list = await asyncio.to_thread(_ocr_readtext, reader, contents)
+
         extracted_text = "\n".join([text for _, text, _ in result_list]).strip()
         if not extracted_text:
             return {"status": "error", "message": "이미지에서 텍스트를 추출할 수 없습니다."}
@@ -295,7 +310,8 @@ async def ocr_extract(file: UploadFile = File(...), api_key: str = "", save_to_r
                 f.write(f"[OCR 추출 문서]\n원본 파일: {filename}\n추출 일시: {datetime.now().isoformat()}\n{'='*50}\n\n{extracted_text}")
             k = (api_key or "").strip() or st.OPENAI_API_KEY
             if k:
-                rag_build_or_load_index(api_key=k, force_rebuild=True)
+                # RAG 재빌드도 스레드에서 비동기 실행
+                await asyncio.to_thread(rag_build_or_load_index, api_key=k, force_rebuild=True)
             result["saved_to_rag"] = True
             result["rag_filename"] = txt_filename
             result["message"] = "텍스트가 추출되어 RAG에 저장되었습니다."

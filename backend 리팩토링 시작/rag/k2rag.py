@@ -462,7 +462,7 @@ def query_knowledge_graph(query: str) -> str:
         try:
             from rag.service import KNOWLEDGE_GRAPH
             kg = KNOWLEDGE_GRAPH
-        except:
+        except (ImportError, AttributeError):
             pass
 
     if not kg:

@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const auth = loadFromSession(STORAGE_KEYS.AUTH, null);
-    if (auth?.username && auth?.password) router.replace('/app');
+    if (auth?.username && auth?.password_b64) router.replace('/app');
   }, [router]);
 
   async function onLogin() {
@@ -33,7 +33,7 @@ export default function LoginPage() {
     if (res?.status === 'success') {
       const auth = {
         username,
-        password,
+        password_b64: window.btoa(password),
         user_name: res.user_name,
         user_role: res.user_role,
       };
@@ -49,12 +49,12 @@ export default function LoginPage() {
     setPassword(pass);
   }
 
-  const accounts = [
+  const accounts = process.env.NODE_ENV !== 'production' ? [
     { label: '관리자', user: 'admin', pass: 'admin123', role: 'Admin' },
     { label: '운영자', user: 'operator', pass: 'oper123', role: 'Operator' },
     { label: '분석가', user: 'analyst', pass: 'analyst123', role: 'Analyst' },
     { label: '사용자', user: 'user', pass: 'user123', role: 'User' },
-  ];
+  ] : [];
 
   // 플로팅 아이콘 데이터
   const floatingIcons = [
@@ -164,7 +164,8 @@ export default function LoginPage() {
               )}
             </button>
 
-            {/* 테스트 계정 토글 */}
+            {/* 테스트 계정 토글 - 개발 환경에서만 표시 */}
+            {accounts.length > 0 && (
             <div className="pt-2">
               <button
                 onClick={() => setShowAccounts(!showAccounts)}
@@ -194,6 +195,7 @@ export default function LoginPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
 

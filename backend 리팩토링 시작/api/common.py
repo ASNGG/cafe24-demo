@@ -3,8 +3,10 @@ api/common.py - 라우트 공통 모듈
 Pydantic 모델, 인증, 유틸 등 모든 라우트 파일에서 공유하는 요소
 """
 import json
+from datetime import datetime
 from typing import Optional, List
 
+import pandas as pd
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
@@ -38,6 +40,33 @@ def sse_pack(event: str, data: dict) -> str:
     """SSE 이벤트 포맷으로 직렬화 (LangChain 객체도 안전하게 처리)"""
     safe_data = json_sanitize(data)
     return f"event: {event}\ndata: {json.dumps(safe_data, ensure_ascii=False)}\n\n"
+
+
+# ============================================================
+# 시간 포맷 유틸
+# ============================================================
+def time_ago(dt_value, now: datetime = None) -> str:
+    """datetime → '방금 전', 'N분 전', 'N시간 전', 'N일 전' 형태 문자열"""
+    if dt_value is None or (isinstance(dt_value, float) and pd.isna(dt_value)) or pd.isna(dt_value):
+        return "방금 전"
+    if now is None:
+        now = datetime.now()
+    diff = now - dt_value
+    if diff.days > 0:
+        return f"{diff.days}일 전"
+    if diff.seconds >= 3600:
+        return f"{diff.seconds // 3600}시간 전"
+    if diff.seconds >= 60:
+        return f"{max(1, diff.seconds // 60)}분 전"
+    return "방금 전"
+
+
+# ============================================================
+# 에러 응답 통일
+# ============================================================
+def error_response(message: str, **kwargs) -> dict:
+    """표준 에러 응답 형식"""
+    return {"status": "error", "message": message, **kwargs}
 
 
 # ============================================================

@@ -6,26 +6,8 @@
 """
 
 from collections import Counter, defaultdict
-from datetime import datetime
-from functools import lru_cache
 
-
-# M34: 타임스탬프 파싱 캐싱 (중복 파싱 방지)
-@lru_cache(maxsize=4096)
-def _parse_ts(ts: str) -> datetime:
-    return datetime.fromisoformat(ts)
-
-
-def _group_by_case(events: list[dict]) -> dict[str, list[dict]]:
-    """이벤트를 case_id별로 그룹화하고 timestamp 순 정렬한다."""
-    cases: dict[str, list[dict]] = defaultdict(list)
-    for event in events:
-        cases[event["case_id"]].append(event)
-
-    for case_id in cases:
-        cases[case_id].sort(key=lambda e: e["timestamp"])
-
-    return dict(cases)
+from .helpers import parse_timestamp as _parse_ts, group_events_by_case as _group_by_case
 
 
 def _extract_sequences(cases: dict[str, list[dict]]) -> list[tuple[str, ...]]:

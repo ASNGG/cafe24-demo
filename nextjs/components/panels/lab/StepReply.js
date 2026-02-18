@@ -39,7 +39,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
       });
       setAutoReplyChannels(initial);
     }
-  }, [isAutoMode, autoIdxs, classifyResults]);
+  }, [isAutoMode, autoIdxs, classifyResults, channels]);
 
   const activeChannelKeys = useMemo(() => {
     if (isAutoMode) {

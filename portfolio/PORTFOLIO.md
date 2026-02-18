@@ -78,11 +78,12 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 
 | 지표 | 수치 |
 |:----:|:----:|
-| **AI 도구** | 28개 (Tool Calling) |
+| **AI 도구** | 31개 (Tool Calling) |
 | **ML 모델** | 12개 (6종 알고리즘) |
 | **RAG 엔진** | 8종 기법 적용 |
-| **API 엔드포인트** | 89개 REST API |
-| **프론트엔드 패널** | 11개 기능 패널 |
+| **API 엔드포인트** | 106개 REST API |
+| **프론트엔드 패널** | 13개 기능 패널 |
+| **자동화 엔진** | 3종 (이탈방지 · FAQ · 리포트) |
 | **합성 데이터** | 18개 CSV, ~100K 행 |
 
 ---
@@ -97,10 +98,11 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 6. [CS 자동화 파이프라인](#6-cs-자동화-파이프라인)
 7. [DB 보안 감시 (Data Guardian)](#7-db-보안-감시-data-guardian)
 8. [AI 프로세스 마이너](#8-ai-프로세스-마이너)
-9. [프론트엔드 (11개 패널)](#9-프론트엔드-11개-패널)
-10. [기술 스택 및 아키텍처 결정](#10-기술-스택-및-아키텍처-결정)
-11. [프로젝트 구조](#11-프로젝트-구조)
-12. [설치 및 배포](#12-설치-및-배포)
+9. [자동화 엔진 (이탈방지 · FAQ · 리포트)](#9-자동화-엔진-이탈방지--faq--리포트)
+10. [프론트엔드 (13개 패널)](#10-프론트엔드-13개-패널)
+11. [기술 스택 및 아키텍처 결정](#11-기술-스택-및-아키텍처-결정)
+12. [프로젝트 구조](#12-프로젝트-구조)
+13. [설치 및 배포](#13-설치-및-배포)
 
 ---
 
@@ -110,7 +112,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 
 카페24 같은 이커머스 플랫폼을 운영한다면 어떤 문제가 발생할지 직접 고민하고, 그 문제들을 AI로 해결하는 데모 프로젝트를 풀스택으로 개발했습니다. "셀러가 이탈하기 전에 미리 알 수 있다면?", "이상거래를 사람 대신 자동으로 잡아낼 수 있다면?", "CS 문의를 AI가 분류하고 답변 초안까지 만들어준다면?", "운영 프로세스의 병목을 데이터로 발견할 수 있다면?" — 이런 질문들에서 출발했습니다.
 
-백엔드(FastAPI + LangChain + 12개 ML 모델)부터 프론트엔드(Next.js 14, 11개 패널)까지 전 과정을 직접 설계·구현했으며, 자연어 한 마디로 28개 AI 도구를 호출하여 이커머스 운영 전반을 하나의 에이전트로 통합하는 것을 목표로 했습니다. 시스템은 실시간 데이터 연동을 가정하고 설계했으나, 현재 데모에서는 도메인별 통계적 분포로 생성한 합성 데이터(18개 CSV, ~100K행)를 사용합니다.
+백엔드(FastAPI + LangChain + 12개 ML 모델)부터 프론트엔드(Next.js 14, 13개 패널)까지 전 과정을 직접 설계·구현했으며, 자연어 한 마디로 31개 AI 도구를 호출하여 이커머스 운영 전반을 하나의 에이전트로 통합하는 것을 목표로 했습니다. 시스템은 실시간 데이터 연동을 가정하고 설계했으나, 현재 데모에서는 도메인별 통계적 분포로 생성한 합성 데이터(18개 CSV, ~100K행)를 사용합니다.
 
 ### 해결하는 문제
 
@@ -121,7 +123,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 | **CS 문의** | 담당자 수동 분류/응답 | TF-IDF + RF 자동 분류 + RAG+LLM 답변 + DnD 자동/수동 분기 |
 | **정산 이상** | 수작업 검증 | DBSCAN 이상 패턴 탐지 |
 | **매출 예측** | 경험 기반 추정 | LightGBM 다변량 매출 예측 |
-| **데이터 분석** | SQL 직접 작성 | 자연어 질의 → AI 에이전트 자동 분석 (28개 도구) |
+| **데이터 분석** | SQL 직접 작성 | 자연어 질의 → AI 에이전트 자동 분석 (31개 도구) |
 | **DB 보안** | 수동 모니터링 | 룰엔진 + ML + LangChain Agent 3단계 실시간 차단 |
 | **운영 프로세스** | 경험 기반 병목 파악 | 이벤트 로그 기반 프로세스 마이닝 + ML 이상 탐지 + 자동화 추천 |
 
@@ -149,7 +151,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 flowchart TB
     subgraph Frontend["Frontend · Next.js 14"]
         Login[로그인]
-        Panels["11개 기능 패널"]
+        Panels["13개 기능 패널"]
     end
 
     subgraph Backend["Backend · FastAPI"]
@@ -161,7 +163,7 @@ flowchart TB
         subgraph Agent["AI 에이전트"]
             Runner["Tool Calling 실행기"]
             MultiAgent["LangGraph 멀티 에이전트"]
-            Tools["28개 도구 함수"]
+            Tools["31개 도구 함수"]
         end
 
         subgraph RAGSystem["RAG 시스템"]
@@ -233,7 +235,7 @@ sequenceDiagram
 
 ### 3.1 2단계 인텐트 라우터
 
-**문제**: 28개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.
+**문제**: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.
 
 **해결**: 2단계 Router 패턴으로 도구 선택 공간을 7개 카테고리로 축소합니다.
 
@@ -254,7 +256,7 @@ flowchart TB
 
     Q -->|"0ms, 비용 0"| Stage1
     Stage1 -->|"매칭 실패 → fallback"| Stage2
-    Stage1 & Stage2 --> Tools["카테고리별 도구 4~16개만 노출"]
+    Stage1 & Stage2 --> Tools["카테고리별 도구 4~19개만 노출"]
 ```
 
 **IntentCategory (7개)**:
@@ -296,7 +298,7 @@ LLM 호출 **전에** 키워드 매칭으로 필수 도구를 강제 실행합�
 | 위험 등급 | "고위험" | `고위험\|중위험\|저위험` |
 | 코호트 | `2024-01 W1` | `\d{4}-\d{2}\s*W\d` |
 
-### 3.4 도구 함수 (28개)
+### 3.4 도구 함수 (31개)
 
 | 카테고리 | 도구 | ML 모델 | 설명 |
 |---------|------|:-------:|------|
@@ -306,6 +308,7 @@ LLM 호출 **전에** 키워드 매칭으로 필수 도구를 강제 실행합�
 | **예측** | `predict_seller_churn`, `get_churn_prediction`, `predict_shop_revenue`, `get_gmv_prediction`, `optimize_marketing` | RF+SHAP, LightGBM, P-PSO | ML 예측 + 최적화 |
 | **분석** | `get_cohort_analysis`, `get_trend_analysis`, `get_order_statistics`, `get_dashboard_summary` | - | KPI/코호트/트렌드 |
 | **CS** | `auto_reply_cs`, `check_cs_quality`, `classify_inquiry`, `get_cs_statistics`, `get_ecommerce_glossary` | TF-IDF+RF, RF | CS 자동화 |
+| **리텐션** | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action` | RF+SHAP, GPT-4o-mini | 이탈 위험 셀러 탐지 + 맞춤 메시지 + 자동 조치 |
 
 ### 3.5 멀티 에이전트 (LangGraph)
 
@@ -316,9 +319,12 @@ flowchart TD
     C["Coordinator · GPT-4o"] -->|"검색"| S["Search Agent · 7개 도구"]
     C -->|"분석"| A["Analysis Agent · 16개 도구"]
     C -->|"CS"| T["CS Agent · 5개 도구"]
-    S & A & T --> Tools["Tool Executor"]
-    Tools --> S & A & T -->|"최종 응답"| END
+    C -->|"리텐션"| R["Sub-Agent · 5개 도구"]
+    S & A & T & R --> Tools["Tool Executor"]
+    Tools --> S & A & T & R -->|"최종 응답"| END
 ```
+
+**Sub-Agent (서브에이전트)**: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 이탈 위험 셀러 탐지 → 맞춤 메시지 생성 → 자동 조치 실행을 순차적으로 수행합니다.
 
 > 기본 운영은 single 모드 (1 LLM + 2단계 라우터 + Tool Calling). multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험 모드로 제공합니다.
 
@@ -601,7 +607,85 @@ flowchart LR
 
 ---
 
-## 9. 프론트엔드 (11개 패널)
+## 9. 자동화 엔진 (이탈방지 · FAQ · 리포트)
+
+ML 예측 결과를 기반으로 자동 조치까지 수행하는 3종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결합니다.
+
+```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+flowchart TD
+    subgraph Retention["이탈 방지 엔진"]
+        R1["ML 이탈 예측 · RF+SHAP"] --> R2["위험 셀러 탐지"]
+        R2 --> R3["LLM 맞춤 메시지 생성"]
+        R3 --> R4["자동 조치 실행<br/>(쿠폰·업그레이드·매니저 배정)"]
+    end
+
+    subgraph FAQ["FAQ 자동 생성 엔진"]
+        F1["CS 문의 패턴 분석"] --> F2["LLM FAQ 자동 생성"]
+        F2 --> F3["관리자 승인/편집"]
+    end
+
+    subgraph Report["운영 리포트 엔진"]
+        P1["플랫폼 KPI 집계"] --> P2["LLM 리포트 작성"]
+        P2 --> P3["일간/주간/월간 리포트"]
+    end
+
+    ActionLog["Action Logger · 전 조치 이력 추적"]
+    Retention & FAQ & Report --> ActionLog
+```
+
+### 9.1 이탈 방지 자동 조치
+
+| 단계 | 기능 | 기술 |
+|:----:|------|------|
+| 1. 탐지 | 이탈 확률 >= 임계값 셀러 일괄 탐지 | RandomForest + SHAP |
+| 2. 메시지 | SHAP 원인 분석 기반 맞춤 리텐션 메시지 | GPT-4o-mini |
+| 3. 조치 | 쿠폰 발급 / 업그레이드 제안 / 매니저 배정 / 맞춤 메시지 | 4종 action_type |
+| 4. 추적 | 모든 조치 이력 로깅 + 파이프라인 단계별 추적 | Action Logger |
+
+### 9.2 CS FAQ 자동 생성
+
+CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.
+
+- **카테고리별 생성**: 배송, 환불, 결제, 상품, 계정 등 9개 카테고리
+- **승인 워크플로우**: draft → approved 상태 관리
+- **CRUD**: 생성 · 조회 · 수정 · 삭제 · 승인
+
+### 9.3 운영 리포트 자동 생성
+
+플랫폼 전체 KPI를 집계하여 LLM이 자연어 리포트를 자동 작성합니다.
+
+| 리포트 유형 | 주기 | 포함 내용 |
+|:----------:|:----:|----------|
+| 일간 | 매일 | GMV, 활성 셀러, 주문수, CS 현황 |
+| 주간 | 매주 | 주간 트렌드 + 전주 대비 변화율 |
+| 월간 | 매월 | 월간 종합 + 세그먼트 분석 + 개선 제안 |
+
+### API 엔드포인트 (17개)
+
+| 영역 | 엔드포인트 | 설명 |
+|------|-----------|------|
+| **이탈 방지** | `GET /retention/at-risk` | 위험 셀러 목록 |
+| | `POST /retention/message` | 맞춤 메시지 생성 |
+| | `POST /retention/execute` | 단건 조치 실행 |
+| | `POST /retention/execute-bulk` | 일괄 조치 실행 |
+| | `GET /retention/history` | 조치 이력 |
+| **FAQ** | `POST /faq/analyze` | 문의 패턴 분석 |
+| | `POST /faq/generate` | FAQ 자동 생성 |
+| | `GET /faq/list` | FAQ 목록 |
+| | `PUT /faq/{id}/approve` | FAQ 승인 |
+| | `PUT /faq/{id}` | FAQ 수정 |
+| | `DELETE /faq/{id}` | FAQ 삭제 |
+| **리포트** | `POST /report/generate` | 리포트 생성 |
+| | `GET /report/history` | 리포트 이력 |
+| **공통** | `GET /actions/log` | 전체 액션 로그 |
+| | `GET /actions/stats` | 액션 통계 |
+| | `GET /categories` | 카테고리 목록 |
+| | `GET /pipeline/{run_id}` | 파이프라인 추적 |
+
+---
+
+## 10. 프론트엔드 (13개 패널)
 
 ### UX 설계 원칙
 
@@ -611,7 +695,7 @@ flowchart LR
 | **실시간 피드백** | SSE 토큰 스트리밍, 도구 호출 상태 실시간 업데이트 |
 | **직접 조작** | DnD로 CS 문의 분기, 슬라이더로 신뢰도 조정 |
 | **상태 가시성** | 스켈레톤, NProgress, 토스트 알림 |
-| **RBAC** | 관리자 11개 / 비관리자 6개 패널 |
+| **RBAC** | 관리자 13개 / 비관리자 8개 패널 |
 
 ### 패널 구성
 
@@ -628,6 +712,8 @@ flowchart LR
 | 9 | **CS 파이프라인** | 5단계 자동화 (DnD + React Flow + n8n) | Framer Motion, @xyflow/react |
 | 10 | **DB 보안 감시** | 3단계 쿼리 분석 + 복구 | 감시 모드 토글, 프리셋 8개 |
 | 11 | **프로세스 마이너** | 프로세스 발견 + ML 예측 + 이상 탐지 | 위상 정렬 BFS 렌더링 |
+| 12 | **서브에이전트** | 복합 리텐션 오케스트레이션 (탐지→메시지→조치) | LangGraph, SSE 파이프라인 |
+| 13 | **자동화 엔진** | 이탈방지 · FAQ 자동생성 · 운영 리포트 (3탭) | 탭 분리, 파이프라인 추적 |
 
 ### 대시보드 패널 상세
 
@@ -658,7 +744,7 @@ flowchart LR
 
 ---
 
-## 10. 기술 스택 및 아키텍처 결정
+## 11. 기술 스택 및 아키텍처 결정
 
 ### 백엔드
 
@@ -723,7 +809,7 @@ flowchart LR
 
 ---
 
-## 11. 프로젝트 구조
+## 12. 프로젝트 구조
 
 ```
 카페24 프로젝트/
@@ -734,25 +820,27 @@ flowchart LR
 │   ├── main.py                        # 앱 진입점 (미들웨어, startup)
 │   ├── state.py                       # 전역 상태 (DataFrame 16개 + 모델 12개)
 │   │
-│   ├── api/                           # REST API (도메인별 분리)
+│   ├── api/                           # REST API (도메인별 분리, 100개 엔드포인트)
 │   │   ├── common.py                  # 공통 의존성 (인증, 요청 모델)
+│   │   ├── routes.py                  # 라우터 통합 (9개 도메인 라우터)
 │   │   ├── routes_shop.py             # 쇼핑몰/카테고리/대시보드/분석/통계
 │   │   ├── routes_seller.py           # 셀러 검색/세그먼트/활동
 │   │   ├── routes_cs.py               # CS 파이프라인/자동화
-│   │   ├── routes_rag.py              # RAG 검색/인덱스 관리
+│   │   ├── routes_rag.py              # RAG/LightRAG/K2RAG 검색, OCR
 │   │   ├── routes_ml.py               # MLflow/마케팅 최적화
 │   │   ├── routes_guardian.py         # DB 보안 감시
 │   │   ├── routes_agent.py            # AI 에이전트 (SSE 스트리밍)
-│   │   └── routes_admin.py            # 관리자/설정/시스템
+│   │   ├── routes_admin.py            # 관리자/설정/시스템
+│   │   └── routes_automation.py       # 자동화 엔진 (이탈방지/FAQ/리포트, 17개)
 │   │
 │   ├── agent/                         # AI 에이전트 시스템
 │   │   ├── runner.py                  # Tool Calling 실행기
-│   │   ├── tools.py                   # 28개 도구 함수
+│   │   ├── tools.py                   # 31개 도구 함수 (+ 에이전트별 분류)
 │   │   ├── tool_schemas.py            # 도구 스키마 정의
 │   │   ├── router.py                  # 2단계 라우터
 │   │   ├── intent.py                  # 인텐트 분류
 │   │   ├── semantic_router.py         # 시맨틱 라우터
-│   │   ├── multi_agent.py             # LangGraph 멀티 에이전트
+│   │   ├── multi_agent.py             # LangGraph 멀티 에이전트 + 서브에이전트
 │   │   ├── crag.py                    # Corrective RAG
 │   │   └── llm.py                     # LLM 호출 래퍼 (재시도, GPT-5 호환)
 │   │
@@ -772,32 +860,64 @@ flowchart LR
 │   │   ├── marketing_optimizer.py     # P-PSO 마케팅 최적화
 │   │   └── mlflow_tracker.py          # MLflow 실험 추적
 │   │
+│   ├── automation/                    # 자동화 엔진
+│   │   ├── retention_engine.py        # 셀러 이탈 방지 (ML+LLM 자동 조치)
+│   │   ├── faq_engine.py              # CS FAQ 자동 생성 (패턴 분석+LLM)
+│   │   ├── report_engine.py           # 운영 리포트 자동 생성
+│   │   └── action_logger.py           # 전 조치 이력 로깅 + 파이프라인 추적
+│   │
 │   ├── n8n/                           # n8n 워크플로우 연동
 │   │   ├── _writer.py                 # 워크플로우 JSON 생성
 │   │   └── cs_reply_workflow.json     # CS 회신 워크플로우
 │   │
-│   ├── process_miner/                 # 프로세스 마이너 (발견/병목/예측/이상/추천)
+│   ├── process_miner/                 # 프로세스 마이너 (6개 엔드포인트)
+│   │   ├── routes.py                  # 프로세스 마이너 API 라우터
+│   │   ├── miner.py                   # 프로세스 발견
+│   │   ├── bottleneck.py              # 병목 분석
+│   │   ├── predictor.py               # 다음 활동 예측
+│   │   ├── anomaly_detector.py        # 이상 프로세스 탐지
+│   │   ├── recommender.py             # AI 자동화 추천
+│   │   ├── event_generator.py         # 이벤트 로그 생성
+│   │   └── helpers.py                 # 프로세스 마이너 유틸리티
+│   │
 │   ├── core/                          # 유틸리티 (상수, 파서, 메모리)
 │   ├── data/loader.py                 # CSV 16개 → DataFrame + 모델 12개 로더
 │   └── Dockerfile
 │
 └── nextjs/                            # Next.js 프론트엔드
     ├── pages/                         # Pages Router (login, app, API Routes)
-    │   ├── app.js                     # 메인 앱 (탭 기반 11개 패널)
+    │   ├── _document.js               # HTML 문서 설정
+    │   ├── app.js                     # 메인 앱 (탭 기반 13개 패널)
     │   └── api/                       # SSE 프록시 5개
     ├── components/
-    │   ├── panels/                    # 11개 기능 패널
-    │   │   ├── lab/                   # AI 실험실 (11개 컴포넌트)
+    │   ├── panels/                    # 13개 기능 패널
+    │   │   ├── hooks/                 # SSE 스트리밍 훅
+    │   │   │   ├── useBaseStream.js   # 공통 SSE 베이스 훅
+    │   │   │   ├── useAgentStream.js  # 에이전트 스트리밍
+    │   │   │   └── useSubAgentStream.js # 서브에이전트 스트리밍
+    │   │   ├── lab/                   # CS 파이프라인 (11개 컴포넌트)
     │   │   ├── analysis/              # 상세 분석 (10개 컴포넌트, 9탭)
+    │   │   ├── guardian/              # DB 보안 감시 (MonitorTab, RecoverTab, DashboardTab)
+    │   │   │   └── common/ToolStep.js # 도구 실행 단계 공통 컴포넌트
+    │   │   ├── automation/            # 자동화 엔진 (RetentionTab, FaqTab, ReportTab)
+    │   │   ├── process-miner/         # 프로세스 마이너 (Discover, Bottleneck, Recommend)
+    │   │   ├── SubAgentPanel.js       # 서브에이전트 패널
+    │   │   ├── AutomationPanel.js     # 자동화 엔진 패널
     │   │   └── ...                    # 기타 패널
-    │   └── common/                    # 공유 컴포넌트 (CustomTooltip, StatCard 등)
+    │   └── common/                    # 공유 컴포넌트
+    │       ├── constants.js           # 차트 색상 상수 + 유틸
+    │       ├── CustomTooltip.js       # 차트 툴팁
+    │       ├── StatCard.js            # KPI 카드
+    │       ├── EditableAnswer.js      # 편집 가능 답변
+    │       ├── DataState.js           # 데이터 로딩/에러 상태
+    │       └── buttonStyles.js        # CAFE24 버튼 스타일
     ├── lib/                           # API 호출, SSE 파서, 스토리지
     └── styles/globals.css             # CAFE24 디자인 시스템
 ```
 
 ---
 
-## 12. 설치 및 배포
+## 13. 설치 및 배포
 
 ### 로컬 실행
 
@@ -836,10 +956,10 @@ flowchart LR
 
 | 계정 | 비밀번호 | 역할 | 접근 패널 |
 |------|---------|:----:|:---------:|
-| `admin` | `admin123` | 관리자 | 11개 전체 |
-| `analyst` | `analyst123` | 분석가 | 6개 |
-| `user` | `user123` | 사용자 | 6개 |
-| `operator` | `oper123` | 운영자 | 6개 |
+| `admin` | `admin123` | 관리자 | 13개 전체 |
+| `analyst` | `analyst123` | 분석가 | 8개 |
+| `user` | `user123` | 사용자 | 8개 |
+| `operator` | `oper123` | 운영자 | 8개 |
 
 ---
 
@@ -850,8 +970,9 @@ flowchart LR
 **LLM**: GPT-4o / GPT-4o-mini (Tool Calling + SSE 스트리밍)
 **ML**: RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO
 **RAG**: FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · LightRAG · K2RAG · CRAG
-**Backend**: FastAPI · LangChain · LangGraph · MLflow · n8n · Resend
-**Frontend**: Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX
+**Backend**: FastAPI · LangChain · LangGraph · MLflow · n8n · Resend · 106개 API
+**Frontend**: Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX · 13개 패널
+**Automation**: 이탈방지 엔진 · FAQ 자동생성 · 운영 리포트 · 서브에이전트 오케스트레이션
 
 ---
 

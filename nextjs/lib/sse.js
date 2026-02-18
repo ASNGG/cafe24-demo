@@ -11,8 +11,9 @@ export function createAuthHeaders(auth, extra = {}) {
     'Content-Type': 'application/json',
     ...extra,
   };
-  if (auth?.username && auth?.password) {
-    headers['Authorization'] = 'Basic ' + btoa(`${auth.username}:${auth.password}`);
+  if (auth?.username && (auth?.password || auth?.password_b64)) {
+    const password = auth.password_b64 ? atob(auth.password_b64) : auth.password;
+    headers['Authorization'] = 'Basic ' + btoa(`${auth.username}:${password}`);
   }
   return headers;
 }

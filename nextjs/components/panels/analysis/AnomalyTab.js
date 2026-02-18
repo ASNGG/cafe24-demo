@@ -3,6 +3,7 @@
 
 import { AlertTriangle, Shield, Eye, Activity, Zap } from 'lucide-react';
 import CustomTooltip from '@/components/common/CustomTooltip';
+import { getSeverityClasses } from '@/components/common/constants';
 import AnalysisEmptyState from './common/EmptyState';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -130,32 +131,24 @@ export default function AnomalyTab({ selectedUser, anomalyData }) {
           <span className="text-sm font-black text-cafe24-brown">실시간 이상 탐지 알림</span>
         </div>
         <div className="space-y-3">
-          {(anomalyData.recent_alerts || []).map((alert, idx) => (
-            <div key={idx} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${
-              alert.severity === 'high' ? 'border-red-200 bg-red-50' :
-              alert.severity === 'medium' ? 'border-orange-200 bg-orange-50' :
-              'border-yellow-200 bg-yellow-50'
-            }`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                alert.severity === 'high' ? 'bg-red-500' :
-                alert.severity === 'medium' ? 'bg-orange-500' : 'bg-yellow-500'
-              }`}>
+          {(anomalyData.recent_alerts || []).map((alert, idx) => {
+            const sc = getSeverityClasses(alert.severity);
+            return (
+            <div key={idx} className={`flex items-center gap-4 p-4 rounded-2xl border-2 ${sc.border} ${sc.bg}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${sc.icon}`}>
                 <AlertTriangle size={18} className="text-white" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-bold text-cafe24-brown">{alert.id}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    alert.severity === 'high' ? 'bg-red-200 text-red-700' :
-                    alert.severity === 'medium' ? 'bg-orange-200 text-orange-700' :
-                    'bg-yellow-200 text-yellow-700'
-                  }`}>{alert.type}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sc.badge}`}>{alert.type}</span>
                 </div>
                 <p className="text-sm text-cafe24-brown/70">{alert.detail}</p>
               </div>
               <div className="text-xs text-cafe24-brown/50">{alert.time}</div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       </>

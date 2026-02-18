@@ -8,12 +8,12 @@ IsolationForest를 사용하여 비정상적인 활동 시퀀스를 가진
 
 from collections import defaultdict
 from datetime import datetime
-from functools import lru_cache
 
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
 import state as st
+from .helpers import parse_timestamp as _parse_timestamp, group_events_by_case
 
 # ── 프로세스별 정상 활동 집합 ──────────────────────────────────
 NORMAL_ACTIVITIES: dict[str, set[str]] = {
@@ -21,12 +21,6 @@ NORMAL_ACTIVITIES: dict[str, set[str]] = {
     "cs": {"CS접수", "자동분류", "담당자배정", "1차응대", "해결완료"},
     "settlement": {"정산요청", "데이터검증", "금액계산", "승인", "지급완료"},
 }
-
-
-# M34: 타임스탬프 파싱 캐싱 (중복 파싱 방지)
-@lru_cache(maxsize=4096)
-def _parse_timestamp(ts: str) -> datetime:
-    return datetime.fromisoformat(ts)
 
 
 # ── 단일 케이스 인코딩 ────────────────────────────────────────
@@ -88,12 +82,7 @@ def _prepare_case_features(
         (features_matrix, case_ids, all_activities)
     """
     # case별 이벤트 그룹화
-    cases: dict[str, list[dict]] = defaultdict(list)
-    for event in events:
-        cases[event["case_id"]].append(event)
-
-    for cid in cases:
-        cases[cid].sort(key=lambda e: e["timestamp"])
+    cases = group_events_by_case(events)
 
     # 모든 활동 종류 수집 (정렬해서 일관된 순서 보장)
     all_activity_set: set[str] = set()
@@ -219,11 +208,7 @@ def detect_anomalies(
         normal_acts |= NORMAL_ACTIVITIES.get(pt, set())
 
     # 케이스별 이벤트 맵 (이상 케이스 상세 조회용)
-    cases_map: dict[str, list[dict]] = defaultdict(list)
-    for event in events:
-        cases_map[event["case_id"]].append(event)
-    for cid in cases_map:
-        cases_map[cid].sort(key=lambda e: e["timestamp"])
+    cases_map = group_events_by_case(events)
 
     # 이상 케이스 상세
     anomalies: list[dict] = []

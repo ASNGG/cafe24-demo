@@ -6,6 +6,7 @@ RAG-Fusion, 쿼리 확장 등 검색 관련 기능
 """
 import re
 import time
+import threading
 from collections import OrderedDict
 from typing import List, Dict, Tuple, Any, Optional
 from functools import lru_cache
@@ -43,6 +44,40 @@ BM25_INDEX: Optional[Any] = None
 BM25_CORPUS: List[str] = []
 BM25_DOC_MAP: List[Dict] = []
 
+# ============================================================
+# 스레드 안전성 (BM25 인덱스 접근 보호)
+# ============================================================
+_BM25_LOCK = threading.Lock()
+
+# ============================================================
+# 동일 쿼리 TTL 캐시 (하이브리드 검색 결과 캐싱)
+# ============================================================
+_SEARCH_CACHE: OrderedDict = OrderedDict()
+_SEARCH_CACHE_LOCK = threading.Lock()
+_SEARCH_CACHE_MAX_SIZE = 200
+_SEARCH_CACHE_TTL = 300  # 5분
+
+
+def _get_search_cache(key: str) -> Optional[Any]:
+    """TTL 검색 캐시 조회 (thread-safe, LRU)"""
+    with _SEARCH_CACHE_LOCK:
+        if key not in _SEARCH_CACHE:
+            return None
+        result, ts = _SEARCH_CACHE[key]
+        if time.time() - ts > _SEARCH_CACHE_TTL:
+            del _SEARCH_CACHE[key]
+            return None
+        _SEARCH_CACHE.move_to_end(key)
+        return result
+
+
+def _set_search_cache(key: str, value: Any) -> None:
+    """TTL 검색 캐시 저장 (thread-safe, LRU eviction)"""
+    with _SEARCH_CACHE_LOCK:
+        if len(_SEARCH_CACHE) >= _SEARCH_CACHE_MAX_SIZE:
+            _SEARCH_CACHE.popitem(last=False)
+        _SEARCH_CACHE[key] = (value, time.time())
+
 
 # ============================================================
 # Korean Tokenizer (M23: 공통 유틸로 위임)
@@ -54,52 +89,65 @@ _tokenize_korean = _shared_tokenize_korean
 # BM25 인덱스 관리
 # ============================================================
 def _build_bm25_index(chunks: List[Any]) -> bool:
-    """BM25 인덱스 빌드"""
+    """BM25 인덱스 빌드 (thread-safe)"""
     global BM25_INDEX, BM25_CORPUS, BM25_DOC_MAP
 
     if not BM25_AVAILABLE or BM25Okapi is None:
         return False
 
     try:
-        BM25_CORPUS = []
-        BM25_DOC_MAP = []
+        corpus = []
+        doc_map = []
 
         for chunk in chunks:
             try:
                 content = safe_str(getattr(chunk, "page_content", ""))
                 metadata = getattr(chunk, "metadata", {})
                 if content:
-                    BM25_CORPUS.append(content)
-                    BM25_DOC_MAP.append({
+                    corpus.append(content)
+                    doc_map.append({
                         "content": content,
                         "source": metadata.get("source", ""),
                         "parent_id": metadata.get("parent_id", ""),
                     })
-            except Exception:
+            except (AttributeError, TypeError):
                 continue
 
-        if not BM25_CORPUS:
+        if not corpus:
             return False
 
-        tokenized_corpus = [_tokenize_korean(doc) for doc in BM25_CORPUS]
-        BM25_INDEX = BM25Okapi(tokenized_corpus)
-        st.logger.info("BM25_INDEX_BUILT docs=%d", len(BM25_CORPUS))
+        tokenized_corpus = [_tokenize_korean(doc) for doc in corpus]
+        new_index = BM25Okapi(tokenized_corpus)
+
+        with _BM25_LOCK:
+            BM25_CORPUS = corpus
+            BM25_DOC_MAP = doc_map
+            BM25_INDEX = new_index
+
+        st.logger.info("BM25_INDEX_BUILT docs=%d", len(corpus))
         return True
-    except Exception as e:
+    except (ValueError, RuntimeError) as e:
         st.logger.warning("BM25_BUILD_FAIL err=%s", safe_str(e))
         return False
 
 
 def _bm25_search(query: str, top_k: int = 5, parent_content_func=None) -> List[Tuple[Dict, float]]:
-    """BM25 검색 (키워드 기반)"""
-    global BM25_INDEX, BM25_DOC_MAP
+    """BM25 검색 (키워드 기반, thread-safe, TTL 캐시)"""
+    # TTL 캐시 확인
+    cache_key = f"bm25:{query}:{top_k}"
+    cached = _get_search_cache(cache_key)
+    if cached is not None:
+        return cached
 
-    if BM25_INDEX is None or not BM25_DOC_MAP:
-        return []
+    with _BM25_LOCK:
+        if BM25_INDEX is None or not BM25_DOC_MAP:
+            return []
+        local_index = BM25_INDEX
+        local_doc_map = list(BM25_DOC_MAP)
 
     try:
         tokenized_query = _tokenize_korean(query)
-        scores = BM25_INDEX.get_scores(tokenized_query)
+        scores = local_index.get_scores(tokenized_query)
 
         scored_docs = list(zip(range(len(scores)), scores))
         scored_docs.sort(key=lambda x: x[1], reverse=True)
@@ -113,7 +161,7 @@ def _bm25_search(query: str, top_k: int = 5, parent_content_func=None) -> List[T
             if len(results) >= top_k:
                 break
 
-            doc = BM25_DOC_MAP[idx]
+            doc = local_doc_map[idx]
             child_content = doc.get("content", "")
             source = doc.get("source", "")
             parent_id = doc.get("parent_id", "")
@@ -140,8 +188,9 @@ def _bm25_search(query: str, top_k: int = 5, parent_content_func=None) -> List[T
                 score
             ))
 
+        _set_search_cache(cache_key, results)
         return results
-    except Exception as e:
+    except (ValueError, IndexError, RuntimeError) as e:
         st.logger.warning("BM25_SEARCH_FAIL err=%s", safe_str(e))
         return []
 

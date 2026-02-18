@@ -6,8 +6,15 @@ export function getApiBase() {
   return String(base).replace(/\/$/, '');
 }
 
-export function makeBasicAuthHeader(username, password) {
+/**
+ * Basic Auth 헤더 생성
+ * @param {string} username
+ * @param {string} passwordOrB64 - 평문 비밀번호 또는 btoa 인코딩된 비밀번호
+ * @param {boolean} [isB64=false] - true면 passwordOrB64를 atob으로 디코딩 후 사용
+ */
+export function makeBasicAuthHeader(username, passwordOrB64, isB64 = false) {
   if (typeof window === 'undefined') return '';
+  const password = isB64 ? window.atob(passwordOrB64) : passwordOrB64;
   const token = window.btoa(`${username}:${password}`);
   return `Basic ${token}`;
 }
@@ -20,6 +27,7 @@ export async function apiCall({
   timeoutMs = 60000,
   headers = {},
   responseType = 'json',
+  cache = 'no-store',
 }) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -29,7 +37,7 @@ export async function apiCall({
 
   const init = {
     method,
-    cache: 'no-store',
+    cache,
     signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
@@ -37,8 +45,10 @@ export async function apiCall({
     },
   };
 
-  if (auth?.username && auth?.password) {
-    init.headers['Authorization'] = makeBasicAuthHeader(auth.username, auth.password);
+  if (auth?.username && (auth?.password || auth?.password_b64)) {
+    const pw = auth.password_b64 || auth.password;
+    const isB64 = !!auth.password_b64;
+    init.headers['Authorization'] = makeBasicAuthHeader(auth.username, pw, isB64);
   }
 
   if (method !== 'GET' && method !== 'HEAD' && data !== null) {

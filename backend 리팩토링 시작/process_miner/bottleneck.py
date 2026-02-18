@@ -7,14 +7,9 @@
 
 from collections import defaultdict
 from datetime import datetime
-from functools import lru_cache
 from typing import Optional
 
-
-# M34: 타임스탬프 파싱 캐싱 (중복 파싱 방지)
-@lru_cache(maxsize=4096)
-def _parse_timestamp(ts: str) -> datetime:
-    return datetime.fromisoformat(ts)
+from .helpers import parse_timestamp as _parse_timestamp, group_events_by_case
 
 
 def _get_time_slot(dt: datetime) -> str:
@@ -76,12 +71,7 @@ def analyze_bottlenecks(events: list[dict]) -> dict:
         }
 
     # ── case별 이벤트 그룹화 ──
-    cases: dict[str, list[dict]] = defaultdict(list)
-    for event in events:
-        cases[event["case_id"]].append(event)
-
-    for case_id in cases:
-        cases[case_id].sort(key=lambda e: e["timestamp"])
+    cases = group_events_by_case(events)
 
     # ── 전이별 소요시간 수집 ──
     # (from_act, to_act) -> [(duration_minutes, case_id, timestamp), ...]

@@ -22,16 +22,21 @@ v8.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v8.5.0** (2026-02-18) — 전체 코드 최적화 및 성능 개선 (18파일)
+> **v8.5.0** (2026-02-18) — 전체 코드 최적화 1차+2차 통합 (~71파일)
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **백엔드 성능** | state.py 로깅 싱글톤/설정 캐시, data/loader.py 라벨인코더 병렬 로드(ThreadPoolExecutor)/build_caches 벡터화/revenue_model 비동기 학습/MLflow 캐싱, main.py RAG 비동기 백그라운드 초기화 |
-| **API 최적화** | routes_shop.py set_index 캐싱/인사이트 TTL 캐시, routes_cs.py cleanup 빈도 제한, routes_admin.py 불필요한 copy() 제거 |
+| **백엔드 성능** | state.py 로깅 싱글톤/설정 캐시, data/loader.py 라벨인코더 병렬 로드(ThreadPoolExecutor)/build_caches 벡터화/revenue_model 비동기 학습/MLflow 캐싱, main.py RAG 비동기 백그라운드 초기화, safe_float 최적화, memory cleanup 스로틀(60초), asyncio.get_running_loop(), LAST_CONTEXT TTL+크기 제한(200) |
+| **API 최적화** | routes_shop.py set_index 캐싱/인사이트 TTL 캐시, routes_cs.py cleanup 빈도 제한/CS 파이프라인 asyncio.gather 병렬화, routes_admin.py 불필요한 copy() 제거, time_ago/error_response 통합, DataFrame .copy() 제거, MLflow 싱글톤, Guardian DB context manager |
 | **에이전트 최적화** | tools.py .copy() 5건 제거/세그먼트 캐시/JSON 파싱 헬퍼 통합, multi_agent.py 도구·프롬프트 캐시, router.py 정규식 사전 컴파일, intent.py 키워드 frozenset 변환, llm.py LLM 인스턴스 캐시, runner.py 도구 매핑 캐시/정규식 6개 사전 컴파일 |
-| **프론트 렌더링** | AgentPanel ChatMessage/ToolCalls React.memo, remarkPlugins 모듈 상수화, DashboardPanel useMemo 의존성 세분화/폴링 document.hidden 체크 |
-| **프론트 SSE** | useAgentStream/useSubAgentStream flushTimer 개선, cleanup 강화 (abort/timeout 리소스 정리) |
-| **프론트 유틸** | app.js localStorage debounce 통합, zoom 반응형, storage.js 1MB 크기 제한 |
+| **RAG 안정성** | FAISS TTL 캐시(5분), 스레드 안전성(threading.Lock), bare except → 구체적 예외 (search/service/kg/k2rag/chunking) |
+| **ML/자동화** | mlflow_tracker bare except 정리, action_logger 5개 저장소 크기 제한, retention_engine 중복 코드 5개 공통 함수 통합 |
+| **프로세스 마이너** | 헬퍼 추출(parse_timestamp, group_events_by_case) |
+| **프론트 SSE** | useBaseStream 공통 훅 추출(660→420줄), stopStream 메시지 유실 버그 수정, flushTimer 개선, cleanup 강화 (abort/timeout 리소스 정리) |
+| **프론트 컴포넌트** | ToolStep/EmptyState/getSeverityClasses 공통 컴포넌트 추출, MARKDOWN_COMPONENTS 모듈 상수화, React.memo/useMemo/useCallback 12건, ChatMessage/ToolCalls React.memo |
+| **프론트 아키텍처/보안** | _document.js 생성, password btoa 인코딩, CORS 제한, 테스트 계정 조건부, poweredByHeader:false, ExampleQuestionBridge 제거 |
+| **프론트 유틸** | app.js localStorage debounce 통합, zoom 반응형, storage.js 1MB 크기 제한, DashboardPanel useMemo 의존성 세분화/폴링 document.hidden 체크 |
+| **Tailwind 정리** | 미사용 색상/animation/gradient 제거, 번들 최적화 |
 
 > **v8.4.0** (2026-02-16) — 서브에이전트 오케스트레이션 아키텍처 `🚧 개발중`
 
@@ -648,7 +653,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 8.5.0 | 2026-02-18 | 전체 코드 최적화 및 성능 개선 (18파일): 백엔드 로깅 싱글톤/병렬 로드/벡터화/비동기 학습/MLflow 캐싱, API set_index 캐싱/TTL 캐시/cleanup 빈도 제한, 에이전트 copy() 제거/세그먼트 캐시/정규식 사전 컴파일/LLM 인스턴스 캐시, 프론트 React.memo/useMemo 세분화/SSE cleanup 강화/localStorage debounce |
+| 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 로깅 싱글톤/병렬 로드/MLflow 싱글톤/asyncio.gather 병렬화/FAISS TTL 캐시/스레드 안전성/bare except 정리/저장소 크기 제한/중복 코드 통합/헬퍼 추출/memory cleanup 스로틀, 에이전트 copy() 제거/세그먼트 캐시/정규식 사전 컴파일/LLM 인스턴스 캐시, 프론트 useBaseStream 공통 훅 추출/메시지 유실 버그 수정/공통 컴포넌트 추출(ToolStep/EmptyState)/React.memo·useMemo·useCallback 12건/_document.js/password btoa/CORS 제한/Tailwind 미사용 정리 |
 | 8.4.0 | 2026-02-16 | `🚧 개발중` 서브에이전트 오케스트레이션: 복합 요청 자동 분해→순차 실행 아키텍처, Retention 서브에이전트(이탈분석→CS확인→전략→발송), 도구 3개 추가(31개), IntentCategory.RETENTION 라우팅, SSE agent_start/agent_end 이벤트, 실험실 서브에이전트 탭 |
 | 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 백엔드 중복 제거/캐시/병렬화, 프론트 번들 -1MB/dynamic import, WAI-ARIA 접근성 |
 | 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 인터랙티브 파이프라인 시각화, RetentionTab/FaqTab/ReportTab 고도화, API 17개 |

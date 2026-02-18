@@ -20,7 +20,7 @@ export function createSSEProxyHandler({ target, allowedMethods = 'GET,POST,OPTIO
   return async function handler(req, res) {
     if (req.method === 'OPTIONS') {
       res.statusCode = 204;
-      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*'));
       res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, accept');
       res.setHeader('Access-Control-Allow-Methods', allowedMethods);
       res.end();
@@ -53,7 +53,7 @@ export function createSSEProxyHandler({ target, allowedMethods = 'GET,POST,OPTIO
       res.setHeader('Cache-Control', 'no-cache, no-transform');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
-      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*'));
       res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, accept');
       res.setHeader('Access-Control-Allow-Methods', allowedMethods);
 
@@ -99,7 +99,7 @@ export function createJSONProxyHandler({ target, allowedMethods = 'POST,OPTIONS'
   return async function handler(req, res) {
     if (req.method === 'OPTIONS') {
       res.statusCode = 204;
-      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+      res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*'));
       res.setHeader('Access-Control-Allow-Headers', forwardAuth ? 'authorization, content-type, accept' : 'content-type');
       res.setHeader('Access-Control-Allow-Methods', allowedMethods);
       res.end();
@@ -133,7 +133,7 @@ export function createJSONProxyHandler({ target, allowedMethods = 'POST,OPTIONS'
       res.statusCode = upstream.status;
       res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json; charset=utf-8');
       if (forwardAuth) {
-        res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+        res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*'));
         res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, accept');
         res.setHeader('Access-Control-Allow-Methods', allowedMethods);
       }

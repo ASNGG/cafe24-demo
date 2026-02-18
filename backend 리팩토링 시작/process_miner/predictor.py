@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
 import state as st
+from .helpers import group_events_by_case
 
 # ── 모델 캐시 (재학습 방지) ──
 _MODEL_CACHE = {
@@ -115,12 +116,7 @@ def _prepare_training_data(events: list[dict]) -> tuple[np.ndarray, np.ndarray, 
         - encoders: {"activity": LabelEncoder, "target": LabelEncoder}
     """
     # case별 이벤트 그룹화
-    cases: dict[str, list[dict]] = defaultdict(list)
-    for event in events:
-        cases[event["case_id"]].append(event)
-
-    for case_id in cases:
-        cases[case_id].sort(key=lambda e: e["timestamp"])
+    cases = group_events_by_case(events)
 
     # 전체 activity 수집 (인코더 학습용)
     all_activities = list({e["activity"] for e in events})

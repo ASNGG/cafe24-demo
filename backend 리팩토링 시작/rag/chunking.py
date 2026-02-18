@@ -312,7 +312,7 @@ def _rag_read_file(path: str) -> str:
             st.logger.warning("RAG_SKIP_GARBAGE path=%s len=%d", os.path.basename(path), len(txt or ""))
             return ""
         return txt
-    except Exception:
+    except (OSError, UnicodeDecodeError, ValueError):
         return ""
 
 

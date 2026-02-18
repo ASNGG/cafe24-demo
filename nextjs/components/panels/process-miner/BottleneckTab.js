@@ -1,6 +1,6 @@
 // process-miner/BottleneckTab.js — 병목 분석 탭
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/common/StatCard';
 import {
@@ -65,6 +65,33 @@ function BottleneckItem({ bn, maxDuration, expanded, onToggle }) {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// maxDuration useMemo: 매 렌더마다 O(N) 재계산 방지
+function BottleneckList({ bottlenecks, expandedBottleneck, setExpandedBottleneck }) {
+  const maxDuration = useMemo(
+    () => Math.max(...bottlenecks.map(b => b.avg_duration_minutes || b.avg_minutes || 0), 1),
+    [bottlenecks]
+  );
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle size={16} className="text-amber-600" />
+        <span className="text-sm font-bold text-gray-700">병목 구간</span>
+        <span className="ml-auto text-xs text-gray-400">{bottlenecks.length}건 발견</span>
+      </div>
+      <div className="space-y-2">
+        {bottlenecks.map((bn, i) => (
+          <BottleneckItem
+            key={i} bn={bn}
+            maxDuration={maxDuration}
+            expanded={expandedBottleneck === i}
+            onToggle={() => setExpandedBottleneck(expandedBottleneck === i ? null : i)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -147,23 +174,11 @@ export default function BottleneckTab({ auth, apiCall, processType, nCases }) {
           )}
 
           {result.bottlenecks?.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={16} className="text-amber-600" />
-                <span className="text-sm font-bold text-gray-700">병목 구간</span>
-                <span className="ml-auto text-xs text-gray-400">{result.bottlenecks.length}건 발견</span>
-              </div>
-              <div className="space-y-2">
-                {result.bottlenecks.map((bn, i) => (
-                  <BottleneckItem
-                    key={i} bn={bn}
-                    maxDuration={Math.max(...result.bottlenecks.map(b => b.avg_duration_minutes || b.avg_minutes || 0), 1)}
-                    expanded={expandedBottleneck === i}
-                    onToggle={() => setExpandedBottleneck(expandedBottleneck === i ? null : i)}
-                  />
-                ))}
-              </div>
-            </div>
+            <BottleneckList
+              bottlenecks={result.bottlenecks}
+              expandedBottleneck={expandedBottleneck}
+              setExpandedBottleneck={setExpandedBottleneck}
+            />
           )}
 
           {(result.time_distribution || result.time_analysis) && (

@@ -8,10 +8,8 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 
-from core.utils import safe_str, json_sanitize, get_revenue_r2
-from core.constants import CS_TICKET_CATEGORIES, CS_PRIORITY_GRADES
+from core.utils import safe_str, json_sanitize
 from agent.tools import (
     tool_get_shop_info, tool_list_shops, tool_get_shop_services,
     tool_list_categories, tool_get_category_info,
@@ -19,7 +17,7 @@ from agent.tools import (
     tool_get_dashboard_summary, tool_get_cs_statistics,
 )
 import state as st
-from api.common import verify_credentials, TextClassifyRequest
+from api.common import verify_credentials, TextClassifyRequest, time_ago, error_response
 
 
 router = APIRouter(prefix="/api", tags=["shop"])
@@ -190,7 +188,7 @@ def get_dashboard_insights(user: dict = Depends(verify_credentials)):
 
     except Exception as e:
         st.logger.exception("인사이트 생성 실패")
-        return {"status": "error", "message": safe_str(e), "insights": []}
+        return error_response(safe_str(e), insights=[])
 
 
 @router.get("/dashboard/alerts")
@@ -218,25 +216,14 @@ def get_dashboard_alerts(limit: int = 5, user: dict = Depends(verify_credentials
                 detail = str(row.get("details", row.get("detail", "")))
                 detected_val = row.get(date_col)
 
-                time_ago = "방금 전"
-                if pd.notna(detected_val):
-                    now = datetime.now()
-                    diff = now - detected_val
-                    if diff.days > 0:
-                        time_ago = f"{diff.days}일 전"
-                    elif diff.seconds >= 3600:
-                        time_ago = f"{diff.seconds // 3600}시간 전"
-                    elif diff.seconds >= 60:
-                        time_ago = f"{diff.seconds // 60}분 전"
-
                 color_type = "red" if severity == "high" else "orange" if severity == "medium" else "yellow"
-                alerts.append({"user_id": user_id, "type": anomaly_type, "severity": severity, "color": color_type, "detail": detail if detail else anomaly_type, "time_ago": time_ago})
+                alerts.append({"user_id": user_id, "type": anomaly_type, "severity": severity, "color": color_type, "detail": detail if detail else anomaly_type, "time_ago": time_ago(detected_val)})
 
         return json_sanitize({"status": "success", "alerts": alerts, "total_count": len(anomaly_df) if anomaly_df is not None else 0})
 
     except Exception as e:
         st.logger.exception("알림 조회 실패")
-        return {"status": "error", "message": safe_str(e), "alerts": []}
+        return error_response(safe_str(e), alerts=[])
 
 
 # ============================================================
@@ -324,13 +311,7 @@ def _build_recent_alerts(filtered_df, date_col: str, reference_date, count: int)
     alerts = []
     for _, row in recent_df.iterrows():
         if date_col in row.index and pd.notna(row[date_col]):
-            time_diff = reference_date - row[date_col]
-            if time_diff.days > 0:
-                time_str = f"{time_diff.days}일 전"
-            elif time_diff.seconds >= 3600:
-                time_str = f"{time_diff.seconds // 3600}시간 전"
-            else:
-                time_str = f"{max(1, time_diff.seconds // 60)}분 전"
+            time_str = time_ago(row[date_col], now=reference_date)
         else:
             time_str = "최근"
         if "severity" in row.index:
@@ -351,7 +332,7 @@ def _build_recent_alerts(filtered_df, date_col: str, reference_date, count: int)
 def get_anomaly_analysis(days: int = 7, user: dict = Depends(verify_credentials)):
     """이상탐지 분석 데이터"""
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "error", "message": "유저 분석 데이터가 없습니다."}
+        return error_response("유저 분석 데이터가 없습니다.")
     if days not in [7, 30, 90]:
         days = 7
     try:
@@ -416,7 +397,7 @@ def get_anomaly_analysis(days: int = 7, user: dict = Depends(verify_credentials)
         })
     except Exception as e:
         st.logger.error(f"이상탐지 분석 오류: {e}")
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/analysis/prediction/churn")
@@ -425,7 +406,7 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
     if days not in [7, 30, 90]:
         days = 7
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "error", "message": "유저 분석 데이터가 없습니다."}
+        return error_response("유저 분석 데이터가 없습니다.")
     try:
         df = st.SELLER_ANALYTICS_DF.copy()
         total = len(df)
@@ -551,29 +532,29 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
         })
     except Exception as e:
         st.logger.error(f"이탈 예측 API 오류: {e}")
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/analysis/prediction/churn/user/{user_id}")
 def get_user_churn_prediction(user_id: str, user: dict = Depends(verify_credentials)):
     """개별 사용자 이탈 예측 + SHAP 분석"""
     if st.SELLER_ANALYTICS_DF is None:
-        return {"status": "error", "message": "유저 분석 데이터가 없습니다."}
+        return error_response("유저 분석 데이터가 없습니다.")
     try:
-        df = st.SELLER_ANALYTICS_DF.copy()
+        df = st.SELLER_ANALYTICS_DF
         id_col = "seller_id" if "seller_id" in df.columns else "user_id"
         user_row = df[df[id_col] == user_id]
         if user_row.empty:
-            return {"status": "error", "message": f"유저 {user_id}를 찾을 수 없습니다."}
+            return error_response(f"유저 {user_id}를 찾을 수 없습니다.")
         user_row = user_row.iloc[0]
         config = st.CHURN_MODEL_CONFIG or {}
         features = config.get("features", ["total_orders", "total_revenue", "product_count", "cs_tickets", "refund_rate", "avg_response_time"])
         feature_names_kr = config.get("feature_names_kr", {"total_orders": "총 주문 수", "total_revenue": "총 매출", "product_count": "등록 상품 수", "cs_tickets": "CS 문의 수", "refund_rate": "환불률", "avg_response_time": "평균 응답 시간"})
         available_features = [f for f in features if f in df.columns]
         if st.SELLER_CHURN_MODEL is None:
-            return {"status": "error", "message": "이탈 예측 모델이 로드되지 않았습니다."}
+            return error_response("이탈 예측 모델이 로드되지 않았습니다.")
         if not available_features:
-            return {"status": "error", "message": "필요한 feature가 데이터에 없습니다."}
+            return error_response("필요한 feature가 데이터에 없습니다.")
         user_X = user_row[available_features].values.reshape(1, -1)
         churn_proba = st.SELLER_CHURN_MODEL.predict_proba(user_X)[0, 1]
         if churn_proba >= 0.7:
@@ -600,7 +581,7 @@ def get_user_churn_prediction(user_id: str, user: dict = Depends(verify_credenti
         return json_sanitize({"status": "success", "user_id": user_id, "user_name": user_id, "segment": user_row.get("segment_name", f"세그먼트 {cluster}"), "churn_probability": round(float(churn_proba) * 100, 1), "risk_level": risk_level, "risk_label": risk_label, "shap_factors": shap_factors, "model_accuracy": round((config.get("model_accuracy") or 0) * 100, 1) if config.get("model_accuracy") else None, "shap_available": st.SHAP_EXPLAINER_CHURN is not None})
     except Exception as e:
         st.logger.error(f"개별 유저 이탈 예측 오류: {e}")
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/analysis/cohort/retention")
@@ -637,7 +618,7 @@ def get_cohort_retention(days: int = 7, user: dict = Depends(verify_credentials)
 
         return json_sanitize({"status": "success", "retention": cohort_data, "ltv_by_cohort": ltv_by_cohort, "conversion": conversion})
     except Exception as e:
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/analysis/trend/kpis")
@@ -647,9 +628,9 @@ def get_trend_kpis(days: int = 7, user: dict = Depends(verify_credentials)):
         if days not in [7, 30, 90]:
             days = 7
         if st.DAILY_METRICS_DF is None or len(st.DAILY_METRICS_DF) == 0:
-            return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
+            return error_response("일별 지표 데이터가 없습니다.")
 
-        df = st.DAILY_METRICS_DF.copy()
+        df = st.DAILY_METRICS_DF
         recent_df = df.tail(min(days, len(df)))
         daily_metrics = []
         for _, r in recent_df.iterrows():
@@ -716,7 +697,7 @@ def get_trend_kpis(days: int = 7, user: dict = Depends(verify_credentials)):
 
         return json_sanitize({"status": "success", "kpis": kpis, "daily_metrics": daily_metrics, "correlation": correlation, "forecast": forecast})
     except Exception as e:
-        return {"status": "error", "message": safe_str(e)}
+        return error_response(safe_str(e))
 
 
 @router.get("/analysis/correlation")
@@ -765,7 +746,7 @@ def get_summary_stats(days: int = 7, user: dict = Depends(verify_credentials)):
 
         if st.SELLER_ACTIVITY_DF is not None and len(st.SELLER_ACTIVITY_DF) > 0:
             try:
-                activity_df = st.SELLER_ACTIVITY_DF.copy().tail(100 * days)
+                activity_df = st.SELLER_ACTIVITY_DF.tail(100 * days)
                 rev_col = "revenue" if "revenue" in activity_df.columns else "daily_revenue"
                 ord_col = "orders_processed" if "orders_processed" in activity_df.columns else "daily_orders"
                 cs_col = "cs_handled" if "cs_handled" in activity_df.columns else "cs_tickets"

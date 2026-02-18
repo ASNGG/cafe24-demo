@@ -18,22 +18,63 @@ v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v8.5.0** (2026-02-18) — 백엔드 전체 코드 최적화 및 성능 개선 (13파일)
+> **v8.5.0** (2026-02-18) — 백엔드 전체 코드 최적화 1차+2차 통합 (30파일)
 
-| 영역 | 파일 | 주요 변경 |
-|------|------|-----------|
-| **전역 상태** | `state.py` | 로깅 싱글톤 패턴 적용, 설정 로드 1회 캐시 (`load_selected_models`, `load_system_prompt`, `load_llm_settings`) |
-| **데이터 로딩** | `data/loader.py` | 라벨 인코더 `ThreadPoolExecutor` 병렬 로드, `build_caches` groupby 벡터화, `revenue_model` 비동기 학습(`threading.Thread`), MLflow 모델 경로 캐싱 |
-| **서버 시작** | `main.py` | RAG 인덱스 비동기 백그라운드 로딩 (`run_in_executor`) |
-| **API 라우트** | `routes_shop.py` | `set_index` 캐싱 (`_get_perf_indexed`), 대시보드 인사이트 60초 TTL 캐싱 |
-| | `routes_cs.py` | cleanup 호출 빈도 제한 (30초 간격) |
-| | `routes_admin.py` | 불필요한 `.copy()` 제거 |
-| **에이전트 도구** | `agent/tools.py` | `.copy()` 5건 제거, 세그먼트명 캐시, JSON 파싱 헬퍼 (`_sum_order_amount_from_json`) 통합 |
-| **멀티 에이전트** | `agent/multi_agent.py` | 도구 매핑 캐시 (`_all_tool_map`), 프롬프트 캐시, 카테고리-에이전트 매핑 모듈 레벨 이동 |
-| **인텐트 라우팅** | `agent/router.py` | 정규식 사전 컴파일 (`_SELLER_ID_RE`) |
-| | `agent/intent.py` | 키워드 `list` → `frozenset` 변환 |
-| **LLM 팩토리** | `agent/llm.py` | LLM 인스턴스 캐시 (`_llm_cache`) |
-| **에이전트 실행** | `agent/runner.py` | 도구 매핑 캐시, 정규식 6개 사전 컴파일 |
+#### 전역 상태 / 코어 인프라
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `state.py` | 로깅 싱글톤, 설정 로드 1회 캐시, `LAST_CONTEXT` TTL + 크기 제한(200) + set/get 함수 |
+| `main.py` | RAG 인덱스 비동기 백그라운드 로딩 (`run_in_executor`), `asyncio.get_running_loop()` 전환 |
+| `data/loader.py` | 라벨 인코더 `ThreadPoolExecutor` 병렬 로드, `build_caches` groupby 벡터화, `revenue_model` 비동기 학습(`threading.Thread`), MLflow 모델 경로 캐싱 |
+| `core/utils.py` | `safe_float` 네이티브 float 우선 처리 |
+| `core/memory.py` | cleanup 스로틀(60초 간격) |
+
+#### API 라우터
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `api/common.py` | `time_ago()` 유틸 통합, `error_response()` 표준 에러 응답 함수 추가 |
+| `routes_shop.py` | `set_index` 캐싱 (`_get_perf_indexed`), 대시보드 인사이트 60초 TTL 캐싱, `.copy()` 3건 제거, `time_ago` common 사용, `error_response` 통일 |
+| `routes_seller.py` | `error_response` 통일 |
+| `routes_cs.py` | cleanup 호출 빈도 제한 (30초 간격), CS 파이프라인 `asyncio.gather` 병렬화, `error_response` 통일 |
+| `routes_ml.py` | MLflow 클라이언트 싱글톤 (`_get_mlflow_client()`), `error_response` 통일 |
+| `routes_admin.py` | 불필요한 `.copy()` 제거 |
+| `routes_guardian.py` | DB context manager (`_guardian_db()`), `error_response` 통일 |
+
+#### 에이전트 시스템
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `agent/tools.py` | `.copy()` 5건 제거, 세그먼트명 캐시, JSON 파싱 헬퍼 (`_sum_order_amount_from_json`) 통합 |
+| `agent/multi_agent.py` | 도구 매핑 캐시 (`_all_tool_map`), 프롬프트 캐시, 카테고리-에이전트 매핑 모듈 레벨 이동 |
+| `agent/router.py` | 정규식 사전 컴파일 (`_SELLER_ID_RE`) |
+| `agent/intent.py` | 키워드 `list` → `frozenset` 변환 |
+| `agent/llm.py` | LLM 인스턴스 캐시 (`_llm_cache`) |
+| `agent/runner.py` | 도구 매핑 캐시, 정규식 6개 사전 컴파일 |
+
+#### RAG / ML / 자동화
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `rag/search.py` | `threading.Lock`(BM25 인덱스), TTL 캐시(5분, OrderedDict LRU), bare except 정리 |
+| `rag/service.py` | bare except → 구체적 예외 7곳 |
+| `rag/kg.py` | bare except 정리 |
+| `rag/k2rag.py` | bare except 정리 |
+| `rag/chunking.py` | bare except 정리 |
+| `ml/mlflow_tracker.py` | bare except 정리 |
+| `automation/action_logger.py` | 5개 저장소 크기 제한 (ACTION_LOG 5000, FAQ 1000, REPORT 500, RETENTION 1000, PIPELINE 500) |
+| `automation/retention_engine.py` | 중복 코드 5개 공통 함수 통합 (`_extract_shap_values`, `_shap_top_factors`, `_heuristic_score`, `_build_feature_df`) |
+
+#### 프로세스 마이너
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `process_miner/helpers.py` *(신규)* | `parse_timestamp` + `group_events_by_case` 공통 헬퍼 추출 |
+| `process_miner/miner.py` | 중복 헬퍼 → `helpers` import |
+| `process_miner/bottleneck.py` | 중복 헬퍼 → `helpers` import |
+| `process_miner/anomaly_detector.py` | 중복 헬퍼 → `helpers` import |
+| `process_miner/predictor.py` | 중복 헬퍼 → `helpers` import |
 
 ---
 

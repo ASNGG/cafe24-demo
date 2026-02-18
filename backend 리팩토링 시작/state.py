@@ -252,11 +252,47 @@ SHOP_SERVICE_MAP: Dict[str, Dict[str, Any]] = {}
 SELLER_CACHE: Dict[str, Dict[str, Any]] = {}
 
 # ============================================================
-# 최근 컨텍스트 저장 (요약 재활용)
+# 최근 컨텍스트 저장 (요약 재활용, 크기 제한 + TTL)
 # ============================================================
 LAST_CONTEXT_STORE: Dict[str, Dict[str, Any]] = {}
 LAST_CONTEXT_LOCK = Lock()
 LAST_CONTEXT_TTL_SEC = 600
+LAST_CONTEXT_MAX_ENTRIES = 200
+
+
+def set_last_context(key: str, value: Dict[str, Any]) -> None:
+    """컨텍스트 저장 (TTL 타임스탬프 자동 부여, 크기 제한 적용)"""
+    import time as _time
+    with LAST_CONTEXT_LOCK:
+        value["_ts"] = _time.time()
+        LAST_CONTEXT_STORE[key] = value
+        _evict_context_if_needed()
+
+
+def get_last_context(key: str) -> Optional[Dict[str, Any]]:
+    """컨텍스트 조회 (TTL 만료 시 None 반환)"""
+    import time as _time
+    with LAST_CONTEXT_LOCK:
+        entry = LAST_CONTEXT_STORE.get(key)
+        if entry is None:
+            return None
+        if _time.time() - entry.get("_ts", 0) > LAST_CONTEXT_TTL_SEC:
+            LAST_CONTEXT_STORE.pop(key, None)
+            return None
+        return entry
+
+
+def _evict_context_if_needed() -> None:
+    """컨텍스트 스토어가 최대 크기 초과 시 가장 오래된 항목부터 제거 (lock 내부에서 호출)"""
+    if len(LAST_CONTEXT_STORE) <= LAST_CONTEXT_MAX_ENTRIES:
+        return
+    sorted_keys = sorted(
+        LAST_CONTEXT_STORE.keys(),
+        key=lambda k: LAST_CONTEXT_STORE[k].get("_ts", 0),
+    )
+    to_remove = len(LAST_CONTEXT_STORE) - LAST_CONTEXT_MAX_ENTRIES
+    for k in sorted_keys[:to_remove]:
+        LAST_CONTEXT_STORE.pop(k, None)
 
 # ============================================================
 # RAG 설정/상태

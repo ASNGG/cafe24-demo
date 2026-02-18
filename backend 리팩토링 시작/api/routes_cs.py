@@ -24,7 +24,7 @@ from rag.light_rag import lightrag_search_sync, LIGHTRAG_AVAILABLE
 from rag.k2rag import k2rag_search_sync
 import state as st
 from api.common import (
-    verify_credentials,
+    verify_credentials, error_response,
     CsReplyRequest, CsQualityRequest, CsPipelineRequest, CsPipelineAnswerRequest,
 )
 
@@ -93,9 +93,11 @@ def get_cs_stats(user: dict = Depends(verify_credentials)):
 # CS 자동화 파이프라인 API
 # ============================================================
 @router.post("/cs/pipeline")
-def cs_pipeline(req: CsPipelineRequest, user: dict = Depends(verify_credentials)):
+async def cs_pipeline(req: CsPipelineRequest, user: dict = Depends(verify_credentials)):
     result = {"status": "success", "steps": {}}
-    step_classify = tool_classify_inquiry(req.inquiry_text)
+
+    # Step 1: 분류 (후속 단계의 입력이 됨)
+    step_classify = await asyncio.to_thread(tool_classify_inquiry, req.inquiry_text)
     result["steps"]["classify"] = step_classify
     if step_classify.get("status") != "SUCCESS":
         result["status"] = "error"
@@ -108,14 +110,27 @@ def cs_pipeline(req: CsPipelineRequest, user: dict = Depends(verify_credentials)
     is_auto = confidence >= req.confidence_threshold
     routing = "auto" if is_auto else "manual"
 
-    priority_result = tool_check_cs_quality(ticket_category=predicted_category, seller_tier=req.seller_tier, sentiment_score=sentiment, order_value=req.order_value, is_repeat_issue=req.is_repeat_issue, text_length=len(req.inquiry_text))
-    result["steps"]["review"] = {"confidence": confidence, "threshold": req.confidence_threshold, "routing": routing, "predicted_category": predicted_category, "sentiment_score": sentiment, "priority": priority_result}
+    # Step 2~4: 품질평가, 답변생성, 통계조회를 병렬 실행
+    priority_task = asyncio.to_thread(
+        tool_check_cs_quality,
+        ticket_category=predicted_category, seller_tier=req.seller_tier,
+        sentiment_score=sentiment, order_value=req.order_value,
+        is_repeat_issue=req.is_repeat_issue, text_length=len(req.inquiry_text),
+    )
+    answer_task = asyncio.to_thread(
+        tool_auto_reply_cs,
+        inquiry_text=req.inquiry_text, inquiry_category=predicted_category,
+        seller_tier=req.seller_tier, order_id=req.order_id,
+    )
+    stats_task = asyncio.to_thread(tool_get_cs_statistics)
 
-    answer_context = tool_auto_reply_cs(inquiry_text=req.inquiry_text, inquiry_category=predicted_category, seller_tier=req.seller_tier, order_id=req.order_id)
+    priority_result, answer_context, stats = await asyncio.gather(
+        priority_task, answer_task, stats_task,
+    )
+
+    result["steps"]["review"] = {"confidence": confidence, "threshold": req.confidence_threshold, "routing": routing, "predicted_category": predicted_category, "sentiment_score": sentiment, "priority": priority_result}
     result["steps"]["answer"] = answer_context
     result["steps"]["reply"] = {"status": "READY", "channels": ["이메일", "카카오톡", "SMS", "인앱 알림"], "selected_channel": None, "message": "회신 채널을 선택하면 n8n 워크플로우로 자동 전송됩니다."}
-
-    stats = tool_get_cs_statistics()
     result["steps"]["improve"] = {"statistics": stats, "pipeline_meta": {"classification_model_accuracy": 0.82, "auto_routing_rate": f"{req.confidence_threshold * 100:.0f}% 이상 자동", "categories": CS_TICKET_CATEGORIES, "priority_grades": list(CS_PRIORITY_GRADES.keys())}}
     return result
 

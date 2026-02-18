@@ -227,7 +227,7 @@ export default function AppPage() {
     if (!router.isReady) return;
 
     const a = loadFromSession(STORAGE_KEYS.AUTH, null);
-    if (!a?.username || !a?.password) {
+    if (!a?.username || !a?.password_b64) {
       safeReplace('/login');
       return;
     }
@@ -249,7 +249,7 @@ export default function AppPage() {
   const systemPromptLoadedRef = useRef(false);
 
   useEffect(() => {
-    if (!auth?.username || !auth?.password) return;
+    if (!auth?.username || !auth?.password_b64) return;
     if (systemPromptLoadedRef.current) return;
 
     const cur = settings?.systemPrompt ? String(settings.systemPrompt).trim() : '';
@@ -310,7 +310,7 @@ export default function AppPage() {
 
   // 쇼핑몰/카테고리 데이터 로드
   useEffect(() => {
-    if (!auth?.username || !auth?.password) return;
+    if (!auth?.username || !auth?.password_b64) return;
 
     let mounted = true;
 
@@ -368,7 +368,7 @@ export default function AppPage() {
   const onExampleQuestion = useCallback((q) => {
     setActiveTab('agent');
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('cafe24_example_question', { detail: { q } }));
+      window.dispatchEvent(new CustomEvent('cafe24_send_question', { detail: { q } }));
     }
   }, []);
 
@@ -428,7 +428,6 @@ export default function AppPage() {
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'agent' ? (
-        <ExampleQuestionBridge>
           <AgentPanel
             auth={auth}
             selectedShop={selectedShop}
@@ -441,7 +440,6 @@ export default function AppPage() {
             setTotalQueries={setTotalQueries}
             apiCall={apiCall}
           />
-        </ExampleQuestionBridge>
       ) : null}
 
       {activeTab === 'dashboard' ? (
@@ -485,18 +483,4 @@ export default function AppPage() {
       ) : null}
     </Layout>
   );
-}
-
-function ExampleQuestionBridge({ children }) {
-  useEffect(() => {
-    function handler(ev) {
-      const q = ev?.detail?.q;
-      if (!q) return;
-      window.dispatchEvent(new CustomEvent('cafe24_send_question', { detail: { q } }));
-    }
-    window.addEventListener('cafe24_example_question', handler);
-    return () => window.removeEventListener('cafe24_example_question', handler);
-  }, []);
-
-  return children;
 }

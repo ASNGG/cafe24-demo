@@ -19,6 +19,76 @@ from automation.action_logger import log_action, save_retention_action, create_p
 import state as st
 
 
+def _extract_shap_values(explainer, X) -> "np.ndarray | None":
+    """SHAP 값 추출 공통 로직 (배치/단일 공용)"""
+    try:
+        if hasattr(explainer, "shap_values"):
+            shap_result = explainer.shap_values(X)
+            if isinstance(shap_result, list) and len(shap_result) == 2:
+                return np.array(shap_result[1])
+            elif isinstance(shap_result, np.ndarray):
+                if shap_result.ndim == 3:
+                    return shap_result[:, :, 1]
+                return shap_result
+            return np.array(shap_result)
+        else:
+            shap_result = explainer(X)
+            if hasattr(shap_result, "values"):
+                return shap_result.values
+            return np.array(shap_result)
+    except (ValueError, TypeError, RuntimeError) as e:
+        st.logger.error("RETENTION SHAP extraction error: %s", str(e))
+        return None
+
+
+def _shap_top_factors(shap_vals_row: "np.ndarray", feature_cols, top_n: int = 5) -> List[Dict]:
+    """SHAP 값에서 상위 N개 이탈 요인 추출"""
+    feat_imp = sorted(
+        zip(feature_cols, np.abs(shap_vals_row)),
+        key=lambda x: x[1], reverse=True
+    )
+    return [
+        {"factor": FEATURE_LABELS.get(feat, feat), "importance": round(float(imp) * 100, 1)}
+        for feat, imp in feat_imp[:top_n]
+    ]
+
+
+def _heuristic_score(row) -> float:
+    """휴리스틱 이탈 점수 계산 (공통 로직)"""
+    days_since_last = safe_int(row.get("days_since_last_login", 0))
+    total_orders = safe_int(row.get("total_orders", 0))
+    total_revenue = safe_int(row.get("total_revenue", 0))
+    refund_rate = safe_float(row.get("refund_rate", 0))
+    cs_tickets = safe_int(row.get("cs_tickets", 0))
+
+    score = 0.3
+    if days_since_last > 14:
+        score += 0.25
+    elif days_since_last > 7:
+        score += 0.15
+    if total_orders < 10:
+        score += 0.1
+    if total_revenue < 100000:
+        score += 0.1
+    if refund_rate > 10:
+        score += 0.1
+    if cs_tickets > 20:
+        score += 0.05
+    return min(max(score, 0.05), 0.95)
+
+
+def _build_feature_df(df, feature_cols) -> "pd.DataFrame":
+    """이탈 예측용 피처 DataFrame 구성"""
+    X = pd.DataFrame([
+        {col: safe_float(row.get(col, 0)) for col in feature_cols}
+        for _, row in df.iterrows()
+    ])
+    if "plan_tier_encoded" in feature_cols and "plan_tier" in df.columns:
+        tier_map = {tier: i for i, tier in enumerate(PLAN_TIERS)}
+        X["plan_tier_encoded"] = df["plan_tier"].map(lambda t: tier_map.get(t, 0))
+    return X
+
+
 def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
     """
     이탈 위험 셀러 목록을 반환합니다.
@@ -42,17 +112,7 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
-            X = pd.DataFrame([
-                {col: safe_float(row.get(col, 0)) for col in feature_cols}
-                for _, row in df.iterrows()
-            ])
-
-            # plan_tier 인코딩 처리
-            if "plan_tier_encoded" in feature_cols and "plan_tier" in df.columns:
-                tier_map = {tier: i for i, tier in enumerate(PLAN_TIERS)}
-                X["plan_tier_encoded"] = df["plan_tier"].map(
-                    lambda t: tier_map.get(t, 0)
-                )
+            X = _build_feature_df(df, feature_cols)
 
             # 이탈 확률 예측
             proba = st.SELLER_CHURN_MODEL.predict_proba(X)[:, 1]
@@ -60,27 +120,7 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
             # SHAP 분석 (전체 배치)
             shap_values_all = None
             if st.SHAP_EXPLAINER_CHURN is not None:
-                try:
-                    explainer = st.SHAP_EXPLAINER_CHURN
-                    if hasattr(explainer, "shap_values"):
-                        shap_result = explainer.shap_values(X)
-                        if isinstance(shap_result, list) and len(shap_result) == 2:
-                            shap_values_all = np.array(shap_result[1])
-                        elif isinstance(shap_result, np.ndarray):
-                            if shap_result.ndim == 3:
-                                shap_values_all = shap_result[:, :, 1]
-                            else:
-                                shap_values_all = shap_result
-                        else:
-                            shap_values_all = np.array(shap_result)
-                    else:
-                        shap_result = explainer(X)
-                        if hasattr(shap_result, "values"):
-                            shap_values_all = shap_result.values
-                        else:
-                            shap_values_all = np.array(shap_result)
-                except Exception as e:
-                    st.logger.error("RETENTION SHAP batch error: %s", str(e))
+                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
 
             for idx, (_, row) in enumerate(df.iterrows()):
                 prob = float(proba[idx])
@@ -90,14 +130,7 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
                 # SHAP top factors
                 top_factors = []
                 if shap_values_all is not None:
-                    shap_vals = np.abs(shap_values_all[idx])
-                    feat_imp = list(zip(feature_cols, shap_vals))
-                    feat_imp.sort(key=lambda x: x[1], reverse=True)
-                    for feat, imp in feat_imp[:5]:
-                        top_factors.append({
-                            "factor": FEATURE_LABELS.get(feat, feat),
-                            "importance": round(float(imp) * 100, 1),
-                        })
+                    top_factors = _shap_top_factors(shap_values_all[idx], feature_cols)
 
                 if not top_factors:
                     top_factors = _default_factors(row)
@@ -116,7 +149,7 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
                     },
                 })
 
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             st.logger.error("RETENTION ML prediction error: %s", str(e))
             results = _heuristic_at_risk(df, threshold)
     else:
@@ -135,26 +168,7 @@ def _heuristic_at_risk(df: pd.DataFrame, threshold: float) -> List[Dict]:
     """ML 모델이 없을 때 휴리스틱으로 이탈 위험 셀러를 산출합니다."""
     results = []
     for _, row in df.iterrows():
-        total_orders = safe_int(row.get("total_orders", 0))
-        total_revenue = safe_int(row.get("total_revenue", 0))
-        days_since_last = safe_int(row.get("days_since_last_login", 0))
-        refund_rate = safe_float(row.get("refund_rate", 0))
-        cs_tickets = safe_int(row.get("cs_tickets", 0))
-
-        score = 0.3
-        if days_since_last > 14:
-            score += 0.25
-        elif days_since_last > 7:
-            score += 0.15
-        if total_orders < 10:
-            score += 0.1
-        if total_revenue < 100000:
-            score += 0.1
-        if refund_rate > 10:
-            score += 0.1
-        if cs_tickets > 20:
-            score += 0.05
-        score = min(max(score, 0.05), 0.95)
+        score = _heuristic_score(row)
 
         if score < threshold:
             continue
@@ -165,10 +179,10 @@ def _heuristic_at_risk(df: pd.DataFrame, threshold: float) -> List[Dict]:
             "risk_level": "high" if score > 0.7 else "medium",
             "top_factors": _default_factors(row),
             "seller_info": {
-                "total_orders": total_orders,
-                "total_revenue": total_revenue,
-                "days_since_last_login": days_since_last,
-                "refund_rate": refund_rate,
+                "total_orders": safe_int(row.get("total_orders", 0)),
+                "total_revenue": safe_int(row.get("total_revenue", 0)),
+                "days_since_last_login": safe_int(row.get("days_since_last_login", 0)),
+                "refund_rate": safe_float(row.get("refund_rate", 0)),
                 "product_count": safe_int(row.get("product_count", 0)),
             },
         })
@@ -290,28 +304,9 @@ def _analyze_single_seller(row) -> Dict:
 
             top_factors = []
             if st.SHAP_EXPLAINER_CHURN is not None:
-                try:
-                    explainer = st.SHAP_EXPLAINER_CHURN
-                    if hasattr(explainer, "shap_values"):
-                        shap_result = explainer.shap_values(X)
-                        if isinstance(shap_result, list) and len(shap_result) == 2:
-                            shap_vals = np.array(shap_result[1])[0]
-                        elif isinstance(shap_result, np.ndarray):
-                            shap_vals = shap_result[0, :, 1] if shap_result.ndim == 3 else shap_result[0]
-                        else:
-                            shap_vals = np.array(shap_result)[0]
-                    else:
-                        shap_result = explainer(X)
-                        shap_vals = shap_result.values[0] if hasattr(shap_result, "values") else np.array(shap_result)[0]
-
-                    feat_imp = sorted(zip(feature_cols, np.abs(shap_vals)), key=lambda x: x[1], reverse=True)
-                    for feat, imp in feat_imp[:5]:
-                        top_factors.append({
-                            "factor": FEATURE_LABELS.get(feat, feat),
-                            "importance": round(float(imp) * 100, 1),
-                        })
-                except Exception as e:
-                    st.logger.error("RETENTION SHAP single error: %s", str(e))
+                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
+                if shap_values_all is not None:
+                    top_factors = _shap_top_factors(shap_values_all[0], feature_cols)
 
             if not top_factors:
                 top_factors = _default_factors(row)
@@ -321,30 +316,11 @@ def _analyze_single_seller(row) -> Dict:
                 "risk_level": risk_level,
                 "top_factors": top_factors,
             }
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError) as e:
             st.logger.error("RETENTION _analyze_single_seller ML error: %s", str(e))
 
     # 휴리스틱 폴백
-    days_since_last = safe_int(row.get("days_since_last_login", 0))
-    total_orders = safe_int(row.get("total_orders", 0))
-    total_revenue = safe_int(row.get("total_revenue", 0))
-    refund_rate = safe_float(row.get("refund_rate", 0))
-    cs_tickets = safe_int(row.get("cs_tickets", 0))
-
-    score = 0.3
-    if days_since_last > 14:
-        score += 0.25
-    elif days_since_last > 7:
-        score += 0.15
-    if total_orders < 10:
-        score += 0.1
-    if total_revenue < 100000:
-        score += 0.1
-    if refund_rate > 10:
-        score += 0.1
-    if cs_tickets > 20:
-        score += 0.05
-    score = min(max(score, 0.05), 0.95)
+    score = _heuristic_score(row)
 
     return {
         "churn_probability": round(score * 100, 1),

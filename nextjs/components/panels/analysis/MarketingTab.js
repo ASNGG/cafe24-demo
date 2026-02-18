@@ -13,6 +13,13 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts';
 
+// IIFE → 모듈 레벨 함수 추출: 광고비 포맷팅
+function formatAdSpend(cost) {
+  const formatNum = (n) => n >= 1000 ? `${(n / 1000).toFixed(0)}K` : `${n}`;
+  if (!cost || typeof cost !== 'object') return '0';
+  return `${formatNum(Number(cost.ad_spend || 0))}원`;
+}
+
 const MARKETING_EXAMPLE_USERS = [
   { id: 'SEL0001', description: 'Premium, 고매출' },
   { id: 'SEL0050', description: 'Standard, 중간 매출' },
@@ -324,12 +331,7 @@ export default function MarketingTab({ apiCall, auth }) {
                   </div>
                   <div className="text-right">
                     <div className="font-medium text-cafe24-brown text-sm">
-                      {(() => {
-                        const cost = rec.cost;
-                        const formatNum = (n) => n >= 1000 ? `${(n / 1000).toFixed(0)}K` : `${n}`;
-                        if (!cost || typeof cost !== 'object') return '0';
-                        return `${formatNum(Number(cost.ad_spend || 0))}원`;
-                      })()}
+                      {formatAdSpend(rec.cost)}
                     </div>
                     <div className="text-xs text-cafe24-brown/50">
                       {rec.campaign_type === 'cpc' ? '클릭당 비용' :

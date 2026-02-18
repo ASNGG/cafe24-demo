@@ -62,8 +62,9 @@ async def lifespan(app: FastAPI):
             st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
         elif _k:
             import asyncio
-            loop = asyncio.get_event_loop()
-            loop.run_in_executor(None, lambda: rag_build_or_load_index(api_key=_k, force_rebuild=False))
+            asyncio.get_running_loop().run_in_executor(
+                None, lambda: rag_build_or_load_index(api_key=_k, force_rebuild=False)
+            )
             st.logger.info("RAG_INDEX 백그라운드 로딩 시작")
         else:
             st.logger.info("RAG_SKIP_STARTUP no_env_api_key docs_dir=%s", st.RAG_DOCS_DIR)

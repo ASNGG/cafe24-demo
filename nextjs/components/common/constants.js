@@ -22,3 +22,16 @@ export const ANALYSIS_COLORS = {
     Basic: '#6B7280',
   },
 };
+
+// 이상탐지 severity별 CSS 클래스 (AnomalyTab, PredictionTab 공통)
+export function getSeverityClasses(severity) {
+  switch (severity) {
+    case 'high':
+      return { border: 'border-red-200', bg: 'bg-red-50', badge: 'bg-red-200 text-red-700', icon: 'bg-red-500' };
+    case 'medium':
+      return { border: 'border-orange-200', bg: 'bg-orange-50', badge: 'bg-orange-200 text-orange-700', icon: 'bg-orange-500' };
+    case 'low':
+    default:
+      return { border: 'border-yellow-200', bg: 'bg-yellow-50', badge: 'bg-yellow-200 text-yellow-700', icon: 'bg-yellow-500' };
+  }
+}

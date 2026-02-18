@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 
 from core.utils import safe_str
 import state as st
-from api.common import verify_credentials
+from api.common import verify_credentials, error_response
 
 
 router = APIRouter(prefix="/api", tags=["guardian"])
@@ -447,22 +447,21 @@ def _run_guardian_agent(user_id: str, action: str, table: str, row_count: int, a
     except ImportError as e:
         return {"output": f"LangChain 미설치: {e}", "steps": []}
 
-    conn = _guardian_conn()
-    tools = _guardian_tool_defs(conn, row_count)
+    with _guardian_db() as conn:
+        tools = _guardian_tool_defs(conn, row_count)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
-    graph = create_agent(
-        model=llm,
-        tools=tools,
-        system_prompt="""당신은 Data Guardian Agent입니다. DB 변경 요청의 위험도를 분석합니다.
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
+        graph = create_agent(
+            model=llm,
+            tools=tools,
+            system_prompt="""당신은 Data Guardian Agent입니다. DB 변경 요청의 위험도를 분석합니다.
 
 순서: 1) analyze_impact로 영향도 분석 2) get_user_pattern으로 사용자 패턴 확인 3) search_similar로 유사 사례 검색 4) execute_decision으로 최종 판단
 
 최종 응답에 포함: 영향 범위(건수/금액), 위험 사유, 유사 사례 통계, 권고. 한국어로 응답.""",
-    )
+        )
 
-    result = graph.invoke({"messages": [{"role": "user", "content": f"사용자: {user_id}, 작업: {action}, 테이블: {table}, 대상: {row_count}건. 위험도 분석 후 차단 여부 판단해주세요."}]})
-    conn.close()
+        result = graph.invoke({"messages": [{"role": "user", "content": f"사용자: {user_id}, 작업: {action}, 테이블: {table}, 대상: {row_count}건. 위험도 분석 후 차단 여부 판단해주세요."}]})
 
     messages = result.get("messages", [])
     steps = _extract_agent_steps(messages)
@@ -478,22 +477,21 @@ def _run_recovery_agent(message: str, api_key: str):
     except ImportError as e:
         return {"output": f"LangChain 미설치: {e}", "steps": []}
 
-    conn = _guardian_conn()
-    tools = _recovery_tool_defs(conn)
+    with _guardian_db() as conn:
+        tools = _recovery_tool_defs(conn)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
-    graph = create_agent(
-        model=llm,
-        tools=tools,
-        system_prompt="""당신은 Data Guardian 복구 Agent입니다.
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
+        graph = create_agent(
+            model=llm,
+            tools=tools,
+            system_prompt="""당신은 Data Guardian 복구 Agent입니다.
 사용자의 자연어 복구 요청을 받아서:
 1) search_audit_log로 관련 기록 검색
 2) generate_restore_sql로 복구 SQL 생성
 복구 SQL은 직접 실행하지 않고 DBA 승인을 받아야 합니다. 한국어로 응답.""",
-    )
+        )
 
-    result = graph.invoke({"messages": [{"role": "user", "content": message}]})
-    conn.close()
+        result = graph.invoke({"messages": [{"role": "user", "content": message}]})
 
     messages = result.get("messages", [])
     steps = _extract_agent_steps(messages)
@@ -624,14 +622,14 @@ async def guardian_recover(request: Request, user: dict = Depends(verify_credent
 
     api_key = st.OPENAI_API_KEY
     if not api_key:
-        return {"status": "error", "message": "OpenAI API Key 미설정"}
+        return error_response("OpenAI API Key 미설정")
 
     try:
         result = _run_recovery_agent(message, api_key)
         return {"status": "success", **result}
     except Exception as e:
         st.logger.error("Guardian recovery error: %s", e)
-        return {"status": "error", "message": str(e)}
+        return error_response(str(e))
 
 
 @router.get("/guardian/logs")
@@ -734,11 +732,11 @@ async def guardian_notify_dba(request: Request, user: dict = Depends(verify_cred
                 )
             st.logger.info("[guardian-notify] resend status=%s", resp.status_code)
             if resp.status_code >= 400:
-                return {"status": "error", "message": f"Resend 오류: {resp.text[:100]}"}
+                return error_response(f"Resend 오류: {resp.text[:100]}")
             return {"status": "success", "message": f"{dba_email}로 DBA 알림이 발송되었습니다."}
         except Exception as e:
             st.logger.error("[guardian-notify] resend error: %s", e)
-            return {"status": "error", "message": str(e)}
+            return error_response(str(e))
     else:
         st.logger.info("[guardian-notify] (RESEND_API_KEY 미설정 -- 시뮬레이션) -> %s", dba_email)
         return {"status": "success", "message": f"{dba_email}로 DBA 알림이 발송되었습니다. (RESEND_API_KEY 미설정 -- 시뮬레이션)"}

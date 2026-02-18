@@ -88,56 +88,59 @@ import remarkGfmPlugin from 'remark-gfm';
 const REMARK_PLUGINS = [remarkMath, remarkGfmPlugin];
 const REHYPE_PLUGINS = [rehypeKatex];
 
+// 모듈 레벨 상수: ReactMarkdown components 객체 리렌더 시 재생성 방지
+const MARKDOWN_COMPONENTS = {
+  table: ({ node, ...props }) => (
+    <div className="overflow-x-auto -mx-1 my-2">
+      <table className="w-full border-collapse" {...props} />
+    </div>
+  ),
+  thead: ({ node, ...props }) => <thead className="bg-cafe24-yellow/20" {...props} />,
+  th: ({ node, ...props }) => (
+    <th
+      className="border-2 border-cafe24-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cafe24-brown"
+      {...props}
+    />
+  ),
+  td: ({ node, ...props }) => (
+    <td
+      className="border border-cafe24-orange/15 px-3 py-2 align-top text-xs text-cafe24-brown whitespace-nowrap"
+      {...props}
+    />
+  ),
+  pre: ({ node, ...props }) => (
+    <pre className="overflow-x-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown" {...props} />
+  ),
+  code: ({ node, inline, className, children, ...props }) => {
+    if (inline) {
+      return (
+        <code className="rounded bg-cafe24-yellow/20 px-1 py-0.5 text-[11px] text-cafe24-brown" {...props}>
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  },
+  a: ({ node, ...props }) => (
+    <a
+      {...props}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown"
+    />
+  ),
+};
+
 function MarkdownMessage({ content }) {
   return (
     <ReactMarkdown
       remarkPlugins={REMARK_PLUGINS}
       rehypePlugins={REHYPE_PLUGINS}
-      components={{
-        table: ({ node, ...props }) => (
-          <div className="overflow-x-auto -mx-1 my-2">
-            <table className="w-full border-collapse" {...props} />
-          </div>
-        ),
-        thead: ({ node, ...props }) => <thead className="bg-cafe24-yellow/20" {...props} />,
-        th: ({ node, ...props }) => (
-          <th
-            className="border-2 border-cafe24-orange/20 px-3 py-2 text-left text-xs font-extrabold text-cafe24-brown"
-            {...props}
-          />
-        ),
-        td: ({ node, ...props }) => (
-          <td
-            className="border border-cafe24-orange/15 px-3 py-2 align-top text-xs text-cafe24-brown whitespace-nowrap"
-            {...props}
-          />
-        ),
-        pre: ({ node, ...props }) => (
-          <pre className="overflow-x-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown" {...props} />
-        ),
-        code: ({ node, inline, className, children, ...props }) => {
-          if (inline) {
-            return (
-              <code className="rounded bg-cafe24-yellow/20 px-1 py-0.5 text-[11px] text-cafe24-brown" {...props}>
-                {children}
-              </code>
-            );
-          }
-          return (
-            <code className={className} {...props}>
-              {children}
-            </code>
-          );
-        },
-        a: ({ node, ...props }) => (
-          <a
-            {...props}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown"
-          />
-        ),
-      }}
+      components={MARKDOWN_COMPONENTS}
     >
       {content || ''}
     </ReactMarkdown>

@@ -7,7 +7,7 @@ export default function Home() {
 
   useEffect(() => {
     const auth = loadFromSession(STORAGE_KEYS.AUTH, null);
-    if (auth?.username && auth?.password) router.replace('/app');
+    if (auth?.username && auth?.password_b64) router.replace('/app');
     else router.replace('/login');
   }, [router]);
 

@@ -17,15 +17,22 @@ def safe_str(x: Any, default: str = "") -> str:
 
 
 def safe_float(x: Any, default: float = 0.0) -> float:
-    """안전한 float 변환"""
+    """안전한 float 변환 (네이티브 변환 우선, pandas fallback)"""
+    if x is None:
+        return float(default)
+    if isinstance(x, (int, float)):
+        return x if math.isfinite(x) else float(default)
+    try:
+        fv = float(x)
+        return fv if math.isfinite(fv) else float(default)
+    except (ValueError, TypeError):
+        pass
     try:
         v = pd.to_numeric(x, errors="coerce")
         if pd.isna(v):
             return float(default)
         fv = float(v)
-        if not math.isfinite(fv):
-            return float(default)
-        return fv
+        return fv if math.isfinite(fv) else float(default)
     except Exception:
         return float(default)
 

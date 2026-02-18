@@ -1,7 +1,7 @@
 // components/panels/ModelsPanel.js
 // CAFE24 AI Platform - ML 모델 관리 패널
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Brain, Layers, FlaskConical, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import SectionHeader from '@/components/SectionHeader';
 
@@ -17,7 +17,8 @@ export default function ModelsPanel({ auth, apiCall }) {
   // H27: fetchMLflowData/handleRefresh 공통 함수 추출
   const CAFE24_KEYWORDS = ['cafe24', 'ops-ai', '이탈', '셀러', '매출', '이상', 'CS', '정산'];
 
-  const fetchMLflowData = async (reset = false) => {
+  // useCallback으로 stale closure 방지 (auth, apiCall 의존성 명시)
+  const fetchMLflowData = useCallback(async (reset = false) => {
     if (reset) {
       setMlflowData([]);
       setRegisteredModels([]);
@@ -70,7 +71,7 @@ export default function ModelsPanel({ auth, apiCall }) {
     }
 
     setLoading(false);
-  };
+  }, [apiCall, auth]);
 
   // M47: 두 useEffect waterfall -> 단일 useEffect + Promise.all 병렬 로드
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function ModelsPanel({ auth, apiCall }) {
       }
     }
     initLoad();
-  }, [auth, apiCall]);
+  }, [auth, apiCall, fetchMLflowData]);
 
   const formatTimestamp = (ts) => {
     if (!ts) return '-';

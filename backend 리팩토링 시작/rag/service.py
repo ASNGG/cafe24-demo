@@ -106,7 +106,7 @@ def _rag_list_files() -> List[str]:
                 ext = os.path.splitext(n)[1].lower()
                 if ext in st.RAG_ALLOWED_EXTS:
                     files.append(os.path.join(root, n))
-    except Exception:
+    except OSError:
         return []
     return sorted(list(set(files)))
 
@@ -117,7 +117,7 @@ def _rag_files_fingerprint(paths: List[str]) -> str:
         try:
             s = os.stat(p)
             parts.append(f"{os.path.relpath(p, st.RAG_DOCS_DIR)}|{s.st_size}|{int(s.st_mtime)}")
-        except Exception:
+        except OSError:
             parts.append(f"{os.path.relpath(p, st.RAG_DOCS_DIR)}|ERR")
     return _sha1_text("\n".join(parts))
 
@@ -137,9 +137,9 @@ def _make_embeddings(api_key: str):
         except TypeError:
             try:
                 return OpenAIEmbeddings(model=st.RAG_EMBED_MODEL)
-            except Exception:
+            except (TypeError, ValueError, RuntimeError):
                 return None
-    except Exception:
+    except (ValueError, RuntimeError):
         return None
 
 
@@ -152,7 +152,7 @@ def _rag_load_state_file() -> dict:
             return {}
         with open(st.RAG_STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f) or {}
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError):
         return {}
 
 
@@ -161,7 +161,7 @@ def _rag_save_state_file(payload: dict) -> None:
         os.makedirs(st.RAG_FAISS_DIR, exist_ok=True)
         with open(st.RAG_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
-    except Exception:
+    except (OSError, TypeError, ValueError):
         pass
 
 
@@ -182,7 +182,7 @@ def _get_parent_content(parent_id: str, fallback_content: str = "") -> str:
     try:
         parent_content = safe_str(getattr(parent, "page_content", ""))
         return parent_content if parent_content else fallback_content
-    except Exception:
+    except (AttributeError, TypeError):
         return fallback_content
 
 
@@ -194,7 +194,7 @@ def _safe_faiss_save(idx, target_dir: str) -> None:
     try:
         idx.save_local(target_dir)
         return
-    except Exception:
+    except (OSError, UnicodeEncodeError, RuntimeError):
         pass
     with tempfile.TemporaryDirectory() as tmp:
         idx.save_local(tmp)
@@ -208,7 +208,7 @@ def _safe_faiss_load(target_dir: str, emb):
             return FAISS.load_local(target_dir, emb, allow_dangerous_deserialization=True)
         except TypeError:
             return FAISS.load_local(target_dir, emb)
-    except Exception:
+    except (OSError, UnicodeDecodeError, RuntimeError, ValueError):
         pass
     with tempfile.TemporaryDirectory() as tmp:
         for fname in os.listdir(target_dir):
@@ -308,7 +308,7 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
                         rel = os.path.relpath(p, st.RAG_DOCS_DIR).replace("\\", "/")
                         try:
                             load_docs.append(Document(page_content=txt, metadata={"source": rel}))
-                        except Exception:
+                        except (TypeError, ValueError):
                             continue
 
                     if load_docs:
@@ -357,7 +357,7 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
         rel = os.path.relpath(p, st.RAG_DOCS_DIR).replace("\\", "/")
         try:
             docs.append(Document(page_content=txt, metadata={"source": rel}))
-        except Exception:
+        except (TypeError, ValueError):
             continue
 
     if not docs:
@@ -509,7 +509,7 @@ def rag_search_local(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str 
                 continue
             try:
                 dist = float(score)
-            except Exception:
+            except (TypeError, ValueError):
                 continue
             if dist > max_dist:
                 continue
@@ -518,13 +518,13 @@ def rag_search_local(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str 
                 metadata = getattr(doc, "metadata", {})
                 src = safe_str(metadata.get("source", ""))
                 parent_id = metadata.get("parent_id", "")
-            except Exception:
+            except (AttributeError, TypeError):
                 src = ""
                 parent_id = ""
 
             try:
                 child_txt = safe_str(getattr(doc, "page_content", ""))
-            except Exception:
+            except (AttributeError, TypeError):
                 child_txt = ""
 
             if parent_id and parent_id not in seen_parents:
@@ -599,7 +599,7 @@ def _search_single_query(
                             },
                             float(dist)
                         ))
-                except Exception:
+                except (AttributeError, TypeError, ValueError):
                     continue
         except Exception as e:
             st.logger.warning("SEARCH_VECTOR_FAIL q=%s err=%s", q[:20], safe_str(e)[:50])

@@ -76,9 +76,10 @@ graph LR
 nextjs/
 │
 ├── pages/                          # Next.js Pages Router
+│   ├── _document.js                # HTML 문서 설정 (lang="ko", Pretendard 폰트 preload)
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
-│   ├── login.js                    # 로그인 페이지 (Basic Auth)
+│   ├── login.js                    # 로그인 페이지 (Basic Auth, password btoa 인코딩)
 │   ├── app.js                      # 메인 앱 (탭 기반 13개 패널 라우팅)
 │   └── api/
 │       ├── agent/
@@ -99,12 +100,10 @@ nextjs/
 │   ├── EmptyState.js               # 빈 상태 UI
 │   ├── Skeleton.js                 # 로딩 스켈레톤 (CSS shimmer)
 │   ├── ToastProvider.js            # 전역 토스트 알림 (react-hot-toast)
-│   ├── next.config.js              # next.config.js 사본 (백엔드 기본 포트 8001)
-│   │
-│   ├── common/                     # 공통 컴포넌트 (신규)
+│   ├── common/                     # 공통 컴포넌트
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
 │   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
-│   │   └── constants.js            # 공통 상수 (COLORS 등)
+│   │   └── constants.js            # 공통 상수 (COLORS, getSeverityClasses 등)
 │   │
 │   └── panels/                     # 기능별 패널 (13개)
 │       ├── AgentPanel.js           # AI 에이전트 채팅
@@ -122,7 +121,13 @@ nextjs/
 │       ├── SubAgentPanel.js      # 서브에이전트 (파이프라인 실행 + 채팅)
 │       │
 │       ├── hooks/                 # 패널 전용 커스텀 훅
-│       │   └── useSubAgentStream.js  # 서브에이전트 SSE 스트리밍 (7종 이벤트)
+│       │   ├── useBaseStream.js      # SSE 스트리밍 공통 로직 (~250줄, useAgentStream + useSubAgentStream 통합)
+│       │   ├── useAgentStream.js     # 에이전트 SSE 훅 (useBaseStream 호출, ~43줄)
+│       │   └── useSubAgentStream.js  # 서브에이전트 SSE 훅 (useBaseStream + agent_start/agent_end, ~123줄)
+│       │
+│       ├── guardian/              # GuardianPanel 공통 컴포넌트
+│       │   └── common/
+│       │       └── ToolStep.js   # MonitorTab + RecoverTab 공통 도구 단계 표시
 │       │
 │       ├── automation/            # 자동화 엔진 공통 컴포넌트
 │       │   ├── PipelineFlow.js    # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
@@ -154,8 +159,9 @@ nextjs/
 │           └── MarketingTab.js     # 마케팅 최적화
 │
 ├── lib/                            # 유틸리티
-│   ├── api.js                      # API 호출 (Basic Auth, AbortController)
-│   ├── sse.js                      # SSE 파싱/인증 헤더 공통 유틸 (신규)
+│   ├── api.js                      # API 호출 (Basic Auth, cache 파라미터화, b64 지원)
+│   ├── sse.js                      # SSE 파싱/인증 헤더 공통 유틸 (password_b64 호환)
+│   ├── sseProxy.js                 # SSE 프록시 공통 핸들러 (CORS 프로덕션 제한)
 │   ├── storage.js                  # 로컬/세션 스토리지 (SSR 안전)
 │   ├── cn.js                       # 클래스명 병합 (flat + filter)
 │   └── progress.js                 # NProgress 중첩 카운터
@@ -164,8 +170,8 @@ nextjs/
 │   ├── globals.css                 # 전역 스타일 (Tailwind + CAFE24 토큰)
 │   └── nprogress.css               # 페이지 전환 진행바
 │
-├── next.config.js                  # API 프록시 rewrites 설정
-├── tailwind.config.js              # CAFE24 테마 (cafe24/grade 색상, @tailwindcss/typography)
+├── next.config.js                  # API 프록시 rewrites + 보안(poweredByHeader:false) + reactStrictMode + images 설정
+├── tailwind.config.js              # CAFE24 테마 (cafe24/grade 색상, 미사용 색상/animation/gradient 정리)
 ├── postcss.config.js               # PostCSS (Tailwind + Autoprefixer)
 └── package.json
 ```
@@ -714,6 +720,7 @@ flowchart LR
 | `MonitorTab` | 실시간 감시 -- 입력 폼 + 감시 모드 토글 + 프리셋 + 분석 결과 표시 |
 | `RecoverTab` | 복구 요청 -- 차단 쿼리 선택 + Recovery Agent 복구 SQL 생성 |
 | `DashboardTab` | 대시보드 -- KPI 카드 + 차단 이력 + 감사 로그 테이블 |
+| `ToolStep` | MonitorTab + RecoverTab 공통 도구 단계 표시 (`guardian/common/ToolStep.js`) |
 
 **라이브러리:** `react-markdown` (Agent 분석 결과 마크다운 렌더링)
 
@@ -852,9 +859,9 @@ flowchart LR
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/SubAgentPanel.js` (~467줄) |
+| **파일** | `components/panels/SubAgentPanel.js` (PipelineSteps/MarkdownMessage/ToolCalls React.memo 적용) |
 | **역할** | 서브에이전트 파이프라인 실행 -- 다단계 AI 에이전트가 순차적으로 분석/실행하고 결과를 실시간 스트리밍 |
-| **훅** | `components/panels/hooks/useSubAgentStream.js` (~440줄) |
+| **훅** | `components/panels/hooks/useSubAgentStream.js` (~123줄, useBaseStream 기반) |
 | **API** | `POST /api/agent/stream` (SSE, `sub_agent: true` 플래그) |
 | **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `framer-motion` |
 | **권한** | 전체 사용자 |
@@ -904,7 +911,13 @@ flowchart LR
 | `done` | `{ok, final, tool_calls, agent_results}` | 최종 결과 반영, 파이프라인 완료 처리 |
 | `error` | `{message}` | 에러 메시지 표시 |
 
-**useSubAgentStream 훅 (~440줄):**
+**SSE 훅 아키텍처 (useBaseStream 통합):**
+
+```
+useBaseStream.js (~250줄)          # 공통: SSE 연결, delta 버퍼, 메시지 관리, abort/stale 가드
+├── useAgentStream.js (~43줄)      # AgentPanel용: useBaseStream 직접 호출
+└── useSubAgentStream.js (~123줄)  # SubAgentPanel용: useBaseStream + agent_start/agent_end 핸들링
+```
 
 | 기능 | 설명 |
 |------|------|
@@ -915,6 +928,7 @@ flowchart LR
 | **120초 타임아웃** | 서브에이전트 응답 대기 최대 시간 |
 | **abort/stale 가드** | AbortController + stale 플래그로 중복 요청 방지 |
 | **sub_agent 플래그** | 요청 시 `sub_agent: true`로 서브에이전트 모드 활성화 |
+| **stopStream 버그 수정** | isPending 조건 제거로 메시지 유실 방지 |
 
 **내부 컴포넌트:**
 
@@ -960,7 +974,7 @@ flowchart LR
 | **md** (768px) | 탭 축소, 카드 1열 |
 | **sm** (640px) | 모바일 최적화, 풀 위드 |
 
-> 전역 90% 줌(`document.documentElement.style.zoom = '0.9'`)으로 정보 밀도를 높이고, Noto Sans KR + Pretendard 폰트로 한글 가독성을 확보한다.
+> 전역 90% 줌(`document.documentElement.style.zoom = '0.9'`)으로 정보 밀도를 높이고, Noto Sans KR + Pretendard 폰트(`_document.js` preload)로 한글 가독성을 확보한다.
 
 ---
 
@@ -981,7 +995,7 @@ flowchart LR
 |----------|------|------|
 | **CustomTooltip** | `common/CustomTooltip.js` | Recharts 차트 공통 툴팁 (DashboardPanel, AnalysisPanel에서 중복 추출) |
 | **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel StatCard + ProcessMinerPanel SummaryCard 통합) |
-| **constants** | `common/constants.js` | 공통 상수 (COLORS 등 차트/UI 색상) |
+| **constants** | `common/constants.js` | 공통 상수 (COLORS 차트/UI 색상, `getSeverityClasses()` 헬퍼) |
 
 ### UI 컴포넌트
 
@@ -989,7 +1003,7 @@ flowchart LR
 |----------|-------|------|
 | **KpiCard** | `title, value, icon, color, trend` | KPI 지표 카드 |
 | **SectionHeader** | `title, subtitle, right` | 섹션 제목 + 우측 액션 |
-| **EmptyState** | `icon, title, desc` | 데이터 없음 상태 |
+| **EmptyState** | `icon, title, desc` | 데이터 없음 상태 (`icon` prop 추가, 하위 호환) |
 | **Skeleton** | `width, height, className` | 로딩 스켈레톤 (SkeletonCard 포함) |
 
 ---
@@ -1032,8 +1046,9 @@ export async function apiCall({
   data = null,        // POST body
   auth = null,        // { username, password }
   timeoutMs = 60000,  // 타임아웃
+  cache = 'no-store', // cache 파라미터화 (기본 no-store)
 }) {
-  // Basic Auth 헤더, AbortController 타임아웃, cache: 'no-store'
+  // Basic Auth 헤더 (makeBasicAuthHeader b64 지원), AbortController 타임아웃
   // 에러 시 throw 하지 않고 { status: "FAILED", error } 반환
 }
 ```
@@ -1098,7 +1113,7 @@ Next.js API Route로 구현한 SSE 프록시. 브라우저는 같은 오리진�
 | **바디 전달** | `init.body = req` (원본 스트림 그대로 릴레이) |
 | **duplex** | `'half'` -- Node.js 18+ `fetch(undici)`에서 스트림 바디 전송 시 필수 |
 | **응답 헤더** | `Content-Type: text/event-stream`, `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` |
-| **CORS** | `Access-Control-Allow-Origin: *`, OPTIONS preflight 204 응답 |
+| **CORS** | 프로덕션: 동일 오리진 제한 / 개발: `Access-Control-Allow-Origin: *`, OPTIONS preflight 204 응답 |
 | **클라이언트 해제** | `req.on('close')` 시 `reader.cancel()` + `res.end()` |
 | **청크 전달** | `ReadableStream.getReader()` 루프로 바이트 단위 릴레이 |
 
@@ -1189,15 +1204,14 @@ async rewrites() {
 | `addLog(action, detail)` | 활동 기록 추가 (시간, 사용자명 자동 포함) |
 | `clearLog()` | 전체 로그 초기화 (LogsPanel에서 호출) |
 
-**CustomEvent 기반 예시 질문 브릿지:**
+**CustomEvent 기반 예시 질문 전달:**
 
 ```mermaid
 flowchart LR
-    S["Sidebar<br/>예시 클릭"] -->|"cafe24_example_question"| B["ExampleQuestionBridge"]
-    B -->|"cafe24_send_question"| A["AgentPanel"]
+    S["Sidebar<br/>예시 클릭"] -->|"cafe24_example_question"| A["AgentPanel"]
 ```
 
-> 사이드바의 예시 질문 클릭 시 `window.dispatchEvent(CustomEvent)` 체인으로 AgentPanel에 질문 전달. React state가 아닌 window 이벤트를 사용하여 컴포넌트 간 느슨한 결합 유지
+> 사이드바의 예시 질문 클릭 시 `window.dispatchEvent(CustomEvent)`로 AgentPanel에 직접 전달. ExampleQuestionBridge 중간 컴포넌트 제거 (v8.5.0)
 
 ### 5.2 스토리지 키 (`lib/storage.js`)
 
@@ -1418,10 +1432,10 @@ flowchart LR
 
 | 기능 | 설명 |
 |------|------|
-| **인증 방식** | `POST /api/login` (Basic Auth 헤더) |
+| **인증 방식** | `POST /api/login` (Basic Auth 헤더, password btoa 인코딩) |
 | **세션 저장** | 성공 시 `{ username, password, user_name, user_role }` → sessionStorage |
 | **자동 리다이렉트** | 이미 인증된 상태면 `/app`으로 자동 이동 |
-| **테스트 계정 퀵필** | 아코디언 토글로 4개 테스트 계정 원클릭 입력 |
+| **테스트 계정 퀵필** | 아코디언 토글로 4개 테스트 계정 원클릭 입력 (`NODE_ENV === 'development'` 조건부 표시) |
 | **Enter 키 로그인** | 비밀번호 필드에서 Enter 키로 바로 로그인 |
 | **에러 표시** | Framer Motion 애니메이션 에러 메시지 |
 | **플로팅 아이콘** | 배경에 이커머스 아이콘 5개 플로팅 애니메이션 |
@@ -1460,7 +1474,7 @@ flowchart LR
 | 셀러 분석 | 12 | "SEL0001 셀러 분석해줘" |
 | 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
 
-> 예시 질문은 백엔드 API가 아닌 프론트엔드 하드코딩. `CustomEvent` 브릿지를 통해 AgentPanel로 전달 (섹션 5.1 참조)
+> 예시 질문은 백엔드 API가 아닌 프론트엔드 하드코딩. `CustomEvent`를 통해 AgentPanel로 직접 전달 (섹션 5.1 참조)
 
 ---
 
@@ -1569,11 +1583,11 @@ sequenceDiagram
 | **NProgress (중첩 카운터)** | `lib/progress.js` | `inflight` 카운터로 중첩 라우트 전환 추적 |
 | **AbortController** | `lib/api.js` | 모든 API 호출에 타임아웃 적용 (기본 60초) |
 | **sessionStorage 인증** | `lib/storage.js` | 인증 정보는 sessionStorage -- 탭 닫으면 자동 만료 |
-| **cache: no-store** | `lib/api.js` | 모든 fetch에 `cache: 'no-store'` -- 항상 최신 데이터 |
+| **cache 파라미터화** | `lib/api.js` | `cache` 옵션 파라미터화 (기본 `no-store`, 필요시 변경 가능) |
 | **X-Accel-Buffering: no** | SSE 프록시 | Nginx 프록시 뒤에서도 SSE 버퍼링 방지 |
 | **flushHeaders** | SSE 프록시 | 응답 헤더 즉시 전송으로 SSE 연결 지연 최소화 |
 | **전역 90% 줌** | `pages/app.js` | `zoom = '0.9'` -- 더 많은 정보를 한 화면에 표시 |
-| **Noto Sans KR + Pretendard** | `Layout.js` / `globals.css` | `next/font/google`로 Noto Sans KR 최적 로딩 |
+| **Noto Sans KR + Pretendard** | `_document.js` / `Layout.js` / `globals.css` | `_document.js`에서 Pretendard preload + `next/font/google`로 Noto Sans KR 최적 로딩 |
 | **CSS shimmer 스켈레톤** | `globals.css` | `.skeleton::after` 키프레임 (순수 CSS, JS 없음) |
 | **safeReplace** | `pages/app.js` | 동일 경로 중복 `router.replace()` 방지 |
 | **useCallback/useMemo** | `pages/app.js` | `apiCall`, `addLog`, `tabs` 등 주요 함수/값 메모이제이션 |
@@ -1586,6 +1600,8 @@ sequenceDiagram
 | **abort/stale 가드** | `useSubAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
 
 ### v8.5.0 최적화 (2026-02-18)
+
+**1차 최적화:**
 
 | 기법 | 적용 위치 | 설명 |
 |------|----------|------|
@@ -1602,6 +1618,38 @@ sequenceDiagram
 | **cleanup 강화** | `useSubAgentStream.js` | cleanup 시 `timeoutRef`/`abortRef` 정리 강화 |
 | **done 이벤트 통합** | `useSubAgentStream.js` | done 이벤트 중복 상태 업데이트를 단일 호출로 통합 |
 | **saveToStorage 크기 제한** | `lib/storage.js` | 1MB 크기 제한 + `QuotaExceededError` 핸들링 |
+
+**2차 최적화 (29파일):**
+
+| 카테고리 | 기법 | 적용 위치 | 설명 |
+|----------|------|----------|------|
+| **SSE 훅 통합** | useBaseStream 공통 추출 | `hooks/useBaseStream.js` (신규) | useAgentStream + useSubAgentStream 공통 로직 ~250줄 추출 |
+| | useAgentStream 경량화 | `hooks/useAgentStream.js` | 382줄 → 43줄 (useBaseStream 호출) |
+| | useSubAgentStream 경량화 | `hooks/useSubAgentStream.js` | 450줄 → 123줄 (useBaseStream + agent_start/agent_end) |
+| | stopStream 버그 수정 | `useBaseStream.js` | isPending 조건 제거로 메시지 유실 방지 |
+| **공통 컴포넌트 추출** | ToolStep 공통화 | `guardian/common/ToolStep.js` (신규) | MonitorTab + RecoverTab 도구 단계 표시 중복 제거 |
+| | EmptyState icon prop | `EmptyState.js` | icon prop 추가 (하위 호환) |
+| | getSeverityClasses 헬퍼 | `common/constants.js` | 위험도별 클래스 헬퍼 함수 추가 |
+| **패널 최적화** | MARKDOWN_COMPONENTS 상수 | `AgentPanel.js` | 마크다운 컴포넌트 맵 모듈 레벨 상수화 |
+| | mapUserData/shops useEffect 분리 | `AnalysisPanel.js` | `mapUserData()` 헬퍼 추출, shops useEffect 분리 |
+| | React.memo 3건 | `SubAgentPanel.js` | PipelineSteps, MarkdownMessage, ToolCalls React.memo 적용 |
+| | IIFE → FaqList + useMemo | `FaqTab.js` | 즉시실행함수 패턴을 FaqList 컴포넌트 + useMemo로 개선 |
+| | SellerCard React.memo | `RetentionTab.js` | 셀러 카드 React.memo 적용 |
+| | maxDuration useMemo | `BottleneckTab.js` | maxDuration 계산 useMemo 적용 |
+| | goNext/goPrev useCallback | `LabPanel.js` | 네비게이션 함수 useCallback 적용 |
+| | formatAdSpend 모듈 함수 | `MarketingTab.js` | 광고비 포맷 함수 모듈 레벨로 추출 |
+| | useCallback deps 수정 | `ModelsPanel.js` | stale closure 버그 수정 |
+| | useEffect deps 수정 | `StepReply.js` | 의존성 배열 수정 |
+| | throttle useRef 안정화 | `StepClassify.js` | throttle 함수 useRef로 안정화 |
+| **아키텍처/보안** | _document.js | `pages/_document.js` (신규) | `lang="ko"` 설정, Pretendard 폰트 preload |
+| | next.config.js 보안 강화 | `next.config.js` | `poweredByHeader: false`, `reactStrictMode: true`, images 설정 |
+| | password btoa 인코딩 | `login.js` | 비밀번호 btoa 인코딩, 테스트 계정 `NODE_ENV` 조건부 표시 |
+| | cache 파라미터화 + b64 | `lib/api.js` | cache 옵션 파라미터화, `makeBasicAuthHeader` b64 지원 |
+| | password_b64 호환 | `lib/sse.js` | password_b64 호환 처리 |
+| | CORS 프로덕션 제한 | `lib/sseProxy.js` | CORS 정책 프로덕션 환경 제한 |
+| | ExampleQuestionBridge 제거 | `app.js` | 미사용 브릿지 컴포넌트 제거 |
+| | 미사용 설정 정리 | `tailwind.config.js` | 미사용 색상, animation, gradient 정리 |
+| | 사본 파일 삭제 | `components/next.config.js` | 불필요한 next.config.js 사본 삭제 |
 
 ---
 

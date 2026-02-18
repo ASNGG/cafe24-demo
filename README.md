@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v8.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v8.6.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,59 +22,16 @@ v8.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v8.5.0** (2026-02-18) — 전체 코드 최적화 1차+2차 통합 (~71파일)
+> **v8.6.0** (2026-02-18) — 서브에이전트 6개 파이프라인 확장 `🚧 개발중`
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **백엔드 성능** | state.py 로깅 싱글톤/설정 캐시, data/loader.py 라벨인코더 병렬 로드(ThreadPoolExecutor)/build_caches 벡터화/revenue_model 비동기 학습/MLflow 캐싱, main.py RAG 비동기 백그라운드 초기화, safe_float 최적화, memory cleanup 스로틀(60초), asyncio.get_running_loop(), LAST_CONTEXT TTL+크기 제한(200) |
-| **API 최적화** | routes_shop.py set_index 캐싱/인사이트 TTL 캐시, routes_cs.py cleanup 빈도 제한/CS 파이프라인 asyncio.gather 병렬화, routes_admin.py 불필요한 copy() 제거, time_ago/error_response 통합, DataFrame .copy() 제거, MLflow 싱글톤, Guardian DB context manager |
-| **에이전트 최적화** | tools.py .copy() 5건 제거/세그먼트 캐시/JSON 파싱 헬퍼 통합, multi_agent.py 도구·프롬프트 캐시, router.py 정규식 사전 컴파일, intent.py 키워드 frozenset 변환, llm.py LLM 인스턴스 캐시, runner.py 도구 매핑 캐시/정규식 6개 사전 컴파일 |
-| **RAG 안정성** | FAISS TTL 캐시(5분), 스레드 안전성(threading.Lock), bare except → 구체적 예외 (search/service/kg/k2rag/chunking) |
-| **ML/자동화** | mlflow_tracker bare except 정리, action_logger 5개 저장소 크기 제한, retention_engine 중복 코드 5개 공통 함수 통합 |
-| **프로세스 마이너** | 헬퍼 추출(parse_timestamp, group_events_by_case) |
-| **프론트 SSE** | useBaseStream 공통 훅 추출(660→420줄), stopStream 메시지 유실 버그 수정, flushTimer 개선, cleanup 강화 (abort/timeout 리소스 정리) |
-| **프론트 컴포넌트** | ToolStep/EmptyState/getSeverityClasses 공통 컴포넌트 추출, MARKDOWN_COMPONENTS 모듈 상수화, React.memo/useMemo/useCallback 12건, ChatMessage/ToolCalls React.memo |
-| **프론트 아키텍처/보안** | _document.js 생성, password btoa 인코딩, CORS 제한, 테스트 계정 조건부, poweredByHeader:false, ExampleQuestionBridge 제거 |
-| **프론트 유틸** | app.js localStorage debounce 통합, zoom 반응형, storage.js 1MB 크기 제한, DashboardPanel useMemo 의존성 세분화/폴링 document.hidden 체크 |
-| **Tailwind 정리** | 미사용 색상/animation/gradient 제거, 번들 최적화 |
-
-> **v8.4.0** (2026-02-16) — 서브에이전트 오케스트레이션 아키텍처 `🚧 개발중`
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **서브에이전트 탭** | 🧬 실험실 - 서브에이전트: 복합 요청을 단계별로 분해하여 순차 실행하는 오케스트레이션 UI |
-| **Retention 서브에이전트** | 셀러 이탈 분석 → CS 확인 → 리텐션 전략 생성 → 자동 발송 파이프라인 |
-| **새 도구 3개** | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action` (28→31개) |
-| **인텐트 라우팅** | `IntentCategory.RETENTION` 추가 — 리텐션 키워드 기반 라우팅 (ANALYSIS보다 우선) |
-| **SSE 이벤트 확장** | `agent_start`, `agent_end` 2종 추가 (기존 delta/tool_start/tool_end/done/error + 2종) |
-| **오케스트레이션 흐름** | Coordinator → sub_agent_coordinator(plan) → dispatcher(순차 실행) → retention_agent(도구 호출) → 결과 누적 → 최종 응답 |
-
-> **v8.3.0** (2026-02-12) — 전체 코드 최적화 150건 (백엔드 + 프론트엔드)
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **코드 감축** | 99파일, 순 -7,000줄 — 거대 파일 4개 분리 (ProcessMiner 1293→107, Guardian 884→67, Automation 1131→87, Agent 905→539) |
-| **백엔드 중복 제거** | 함수 중복 통합, OpenAI 클라이언트 팩토리, 키워드/인텐트 분류 단일 소스화, tool_schemas.py→tools.py 통합 |
-| **백엔드 성능** | CRAG 배치 평가, LangGraph 캐시, RAG BM25 직렬화 캐시, k2rag O(1) 룩업, CSV/모델 병렬 로딩, PSO numpy 벡터화 |
-| **프론트 번들** | plotly.js 제거 (-1MB), 12개 패널 next/dynamic 전환, recharts 코드 스플리팅, framer-motion login 분리 |
-| **프론트 아키텍처** | AnalysisPanel useState 38→15개, SSE 프록시 3개 통합, 공통 컴포넌트 6개 추출, 커스텀 훅 3개 생성 |
-| **브랜딩 통일** | cookie-* 전면 제거, cafe24-* 네이밍 100% 통일 |
-| **접근성** | WAI-ARIA 탭 키보드 네비게이션, Escape 모달 닫기 |
-
-> **v8.2.0** (2026-02-12) — 자동화 엔진 고도화 (파이프라인 시각화 + 버그 수정)
-
-| 기능 | 설명 |
-|------|------|
-| **인터랙티브 파이프라인 시각화** | PipelineFlow 컴포넌트 — 각 탭 상단에 5단계 진행 상태 실시간 표시 (pending→processing→complete 애니메이션) |
-| **RetentionTab 고도화** | 셀러 프리뷰 카드(5개 KPI) + 리스크 게이지 바 + 체크박스 벌크 액션 |
-| **FaqTab 고도화** | 카테고리 드롭다운(9종) + 텍스트/상태/카테고리 검색·필터 + 모달 편집 |
-| **ReportTab 고도화** | KPI 트렌드 표시(↑↓ + WoW 변화율) + 섹션 네비게이션 pill |
-| **FAQ 카테고리 버그 수정** | 프롬프트 강화 + 후처리 카테고리 강제 (선택한 카테고리만 생성) |
-| **파이프라인 추적 인프라** | `create_pipeline_run()` / `update_pipeline_step()` — 백엔드 3대 엔진 연동 |
-
-- 신규 API 3개: `/categories`, `/pipeline/{run_id}`, `/retention/execute-bulk`
-- 신규 컴포넌트: `PipelineFlow.js`, `automation/constants.js`
-- API 엔드포인트 총 17개 (14→17), 파이프라인 스텝 업데이트 버그 3건 수정
+| **6개 파이프라인** | 리텐션 전략 · 셀러 종합 진단 · 쇼핑몰 성과 리포트 · 전체 현황 딥 분석 · 이상거래 조사 · CS 품질 분석 |
+| **제네릭 오케스트레이션** | `_STEP_CONFIG`(19스텝) + `_PIPELINE_PLANS`(6종)으로 파이프라인 자동 선택 — 기존 retention 전용 → 범용 확장 |
+| **파이프라인 자동 감지** | `_detect_pipeline_type()`: 키워드 기반 + IntentCategory fallback |
+| **sub_agent 플래그** | `AgentRequest.sub_agent` — SubAgentPanel 요청은 카테고리 무관하게 서브에이전트 모드 진입 |
+| **5개 전문 프롬프트** | SELLER_DIAGNOSIS / SHOP_PERFORMANCE / DASHBOARD_DEEP / FRAUD_INVESTIGATION / CS_QUALITY |
+| **프론트엔드** | STEP_LABELS 19개 한글 매핑, 7개 추천 칩, 사이드바 파이프라인 목록 |
 
 ---
 
@@ -653,10 +610,11 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 로깅 싱글톤/병렬 로드/MLflow 싱글톤/asyncio.gather 병렬화/FAISS TTL 캐시/스레드 안전성/bare except 정리/저장소 크기 제한/중복 코드 통합/헬퍼 추출/memory cleanup 스로틀, 에이전트 copy() 제거/세그먼트 캐시/정규식 사전 컴파일/LLM 인스턴스 캐시, 프론트 useBaseStream 공통 훅 추출/메시지 유실 버그 수정/공통 컴포넌트 추출(ToolStep/EmptyState)/React.memo·useMemo·useCallback 12건/_document.js/password btoa/CORS 제한/Tailwind 미사용 정리 |
-| 8.4.0 | 2026-02-16 | `🚧 개발중` 서브에이전트 오케스트레이션: 복합 요청 자동 분해→순차 실행 아키텍처, Retention 서브에이전트(이탈분석→CS확인→전략→발송), 도구 3개 추가(31개), IntentCategory.RETENTION 라우팅, SSE agent_start/agent_end 이벤트, 실험실 서브에이전트 탭 |
-| 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 백엔드 중복 제거/캐시/병렬화, 프론트 번들 -1MB/dynamic import, WAI-ARIA 접근성 |
-| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 인터랙티브 파이프라인 시각화, RetentionTab/FaqTab/ReportTab 고도화, API 17개 |
+| 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(19스텝)+_PIPELINE_PLANS(6종), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 19개 한글 매핑 |
+| 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 싱글톤/병렬 로드/캐시, 에이전트 정규식 사전 컴파일/LLM 캐시, 프론트 useBaseStream 공통 훅/React.memo 12건/보안 강화 |
+| 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: Retention 파이프라인, 도구 3개 추가(31개), SSE agent_start/agent_end, 실험실 서브에이전트 탭 |
+| 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 프론트 번들 -1MB, WAI-ARIA 접근성 |
+| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 파이프라인 시각화, RetentionTab/FaqTab/ReportTab, API 17개 |
 | 8.1.0 | 2026-02-12 | 자동화 엔진 3대 기능: 셀러 이탈 방지(ML+SHAP→LLM→자동조치), CS FAQ 자동 생성(패턴분석→LLM→승인관리), 운영 리포트 자동 생성(KPI집계→LLM 마크다운). API 14개, 자동화 패널 추가 |
 | 8.0.0 | 2026-02-10 | 대규모 리팩토링: routes.py 8개 도메인 라우터 분리, service.py 파사드+모듈 분리, LabPanel/AnalysisPanel 컴포넌트 분리, 보안 강화(프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL), CSS 변수 리네이밍, 접근성 개선 |
 | 7.6.0 | 2026-02-10 | README 체계화: 루트(프로젝트 개요) / 백엔드(기술 상세) / 프론트엔드(UI 상세) 역할 분리 |

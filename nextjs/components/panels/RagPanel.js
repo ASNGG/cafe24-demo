@@ -245,17 +245,17 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           </div>
         )}
 
-        {/* 인덱스 재빌드 버튼 */}
+        {/* 인덱스 재빌드 버튼 (비활성화 - LLM API 비용 방지) */}
         {auth?.user_role === '관리자' && (
           <div className="mt-4">
             <button
-              onClick={handleReindex}
-              disabled={loading}
-              className="w-full rounded-2xl border border-cafe24-orange/30 bg-gradient-to-r from-cafe24-yellow to-cafe24-orange px-4 py-2.5 text-sm font-black text-white shadow-cafe24-sm hover:shadow-cafe24-lg transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled
+              className="w-full rounded-2xl border border-cafe24-brown/20 bg-cafe24-brown/10 px-4 py-2.5 text-sm font-black text-cafe24-brown/40 cursor-not-allowed flex items-center justify-center gap-2"
               type="button"
+              title="프로덕션 환경에서 비활성화됨 (LLM API 비용 발생)"
             >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              {loading ? '인덱스 재빌드 중...' : '인덱스 재빌드'}
+              <RefreshCw size={16} />
+              인덱스 재빌드 (비활성화)
             </button>
           </div>
         )}

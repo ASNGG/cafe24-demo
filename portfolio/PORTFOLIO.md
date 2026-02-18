@@ -1,3 +1,4 @@
+<!--
 ---
 html:
   embed_local_images: true
@@ -6,41 +7,23 @@ print_background: true
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-
-/* === 기본 === */
 body { background-color: #fdf6e3 !important; color: #586e75; font-family: 'Noto Sans KR', sans-serif; line-height: 1.8; }
-
-/* === 제목 === */
 h1 { color: #073642; border-bottom: 3px solid #268bd2; padding-bottom: 8px; }
 h2 { color: #073642; border-bottom: 2px solid #93a1a1; padding-bottom: 6px; margin-top: 2em; }
 h3, h4 { color: #073642; }
 strong { color: #073642; }
-
-/* === 테이블 === */
 table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.92em; }
 table th { background-color: #d3cbb7; color: #073642; padding: 10px 12px; text-align: left; font-weight: bold; }
 table td { padding: 8px 12px; border-bottom: 1px solid #d3cbb7; }
 table tr:nth-child(even) { background-color: #eee8d5; }
-
-/* === 인용문 === */
 blockquote { border-left: 4px solid #268bd2; background-color: #eee8d5; padding: 12px 20px; border-radius: 4px; margin: 16px 0; }
-
-/* === 코드 블록 === */
 pre { background-color: #eee8d5 !important; color: #073642 !important; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; border: 1px solid #d3cbb7; }
 code { font-size: 0.9em; color: #073642; }
-
-/* === 링크 === */
 a { color: #268bd2; text-decoration: none; }
 a:hover { text-decoration: underline; }
-
-/* === 구분선 === */
 hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
-
-/* === Mermaid === */
 .mermaid { background-color: transparent; border-radius: 8px; padding: 16px; margin: 16px auto; max-width: 800px; text-align: center; }
 .mermaid svg { max-width: 100%; height: auto; }
-
-/* === 인쇄 === */
 @media print {
   body { background-color: #fdf6e3 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   table th { background-color: #d3cbb7 !important; color: #073642 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -50,6 +33,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
   h2 { page-break-before: auto; }
 }
 </style>
+-->
 
 # CAFE24 AI 운영 플랫폼
 

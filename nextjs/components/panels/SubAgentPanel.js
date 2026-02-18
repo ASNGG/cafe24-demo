@@ -30,7 +30,7 @@ const PipelineSteps = React.memo(function PipelineSteps({ steps }) {
             {step.status === 'done' ? '\u2713' : (step.step ?? i + 1)}
           </div>
           <span className="text-xs ml-1 font-bold text-cafe24-brown/70">
-            {step.description || step.agent || `Step ${step.step}`}
+            {STEP_LABELS[step.agent] || step.description || step.agent || `Step ${step.step}`}
           </span>
           {i < steps.length - 1 && <div className="w-8 h-0.5 bg-gray-300 mx-1" />}
         </div>
@@ -116,6 +116,35 @@ const SUB_MARKDOWN_COMPONENTS = {
   ),
 };
 const SUB_REMARK_PLUGINS = [remarkGfmPlugin];
+
+// 백엔드 스텝 이름 → 한글 라벨 매핑
+const STEP_LABELS = {
+  // 리텐션
+  analyze_churn: '이탈 위험 분석',
+  check_cs: 'CS 현황 확인',
+  generate_strategy: '맞춤 전략 생성',
+  execute_action: '리텐션 조치 실행',
+  // 셀러 진단
+  seller_analyze: '셀러 상세 분석',
+  seller_risk: '리스크 평가',
+  seller_optimize: '최적화 전략',
+  // 쇼핑몰 성과
+  shop_info: '쇼핑몰 정보 수집',
+  shop_performance: '성과 분석',
+  shop_marketing: '마케팅 최적화',
+  // 딥 분석
+  dashboard_overview: '대시보드 현황',
+  trend_analysis: 'KPI 트렌드',
+  gmv_forecast: 'GMV 예측',
+  // 이상거래
+  fraud_overview: '이상거래 현황',
+  fraud_detect: '부정행위 탐지',
+  fraud_report: '조사 보고서',
+  // CS 품질
+  cs_statistics: 'CS 통계 분석',
+  cs_classify: '문의 분류',
+  cs_auto_reply: '자동 응답 생성',
+};
 
 const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
   return (
@@ -217,10 +246,19 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
 
   const chips = useMemo(
     () => [
+      // 리텐션
       '셀러 이탈 분석 후 리텐션 전략 자동 실행',
-      '위험 셀러 맞춤 메시지 생성',
-      '코호트별 이탈 원인 분석 + 개선안',
       '고위험 셀러 긴급 리텐션 캠페인',
+      // 셀러 종합 진단
+      '셀러 종합 진단 + 세그먼트 분석',
+      // 쇼핑몰 성과
+      '쇼핑몰 성과 리포트 + 마케팅 최적화',
+      // 전체 현황 딥 분석
+      '전체 현황 딥 분석 + KPI 종합',
+      // 이상거래 조사
+      '이상거래 조사 + 부정행위 분석 리포트',
+      // CS 품질
+      'CS 품질 분석 + 자동 응답 개선',
     ],
     []
   );
@@ -253,7 +291,8 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
     if (!stepResults || typeof stepResults !== 'object') return [];
     return Object.entries(stepResults).map(([stepNum, result]) => {
       const stepInfo = (steps || []).find((s) => String(s.step) === String(stepNum));
-      return { stepNum, result, agentName: stepInfo?.agent || stepInfo?.description || '' };
+      const agent = stepInfo?.agent || '';
+      return { stepNum, result, agentName: STEP_LABELS[agent] || stepInfo?.description || agent };
     });
   }, [stepResults, steps]);
 
@@ -346,7 +385,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
             {!messages?.length && (
               <EmptyState
                 title="서브에이전트 실험실"
-                desc="아래 추천 질문을 클릭하거나 직접 입력하여 다단계 AI 분석을 시작하세요."
+                desc="아래 추천 질문을 클릭하거나 직접 입력하여 6가지 AI 파이프라인 분석을 시작하세요."
               />
             )}
 
@@ -422,16 +461,16 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
           <div className="card-header">파이프라인 정보</div>
           <div className="text-sm text-cafe24-brown/70 space-y-2">
             <p>
-              서브에이전트는 복합 분석 요청을 여러 단계로 분해하여 전문 에이전트들이 순차/병렬로
-              처리합니다.
+              서브에이전트는 복합 분석 요청을 여러 단계로 분해하여 전문 에이전트들이 순차 처리합니다. 6가지 파이프라인을 지원합니다.
             </p>
             <div className="rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown space-y-1">
-              <div className="font-extrabold">처리 단계</div>
-              <div>1. 의도 분석 - 요청 분해</div>
-              <div>2. 데이터 수집 - 관련 데이터 조회</div>
-              <div>3. AI 분석 - ML 모델 실행</div>
-              <div>4. 전략 생성 - 인사이트 도출</div>
-              <div>5. 실행 계획 - 액션 플랜 생성</div>
+              <div className="font-extrabold mb-1">파이프라인 종류</div>
+              <div>🔄 리텐션 전략 - 이탈 분석 → 전략 → 실행</div>
+              <div>👤 셀러 종합 진단 - 분석 → 리스크 → 최적화</div>
+              <div>🏪 쇼핑몰 성과 - 정보 → 성과 → 마케팅</div>
+              <div>📊 전체 현황 딥 분석 - 대시보드 → 트렌드 → GMV</div>
+              <div>🚨 이상거래 조사 - 현황 → 탐지 → 보고</div>
+              <div>💬 CS 품질 분석 - 통계 → 분류 → 자동응답</div>
             </div>
           </div>
 

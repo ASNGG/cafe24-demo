@@ -159,6 +159,7 @@ class AgentRequest(BaseModel):
     rag_mode: str = Field("rag", alias="ragMode")
     agent_mode: str = Field("single", alias="agentMode")
     debug: bool = Field(True, alias="debug")
+    sub_agent: bool = Field(False, alias="sub_agent")
     class Config:
         populate_by_name = True
         allow_population_by_field_name = True

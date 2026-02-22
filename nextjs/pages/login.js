@@ -49,12 +49,12 @@ export default function LoginPage() {
     setPassword(pass);
   }
 
-  const accounts = process.env.NODE_ENV !== 'production' ? [
+  const accounts = [
     { label: '관리자', user: 'admin', pass: 'admin123', role: 'Admin' },
     { label: '운영자', user: 'operator', pass: 'oper123', role: 'Operator' },
     { label: '분석가', user: 'analyst', pass: 'analyst123', role: 'Analyst' },
     { label: '사용자', user: 'user', pass: 'user123', role: 'User' },
-  ] : [];
+  ];
 
   // 플로팅 아이콘 데이터
   const floatingIcons = [

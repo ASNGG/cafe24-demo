@@ -156,7 +156,7 @@ export default function AppPage() {
         { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
         { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
         { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
-        { key: 'sub-agent', label: '🧬 실험실 - 서브에이전트' },
+        { key: 'sub-agent', label: '🧬 개발중 - 서브에이전트' },
         { key: 'automation', label: '⚡ 자동화 엔진' },
         { key: 'settings', label: '⚙️ LLM 설정' },
         { key: 'users', label: '👥 셀러 관리' },
@@ -170,7 +170,7 @@ export default function AppPage() {
       { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
       { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
       { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
-      { key: 'sub-agent', label: '🧬 실험실 - 서브에이전트' },
+      { key: 'sub-agent', label: '🧬 개발중 - 서브에이전트' },
       { key: 'automation', label: '⚡ 자동화 엔진' },
     ];
   }, [isAdmin]);

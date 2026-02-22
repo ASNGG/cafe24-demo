@@ -27,11 +27,12 @@ v8.6.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | 영역 | 주요 변경 |
 |------|-----------|
 | **6개 파이프라인** | 리텐션 전략 · 셀러 종합 진단 · 쇼핑몰 성과 리포트 · 전체 현황 딥 분석 · 이상거래 조사 · CS 품질 분석 |
-| **제네릭 오케스트레이션** | `_STEP_CONFIG`(19스텝) + `_PIPELINE_PLANS`(6종)으로 파이프라인 자동 선택 — 기존 retention 전용 → 범용 확장 |
+| **제네릭 오케스트레이션** | `_STEP_CONFIG`(29스텝) + `_PIPELINE_PLANS`(6종, 최대 5단계)으로 파이프라인 자동 선택 — 기존 retention 전용 → 범용 확장 |
 | **파이프라인 자동 감지** | `_detect_pipeline_type()`: 키워드 기반 + IntentCategory fallback |
 | **sub_agent 플래그** | `AgentRequest.sub_agent` — SubAgentPanel 요청은 카테고리 무관하게 서브에이전트 모드 진입 |
 | **5개 전문 프롬프트** | SELLER_DIAGNOSIS / SHOP_PERFORMANCE / DASHBOARD_DEEP / FRAUD_INVESTIGATION / CS_QUALITY |
-| **프론트엔드** | STEP_LABELS 19개 한글 매핑, 7개 추천 칩, 사이드바 파이프라인 목록 |
+| **신규 스텝 10개** | seller_segment·seller_report·shop_trend·shop_report·segment_analysis·deep_report·fraud_pattern·fraud_impact·cs_sentiment·cs_report |
+| **프론트엔드** | STEP_LABELS 29개 한글 매핑, 6개 추천 칩 (파이프라인 1:1), 사이드바 파이프라인 목록 |
 
 ---
 
@@ -610,7 +611,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(19스텝)+_PIPELINE_PLANS(6종), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 19개 한글 매핑 |
+| 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(29스텝)+_PIPELINE_PLANS(6종, 최대 5단계), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 29개 한글 매핑 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 싱글톤/병렬 로드/캐시, 에이전트 정규식 사전 컴파일/LLM 캐시, 프론트 useBaseStream 공통 훅/React.memo 12건/보안 강화 |
 | 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: Retention 파이프라인, 도구 3개 추가(31개), SSE agent_start/agent_end, 실험실 서브에이전트 탭 |
 | 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 프론트 번들 -1MB, WAI-ARIA 접근성 |

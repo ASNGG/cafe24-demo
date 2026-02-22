@@ -124,26 +124,36 @@ const STEP_LABELS = {
   check_cs: 'CS 현황 확인',
   generate_strategy: '맞춤 전략 생성',
   execute_action: '리텐션 조치 실행',
-  // 셀러 진단
+  // 셀러 진단 (5단계)
   seller_analyze: '셀러 상세 분석',
+  seller_segment: '세그먼트 분류',
   seller_risk: '리스크 평가',
   seller_optimize: '최적화 전략',
-  // 쇼핑몰 성과
+  seller_report: '셀러 종합 리포트',
+  // 쇼핑몰 성과 (5단계)
   shop_info: '쇼핑몰 정보 수집',
   shop_performance: '성과 분석',
+  shop_trend: '매출 트렌드',
   shop_marketing: '마케팅 최적화',
-  // 딥 분석
+  shop_report: '쇼핑몰 종합 리포트',
+  // 딥 분석 (5단계)
   dashboard_overview: '대시보드 현황',
+  segment_analysis: '세그먼트 분석',
   trend_analysis: 'KPI 트렌드',
   gmv_forecast: 'GMV 예측',
-  // 이상거래
+  deep_report: '딥 분석 종합 리포트',
+  // 이상거래 (5단계)
   fraud_overview: '이상거래 현황',
+  fraud_pattern: '이상 패턴 분석',
   fraud_detect: '부정행위 탐지',
+  fraud_impact: '영향도 평가',
   fraud_report: '조사 보고서',
-  // CS 품질
+  // CS 품질 (5단계)
   cs_statistics: 'CS 통계 분석',
   cs_classify: '문의 분류',
+  cs_sentiment: '고객 감성 분석',
   cs_auto_reply: '자동 응답 생성',
+  cs_report: 'CS 품질 종합 리포트',
 };
 
 const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
@@ -184,16 +194,17 @@ const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
   );
 });
 
-function Chip({ label, onClick }) {
+function Chip({ label, onClick, disabled }) {
   return (
     <button
-      className="inline-flex items-center gap-2 rounded-full border-2 border-cafe24-orange/20 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm transition active:translate-y-[1px] whitespace-nowrap"
-      onClick={onClick}
-      title="클릭하면 질문이 바로 전송됩니다"
+      className={`inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-extrabold transition whitespace-nowrap ${disabled ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : 'border-cafe24-orange/20 bg-white/80 text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm active:translate-y-[1px]'}`}
+      onClick={disabled ? undefined : onClick}
+      title={disabled ? '개발중 (비활성화)' : '클릭하면 질문이 바로 전송됩니다'}
       type="button"
+      disabled={disabled}
     >
-      <FlaskConical size={14} className="text-cafe24-orange" />
-      <span className="max-w-[220px] truncate">{label}</span>
+      <FlaskConical size={14} className={disabled ? 'text-gray-300' : 'text-cafe24-orange'} />
+      <span>{label}</span>
     </button>
   );
 }
@@ -246,19 +257,12 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
 
   const chips = useMemo(
     () => [
-      // 리텐션
-      '셀러 이탈 분석 후 리텐션 전략 자동 실행',
-      '고위험 셀러 긴급 리텐션 캠페인',
-      // 셀러 종합 진단
-      '셀러 종합 진단 + 세그먼트 분석',
-      // 쇼핑몰 성과
-      '쇼핑몰 성과 리포트 + 마케팅 최적화',
-      // 전체 현황 딥 분석
-      '전체 현황 딥 분석 + KPI 종합',
-      // 이상거래 조사
-      '이상거래 조사 + 부정행위 분석 리포트',
-      // CS 품질
-      'CS 품질 분석 + 자동 응답 개선',
+      { label: '이탈 위험 셀러 분석하고 CS 현황 확인 후 리텐션 전략 실행해줘', disabled: true },
+      { label: '전체 셀러 종합 진단 리포트 작성해줘' },
+      { label: 'S0001 쇼핑몰 성과 분석하고 종합 리포트 만들어줘' },
+      { label: '플랫폼 전체 현황 딥 분석 + 매출 예측 리포트' },
+      { label: '전체 이상거래 조사하고 영향도 분석 리포트 작성해줘' },
+      { label: 'CS 전체 품질 분석하고 감성 분석 리포트 만들어줘' },
     ],
     []
   );
@@ -412,7 +416,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
           {/* 추천 질문 칩 */}
           <div className="flex flex-wrap gap-2">
             {chips.map((c) => (
-              <Chip key={c} label={c} onClick={() => handleSend(c)} />
+              <Chip key={c.label} label={c.label} disabled={c.disabled} onClick={() => handleSend(c.label)} />
             ))}
           </div>
 
@@ -465,12 +469,12 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
             </p>
             <div className="rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown space-y-1">
               <div className="font-extrabold mb-1">파이프라인 종류</div>
-              <div>🔄 리텐션 전략 - 이탈 분석 → 전략 → 실행</div>
-              <div>👤 셀러 종합 진단 - 분석 → 리스크 → 최적화</div>
-              <div>🏪 쇼핑몰 성과 - 정보 → 성과 → 마케팅</div>
-              <div>📊 전체 현황 딥 분석 - 대시보드 → 트렌드 → GMV</div>
-              <div>🚨 이상거래 조사 - 현황 → 탐지 → 보고</div>
-              <div>💬 CS 품질 분석 - 통계 → 분류 → 자동응답</div>
+              <div>🔄 리텐션 전략 - 이탈 → CS → 전략 → 실행 (2~4단계)</div>
+              <div>👤 셀러 진단 - 분석 → 세그먼트 → 리스크 → 최적화 → 리포트</div>
+              <div>🏪 쇼핑몰 성과 - 정보 → 성과 → 트렌드 → 마케팅 → 리포트</div>
+              <div>📊 딥 분석 - 현황 → 세그먼트 → 트렌드 → GMV → 리포트</div>
+              <div>🚨 이상거래 - 현황 → 패턴 → 탐지 → 영향도 → 보고서</div>
+              <div>💬 CS 품질 - 통계 → 분류 → 감성 → 자동응답 → 리포트</div>
             </div>
           </div>
 

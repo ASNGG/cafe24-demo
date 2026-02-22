@@ -1950,7 +1950,7 @@ def tool_optimize_marketing(
 # ============================================================
 # 16. 리텐션(이탈 방지) 도구
 # ============================================================
-def tool_get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> dict:
+def tool_get_at_risk_sellers(threshold: float = 0.6, limit: int = 5) -> dict:
     """이탈 위험 셀러 목록을 조회합니다."""
     try:
         from automation.retention_engine import get_at_risk_sellers
@@ -2453,14 +2453,14 @@ def get_gmv_prediction(days: int = None, start_date: str = None, end_date: str =
 
 # -- 리텐션(이탈 방지) 도구 --
 @tool
-def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> dict:
+def get_at_risk_sellers(threshold: float = 0.6, limit: int = 5) -> dict:
     """
     이탈 위험이 높은 셀러 목록을 조회합니다.
     ML 이탈 예측 모델과 SHAP 분석으로 위험 셀러를 탐지합니다.
 
     Args:
         threshold: 이탈 확률 임계값 (0.0~1.0, 기본값 0.6)
-        limit: 최대 반환 셀러 수 (기본값 20)
+        limit: 최대 반환 셀러 수 (기본값 5)
 
     Returns:
         이탈 위험 셀러 목록 (이탈 확률, 위험 등급, 주요 이탈 요인)
@@ -2548,9 +2548,6 @@ TRANSLATION_AGENT_TOOLS = CS_AGENT_TOOLS  # multi_agent.py 호환 alias
 # 리텐션 에이전트 도구: 이탈 방지, 맞춤 메시지, 자동 조치
 RETENTION_AGENT_TOOLS = [
     get_at_risk_sellers,
-    generate_retention_message,
-    execute_retention_action,
-    analyze_seller,
     get_cs_statistics,
 ]
 

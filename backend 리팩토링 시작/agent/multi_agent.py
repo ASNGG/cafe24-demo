@@ -161,16 +161,14 @@ RETENTION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 �
 
 ## 담당 업무:
 - 이탈 위험 셀러 조회 (get_at_risk_sellers) - ML 이탈 예측 + SHAP 분석
-- 맞춤 리텐션 메시지 생성 (generate_retention_message) - LLM 기반 메시지 작성
-- 리텐션 조치 실행 (execute_retention_action) - 쿠폰, 업그레이드, 매니저 배정
-- 셀러 상세 분석 (analyze_seller) - 셀러 정보 및 이탈 위험도 확인
 - CS 통계 확인 (get_cs_statistics) - CS 현황 파악
 
 ## 분석 규칙:
-- 이전 단계의 분석 결과를 반드시 참고하여 전략을 수립
-- 이탈 위험 수준(고위험/중위험/저위험)에 따라 맞춤형 전략 제시
-- CS 통계가 있으면 불만 패턴을 반영한 전략 수립
-- 실행 가능한 구체적 액션을 포함 (action_type: coupon, upgrade_offer, manager_assign, custom_message)
+- 도구는 현재 단계에 필요한 것만 **1~2개** 호출하세요
+- 이전 단계 결과가 있으면 도구를 다시 호출하지 말고 그 결과를 활용하세요
+- 셀러별 개별 분석 대신, 전체 현황을 종합하여 한 번에 전략을 제시하세요
+- 이탈 위험 수준(고위험/중위험/저위험)별 맞춤형 전략 제시
+- 구체적 리텐션 조치 포함 (쿠폰 발급, 프리미엄 업그레이드, 전담 매니저 배정)
 
 이전 단계 결과를 종합하여 효과적인 리텐션 전략을 제시하세요.
 """
@@ -253,26 +251,36 @@ _STEP_CONFIG = {
     "check_cs": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
     "generate_strategy": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
     "execute_action": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
-    # 셀러 진단
+    # 셀러 진단 (5단계)
     "seller_analyze": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
+    "seller_segment": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
     "seller_risk": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
     "seller_optimize": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    # 쇼핑몰 성과
+    "seller_report": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
+    # 쇼핑몰 성과 (5단계)
     "shop_info": (SEARCH_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
     "shop_performance": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
+    "shop_trend": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
     "shop_marketing": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    # 딥 분석
+    "shop_report": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
+    # 딥 분석 (5단계)
     "dashboard_overview": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
+    "segment_analysis": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
     "trend_analysis": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
     "gmv_forecast": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    # 이상거래
+    "deep_report": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
+    # 이상거래 (5단계)
     "fraud_overview": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
+    "fraud_pattern": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
     "fraud_detect": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
+    "fraud_impact": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
     "fraud_report": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    # CS 품질
+    # CS 품질 (5단계)
     "cs_statistics": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
     "cs_classify": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+    "cs_sentiment": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
     "cs_auto_reply": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+    "cs_report": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
 }
 
 # 스텝별 한글 설명 (SSE agent_start에 포함)
@@ -282,20 +290,30 @@ _STEP_DESCRIPTIONS = {
     "generate_strategy": "맞춤 전략 생성",
     "execute_action": "리텐션 조치 실행",
     "seller_analyze": "셀러 상세 분석",
+    "seller_segment": "셀러 세그먼트 분류",
     "seller_risk": "리스크 평가",
     "seller_optimize": "최적화 전략 도출",
+    "seller_report": "셀러 종합 리포트",
     "shop_info": "쇼핑몰 정보 수집",
     "shop_performance": "성과 분석",
+    "shop_trend": "매출 트렌드 분석",
     "shop_marketing": "마케팅 최적화",
+    "shop_report": "쇼핑몰 종합 리포트",
     "dashboard_overview": "대시보드 현황 집계",
+    "segment_analysis": "세그먼트별 분석",
     "trend_analysis": "KPI 트렌드 분석",
     "gmv_forecast": "GMV 예측",
+    "deep_report": "딥 분석 종합 리포트",
     "fraud_overview": "이상거래 현황 조회",
+    "fraud_pattern": "이상 패턴 분석",
     "fraud_detect": "부정행위 탐지",
+    "fraud_impact": "영향도 평가",
     "fraud_report": "조사 보고서 생성",
     "cs_statistics": "CS 통계 분석",
     "cs_classify": "문의 분류 실행",
+    "cs_sentiment": "고객 감성 분석",
     "cs_auto_reply": "자동 응답 생성",
+    "cs_report": "CS 품질 종합 리포트",
 }
 
 # 서브에이전트 복합 요청 감지용 키워드 패턴
@@ -344,11 +362,11 @@ _CATEGORY_AGENT_MAP = {
 # 파이프라인 타입별 plan 정의
 _PIPELINE_PLANS = {
     "retention": ["analyze_churn", "generate_strategy"],
-    "seller_diagnosis": ["seller_analyze", "seller_risk", "seller_optimize"],
-    "shop_performance": ["shop_info", "shop_performance", "shop_marketing"],
-    "deep_analysis": ["dashboard_overview", "trend_analysis", "gmv_forecast"],
-    "fraud_investigation": ["fraud_overview", "fraud_detect", "fraud_report"],
-    "cs_quality": ["cs_statistics", "cs_classify", "cs_auto_reply"],
+    "seller_diagnosis": ["seller_analyze", "seller_segment", "seller_risk", "seller_optimize", "seller_report"],
+    "shop_performance": ["shop_info", "shop_performance", "shop_trend", "shop_marketing", "shop_report"],
+    "deep_analysis": ["dashboard_overview", "segment_analysis", "trend_analysis", "gmv_forecast", "deep_report"],
+    "fraud_investigation": ["fraud_overview", "fraud_pattern", "fraud_detect", "fraud_impact", "fraud_report"],
+    "cs_quality": ["cs_statistics", "cs_classify", "cs_sentiment", "cs_auto_reply", "cs_report"],
 }
 
 # IntentCategory → 파이프라인 타입 fallback 매핑
@@ -499,15 +517,9 @@ def sub_agent_coordinator_node(state: AgentState, llm) -> dict:
     # 기본 plan 가져오기
     plan = list(_PIPELINE_PLANS.get(pipeline_type, _PIPELINE_PLANS["retention"]))
 
-    # 리텐션 타입에는 추가 키워드 기반 단계 삽입 (기존 로직 호환)
+    # 리텐션: 고정 2단계 (분석 → 전략)
     if pipeline_type == "retention":
-        t = user_message.lower()
-        plan = ["analyze_churn"]
-        if any(kw in t for kw in ["cs", "상담", "문의", "불만"]):
-            plan.append("check_cs")
-        plan.append("generate_strategy")
-        if any(kw in t for kw in ["실행", "발송", "자동", "조치", "액션"]):
-            plan.append("execute_action")
+        plan = ["analyze_churn", "generate_strategy"]
 
     st.logger.info("SUB_AGENT_PLAN pipeline=%s plan=%s steps=%d", pipeline_type, plan, len(plan))
 
@@ -551,18 +563,22 @@ def retention_agent_node(state: AgentState, llm) -> dict:
     """리텐션 에이전트: RETENTION_AGENT_TOOLS로 이탈 방지 작업 수행"""
     # 이전 단계 결과를 컨텍스트로 포함
     agent_results = state.get("agent_results", [])
+    plan = state.get("plan", [])
+    current_step = state.get("current_step", 0)
+    step_name = plan[current_step] if current_step < len(plan) else "unknown"
+
+    # 도구 실행 후 콜백인지 판별 (ToolMessage가 마지막이면 도구 결과 후속 처리)
+    messages = state["messages"]
+    is_tool_callback = bool(messages) and isinstance(messages[-1], ToolMessage)
+
     context_parts = []
     for i, res in enumerate(agent_results):
         context_parts.append(f"[단계 {i+1} 결과] {res.get('step', '')}: {res.get('summary', '')}")
     context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
 
-    plan = state.get("plan", [])
-    current_step = state.get("current_step", 0)
-    step_name = plan[current_step] if current_step < len(plan) else "unknown"
-
     # 원본 사용자 메시지 추출
     user_message = ""
-    for msg in reversed(state["messages"]):
+    for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
             user_message = msg.content
             break
@@ -576,11 +592,18 @@ def retention_agent_node(state: AgentState, llm) -> dict:
 
     tools = RETENTION_AGENT_TOOLS if RETENTION_AGENT_TOOLS else ANALYSIS_AGENT_TOOLS
     agent = create_agent_executor(llm, tools, augmented_prompt)
-    result = agent.invoke({"messages": state["messages"]})
+    result = agent.invoke({"messages": messages})
 
-    # 결과를 agent_results에 누적
+    # 도구 콜백이면 current_step/agent_results 변경하지 않음 (오버플로 방지)
+    if is_tool_callback:
+        return {
+            "messages": [result],
+            "current_agent": "retention",
+        }
+
+    # 결과를 agent_results에 누적 (종합 리포트용으로 500자까지 저장)
     new_results = list(agent_results)
-    result_summary = result.content[:200] if hasattr(result, "content") and result.content else ""
+    result_summary = result.content[:500] if hasattr(result, "content") and result.content else ""
     new_results.append({"step": step_name, "summary": result_summary})
 
     return {
@@ -611,6 +634,10 @@ def sub_step_node(state: AgentState, llm) -> dict:
     current_step = state.get("current_step", 0)
     step_name = plan[current_step] if current_step < len(plan) else "unknown"
 
+    # 도구 실행 후 콜백인지 판별 (ToolMessage가 마지막이면 도구 결과 후속 처리)
+    messages = state["messages"]
+    is_tool_callback = bool(messages) and isinstance(messages[-1], ToolMessage)
+
     # 스텝 설정 가져오기
     tools, base_prompt = _STEP_CONFIG.get(step_name, (ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT))
 
@@ -621,7 +648,7 @@ def sub_step_node(state: AgentState, llm) -> dict:
     context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
 
     user_message = ""
-    for msg in reversed(state["messages"]):
+    for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
             user_message = msg.content
             break
@@ -634,10 +661,18 @@ def sub_step_node(state: AgentState, llm) -> dict:
     )
 
     agent = create_agent_executor(llm, tools, augmented_prompt)
-    result = agent.invoke({"messages": state["messages"]})
+    result = agent.invoke({"messages": messages})
 
+    # 도구 콜백이면 current_step/agent_results 변경하지 않음 (오버플로 방지)
+    if is_tool_callback:
+        return {
+            "messages": [result],
+            "current_agent": "sub_step",
+        }
+
+    # 종합 리포트용으로 500자까지 저장
     new_results = list(agent_results)
-    result_summary = result.content[:200] if hasattr(result, "content") and result.content else ""
+    result_summary = result.content[:500] if hasattr(result, "content") and result.content else ""
     new_results.append({"step": step_name, "summary": result_summary})
 
     return {
@@ -799,20 +834,30 @@ def build_multi_agent_graph(llm):
         "execute_action": "retention",
         # 신규 → sub_step 노드
         "seller_analyze": "sub_step",
+        "seller_segment": "sub_step",
         "seller_risk": "sub_step",
         "seller_optimize": "sub_step",
+        "seller_report": "sub_step",
         "shop_info": "sub_step",
         "shop_performance": "sub_step",
+        "shop_trend": "sub_step",
         "shop_marketing": "sub_step",
+        "shop_report": "sub_step",
         "dashboard_overview": "sub_step",
+        "segment_analysis": "sub_step",
         "trend_analysis": "sub_step",
         "gmv_forecast": "sub_step",
+        "deep_report": "sub_step",
         "fraud_overview": "sub_step",
+        "fraud_pattern": "sub_step",
         "fraud_detect": "sub_step",
+        "fraud_impact": "sub_step",
         "fraud_report": "sub_step",
         "cs_statistics": "sub_step",
         "cs_classify": "sub_step",
+        "cs_sentiment": "sub_step",
         "cs_auto_reply": "sub_step",
+        "cs_report": "sub_step",
         "end": END,
     }
     workflow.add_conditional_edges("dispatcher", _dispatch_route, _dispatch_targets)
@@ -1025,8 +1070,11 @@ async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
         tool_calls_log = final_state.get("tool_calls_log", [])
 
         # 각 단계 결과를 SSE로 전송 (description 포함)
-        for i, result in enumerate(agent_results):
-            step_name = result.get("step", f"step_{i}")
+        # plan에 속하는 유효한 step만 전송 ("unknown" 등 범위 초과 스텝 제외)
+        plan_set = set(plan)
+        valid_results = [r for r in agent_results if r.get("step") in plan_set]
+        for i, result in enumerate(valid_results):
+            step_name = result.get("step", "")
             description = _STEP_DESCRIPTIONS.get(step_name, step_name)
             await sse_callback("agent_start", {
                 "agent": step_name,
@@ -1050,9 +1098,30 @@ async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
                 "status": "success",
             })
 
-        # 최종 응답 추출
+        # 최종 응답 추출: agent_results 전체를 종합하여 리포트 생성
         final_response = final_state.get("final_response", "")
-        if not final_response:
+        if not final_response and len(agent_results) > 1:
+            # 다단계 파이프라인: 각 단계 결과를 종합 리포트로 구성
+            pipeline_type = final_state.get("pipeline_type", "")
+            report_parts = []
+            for i, result in enumerate(agent_results):
+                step_name = result.get("step", f"step_{i}")
+                description = _STEP_DESCRIPTIONS.get(step_name, step_name)
+                summary = result.get("summary", "")
+                report_parts.append(f"### {i+1}단계: {description}\n{summary}")
+            # 마지막 AIMessage에서 최종 단계의 전체 응답도 포함
+            last_ai_content = ""
+            for msg in reversed(final_state.get("messages", [])):
+                if isinstance(msg, AIMessage) and msg.content:
+                    last_ai_content = msg.content
+                    break
+            total_steps = len(agent_results)
+            final_response = f"## 서브에이전트 {total_steps}단계 종합 리포트\n\n"
+            final_response += "\n\n".join(report_parts)
+            if last_ai_content:
+                final_response += f"\n\n---\n### 최종 분석 결과\n{last_ai_content}"
+        elif not final_response:
+            # 단일 단계이거나 agent_results가 비어있으면 마지막 AIMessage 사용
             for msg in reversed(final_state.get("messages", [])):
                 if isinstance(msg, AIMessage) and msg.content:
                     final_response = msg.content

@@ -104,7 +104,7 @@ v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(103개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 + 서브에이전트(Retention) 포함
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. LangGraph `StateGraph` 기반 멀티 에이전트(Coordinator/Search/Analysis/CS) 실험 모드 + 서브에이전트 오케스트레이션(6종 파이프라인, 최대 5단계, 29개 스텝 설정) 포함 (🚧 개발중)
 - **RAG 시스템 (8종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), CRAG([논문](https://arxiv.org/abs/2401.15884) 기반 검색 품질 자동 교정), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -134,7 +134,7 @@ flowchart TB
             ROUTER["2단계 라우터<br/>(키워드 + LLM)"]
             TOOLS["31개 도구<br/>(tool_schemas.py)"]
             RUNNER["runner.py<br/>(Tool Calling)"]
-            SUBAGENT["서브에이전트<br/>(Retention Agent)"]
+            SUBAGENT["서브에이전트 오케스트레이션<br/>(6종 파이프라인, 최대 5단계) 🚧"]
         end
 
         subgraph RAG["RAG 시스템"]
@@ -247,7 +247,7 @@ backend 리팩토링 시작/
 │   ├── routes_ml.py                 # ML/MLflow/마케팅 API
 │   ├── routes_guardian.py           # Guardian/보안감시 API
 │   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/FAQ/리포트, 14개 엔드포인트)
-│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 서브에이전트 RETENTION 모드 분기)
+│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 서브에이전트 오케스트레이션 모드 분기)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
 ├── agent/                           # AI 에이전트 시스템
@@ -256,7 +256,7 @@ backend 리팩토링 시작/
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
-│   ├── multi_agent.py               # LangGraph 멀티 에이전트 (Coordinator → Search/Analysis/CS) + 서브에이전트 (Retention Agent)
+│   ├── multi_agent.py               # LangGraph 멀티 에이전트 (Coordinator → Search/Analysis/CS) + 서브에이전트 오케스트레이션 (6종 파이프라인, 29개 스텝, 5개 전문 프롬프트) 🚧
 │   ├── crag.py                      # Corrective RAG (검색 품질 평가 + 쿼리 재작성)
 │   ├── semantic_router.py           # Semantic Router (레거시 카테고리 정리됨, 현재 비활성)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
@@ -567,7 +567,7 @@ flowchart TB
 | **Analyst** | 셀러/쇼핑몰 데이터 분석 | GPT-4o-mini | 분석, 통계, 세그먼트, 이탈, 이상거래, 매출 |
 | **Searcher** | 플랫폼 정보 검색 | GPT-4o-mini | 플랫폼, 정책, 정산, 가이드 |
 | **CS Agent** | 셀러 문의 분류/응답 관리 | GPT-4o-mini | CS, 셀러 문의, 기술지원, 용어 |
-| **Retention** | 이탈 방지 서브에이전트 (위험 탐지 → 메시지 생성 → 조치 실행) | GPT-4o | 이탈 위험, 리텐션, retention, churn, at-risk |
+| **Sub-Agent** | 서브에이전트 오케스트레이션 (6종 파이프라인, 최대 5단계) 🚧 | GPT-4o | 이탈 위험, 셀러 종합, 쇼핑몰 성과, 딥 분석, 이상거래, CS 품질 |
 | **Coordinator** | 복잡한 요청 조율 | GPT-4o | 기타 일반 질문, 대시보드 |
 
 ### 6.3 RAG 모드 선택
@@ -639,7 +639,7 @@ class IntentCategory(str, Enum):
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출
     SELLER = "seller"           # 셀러 분석, 세그먼트, 부정행위 탐지
     CS = "cs"                   # CS 자동응답, 품질 검사, 문의 분류
-    RETENTION = "retention"     # 이탈 방지, 리텐션, churn, at-risk (서브에이전트 트리거)
+    RETENTION = "retention"     # 이탈 방지, 리텐션, churn, at-risk (서브에이전트 오케스트레이션 트리거)
     DASHBOARD = "dashboard"     # 대시보드, 전체 현황
     GENERAL = "general"         # 일반 대화, 인사
 ```
@@ -703,7 +703,7 @@ KEYWORD_TOOL_MAPPING = {
 | `shop` | 쇼핑몰, 매출, 성과, 카테고리 | `get_shop_info`, `list_shops`, `get_shop_services`, `get_shop_performance`, `predict_shop_revenue`, `optimize_marketing`, `get_category_info`, `list_categories`, `get_dashboard_summary`, `search_platform`, `search_platform_lightrag` | |
 | `seller` | 셀러, SEL0001, 세그먼트, 이상 | `analyze_seller`, `predict_seller_churn`, `get_seller_segment`, `detect_fraud`, `get_fraud_statistics`, `get_segment_statistics`, `optimize_marketing`, `get_shop_performance`, `predict_shop_revenue` | |
 | `cs` | CS, 문의, 상담, 용어집 | `auto_reply_cs`, `check_cs_quality`, `get_ecommerce_glossary`, `get_cs_statistics`, `classify_inquiry` | |
-| `retention` | 이탈 위험, 리텐션, churn, at-risk | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics` | **서브에이전트 모드** |
+| `retention` | 이탈 위험, 리텐션, churn, at-risk | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics` | **서브에이전트 오케스트레이션** (6종 파이프라인, 최대 5단계) 🚧 |
 | `dashboard` | 대시보드, 전체 현황 | `get_dashboard_summary`, `get_segment_statistics`, `get_cs_statistics`, `get_order_statistics` | |
 | `general` | 안녕, 고마워 | (도구 없음 - 직접 대화) | |
 
@@ -821,9 +821,9 @@ class AgentState(TypedDict):
     tool_calls_log: List[dict] # 도구 호출 이력
     iteration: int            # 반복 횟수 (최대 3회)
     final_response: str       # 최종 응답
-    plan: List[dict]          # 서브에이전트 실행 계획 (키워드 기반)
-    current_step: int         # 현재 plan 실행 단계
-    agent_results: List[dict] # 단계별 에이전트 실행 결과
+    plan: List[dict]          # 서브에이전트 실행 계획 (6종 파이프라인, 최대 5단계)
+    current_step: int         # 현재 plan 실행 단계 (0-indexed)
+    agent_results: List[dict] # 단계별 에이전트 실행 결과 (이전 단계 컨텍스트 전달)
 ```
 
 **에이전트별 도구 분류:**
@@ -836,38 +836,109 @@ class AgentState(TypedDict):
 - `"single"` (기본값): 단일 에이전트 + 다중 도구 (Tool Calling) — 실제 운영 모드
 - `"multi"`: LangGraph 기반 멀티 에이전트 (langgraph 설치 필요) — Coordinator가 질의를 분석하여 Search/Analysis/CS 에이전트로 라우팅
 
-> **참고**: 기본 운영은 single 모드로, 하나의 LLM이 2단계 라우터(키워드 + LLM)로 필터링된 도구 세트를 tool calling 방식으로 호출합니다. multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험적 기능입니다. RETENTION 인텐트 감지 시 서브에이전트 모드가 자동 활성화됩니다.
+> **참고**: 기본 운영은 single 모드로, 하나의 LLM이 2단계 라우터(키워드 + LLM)로 필터링된 도구 세트를 tool calling 방식으로 호출합니다. multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험적 기능입니다. 서브에이전트 트리거(키워드 패턴 또는 IntentCategory) 감지 시 서브에이전트 오케스트레이션 모드가 자동 활성화됩니다.
 
-### 6.6.1 서브에이전트 시스템 (Retention Agent)
+### 6.6.1 서브에이전트 오케스트레이션 시스템 (🚧 개발중)
 
-RETENTION 카테고리가 감지되면 기존 single/multi 모드 대신 **서브에이전트 전용 그래프**가 활성화됩니다. 복합 요청(이탈 위험 탐지 + 메시지 생성 + 조치 실행)을 plan 기반으로 순차 실행합니다.
+복합 분석 요청을 감지하면 기존 single/multi 모드 대신 **서브에이전트 전용 그래프**가 활성화됩니다. `_detect_pipeline_type()`이 키워드 + `IntentCategory` fallback으로 6종 파이프라인 중 적합한 타입을 결정하고, 최대 5단계 plan을 순차 실행합니다.
+
+#### 파이프라인 설정 구조
+
+**`_STEP_CONFIG` (29개 스텝 — 도구 + 프롬프트 매핑):**
+
+| 파이프라인 | 스텝 | 도구 세트 | 프롬프트 |
+|-----------|------|----------|---------|
+| retention | `analyze_churn`, `check_cs`, `generate_strategy`, `execute_action` | RETENTION_AGENT_TOOLS | RETENTION_AGENT_PROMPT |
+| seller_diagnosis | `seller_analyze`, `seller_segment`, `seller_risk`, `seller_optimize`, `seller_report` | ANALYSIS_AGENT_TOOLS | SELLER_DIAGNOSIS_PROMPT |
+| shop_performance | `shop_info`, `shop_performance`, `shop_trend`, `shop_marketing`, `shop_report` | SEARCH/ANALYSIS_AGENT_TOOLS | SHOP_PERFORMANCE_PROMPT |
+| deep_analysis | `dashboard_overview`, `segment_analysis`, `trend_analysis`, `gmv_forecast`, `deep_report` | ANALYSIS_AGENT_TOOLS | DASHBOARD_DEEP_PROMPT |
+| fraud_investigation | `fraud_overview`, `fraud_pattern`, `fraud_detect`, `fraud_impact`, `fraud_report` | ANALYSIS_AGENT_TOOLS | FRAUD_INVESTIGATION_PROMPT |
+| cs_quality | `cs_statistics`, `cs_classify`, `cs_sentiment`, `cs_auto_reply`, `cs_report` | CS_AGENT_TOOLS | CS_QUALITY_PROMPT |
+
+**`_PIPELINE_PLANS` (6종 파이프라인, 최대 5단계):**
+
+| 파이프라인 타입 | 단계 수 | 스텝 순서 | 비고 |
+|---------------|--------|----------|------|
+| `retention` | 2단계 (기본) | analyze_churn → generate_strategy | 키워드로 최대 4단계 확장 |
+| `seller_diagnosis` | 5단계 | seller_analyze → seller_segment → seller_risk → seller_optimize → seller_report | 셀러 종합 진단 |
+| `shop_performance` | 5단계 | shop_info → shop_performance → shop_trend → shop_marketing → shop_report | 쇼핑몰 성과 분석 |
+| `deep_analysis` | 5단계 | dashboard_overview → segment_analysis → trend_analysis → gmv_forecast → deep_report | KPI 딥 분석 |
+| `fraud_investigation` | 5단계 | fraud_overview → fraud_pattern → fraud_detect → fraud_impact → fraud_report | 이상거래 조사 |
+| `cs_quality` | 5단계 | cs_statistics → cs_classify → cs_sentiment → cs_auto_reply → cs_report | CS 품질 분석 |
+
+**`_STEP_DESCRIPTIONS` (29개 한글 설명):**
+
+각 스텝에 대응하는 한글 설명이 SSE `agent_start` 이벤트에 포함됩니다 (예: `"이탈 위험 셀러 분석"`, `"셀러 세그먼트 분류"`, `"GMV 예측"` 등).
+
+#### 5개 전문 프롬프트
+
+| 프롬프트 상수 | 역할 | 사용 파이프라인 |
+|-------------|------|--------------|
+| `SELLER_DIAGNOSIS_PROMPT` | 셀러 진단 전문가 | seller_diagnosis |
+| `SHOP_PERFORMANCE_PROMPT` | 쇼핑몰 성과 분석가 | shop_performance |
+| `DASHBOARD_DEEP_PROMPT` | KPI 분석 전문가 | deep_analysis |
+| `FRAUD_INVESTIGATION_PROMPT` | 이상거래 조사관 | fraud_investigation |
+| `CS_QUALITY_PROMPT` | CS 품질 관리자 | cs_quality |
+
+#### 파이프라인 타입 결정 (`_detect_pipeline_type`)
+
+```python
+def _detect_pipeline_type(text: str, category=None) -> str:
+    # 1단계: 키워드 기반 감지
+    #   "셀러 종합/진단" → seller_diagnosis
+    #   "쇼핑몰 성과/종합/마케팅" → shop_performance
+    #   "딥 분석/kpi 종합/대시보드 분석" → deep_analysis
+    #   "이상거래 조사/부정행위 분석" → fraud_investigation
+    #   "cs 품질/상담 품질" → cs_quality
+    # 2단계: IntentCategory fallback
+    #   SELLER → seller_diagnosis, SHOP → shop_performance
+    #   ANALYSIS/DASHBOARD → deep_analysis, CS → cs_quality
+    # 기본값: retention
+```
+
+#### 제네릭 서브에이전트 스텝 노드 (`sub_step_node`)
+
+`sub_step_node`는 모든 파이프라인에서 공유하는 제네릭 실행 노드입니다. `_STEP_CONFIG`에서 현재 스텝에 해당하는 도구/프롬프트를 동적으로 결정하고, 이전 단계 결과를 컨텍스트로 주입합니다.
+
+```python
+def sub_step_node(state: AgentState, llm) -> dict:
+    step_name = plan[current_step]
+    tools, base_prompt = _STEP_CONFIG.get(step_name, (ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT))
+    # 이전 단계 결과를 컨텍스트로 전달
+    # augmented_prompt = base_prompt + 현재 단계 정보 + 이전 결과
+    agent = create_agent_executor(llm, tools, augmented_prompt)
+    result = agent.invoke({"messages": state["messages"]})
+```
+
+#### 아키텍처 다이어그램
 
 ```mermaid
 flowchart TD
-    USER["사용자 요청"] --> ROUTER["router(RETENTION 감지)"]
-    ROUTER --> ROUTE_AGENT["routes_agent.py<br/>(서브에이전트 모드 분기)"]
+    USER["사용자 요청"] --> ROUTER["router<br/>(키워드 + IntentCategory 감지)"]
+    ROUTER --> DETECT["_detect_pipeline_type()<br/>(키워드 + IntentCategory fallback)"]
+    DETECT --> ROUTE_AGENT["routes_agent.py<br/>(서브에이전트 모드 분기)"]
     ROUTE_AGENT --> STREAM["run_sub_agent_stream()"]
 
     subgraph SubAgent["서브에이전트 그래프 (LangGraph)"]
         COORD["coordinator_node"]
-        SUBCOORD["sub_agent_coordinator_node<br/>(plan 생성)"]
+        SUBCOORD["sub_agent_coordinator_node<br/>(_PIPELINE_PLANS에서 plan 선택)"]
         DISP["dispatcher_node<br/>(plan 순차 실행)"]
-        RET["retention_agent_node<br/>(RETENTION_AGENT_TOOLS 바인딩)"]
+        STEP["sub_step_node<br/>(_STEP_CONFIG에서 도구/프롬프트 결정)"]
         TOOL["tools_node"]
 
         COORD --> SUBCOORD
         SUBCOORD --> DISP
-        DISP --> RET
-        RET --> TOOL
-        TOOL --> RET
-        RET -->|"다음 단계"| DISP
+        DISP --> STEP
+        STEP --> TOOL
+        TOOL --> STEP
+        STEP -->|"다음 단계"| DISP
         DISP -->|"plan 완료"| FIN["END"]
     end
 
     STREAM --> SubAgent
 
     subgraph SSE["SSE 이벤트"]
-        E1["agent_start (단계 시작)"]
+        E1["agent_start (단계 시작 + _STEP_DESCRIPTIONS)"]
         E2["tool_end (도구 결과)"]
         E3["agent_end (단계 완료)"]
         E4["delta (최종 응답)"]
@@ -881,9 +952,9 @@ flowchart TD
 
 | 노드 | 역할 | 상세 |
 |------|------|------|
-| `sub_agent_coordinator_node` | 복합 요청을 plan으로 분해 | 키워드 기반 plan 생성 (예: 탐지 → 분석 → 메시지 → 조치) |
-| `dispatcher_node` | plan 순차 실행 | `current_step` 기반 라우팅, 단계별 에이전트 호출 |
-| `retention_agent_node` | Retention 도구 호출 | RETENTION_AGENT_TOOLS 바인딩, 이전 단계 결과를 컨텍스트로 전달 |
+| `sub_agent_coordinator_node` | 복합 요청을 plan으로 분해 | `_PIPELINE_PLANS`에서 파이프라인 타입별 plan 선택 |
+| `dispatcher_node` | plan 순차 실행 | `current_step` 기반 라우팅, 단계별 `sub_step_node` 호출 |
+| `sub_step_node` | 제네릭 스텝 실행 | `_STEP_CONFIG`에서 도구/프롬프트 동적 결정, 이전 단계 결과 컨텍스트 전달 |
 | `_retention_should_continue` | 분기 판단 | tools(추가 도구 호출) / dispatcher(다음 단계) 분기 |
 
 **SSE 콜백 브릿지 (`routes_agent.py`):**
@@ -901,11 +972,12 @@ task = asyncio.create_task(run_sub_agent_stream(req, username, sse_callback))
 
 **서브에이전트 데이터 흐름:**
 ```
-사용자 → router(RETENTION) → routes_agent(서브에이전트 모드)
+사용자 → router(키워드/IntentCategory 감지) → _detect_pipeline_type()
+  → routes_agent(서브에이전트 모드 분기)
   → run_sub_agent_stream → graph.invoke
-    → coordinator → sub_agent_coordinator(plan 생성)
-    → dispatcher → retention_agent(도구 호출) → tools → retention_agent
-    → dispatcher → ... (plan 순차 반복)
+    → coordinator → sub_agent_coordinator(_PIPELINE_PLANS에서 plan 선택)
+    → dispatcher → sub_step_node(_STEP_CONFIG에서 도구/프롬프트 결정) → tools → sub_step_node
+    → dispatcher → ... (plan 순차 반복, 최대 5단계)
     → END
   → SSE: agent_start/end x N → tool_end x M → delta → done
 ```
@@ -1869,25 +1941,27 @@ event: done
 data: {"full_response": "...", "tool_calls": ["get_churn_prediction"]}
 ```
 
-**이벤트 흐름 (서브에이전트 모드 - RETENTION):**
+**이벤트 흐름 (서브에이전트 오케스트레이션 - 예: seller_diagnosis 5단계):**
 ```
 event: agent_start
-data: {"agent": "retention", "step": 1, "task": "이탈 위험 셀러 탐지"}
+data: {"agent": "sub_agent", "step": 1, "task": "셀러 상세 분석", "pipeline": "seller_diagnosis"}
 
 event: tool_end
-data: {"tool": "get_at_risk_sellers", "result": {...}}
+data: {"tool": "analyze_seller", "result": {...}}
 
 event: agent_end
-data: {"agent": "retention", "step": 1, "status": "completed"}
+data: {"agent": "sub_agent", "step": 1, "status": "completed"}
 
 event: agent_start
-data: {"agent": "retention", "step": 2, "task": "리텐션 메시지 생성"}
+data: {"agent": "sub_agent", "step": 2, "task": "셀러 세그먼트 분류", "pipeline": "seller_diagnosis"}
 
 event: tool_end
-data: {"tool": "generate_retention_message", "result": {...}}
+data: {"tool": "get_seller_segment", "result": {...}}
 
 event: agent_end
-data: {"agent": "retention", "step": 2, "status": "completed"}
+data: {"agent": "sub_agent", "step": 2, "status": "completed"}
+
+... (step 3~5: seller_risk → seller_optimize → seller_report)
 
 event: delta
 data: {"content": "..."}
@@ -1900,6 +1974,7 @@ data: {"full_response": "...", "tool_calls": [...]}
 - LangGraph `astream_events` (v2) 사용
 - 클라이언트 연결 단절 감지: `request.is_disconnected()`
 - RAG 모드에 따른 도구 필터링
+- 서브에이전트: `_detect_pipeline_type()` 키워드 + IntentCategory fallback, `sub_step_node` 제네릭 실행 (🚧 개발중)
 
 ### MLflow
 

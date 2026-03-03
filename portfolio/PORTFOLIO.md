@@ -221,7 +221,7 @@ sequenceDiagram
 
 **문제**: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.
 
-**해결**: 2단계 Router 패턴으로 도구 선택 공간을 7개 카테고리로 축소합니다.
+**해결**: 2단계 Router 패턴으로 도구 선택 공간을 8개 카테고리로 축소합니다.
 
 ```mermaid
 flowchart TB
@@ -243,7 +243,7 @@ flowchart TB
     Stage1 & Stage2 --> Tools["카테고리별 도구 4~19개만 노출"]
 ```
 
-**IntentCategory (7개)**:
+**IntentCategory (8개)**:
 
 | 카테고리 | 트리거 키워드 | 노출 도구 수 | 비고 |
 |----------|-------------|:-----------:|------|
@@ -252,6 +252,7 @@ flowchart TB
 | `SHOP` | 쇼핑몰, 매출, 성과, 카테고리 | 11 | |
 | `SELLER` | 셀러, SEL0001, 세그먼트 | 9 | |
 | `CS` | CS, 문의, 상담, 용어집 | 5 | |
+| `RETENTION` | 이탈 방지, 리텐션, 위험 셀러 | 2 | Sub-Agent 전용 |
 | `DASHBOARD` | 대시보드, 전체 현황 | 4 | |
 | `GENERAL` | 안녕, 고마워 | 0 | 도구 없이 직접 대화 |
 
@@ -303,12 +304,12 @@ flowchart TD
     C["Coordinator · GPT-4o"] -->|"검색"| S["Search Agent · 7개 도구"]
     C -->|"분석"| A["Analysis Agent · 16개 도구"]
     C -->|"CS"| T["CS Agent · 5개 도구"]
-    C -->|"리텐션"| R["Sub-Agent · 5개 도구"]
+    C -->|"리텐션"| R["Sub-Agent · 2개 도구"]
     S & A & T & R --> Tools["Tool Executor"]
     Tools --> S & A & T & R -->|"최종 응답"| END
 ```
 
-**Sub-Agent (서브에이전트)**: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 이탈 위험 셀러 탐지 → 맞춤 메시지 생성 → 자동 조치 실행을 순차적으로 수행합니다.
+**Sub-Agent (서브에이전트)**: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 2개 도구(get_at_risk_sellers, get_cs_statistics)로 이탈 위험 셀러 탐지 및 CS 현황 분석을 수행합니다.
 
 > 기본 운영은 single 모드 (1 LLM + 2단계 라우터 + Tool Calling). multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험 모드로 제공합니다.
 
@@ -323,9 +324,9 @@ flowchart TD
 | # | 기법 | 효과 | 논문/출처 | 상태 |
 |:-:|------|------|-----------|:----:|
 | 1 | **Hybrid Search** (FAISS + BM25 + RRF) | 의미 + 키워드 검색 결합 | - | 활성 |
-| 2 | **RAG-Fusion** (Multi-Query) | 4개 변형 쿼리로 리콜 향상 | - | 활성 |
+| 2 | **RAG-Fusion** (Multi-Query) | 2개 쿼리(원본 + 1개 변형)로 리콜 향상 | - | 활성 |
 | 3 | **Parent-Child Chunking** | 정밀 검색(500자) + 충분한 컨텍스트(3,000자) | - | 활성 |
-| 4 | **Contextual Retrieval** | 검색 정확도 +20~35% | [Anthropic](https://www.anthropic.com/news/contextual-retrieval) | 미적용 |
+| 4 | **Contextual Retrieval** | 검색 정확도 +20~35% | [Anthropic](https://www.anthropic.com/news/contextual-retrieval) | 활성 |
 | 5 | **LightRAG** (GraphRAG) | 경량 지식 그래프, 99% 토큰 절감 | [arXiv:2410.05779](https://arxiv.org/abs/2410.05779) | 시험용 |
 | 6 | **K2RAG** | KG + Hybrid + Corpus Summarization | [arXiv:2507.07695](https://arxiv.org/abs/2507.07695) | 시험중 |
 | 7 | **CRAG** (Corrective RAG) | 검색 품질 자동 교정 | [arXiv:2401.15884](https://arxiv.org/abs/2401.15884) | 모듈 완료 |
@@ -342,13 +343,11 @@ flowchart LR
 
 ### 4.2 RAG-Fusion (Multi-Query)
 
-단일 쿼리를 GPT-4o-mini로 4개 변형 쿼리로 확장 후 병렬 검색:
+단일 쿼리를 GPT-4o-mini로 2개 쿼리(원본 + 1개 변형)로 확장 후 병렬 검색:
 
 ```
 원본: "카페24 정산 정책 알려줘"
   → 변형 1: "카페24 정산 주기와 정책 안내"
-  → 변형 2: "CAFE24 settlement policy"
-  → 변형 3: "카페24 셀러 정산 절차"
   → 변형 4: "카페24 수수료 정산 방식"
   → 각각 Hybrid Search → RRF 병합 → 최종 결과
 ```
@@ -752,7 +751,7 @@ CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인
 | **프레임워크** | Next.js 14 (Pages Router) | SSR/CSR 하이브리드, API Route로 SSE 프록시 |
 | **스타일링** | Tailwind CSS 3.4 | 유틸리티 퍼스트, CAFE24 브랜드 커스텀 |
 | **차트** | Recharts | 선언적 React 차트 |
-| **SSE** | @microsoft/fetch-event-source | POST SSE 지원, 재연결 |
+| **SSE** | @microsoft/fetch-event-source | POST SSE 지원 |
 | **워크플로우** | @xyflow/react (React Flow) | n8n 워크플로우 시각화, 노드 상태 애니메이션 |
 | **애니메이션** | Framer Motion | 스텝 전환, 아코디언, 스프링 로고 |
 | **마크다운** | react-markdown + KaTeX | GFM 테이블 + 수학 수식 렌더링 |

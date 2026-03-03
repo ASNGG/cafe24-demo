@@ -12,6 +12,7 @@
 !.gitignore
 !README.md
 !portfolio/**
+!docs/**
 !requirements.txt
 !nextjs/**
 !backend 리팩토링 시작/**

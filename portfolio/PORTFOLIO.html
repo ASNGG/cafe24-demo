@@ -1,115 +1,1491 @@
 <!DOCTYPE html><html><head>
-      <title>PORTFOLIO</title>
+      <title>CAFE24 AI 운영 플랫폼 - 포트폴리오</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      
-      <link rel="stylesheet" href="file:///c:\Users\AKS\.vscode\extensions\shd101wyy.markdown-preview-enhanced-0.8.20\crossnote\dependencies\katex\katex.min.css">
-      
-      
-      <script type="text/javascript" src="file:///c:\Users\AKS\.vscode\extensions\shd101wyy.markdown-preview-enhanced-0.8.20\crossnote\dependencies\mermaid\mermaid.min.js" charset="UTF-8"></script>
+      <meta name="description" content="CAFE24 AI 운영 플랫폼 - 이커머스 SaaS를 위한 LLM+ML 하이브리드 AI 시스템">
+
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+      <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" charset="UTF-8"></script>
       
       
       <style>
-      code[class*=language-],pre[class*=language-]{color:#333;background:0 0;font-family:Consolas,"Liberation Mono",Menlo,Courier,monospace;text-align:left;white-space:pre;word-spacing:normal;word-break:normal;word-wrap:normal;line-height:1.4;-moz-tab-size:8;-o-tab-size:8;tab-size:8;-webkit-hyphens:none;-moz-hyphens:none;-ms-hyphens:none;hyphens:none}pre[class*=language-]{padding:.8em;overflow:auto;border-radius:3px;background:#f5f5f5}:not(pre)>code[class*=language-]{padding:.1em;border-radius:.3em;white-space:normal;background:#f5f5f5}.token.blockquote,.token.comment{color:#969896}.token.cdata{color:#183691}.token.doctype,.token.macro.property,.token.punctuation,.token.variable{color:#333}.token.builtin,.token.important,.token.keyword,.token.operator,.token.rule{color:#a71d5d}.token.attr-value,.token.regex,.token.string,.token.url{color:#183691}.token.atrule,.token.boolean,.token.code,.token.command,.token.constant,.token.entity,.token.number,.token.property,.token.symbol{color:#0086b3}.token.prolog,.token.selector,.token.tag{color:#63a35c}.token.attr-name,.token.class,.token.class-name,.token.function,.token.id,.token.namespace,.token.pseudo-class,.token.pseudo-element,.token.url-reference .token.variable{color:#795da3}.token.entity{cursor:help}.token.title,.token.title .token.punctuation{font-weight:700;color:#1d3e81}.token.list{color:#ed6a43}.token.inserted{background-color:#eaffea;color:#55a532}.token.deleted{background-color:#ffecec;color:#bd2c00}.token.bold{font-weight:700}.token.italic{font-style:italic}.language-json .token.property{color:#183691}.language-markup .token.tag .token.punctuation{color:#333}.language-css .token.function,code.language-css{color:#0086b3}.language-yaml .token.atrule{color:#63a35c}code.language-yaml{color:#183691}.language-ruby .token.function{color:#333}.language-markdown .token.url{color:#795da3}.language-makefile .token.symbol{color:#795da3}.language-makefile .token.variable{color:#183691}.language-makefile .token.builtin{color:#0086b3}.language-bash .token.keyword{color:#0086b3}pre[data-line]{position:relative;padding:1em 0 1em 3em}pre[data-line] .line-highlight-wrapper{position:absolute;top:0;left:0;background-color:transparent;display:block;width:100%}pre[data-line] .line-highlight{position:absolute;left:0;right:0;padding:inherit 0;margin-top:1em;background:hsla(24,20%,50%,.08);background:linear-gradient(to right,hsla(24,20%,50%,.1) 70%,hsla(24,20%,50%,0));pointer-events:none;line-height:inherit;white-space:pre}pre[data-line] .line-highlight:before,pre[data-line] .line-highlight[data-end]:after{content:attr(data-start);position:absolute;top:.4em;left:.6em;min-width:1em;padding:0 .5em;background-color:hsla(24,20%,50%,.4);color:#f4f1ef;font:bold 65%/1.5 sans-serif;text-align:center;vertical-align:.3em;border-radius:999px;text-shadow:none;box-shadow:0 1px #fff}pre[data-line] .line-highlight[data-end]:after{content:attr(data-end);top:auto;bottom:.4em}html body{font-family:'Helvetica Neue',Helvetica,'Segoe UI',Arial,freesans,sans-serif;font-size:16px;line-height:1.6;color:#333;background-color:#fff;overflow:initial;box-sizing:border-box;word-wrap:break-word}html body>:first-child{margin-top:0}html body h1,html body h2,html body h3,html body h4,html body h5,html body h6{line-height:1.2;margin-top:1em;margin-bottom:16px;color:#000}html body h1{font-size:2.25em;font-weight:300;padding-bottom:.3em}html body h2{font-size:1.75em;font-weight:400;padding-bottom:.3em}html body h3{font-size:1.5em;font-weight:500}html body h4{font-size:1.25em;font-weight:600}html body h5{font-size:1.1em;font-weight:600}html body h6{font-size:1em;font-weight:600}html body h1,html body h2,html body h3,html body h4,html body h5{font-weight:600}html body h5{font-size:1em}html body h6{color:#5c5c5c}html body strong{color:#000}html body del{color:#5c5c5c}html body a:not([href]){color:inherit;text-decoration:none}html body a{color:#08c;text-decoration:none}html body a:hover{color:#00a3f5;text-decoration:none}html body img{max-width:100%}html body>p{margin-top:0;margin-bottom:16px;word-wrap:break-word}html body>ol,html body>ul{margin-bottom:16px}html body ol,html body ul{padding-left:2em}html body ol.no-list,html body ul.no-list{padding:0;list-style-type:none}html body ol ol,html body ol ul,html body ul ol,html body ul ul{margin-top:0;margin-bottom:0}html body li{margin-bottom:0}html body li.task-list-item{list-style:none}html body li>p{margin-top:0;margin-bottom:0}html body .task-list-item-checkbox{margin:0 .2em .25em -1.8em;vertical-align:middle}html body .task-list-item-checkbox:hover{cursor:pointer}html body blockquote{margin:16px 0;font-size:inherit;padding:0 15px;color:#5c5c5c;background-color:#f0f0f0;border-left:4px solid #d6d6d6}html body blockquote>:first-child{margin-top:0}html body blockquote>:last-child{margin-bottom:0}html body hr{height:4px;margin:32px 0;background-color:#d6d6d6;border:0 none}html body table{margin:10px 0 15px 0;border-collapse:collapse;border-spacing:0;display:block;width:100%;overflow:auto;word-break:normal;word-break:keep-all}html body table th{font-weight:700;color:#000}html body table td,html body table th{border:1px solid #d6d6d6;padding:6px 13px}html body dl{padding:0}html body dl dt{padding:0;margin-top:16px;font-size:1em;font-style:italic;font-weight:700}html body dl dd{padding:0 16px;margin-bottom:16px}html body code{font-family:Menlo,Monaco,Consolas,'Courier New',monospace;font-size:.85em;color:#000;background-color:#f0f0f0;border-radius:3px;padding:.2em 0}html body code::after,html body code::before{letter-spacing:-.2em;content:'\00a0'}html body pre>code{padding:0;margin:0;word-break:normal;white-space:pre;background:0 0;border:0}html body .highlight{margin-bottom:16px}html body .highlight pre,html body pre{padding:1em;overflow:auto;line-height:1.45;border:#d6d6d6;border-radius:3px}html body .highlight pre{margin-bottom:0;word-break:normal}html body pre code,html body pre tt{display:inline;max-width:initial;padding:0;margin:0;overflow:initial;line-height:inherit;word-wrap:normal;background-color:transparent;border:0}html body pre code:after,html body pre code:before,html body pre tt:after,html body pre tt:before{content:normal}html body blockquote,html body dl,html body ol,html body p,html body pre,html body ul{margin-top:0;margin-bottom:16px}html body kbd{color:#000;border:1px solid #d6d6d6;border-bottom:2px solid #c7c7c7;padding:2px 4px;background-color:#f0f0f0;border-radius:3px}@media print{html body{background-color:#fff}html body h1,html body h2,html body h3,html body h4,html body h5,html body h6{color:#000;page-break-after:avoid}html body blockquote{color:#5c5c5c}html body pre{page-break-inside:avoid}html body table{display:table}html body img{display:block;max-width:100%;max-height:100%}html body code,html body pre{word-wrap:break-word;white-space:pre}}.markdown-preview{width:100%;height:100%;box-sizing:border-box}.markdown-preview ul{list-style:disc}.markdown-preview ul ul{list-style:circle}.markdown-preview ul ul ul{list-style:square}.markdown-preview ol{list-style:decimal}.markdown-preview ol ol,.markdown-preview ul ol{list-style-type:lower-roman}.markdown-preview ol ol ol,.markdown-preview ol ul ol,.markdown-preview ul ol ol,.markdown-preview ul ul ol{list-style-type:lower-alpha}.markdown-preview .newpage,.markdown-preview .pagebreak{page-break-before:always}.markdown-preview pre.line-numbers{position:relative;padding-left:3.8em;counter-reset:linenumber}.markdown-preview pre.line-numbers>code{position:relative}.markdown-preview pre.line-numbers .line-numbers-rows{position:absolute;pointer-events:none;top:1em;font-size:100%;left:0;width:3em;letter-spacing:-1px;border-right:1px solid #999;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.markdown-preview pre.line-numbers .line-numbers-rows>span{pointer-events:none;display:block;counter-increment:linenumber}.markdown-preview pre.line-numbers .line-numbers-rows>span:before{content:counter(linenumber);color:#999;display:block;padding-right:.8em;text-align:right}.markdown-preview .mathjax-exps .MathJax_Display{text-align:center!important}.markdown-preview:not([data-for=preview]) .code-chunk .code-chunk-btn-group{display:none}.markdown-preview:not([data-for=preview]) .code-chunk .status{display:none}.markdown-preview:not([data-for=preview]) .code-chunk .output-div{margin-bottom:16px}.markdown-preview .md-toc{padding:0}.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link{display:inline;padding:.25rem 0}.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link div,.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link p{display:inline}.markdown-preview .md-toc .md-toc-link-wrapper.highlighted .md-toc-link{font-weight:800}.scrollbar-style::-webkit-scrollbar{width:8px}.scrollbar-style::-webkit-scrollbar-track{border-radius:10px;background-color:transparent}.scrollbar-style::-webkit-scrollbar-thumb{border-radius:5px;background-color:rgba(150,150,150,.66);border:4px solid rgba(150,150,150,.66);background-clip:content-box}html body[for=html-export]:not([data-presentation-mode]){position:relative;width:100%;height:100%;top:0;left:0;margin:0;padding:0;overflow:auto}html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{position:relative;top:0;min-height:100vh}@media screen and (min-width:914px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{padding:2em calc(50% - 457px + 2em)}}@media screen and (max-width:914px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{padding:2em}}@media screen and (max-width:450px){html body[for=html-export]:not([data-presentation-mode]) .markdown-preview{font-size:14px!important;padding:1em}}@media print{html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn{display:none}}html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn{position:fixed;bottom:8px;left:8px;font-size:28px;cursor:pointer;color:inherit;z-index:99;width:32px;text-align:center;opacity:.4}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] #sidebar-toc-btn{opacity:1}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc{position:fixed;top:0;left:0;width:300px;height:100%;padding:32px 0 48px 0;font-size:14px;box-shadow:0 0 4px rgba(150,150,150,.33);box-sizing:border-box;overflow:auto;background-color:inherit}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar{width:8px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-track{border-radius:10px;background-color:transparent}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-thumb{border-radius:5px;background-color:rgba(150,150,150,.66);border:4px solid rgba(150,150,150,.66);background-clip:content-box}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc a{text-decoration:none}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc{padding:0 16px}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link{display:inline;padding:.25rem 0}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link div,html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link p{display:inline}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper.highlighted .md-toc-link{font-weight:800}html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{left:300px;width:calc(100% - 300px);padding:2em calc(50% - 457px - 300px / 2);margin:0;box-sizing:border-box}@media screen and (max-width:1274px){html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{padding:2em}}@media screen and (max-width:450px){html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview{width:100%}}html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .markdown-preview{left:50%;transform:translateX(-50%)}html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .md-sidebar-toc{display:none}
-/* Please visit the URL below for more information: */
-/*   https://shd101wyy.github.io/markdown-preview-enhanced/#/customize-css */
+/* ========================================
+   Portfolio CSS - BCG/McKinsey Consulting Style
+   Inter + Noto Sans KR | Professional Design
+   ======================================== */
 
-html body, html body[for=html-export] { background-color: #f0ead6 !important; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
+
+/* === Base / Reset === */
+html {
+  scroll-behavior: smooth;
+}
+
+html body,
+html body[for=html-export] {
+  font-family: 'Inter', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.85;
+  color: #2D3748;
+  background-color: #FFFFFF !important;
+  overflow: initial;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+html body > :first-child {
+  margin-top: 0;
+}
+
+/* === Headings === */
+html body h1,
+html body h2,
+html body h3,
+html body h4,
+html body h5,
+html body h6 {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  line-height: 1.3;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  letter-spacing: -0.01em;
+}
+
+html body h1 {
+  font-size: 2.5em;
+  font-weight: 800;
+  color: #1A202C;
+  border-bottom: 4px solid #00875A;
+  padding-bottom: 0.35em;
+}
+
+html body h2 {
+  font-size: 1.8em;
+  font-weight: 700;
+  color: #1B365D;
+  border-bottom: none;
+  border-left: 5px solid #00875A;
+  padding-left: 16px;
+  padding-bottom: 0;
+  margin-top: 2.8em;
+  margin-bottom: 1em;
+}
+
+html body h3 {
+  font-size: 1.35em;
+  font-weight: 600;
+  color: #1A202C;
+  border-top: 1px dashed #E2E8F0;
+  padding-top: 1em;
+  margin-top: 1.8em;
+}
+
+html body h4 {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: #1A202C;
+}
+
+html body h5 {
+  font-size: 1em;
+  font-weight: 600;
+  color: #1A202C;
+}
+
+html body h6 {
+  font-size: 1em;
+  font-weight: 600;
+  color: #718096;
+}
+
+/* === Text === */
+html body strong {
+  color: #1A202C;
+  font-weight: 700;
+}
+
+html body del {
+  color: #A0AEC0;
+}
+
+html body > p {
+  margin-top: 0;
+  margin-bottom: 20px;
+  word-wrap: break-word;
+}
+
+/* === Links === */
+html body a:not([href]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+html body a {
+  color: #1B365D;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  font-weight: 500;
+}
+
+html body a:hover {
+  color: #00875A;
+  text-decoration: underline;
+}
+
+/* === Images === */
+html body img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* === Lists === */
+html body > ol,
+html body > ul {
+  margin-bottom: 16px;
+}
+
+html body ol,
+html body ul {
+  padding-left: 2em;
+}
+
+html body ol.no-list,
+html body ul.no-list {
+  padding: 0;
+  list-style-type: none;
+}
+
+html body ol ol,
+html body ol ul,
+html body ul ol,
+html body ul ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+html body li {
+  margin-bottom: 0.5em;
+}
+
+html body li.task-list-item {
+  list-style: none;
+}
+
+html body li > p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+html body .task-list-item-checkbox {
+  margin: 0 0.2em 0.25em -1.8em;
+  vertical-align: middle;
+}
+
+html body .task-list-item-checkbox:hover {
+  cursor: pointer;
+}
+
+/* === Blockquote === */
+html body blockquote {
+  margin: 16px 0;
+  font-size: 1.02em;
+  padding: 1.5em 2em;
+  color: #2D3748;
+  background-color: #F0FFF4;
+  border-left: 5px solid #00875A;
+  border-radius: 0 8px 8px 0;
+}
+
+html body blockquote > :first-child {
+  margin-top: 0;
+}
+
+html body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* === Horizontal Rule === */
+html body hr {
+  height: 1px;
+  margin: 48px 0;
+  background-color: #E2E8F0;
+  border: 0 none;
+  opacity: 0.5;
+  border-top: 1px dashed #CBD5E0;
+}
+
+/* === Table === */
+html body table {
+  margin: 10px 0 15px 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  display: table;
+  width: 100%;
+  overflow: auto;
+  word-break: normal;
+  word-break: keep-all;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+html body table th {
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #1B365D;
+  padding: 14px 20px;
+  border: 1px solid #1B365D;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+html body table td {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  padding: 13px 20px;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+html body table tr:nth-child(even) td {
+  background-color: #F0F4F8;
+}
+
+html body table td:first-child {
+  font-weight: 600;
+  color: #1A202C;
+  background-color: rgba(27, 54, 93, 0.03);
+}
+
+html body table tr:hover td {
+  background-color: #E8EDF5;
+  transition: background-color 0.2s ease;
+  box-shadow: inset 3px 0 0 #00875A;
+}
+
+/* === Definition List === */
+html body dl {
+  padding: 0;
+}
+
+html body dl dt {
+  padding: 0;
+  margin-top: 16px;
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 700;
+}
+
+html body dl dd {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+/* === Inline Code === */
+html body code {
+  font-family: 'JetBrains Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 0.88em;
+  color: #C53030;
+  background-color: #FFF5F5;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid #FED7D7;
+}
+
+html body code::after,
+html body code::before {
+  letter-spacing: -0.2em;
+  content: '\00a0';
+}
+
+/* === Code Blocks === */
+html body pre > code {
+  padding: 0;
+  margin: 0;
+  word-break: normal;
+  white-space: pre;
+  background: 0 0;
+  border: 0;
+  color: #2D3748;
+}
+
+html body .highlight {
+  margin-bottom: 16px;
+}
+
+html body .highlight pre,
+html body pre {
+  padding: 1.5em;
+  overflow: auto;
+  font-size: 0.92em;
+  line-height: 1.65;
+  background: #F7FAFC;
+  border: 1px solid #E2E8F0;
+  border-left: 3px solid #00875A;
+  border-radius: 8px;
+}
+
+html body .highlight pre {
+  margin-bottom: 0;
+  word-break: normal;
+}
+
+html body pre code,
+html body pre tt {
+  display: inline;
+  max-width: initial;
+  padding: 0;
+  margin: 0;
+  overflow: initial;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: transparent;
+  border: 0;
+  color: inherit;
+}
+
+html body pre code:after,
+html body pre code:before,
+html body pre tt:after,
+html body pre tt:before {
+  content: normal;
+}
+
+/* === Spacing === */
+html body blockquote,
+html body dl,
+html body ol,
+html body p,
+html body pre,
+html body ul {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+/* === Keyboard === */
+html body kbd {
+  color: #1A202C;
+  border: 1px solid #E2E8F0;
+  border-bottom: 2px solid #CBD5E0;
+  padding: 2px 4px;
+  background-color: #F7FAFC;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+/* === Syntax Highlighting (Prism tokens) === */
+code[class*=language-],
+pre[class*=language-] {
+  color: #2D3748;
+  background: 0 0;
+  font-family: 'JetBrains Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.4;
+  tab-size: 8;
+  hyphens: none;
+}
+
+pre[class*=language-] {
+  padding: 1em;
+  overflow: auto;
+  border-radius: 8px;
+  background: #F7FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+:not(pre) > code[class*=language-] {
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: normal;
+  background: #FFF5F5;
+}
+
+.token.blockquote,
+.token.comment {
+  color: #A0AEC0;
+}
+
+.token.cdata {
+  color: #1B365D;
+}
+
+.token.doctype,
+.token.macro.property,
+.token.punctuation,
+.token.variable {
+  color: #4A5568;
+}
+
+.token.builtin,
+.token.important,
+.token.keyword,
+.token.operator,
+.token.rule {
+  color: #805AD5;
+}
+
+.token.attr-value,
+.token.regex,
+.token.string,
+.token.url {
+  color: #00875A;
+}
+
+.token.atrule,
+.token.boolean,
+.token.code,
+.token.command,
+.token.constant,
+.token.entity,
+.token.number,
+.token.property,
+.token.symbol {
+  color: #D69E2E;
+}
+
+.token.prolog,
+.token.selector,
+.token.tag {
+  color: #C53030;
+}
+
+.token.attr-name,
+.token.class,
+.token.class-name,
+.token.function,
+.token.id,
+.token.namespace,
+.token.pseudo-class,
+.token.pseudo-element,
+.token.url-reference .token.variable {
+  color: #1B365D;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+.token.title,
+.token.title .token.punctuation {
+  font-weight: 700;
+  color: #1B365D;
+}
+
+.token.list {
+  color: #C53030;
+}
+
+.token.inserted {
+  background-color: #F0FFF4;
+  color: #00875A;
+}
+
+.token.deleted {
+  background-color: #FFF5F5;
+  color: #C53030;
+}
+
+.token.bold {
+  font-weight: 700;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.language-json .token.property {
+  color: #1B365D;
+}
+
+.language-markup .token.tag .token.punctuation {
+  color: #4A5568;
+}
+
+.language-css .token.function,
+code.language-css {
+  color: #D69E2E;
+}
+
+.language-yaml .token.atrule {
+  color: #00875A;
+}
+
+code.language-yaml {
+  color: #1B365D;
+}
+
+.language-ruby .token.function {
+  color: #4A5568;
+}
+
+.language-markdown .token.url {
+  color: #1B365D;
+}
+
+.language-makefile .token.symbol {
+  color: #1B365D;
+}
+
+.language-makefile .token.variable {
+  color: #00875A;
+}
+
+.language-makefile .token.builtin {
+  color: #D69E2E;
+}
+
+.language-bash .token.keyword {
+  color: #805AD5;
+}
+
+/* === Line Highlight === */
+pre[data-line] {
+  position: relative;
+  padding: 1em 0 1em 3em;
+}
+
+pre[data-line] .line-highlight-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: transparent;
+  display: block;
+  width: 100%;
+}
+
+pre[data-line] .line-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: inherit 0;
+  margin-top: 1em;
+  background: hsla(210, 40%, 50%, 0.08);
+  background: linear-gradient(to right, hsla(210, 40%, 50%, 0.1) 70%, hsla(210, 40%, 50%, 0));
+  pointer-events: none;
+  line-height: inherit;
+  white-space: pre;
+}
+
+pre[data-line] .line-highlight:before,
+pre[data-line] .line-highlight[data-end]:after {
+  content: attr(data-start);
+  position: absolute;
+  top: 0.4em;
+  left: 0.6em;
+  min-width: 1em;
+  padding: 0 0.5em;
+  background-color: hsla(210, 40%, 50%, 0.4);
+  color: #FFFFFF;
+  font: bold 65%/1.5 sans-serif;
+  text-align: center;
+  vertical-align: 0.3em;
+  border-radius: 999px;
+  text-shadow: none;
+  box-shadow: 0 1px #fff;
+}
+
+pre[data-line] .line-highlight[data-end]:after {
+  content: attr(data-end);
+  top: auto;
+  bottom: 0.4em;
+}
+
+/* === Markdown Preview Wrapper === */
+.markdown-preview {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.markdown-preview ul {
+  list-style: disc;
+}
+
+.markdown-preview ul ul {
+  list-style: circle;
+}
+
+.markdown-preview ul ul ul {
+  list-style: square;
+}
+
+.markdown-preview ol {
+  list-style: decimal;
+}
+
+.markdown-preview ol ol,
+.markdown-preview ul ol {
+  list-style-type: lower-roman;
+}
+
+.markdown-preview ol ol ol,
+.markdown-preview ol ul ol,
+.markdown-preview ul ol ol,
+.markdown-preview ul ul ol {
+  list-style-type: lower-alpha;
+}
+
+.markdown-preview .newpage,
+.markdown-preview .pagebreak {
+  page-break-before: always;
+}
+
+.markdown-preview pre.line-numbers {
+  position: relative;
+  padding-left: 3.8em;
+  counter-reset: linenumber;
+}
+
+.markdown-preview pre.line-numbers > code {
+  position: relative;
+}
+
+.markdown-preview pre.line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 1em;
+  font-size: 100%;
+  left: 0;
+  width: 3em;
+  letter-spacing: -1px;
+  border-right: 1px solid #CBD5E0;
+  user-select: none;
+}
+
+.markdown-preview pre.line-numbers .line-numbers-rows > span {
+  pointer-events: none;
+  display: block;
+  counter-increment: linenumber;
+}
+
+.markdown-preview pre.line-numbers .line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: #A0AEC0;
+  display: block;
+  padding-right: 0.8em;
+  text-align: right;
+}
+
+.markdown-preview .mathjax-exps .MathJax_Display {
+  text-align: center !important;
+}
+
+.markdown-preview:not([data-for=preview]) .code-chunk .code-chunk-btn-group {
+  display: none;
+}
+
+.markdown-preview:not([data-for=preview]) .code-chunk .status {
+  display: none;
+}
+
+.markdown-preview:not([data-for=preview]) .code-chunk .output-div {
+  margin-bottom: 16px;
+}
+
+.markdown-preview .md-toc {
+  padding: 0;
+}
+
+.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link {
+  display: inline;
+  padding: 0.25rem 0;
+}
+
+.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link div,
+.markdown-preview .md-toc .md-toc-link-wrapper .md-toc-link p {
+  display: inline;
+}
+
+.markdown-preview .md-toc .md-toc-link-wrapper.highlighted .md-toc-link {
+  font-weight: 800;
+}
+
+/* === Mermaid Diagrams === */
+.mermaid-container {
+  overflow-x: auto;
+  margin: 1.5em 0;
+  background: #FAFBFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.markdown-preview .mermaid,
+.mermaid {
+  margin: 0;
+}
+
+/* === Table Wrapper === */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 10px 0 15px 0;
+  border-radius: 12px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+}
+
+.table-wrapper table {
+  margin: 0;
+}
+
+/* === Badge Area === */
+.badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 1em 0;
+}
+
+/* === QR Code === */
+.qr-container {
+  margin: 1.2em 0 0.5em 0;
+  text-align: center;
+}
+
+.qr-container img {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0.9;
+}
+
+/* === Hero Center === */
+div[align="center"] {
+  text-align: center;
+}
+
+/* === Scrollbar === */
+.scrollbar-style::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-style::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background-color: transparent;
+}
+
+.scrollbar-style::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background-color: rgba(27, 54, 93, 0.3);
+  border: 4px solid rgba(27, 54, 93, 0.3);
+  background-clip: content-box;
+}
+
+/* === HTML Export Layout === */
+html body[for=html-export]:not([data-presentation-mode]) {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
+  position: relative;
+  top: 0;
+  min-height: 100vh;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3em 4em;
+}
+
+@media screen and (min-width: 1164px) {
+  html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
+    padding: 2.5em 3.5em;
+  }
+}
+
+@media screen and (max-width: 1164px) {
+  html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
+    padding: 2em;
+  }
+}
+
+@media screen and (max-width: 450px) {
+  html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
+    font-size: 14px !important;
+    padding: 1em;
+  }
+}
+
+/* === Sidebar TOC === */
+html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  font-size: 28px;
+  cursor: pointer;
+  color: inherit;
+  z-index: 99;
+  width: 32px;
+  text-align: center;
+  opacity: 0.4;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] #sidebar-toc-btn {
+  opacity: 1;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  padding: 32px 0 48px 0;
+  font-size: 14px;
+  box-shadow: 0 0 8px rgba(27, 54, 93, 0.12);
+  box-sizing: border-box;
+  overflow: auto;
+  background-color: #FFFFFF;
+  border-right: 1px solid #E2E8F0;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar {
+  width: 8px;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background-color: transparent;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background-color: rgba(27, 54, 93, 0.3);
+  border: 4px solid rgba(27, 54, 93, 0.3);
+  background-clip: content-box;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc a {
+  text-decoration: none;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc {
+  padding: 0 16px;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link {
+  display: inline;
+  padding: 0.25rem 0;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link div,
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper .md-toc-link p {
+  display: inline;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .md-sidebar-toc .md-toc .md-toc-link-wrapper.highlighted .md-toc-link {
+  font-weight: 800;
+}
+
+html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview {
+  left: 300px;
+  width: calc(100% - 300px);
+  padding: 2em calc(50% - 550px - 300px / 2);
+  margin: 0;
+  box-sizing: border-box;
+}
+
+@media screen and (max-width: 1274px) {
+  html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview {
+    padding: 2em;
+  }
+}
+
+@media screen and (max-width: 450px) {
+  html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview {
+    width: 100%;
+  }
+}
+
+html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .markdown-preview {
+  left: auto;
+  transform: none;
+}
+
+html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-toc]) .md-sidebar-toc {
+  display: none;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  html body,
+  html body[for=html-export] {
+    font-size: 15px;
+  }
+
+  html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
+    padding: 1em;
+  }
+
+  html body table th {
+    padding: 10px 12px;
+  }
+
+  html body table td {
+    padding: 9px 12px;
+  }
+
+  .stat-card {
+    padding: 18px 14px;
+  }
+
+  .stat-value {
+    font-size: 1.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  html body,
+  html body[for=html-export] {
+    font-size: 14px;
+  }
+}
+
+/* === Print === */
 @media print {
-  html body, html body[for=html-export] {
-    background-color: #f0ead6 !important;
+  html body,
+  html body[for=html-export] {
+    background-color: #FFFFFF !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  html body h1,
+  html body h2,
+  html body h3,
+  html body h4,
+  html body h5,
+  html body h6 {
+    color: #1A202C;
+    page-break-after: avoid;
+  }
+
+  html body blockquote {
+    color: #2D3748;
+  }
+
+  html body pre {
+    page-break-inside: avoid;
+  }
+
+  html body table {
+    display: table;
+  }
+
+  html body img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  html body code,
+  html body pre {
+    word-wrap: break-word;
+    white-space: pre;
+  }
+
+  html body[for=html-export]:not([data-presentation-mode]) #sidebar-toc-btn {
+    display: none;
+  }
+}
+
+/* === Hero Section — see Hero Section Details below === */
+
+/* === Stats Grid (At a Glance) === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  margin: 1.2em 0 1.8em 0;
+}
+
+.stat-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(27, 54, 93, 0.12);
+}
+
+.stat-label {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #718096;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 2.4em;
+  font-weight: 800;
+  color: #00875A;
+}
+
+.stat-desc {
+  font-size: 0.8em;
+  color: #A0AEC0;
+  margin-top: 4px;
+}
+
+/* === Section / Layout === */
+.portfolio-header {
+  margin-bottom: 1em;
+}
+
+.portfolio-section {
+  margin-bottom: 2.5em;
+}
+
+.portfolio-footer {
+  text-align: center;
+  padding-top: 1.5em;
+  border-top: 1px solid #E2E8F0;
+  margin-top: 2em;
+  color: #718096;
+}
+
+/* === Navigation Bar === */
+.nav-link:hover,
+.nav-link.active {
+  background: #00875A !important;
+  color: #FFFFFF !important;
+}
+
+@media screen and (max-width: 768px) {
+  #nav-hamburger {
+    display: block !important;
+  }
+  #nav-links {
+    display: none !important;
+    position: absolute;
+    top: 48px;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.98);
+    flex-direction: column;
+    padding: 8px 16px;
+    gap: 2px;
+    box-shadow: 0 4px 16px rgba(27, 54, 93, 0.12);
+    border-bottom: 2px solid #E2E8F0;
+  }
+  #nav-links.nav-open {
+    display: flex !important;
+  }
+  .nav-link {
+    padding: 10px 12px !important;
+  }
+}
+
+/* === Hero Links === */
+.hero-links {
+  margin-top: 1.2em;
+  font-size: 1em;
+}
+
+.hero-links a {
+  font-weight: 600;
+}
+
+.hero-links .hero-period {
+  color: #718096;
+}
+
+/* === Stat Icon — see override below === */
+
+/* === Footer === */
+.footer-content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.footer-tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px 24px;
+  text-align: left;
+  margin: 1.2em auto;
+  max-width: 900px;
+}
+
+.footer-tech-item {
+  padding: 10px 14px;
+  border-left: 3px solid #00875A;
+  background: #F7FAFC;
+  border-radius: 0 6px 6px 0;
+}
+
+/* === Hero Section Details === */
+.hero-section {
+  text-align: center;
+  padding: 2.5em 0 1em 0;
+}
+
+.hero-title {
+  font-size: 2.8em;
+  margin-bottom: 0.2em;
+  border-bottom: none;
+  text-align: center;
+}
+
+.hero-subtitle {
+  font-size: 1.3em;
+  color: #1B365D;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.6em;
+  text-align: center;
+}
+
+.hero-desc {
+  font-size: 1.05em;
+  color: #2D3748;
+  max-width: 720px;
+  margin: 0 auto 1.5em auto;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.hero-desc strong {
+  color: #00875A;
+}
+
+.hero-divider {
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #00875A, #1B365D);
+  border-radius: 2px;
+  margin: 0 auto 1.5em auto;
+}
+
+.qr-container .qr-caption {
+  font-size: 0.85em;
+  color: #718096;
+  margin-top: 6px;
+}
+
+/* === Stat Icon Override === */
+.stat-icon {
+  font-size: 2.4em;
+  margin-bottom: 10px;
+}
+
+/* === TOC Grid === */
+.toc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 32px;
+  max-width: 800px;
+}
+
+.toc-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #2D3748;
+  font-weight: 500;
+  transition: background 0.15s;
+  text-decoration: none;
+  border-left: 3px solid #E2E8F0;
+}
+
+.toc-item:hover {
+  background: #F0F4F8;
+  color: #2D3748;
+  text-decoration: none;
+}
+
+.toc-num {
+  color: #00875A;
+  font-weight: 700;
+  margin-right: 10px;
+  min-width: 24px;
+}
+
+/* === Section Summary Box === */
+.section-summary {
+  font-size: 1.05em;
+  color: #1B365D;
+  font-weight: 500;
+  background: #F0F4F8;
+  padding: 14px 20px;
+  border-radius: 8px;
+  border-left: 4px solid #00875A;
+  margin-bottom: 1.5em;
+}
+
+/* === Footer Details === */
+.footer-summary-title {
+  text-align: center;
+  font-size: 1.4em;
+  margin-bottom: 1em;
+}
+
+.footer-tech-item strong {
+  color: #1B365D;
+  font-size: 0.95em;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.footer-tech-item span {
+  color: #4A5568;
+  font-size: 0.88em;
+  line-height: 1.5;
+}
+
+.footer-divider {
+  width: 60px;
+  height: 3px;
+  background: #00875A;
+  border-radius: 2px;
+  margin: 2em auto 1.5em auto;
+}
+
+.footer-title {
+  font-size: 1.1em;
+  margin-bottom: 0.5em;
+}
+
+.footer-subtitle {
+  color: #718096;
+  font-size: 0.92em;
+  margin-bottom: 1.2em;
+}
+
+.footer-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  color: #FFFFFF;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95em;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.footer-btn-primary {
+  background: #00875A;
+}
+
+.footer-btn-primary:hover {
+  background: #006B47;
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.footer-btn-secondary {
+  background: #1B365D;
+}
+
+.footer-btn-secondary:hover {
+  background: #15294A;
+  color: #FFFFFF;
+  text-decoration: none;
 }
 
       </style>
       <!-- The content below will be included at the end of the <head> element. --><script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function () {
-    // your code here
+    // 맨 위로 버튼 + 네비게이션 스크롤 처리
+    var backToTopBtn = document.getElementById('back-to-top');
+    var navLinks = document.querySelectorAll('.nav-link');
+    var sectionIds = [];
+    navLinks.forEach(function(link) {
+      var id = link.getAttribute('href').substring(1);
+      sectionIds.push(id);
+    });
+
+    window.addEventListener('scroll', function () {
+      // 맨 위로 버튼
+      if (backToTopBtn) {
+        if (window.scrollY > 300) {
+          backToTopBtn.style.opacity = '1';
+          backToTopBtn.style.pointerEvents = 'auto';
+        } else {
+          backToTopBtn.style.opacity = '0';
+          backToTopBtn.style.pointerEvents = 'none';
+        }
+      }
+
+      // 네비게이션 현재 섹션 하이라이트
+      var scrollPos = window.scrollY + 80;
+      var currentSection = '';
+      for (var i = sectionIds.length - 1; i >= 0; i--) {
+        var el = document.getElementById(sectionIds[i]);
+        if (el && el.offsetTop <= scrollPos) {
+          currentSection = sectionIds[i];
+          break;
+        }
+      }
+      navLinks.forEach(function(link) {
+        var href = link.getAttribute('href').substring(1);
+        if (href === currentSection) {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    });
+
+    // 모바일 메뉴: 링크 클릭 시 메뉴 닫기
+    navLinks.forEach(function(link) {
+      link.addEventListener('click', function() {
+        var navLinksDiv = document.getElementById('nav-links');
+        if (navLinksDiv) navLinksDiv.classList.remove('nav-open');
+      });
+    });
+
+    // Mermaid 초기화
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({startOnLoad: true, theme: 'neutral', themeVariables: {fontSize: '14px'}});
+    }
   });
 </script></head><body for="html-export">
-    
-    
+
+    <!-- Sticky Navigation Bar -->
+    <nav id="portfolio-nav" style="position:sticky;top:0;z-index:1000;background:rgba(27,54,93,0.97);backdrop-filter:blur(10px);border-bottom:1px solid #2D4A7A;padding:0 20px;font-family:'Noto Sans KR',sans-serif;font-size:13px;display:flex;align-items:center;justify-content:space-between;height:48px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <a href="#cafe24-ai-운영-플랫폼" style="font-weight:700;color:#FFFFFF;text-decoration:none;font-size:15px;white-space:nowrap">CAFE24 AI</a>
+      <button id="nav-hamburger" onclick="document.getElementById('nav-links').classList.toggle('nav-open')" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;color:#FFFFFF;padding:4px 8px">&#9776;</button>
+      <div id="nav-links" style="display:flex;gap:4px;align-items:center;overflow-x:auto;flex-wrap:nowrap">
+        <a href="#1-프로젝트-개요" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">1.개요</a>
+        <a href="#2-시스템-아키텍처" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">2.아키텍처</a>
+        <a href="#3-ai-에이전트-시스템" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">3.에이전트</a>
+        <a href="#4-rag-시스템-8종-기법" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">4.RAG</a>
+        <a href="#5-ml-파이프라인-12개-모델" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">5.ML</a>
+        <a href="#6-cs-자동화-파이프라인" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">6.CS</a>
+        <a href="#7-db-보안-감시-data-guardian" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">7.보안</a>
+        <a href="#8-ai-프로세스-마이너" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">8.마이너</a>
+        <a href="#9-자동화-엔진-이탈방지--faq--리포트" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">9.자동화</a>
+        <a href="#10-프론트엔드-13개-패널" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">10.프론트</a>
+        <a href="#11-기술-스택-및-아키텍처-결정" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">11.스택</a>
+        <a href="#12-프로젝트-구조" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">12.구조</a>
+        <a href="#13-설치-및-배포" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">13.배포</a>
+      </div>
+    </nav>
+
       <div class="crossnote markdown-preview  ">
       
-<h1 id="cafe24-ai-운영-플랫폼">CAFE24 AI 운영 플랫폼 </h1>
-<div align="center">
-<h3 id="이커머스-saas-플랫폼을-위한-llm--ml-하이브리드-ai-운영-시스템">이커머스 SaaS 플랫폼을 위한 LLM + ML 하이브리드 AI 운영 시스템 </h3>
-<p><strong>자연어 한 마디로 셀러 이탈 예측, 이상거래 탐지, CS 자동화, 매출 예측을 수행하는 AI 에이전트 플랫폼</strong></p>
-<p style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px;"><a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python"></a> <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&amp;logo=next.js&amp;logoColor=white" alt="Next.js"></a> <a href="https://langchain.com"><img src="https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square" alt="LangChain"></a> <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square" alt="LangGraph"></a> <a href="https://openai.com"><img src="https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&amp;logo=openai&amp;logoColor=white" alt="OpenAI"></a> <a href="https://mlflow.org"><img src="https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&amp;logo=mlflow&amp;logoColor=white" alt="MLflow"></a> <a href="https://github.com/facebookresearch/faiss"><img src="https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square" alt="FAISS"></a> <a href="https://shap.readthedocs.io"><img src="https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square" alt="SHAP"></a></p>
-<p><a href="https://cafe24-frontend.vercel.app/">웹앱 (Vercel)</a> · <a href="https://cafe24-backend-production.up.railway.app/docs">API 문서 (Swagger)</a> · 개발 기간: 2026.02.06 ~ 진행 중</p>
-<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4AQMAAAADqqSRAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABNElEQVQ4jaWVMYrEMAxFBSp8KRNfy0VAgi18LYMv5cKM9isJszDVymNC4LkQ0v+STPRxxGwmJV5lFbNXmCtRlTY9VCY64iyzJtMzl4Vvj6UhIevbjJ8NW3uMeioyQrh3fRF2PXFx5pzf+kb4cVGzh/tz9d8sNvHVkzuPMXqY05RmikC8EPHYYKqpTR6It3AdZk0qptJdDs8nzHCjKdqhdF4U5kqptSneDGVd/sZY9O6HfklCX3MVhUTy09nG4h5m+GMoEQ0+7nqDjOG6/M1smJBjg82aTb7GK1Oc7/aWDnWz1xdmD6hobuRTXmH2g7vl81Uszvd8p2e/UJh9v8ATzTAjP/smxL4f1ee7oJ6+xZemqIf9fdhgvA9wAg1hPc6+X+Hn4sW+n6J86ekP3Bi+oL7mj/MLVio/I4zKxJ4AAAAASUVORK5CYII=" alt="웹앱 QR코드" width="120">
-<p><strong>웹앱 바로가기 QR</strong></p>
+<header class="portfolio-header">
+<div class="hero-section">
+<h1 id="cafe24-ai-운영-플랫폼" class="hero-title">CAFE24 AI 운영 플랫폼</h1>
+<p id="이커머스-saas-플랫폼을-위한-llm--ml-하이브리드-ai-운영-시스템" class="hero-subtitle">이커머스 SaaS 플랫폼을 위한 LLM + ML 하이브리드 AI 운영 시스템</p>
+<p class="hero-desc"><strong>자연어 한 마디</strong>로 셀러 이탈 예측, 이상거래 탐지, CS 자동화, 매출 예측을 수행하는 AI 에이전트 플랫폼</p>
+<div class="hero-divider"></div>
+<p class="badge-container"><a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python"></a> <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&amp;logo=next.js&amp;logoColor=white" alt="Next.js"></a> <a href="https://langchain.com"><img src="https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square" alt="LangChain"></a> <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square" alt="LangGraph"></a> <a href="https://openai.com"><img src="https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&amp;logo=openai&amp;logoColor=white" alt="OpenAI"></a> <a href="https://mlflow.org"><img src="https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&amp;logo=mlflow&amp;logoColor=white" alt="MLflow"></a> <a href="https://github.com/facebookresearch/faiss"><img src="https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square" alt="FAISS"></a> <a href="https://shap.readthedocs.io"><img src="https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square" alt="SHAP"></a></p>
+<div class="hero-links"><a href="https://cafe24-frontend.vercel.app/">웹앱 (Vercel)</a> &nbsp;·&nbsp; <a href="https://cafe24-backend-production.up.railway.app/docs">API 문서 (Swagger)</a> &nbsp;·&nbsp; <span class="hero-period">개발 기간: 2026.02.06 ~ 진행 중</span></div>
+<div class="qr-container"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4AQMAAAADqqSRAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABNElEQVQ4jaWVMYrEMAxFBSp8KRNfy0VAgi18LYMv5cKM9isJszDVymNC4LkQ0v+STPRxxGwmJV5lFbNXmCtRlTY9VCY64iyzJtMzl4Vvj6UhIevbjJ8NW3uMeioyQrh3fRF2PXFx5pzf+kb4cVGzh/tz9d8sNvHVkzuPMXqY05RmikC8EPHYYKqpTR6It3AdZk0qptJdDs8nzHCjKdqhdF4U5kqptSneDGVd/sZY9O6HfklCX3MVhUTy09nG4h5m+GMoEQ0+7nqDjOG6/M1smJBjg82aTb7GK1Oc7/aWDnWz1xdmD6hobuRTXmH2g7vl81Uszvd8p2e/UJh9v8ATzTAjP/smxL4f1ee7oJ6+xZemqIf9fdhgvA9wAg1hPc6+X+Hn4sW+n6J86ekP3Bi+oL7mj/MLVio/I4zKxJ4AAAAASUVORK5CYII=" alt="웹앱 QR코드" width="100">
+<p class="qr-caption"><strong>웹앱 바로가기 QR</strong></p></div>
 </div>
 <blockquote>
 <p><strong>아래 모든 기능은 웹앱에서 직접 사용해볼 수 있습니다.</strong><br>
 더 자세한 기술 문서는 <a href="https://github.com/ASNGG/cafe24-demo">GitHub 리포지토리</a>에서 확인할 수 있습니다.</p>
 </blockquote>
+</header>
+<main>
+<section class="portfolio-section">
 <hr>
-<h2 id="at-a-glance">At a Glance </h2>
-<table>
-<thead>
-<tr>
-<th style="text-align:center">지표</th>
-<th style="text-align:center">수치</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:center"><strong>AI 도구</strong></td>
-<td style="text-align:center">31개 (Tool Calling)</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>ML 모델</strong></td>
-<td style="text-align:center">12개 (6종 알고리즘)</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>RAG 엔진</strong></td>
-<td style="text-align:center">8종 기법 적용</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>API 엔드포인트</strong></td>
-<td style="text-align:center">106개 REST API</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>프론트엔드 패널</strong></td>
-<td style="text-align:center">13개 기능 패널</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>자동화 엔진</strong></td>
-<td style="text-align:center">3종 (이탈방지 · FAQ · 리포트)</td>
-</tr>
-<tr>
-<td style="text-align:center"><strong>합성 데이터</strong></td>
-<td style="text-align:center">18개 CSV, ~100K 행</td>
-</tr>
-</tbody>
-</table>
+<h2 id="at-a-glance">At a Glance</h2>
+<div class="stats-grid">
+<div class="stat-card">
+  <div class="stat-icon">🛠️</div>
+  <div class="stat-label">AI 도구</div>
+  <div class="stat-value">31개</div>
+  <div class="stat-desc">Tool Calling</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">🤖</div>
+  <div class="stat-label">ML 모델</div>
+  <div class="stat-value">12개</div>
+  <div class="stat-desc">6종 알고리즘</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">🔍</div>
+  <div class="stat-label">RAG 엔진</div>
+  <div class="stat-value">8종</div>
+  <div class="stat-desc">기법 적용</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">⚡</div>
+  <div class="stat-label">API 엔드포인트</div>
+  <div class="stat-value">106개</div>
+  <div class="stat-desc">REST API</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">🖥️</div>
+  <div class="stat-label">프론트엔드 패널</div>
+  <div class="stat-value">13개</div>
+  <div class="stat-desc">기능 패널</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">⚙️</div>
+  <div class="stat-label">자동화 엔진</div>
+  <div class="stat-value">3종</div>
+  <div class="stat-desc">이탈방지 · FAQ · 리포트</div>
+</div>
+<div class="stat-card">
+  <div class="stat-icon">📊</div>
+  <div class="stat-label">합성 데이터</div>
+  <div class="stat-value">18개 CSV</div>
+  <div class="stat-desc">~100K 행</div>
+</div>
+</div>
 <hr>
-<h2 id="목차">목차 </h2>
-<ol>
-<li><a href="#1-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B0%9C%EC%9A%94">프로젝트 개요</a></li>
-<li><a href="#2-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98">시스템 아키텍처</a></li>
-<li><a href="#3-ai-%EC%97%90%EC%9D%B4%EC%A0%84%ED%8A%B8-%EC%8B%9C%EC%8A%A4%ED%85%9C">AI 에이전트 시스템</a></li>
-<li><a href="#4-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-8%EC%A2%85-%EA%B8%B0%EB%B2%95">RAG 시스템 (8종 기법)</a></li>
-<li><a href="#5-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-12%EA%B0%9C-%EB%AA%A8%EB%8D%B8">ML 파이프라인 (12개 모델)</a></li>
-<li><a href="#6-cs-%EC%9E%90%EB%8F%99%ED%99%94-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8">CS 자동화 파이프라인</a></li>
-<li><a href="#7-db-%EB%B3%B4%EC%95%88-%EA%B0%90%EC%8B%9C-data-guardian">DB 보안 감시 (Data Guardian)</a></li>
-<li><a href="#8-ai-%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4-%EB%A7%88%EC%9D%B4%EB%84%88">AI 프로세스 마이너</a></li>
-<li><a href="#9-%EC%9E%90%EB%8F%99%ED%99%94-%EC%97%94%EC%A7%84-%EC%9D%B4%ED%83%88%EB%B0%A9%EC%A7%80--faq--%EB%A6%AC%ED%8F%AC%ED%8A%B8">자동화 엔진 (이탈방지 · FAQ · 리포트)</a></li>
-<li><a href="#10-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-13%EA%B0%9C-%ED%8C%A8%EB%84%90">프론트엔드 (13개 패널)</a></li>
-<li><a href="#11-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%8F-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B2%B0%EC%A0%95">기술 스택 및 아키텍처 결정</a></li>
-<li><a href="#12-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B5%AC%EC%A1%B0">프로젝트 구조</a></li>
-<li><a href="#13-%EC%84%A4%EC%B9%98-%EB%B0%8F-%EB%B0%B0%ED%8F%AC">설치 및 배포</a></li>
-</ol>
+<nav aria-label="목차">
+<h2 id="목차">목차</h2>
+<div class="toc-grid">
+  <a href="#1-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B0%9C%EC%9A%94" class="toc-item"><span class="toc-num">01</span> 프로젝트 개요</a>
+  <a href="#2-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98" class="toc-item"><span class="toc-num">02</span> 시스템 아키텍처</a>
+  <a href="#3-ai-%EC%97%90%EC%9D%B4%EC%A0%84%ED%8A%B8-%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">03</span> AI 에이전트 시스템</a>
+  <a href="#4-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-8%EC%A2%85-%EA%B8%B0%EB%B2%95" class="toc-item"><span class="toc-num">04</span> RAG 시스템 (8종 기법)</a>
+  <a href="#5-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-12%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">05</span> ML 파이프라인 (12개 모델)</a>
+  <a href="#6-cs-%EC%9E%90%EB%8F%99%ED%99%94-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8" class="toc-item"><span class="toc-num">06</span> CS 자동화 파이프라인</a>
+  <a href="#7-db-%EB%B3%B4%EC%95%88-%EA%B0%90%EC%8B%9C-data-guardian" class="toc-item"><span class="toc-num">07</span> DB 보안 감시 (Data Guardian)</a>
+  <a href="#8-ai-%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4-%EB%A7%88%EC%9D%B4%EB%84%88" class="toc-item"><span class="toc-num">08</span> AI 프로세스 마이너</a>
+  <a href="#9-%EC%9E%90%EB%8F%99%ED%99%94-%EC%97%94%EC%A7%84-%EC%9D%B4%ED%83%88%EB%B0%A9%EC%A7%80--faq--%EB%A6%AC%ED%8F%AC%ED%8A%B8" class="toc-item"><span class="toc-num">09</span> 자동화 엔진</a>
+  <a href="#10-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-13%EA%B0%9C-%ED%8C%A8%EB%84%90" class="toc-item"><span class="toc-num">10</span> 프론트엔드 (13개 패널)</a>
+  <a href="#11-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%8F-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B2%B0%EC%A0%95" class="toc-item"><span class="toc-num">11</span> 기술 스택 및 아키텍처 결정</a>
+  <a href="#12-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B5%AC%EC%A1%B0" class="toc-item"><span class="toc-num">12</span> 프로젝트 구조</a>
+  <a href="#13-%EC%84%A4%EC%B9%98-%EB%B0%8F-%EB%B0%B0%ED%8F%AC" class="toc-item"><span class="toc-num">13</span> 설치 및 배포</a>
+</div>
+</nav>
+</section>
 <hr>
-<h2 id="1-프로젝트-개요">1. 프로젝트 개요 </h2>
-<h3 id="배경-및-목표">배경 및 목표 </h3>
+<section class="portfolio-section">
+<h2 id="1-프로젝트-개요">1. 프로젝트 개요</h2>
+<p class="section-summary">이커머스 플랫폼 운영의 실제 문제를 AI로 해결하는 풀스택 데모 프로젝트. 31개 AI 도구, 12개 ML 모델, 8종 RAG 기법을 하나의 에이전트로 통합합니다.</p>
+<h3 id="배경-및-목표">배경 및 목표</h3>
 <p>카페24 같은 이커머스 플랫폼을 운영한다면 어떤 문제가 발생할지 직접 고민하고, 그 문제들을 AI로 해결하는 데모 프로젝트를 풀스택으로 개발했습니다. "셀러가 이탈하기 전에 미리 알 수 있다면?", "이상거래를 사람 대신 자동으로 잡아낼 수 있다면?", "CS 문의를 AI가 분류하고 답변 초안까지 만들어준다면?", "운영 프로세스의 병목을 데이터로 발견할 수 있다면?" — 이런 질문들에서 출발했습니다.</p>
 <p>백엔드(FastAPI + LangChain + 12개 ML 모델)부터 프론트엔드(Next.js 14, 13개 패널)까지 전 과정을 직접 설계·구현했으며, 자연어 한 마디로 31개 AI 도구를 호출하여 이커머스 운영 전반을 하나의 에이전트로 통합하는 것을 목표로 했습니다. 시스템은 실시간 데이터 연동을 가정하고 설계했으나, 현재 데모에서는 도메인별 통계적 분포로 생성한 합성 데이터(18개 CSV, ~100K행)를 사용합니다.</p>
-<h3 id="해결하는-문제">해결하는 문제 </h3>
-<table>
+<h3 id="해결하는-문제">해결하는 문제</h3>
+<div class="table-wrapper"><table aria-label="문제">
 <thead>
 <tr>
 <th>문제</th>
@@ -159,10 +1535,10 @@ html body, html body[for=html-export] { background-color: #f0ead6 !important; }
 <td>이벤트 로그 기반 프로세스 마이닝 + ML 이상 탐지 + 자동화 추천</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="핵심-설계-원칙">핵심 설계 원칙 </h3>
 <p>프로젝트 전반에 일관되게 적용한 <strong>"빠른 규칙 우선 + AI fallback"</strong> 원칙:</p>
-<table>
+<div class="table-wrapper"><table aria-label="적용 영역">
 <thead>
 <tr>
 <th>적용 영역</th>
@@ -192,14 +1568,17 @@ html body, html body[for=html-export] { background-color: #f0ead6 !important; }
 <td>ML 모델 (RandomForest, LightGBM)</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <blockquote>
 <p><strong>설계 기반</strong>: Anthropic <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> — "빠른 규칙 우선 + AI fallback" 패턴을 이커머스 운영에 적용</p>
 </blockquote>
+</section>
 <hr>
-<h2 id="2-시스템-아키텍처">2. 시스템 아키텍처 </h2>
-<h3 id="전체-아키텍처">전체 아키텍처 </h3>
-<div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<section class="portfolio-section">
+<h2 id="2-시스템-아키텍처">2. 시스템 아키텍처</h2>
+<p class="section-summary">Browser → Next.js → FastAPI 프록시 구조에서 2단계 라우터가 의도를 분류하고, AI 에이전트가 RAG/ML 도구를 호출하여 SSE로 스트리밍 응답합니다.</p>
+<h3 id="전체-아키텍처">전체 아키텍처</h3>
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TB
     subgraph Frontend["Frontend · Next.js 14"]
         Login[로그인]
@@ -244,9 +1623,9 @@ flowchart TB
     Router --&gt; Agent
     Agent --&gt; RAGSystem &amp; MLModels &amp; OpenAI
     Backend --&gt; n8n &amp; Resend
-</div><h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름 </h3>
+</div></div><h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름 </h3>
 <p>사용자가 "SEL0001 셀러가 이탈할 확률은?"이라고 질문하면:</p>
-<div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 sequenceDiagram
     autonumber
     participant User as 사용자
@@ -274,12 +1653,15 @@ sequenceDiagram
     Agent-&gt;&gt;LLM: 도구 결과 + 시스템 프롬프트
     LLM--&gt;&gt;FE: SSE 스트리밍 (토큰 단위)
     FE--&gt;&gt;User: "이탈 확률 73%, 주요 원인: 매출 감소..."
-</div><hr>
-<h2 id="3-ai-에이전트-시스템">3. AI 에이전트 시스템 </h2>
-<h3 id="31-2단계-인텐트-라우터">3.1 2단계 인텐트 라우터 </h3>
+</div></div></section>
+<hr>
+<section class="portfolio-section">
+<h2 id="3-ai-에이전트-시스템">3. AI 에이전트 시스템</h2>
+<p class="section-summary">키워드 기반 즉시 분류(0ms) + LLM fallback 2단계 라우터로 31개 도구를 8개 카테고리로 축소하여 Tool Calling 정확도를 극대화합니다.</p>
+<h3 id="31-2단계-인텐트-라우터">3.1 2단계 인텐트 라우터</h3>
 <p><strong>문제</strong>: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.</p>
 <p><strong>해결</strong>: 2단계 Router 패턴으로 도구 선택 공간을 8개 카테고리로 축소합니다.</p>
-<div class="mermaid">flowchart TB
+<div class="mermaid-container"><div class="mermaid">flowchart TB
     Q["사용자 질문"]
 
     subgraph Stage1["1단계: 키워드 Router"]
@@ -296,8 +1678,8 @@ sequenceDiagram
     Q --&gt;|"0ms, 비용 0"| Stage1
     Stage1 --&gt;|"매칭 실패 → fallback"| Stage2
     Stage1 &amp; Stage2 --&gt; Tools["카테고리별 도구 4~19개만 노출"]
-</div><p><strong>IntentCategory (8개)</strong>:</p>
-<table>
+</div></div><p><strong>IntentCategory (8개)</strong>:</p>
+<div class="table-wrapper"><table aria-label="카테고리">
 <thead>
 <tr>
 <th>카테고리</th>
@@ -356,7 +1738,7 @@ sequenceDiagram
 <td>도구 없이 직접 대화</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="32-keyword_tool_mapping-강제-도구-실행">3.2 KEYWORD_TOOL_MAPPING (강제 도구 실행) </h3>
 <p>LLM 호출 <strong>전에</strong> 키워드 매칭으로 필수 도구를 강제 실행합니다. LLM이 도구를 놓칠 수 있는 상황을 방지하는 안전장치입니다.</p>
 <pre data-role="codeBlock" data-info="" class="language-text"><code>사용자: "이탈 예측 분석해줘"
@@ -366,7 +1748,7 @@ sequenceDiagram
   ↓ LLM이 결과를 자연어로 설명
 </code></pre><h3 id="33-파라미터-자동-추출-8종">3.3 파라미터 자동 추출 (8종) </h3>
 <p>사용자 텍스트에서 도구 파라미터를 정규식으로 자동 추출합니다:</p>
-<table>
+<div class="table-wrapper"><table aria-label="추출 대상">
 <thead>
 <tr>
 <th>추출 대상</th>
@@ -416,9 +1798,9 @@ sequenceDiagram
 <td><code>\d{4}-\d{2}\s*W\d</code></td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="34-도구-함수-31개">3.4 도구 함수 (31개) </h3>
-<table>
+<div class="table-wrapper"><table aria-label="카테고리">
 <thead>
 <tr>
 <th>카테고리</th>
@@ -471,25 +1853,28 @@ sequenceDiagram
 <td>이탈 위험 셀러 탐지 + 맞춤 메시지 + 자동 조치</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="35-멀티-에이전트-langgraph">3.5 멀티 에이전트 (LangGraph) </h3>
 <p>LangGraph <code>StateGraph</code> 기반으로 Coordinator가 질의를 분석하여 전문 에이전트로 라우팅하는 실험적 기능도 구현했습니다.</p>
-<div class="mermaid">flowchart TD
+<div class="mermaid-container"><div class="mermaid">flowchart TD
     C["Coordinator · GPT-4o"] --&gt;|"검색"| S["Search Agent · 7개 도구"]
     C --&gt;|"분석"| A["Analysis Agent · 16개 도구"]
     C --&gt;|"CS"| T["CS Agent · 5개 도구"]
     C --&gt;|"리텐션"| R["Sub-Agent · 2개 도구"]
     S &amp; A &amp; T &amp; R --&gt; Tools["Tool Executor"]
     Tools --&gt; S &amp; A &amp; T &amp; R --&gt;|"최종 응답"| END
-</div><p><strong>Sub-Agent (서브에이전트)</strong>: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 2개 도구(get_at_risk_sellers, get_cs_statistics)로 이탈 위험 셀러 탐지 및 CS 현황 분석을 수행합니다.</p>
+</div></div><p><strong>Sub-Agent (서브에이전트)</strong>: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 2개 도구(get_at_risk_sellers, get_cs_statistics)로 이탈 위험 셀러 탐지 및 CS 현황 분석을 수행합니다.</p>
 <blockquote>
 <p>기본 운영은 single 모드 (1 LLM + 2단계 라우터 + Tool Calling). multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험 모드로 제공합니다.</p>
 </blockquote>
+</section>
 <hr>
-<h2 id="4-rag-시스템-8종-기법">4. RAG 시스템 (8종 기법) </h2>
+<section class="portfolio-section">
+<h2 id="4-rag-시스템-8종-기법">4. RAG 시스템 (8종 기법)</h2>
+<p class="section-summary">FAISS + BM25 Hybrid 검색을 중심으로 RAG-Fusion, Parent-Child Chunking, LightRAG, CRAG 등 8종 기법을 조합하여 검색 품질을 극대화합니다.</p>
 <p>단일 RAG 기법만으로는 이커머스 도메인의 다양한 질문 유형(정책 조회, 개념 설명, 절차 안내)을 커버하기 어렵습니다. 각 기법의 강점을 조합하여 검색 품질을 극대화합니다.</p>
 <h3 id="적용-기법-요약">적용 기법 요약 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="#">
 <thead>
 <tr>
 <th style="text-align:center">#</th>
@@ -557,20 +1942,20 @@ sequenceDiagram
 <td style="text-align:center">비활성</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="41-hybrid-search-faiss--bm25--rrf">4.1 Hybrid Search (FAISS + BM25 + RRF) </h3>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     Q["쿼리"] --&gt; FAISS["FAISS · 의미적 유사도"]
     Q --&gt; BM25["BM25 · 키워드 매칭"]
     FAISS &amp; BM25 --&gt; RRF["RRF 병합"] --&gt; Result["최종 결과"]
-</div><h3 id="42-rag-fusion-multi-query">4.2 RAG-Fusion (Multi-Query) </h3>
+</div></div><h3 id="42-rag-fusion-multi-query">4.2 RAG-Fusion (Multi-Query) </h3>
 <p>단일 쿼리를 GPT-4o-mini로 2개 쿼리(원본 + 1개 변형)로 확장 후 병렬 검색:</p>
 <pre data-role="codeBlock" data-info="" class="language-text"><code>원본: "카페24 정산 정책 알려줘"
   → 변형 1: "카페24 정산 주기와 정책 안내"
   → 변형 4: "카페24 수수료 정산 방식"
   → 각각 Hybrid Search → RRF 병합 → 최종 결과
 </code></pre><h3 id="43-parent-child-chunking">4.3 Parent-Child Chunking </h3>
-<table>
+<div class="table-wrapper"><table aria-label="레벨">
 <thead>
 <tr>
 <th>레벨</th>
@@ -590,27 +1975,30 @@ sequenceDiagram
 <td>최종 반환 (충분한 문맥)</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="44-lightrag-지식-그래프">4.4 LightRAG (지식 그래프) </h3>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     Q["쿼리"] --&gt; LOCAL["Local · 엔티티 중심"]
     Q --&gt; GLOBAL["Global · 테마 중심"]
     LOCAL &amp; GLOBAL --&gt; HYBRID["Hybrid 병합"] --&gt; Result
-</div><ul>
+</div></div><ul>
 <li><strong>Local</strong>: 구체적 엔티티 ("카페24 정산 주기는?")</li>
 <li><strong>Global</strong>: 추상적 테마 ("카페24 플랫폼 전체 운영 정책은?")</li>
 <li><strong>Hybrid</strong>: Local + Global 결합 (기본값)</li>
 </ul>
 <h3 id="45-corrective-rag-crag">4.5 Corrective RAG (CRAG) </h3>
 <p>검색 결과를 LLM이 자동 평가하여, 품질이 낮으면 쿼리를 재작성하고 재검색합니다.</p>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     Q["쿼리"] --&gt; S["검색"] --&gt; G{"Retrieval Grader"}
     G --&gt;|"CORRECT"| USE["바로 사용"]
     G --&gt;|"INCORRECT"| RW["Query Rewriter"] --&gt; S2["재검색 · 최대 2회"]
     G --&gt;|"AMBIGUOUS"| RW
-</div><hr>
-<h2 id="5-ml-파이프라인-12개-모델">5. ML 파이프라인 (12개 모델) </h2>
-<h3 id="설계-원칙">설계 원칙 </h3>
+</div></div></section>
+<hr>
+<section class="portfolio-section">
+<h2 id="5-ml-파이프라인-12개-모델">5. ML 파이프라인 (12개 모델)</h2>
+<p class="section-summary">RandomForest, LightGBM, XGBoost 등 6종 알고리즘으로 12개 ML 모델을 구축. 에이전트 Tool Calling을 통해 자연어로 호출되며, MLflow로 버전 관리됩니다.</p>
+<h3 id="설계-원칙">설계 원칙</h3>
 <ul>
 <li><strong>AI 에이전트 통합</strong>: 모든 ML 모델은 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 선택하여 결과를 자연어로 설명합니다.</li>
 <li><strong>MLflow 추적</strong>: 모든 학습 실험은 MLflow에 기록되어, 프론트엔드에서 모델 버전을 선택하면 실시간으로 교체됩니다.</li>
@@ -618,7 +2006,7 @@ sequenceDiagram
 <li><strong>합성 데이터</strong>: <code>np.random.default_rng(42)</code> 시드 고정. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사합니다.</li>
 </ul>
 <h3 id="모델-개요">모델 개요 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="#">
 <thead>
 <tr>
 <th style="text-align:center">#</th>
@@ -714,13 +2102,13 @@ sequenceDiagram
 <td>정상/이상 + 점수</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="51-셀러-이탈-예측--shap-해석-대표-모델">5.1 셀러 이탈 예측 + SHAP 해석 (대표 모델) </h3>
 <blockquote>
 <p>합성 데이터 Baseline — 실 데이터 적용 시 피처 분포 변화에 따른 재학습 + 드리프트 모니터링 필요</p>
 </blockquote>
 <p><strong>9개 입력 피처</strong>:</p>
-<table>
+<div class="table-wrapper"><table aria-label="피처">
 <thead>
 <tr>
 <th>피처</th>
@@ -760,7 +2148,7 @@ sequenceDiagram
 <td>응답시간, 상품수, 가입일수, 플랜</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <p><strong>SHAP 출력 예시</strong>:</p>
 <pre data-role="codeBlock" data-info="" class="language-text"><code>SEL0123 이탈 확률: 73% (high)
 
@@ -771,13 +2159,13 @@ total_orders (감소)               +0.22   이탈 증가
 total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
 </code></pre><h3 id="52-마케팅-최적화-p-pso">5.2 마케팅 최적화 (P-PSO) </h3>
 <p>6개 마케팅 채널에 예산을 최적 배분하는 메타휴리스틱 최적화:</p>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     A["셀러 ID + 총 예산"] --&gt; B["LightGBM 매출 예측"]
     B --&gt; C["P-PSO 최적화 · 6채널"]
     C --&gt; D["채널별 예산 배분 + ROAS"]
     C --&gt;|"실패 시"| F["Heuristic Fallback"]
     F --&gt; D
-</div><table>
+</div></div><div class="table-wrapper"><table aria-label="채널">
 <thead>
 <tr>
 <th>채널</th>
@@ -824,9 +2212,9 @@ total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
 <td></td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="53-mlflow-실험-추적">5.3 MLflow 실험 추적 </h3>
-<div class="mermaid">sequenceDiagram
+<div class="mermaid-container"><div class="mermaid">sequenceDiagram
     participant FE as 프론트엔드
     participant BE as FastAPI
     participant ML as MLflow Registry
@@ -841,11 +2229,14 @@ total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
     ML--&gt;&gt;BE: 모델 객체
     BE-&gt;&gt;ST: SELLER_CHURN_MODEL = 새 모델
     BE--&gt;&gt;FE: 교체 완료 (즉시 적용)
-</div><hr>
-<h2 id="6-cs-자동화-파이프라인">6. CS 자동화 파이프라인 </h2>
-<h3 id="5단계-파이프라인">5단계 파이프라인 </h3>
+</div></div></section>
+<hr>
+<section class="portfolio-section">
+<h2 id="6-cs-자동화-파이프라인">6. CS 자동화 파이프라인</h2>
+<p class="section-summary">ML 분류 → DnD 자동/수동 분기 → RAG+LLM 답변 생성 → n8n 워크플로우 회신까지, 5단계 CS 파이프라인으로 반복 문의를 자동 처리합니다.</p>
+<h3 id="5단계-파이프라인">5단계 파이프라인</h3>
 <p>단순/반복 문의는 자동 처리하고, 복잡한 문의만 담당자가 검토하는 구조입니다.</p>
-<div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
     A["접수 · TF-IDF+RF 분류"] --&gt; B{"DnD 분기"}
     B --&gt;|"신뢰도 &gt;= 0.75"| C["자동 처리"]
@@ -855,7 +2246,7 @@ flowchart TD
     F --&gt; E
     E --&gt; G["React Flow + n8n 회신"]
     G --&gt; H["개선 대시보드 · KPI"]
-</div><table>
+</div></div><div class="table-wrapper"><table aria-label="단계">
 <thead>
 <tr>
 <th style="text-align:center">단계</th>
@@ -890,9 +2281,9 @@ flowchart TD
 <td>별도 관리 없음 → 실시간 대시보드</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="n8n-워크플로우-10개-노드">n8n 워크플로우 (10개 노드) </h3>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     W1["Webhook 수신"] --&gt; W2["답변 검증"]
     W2 --&gt; W3["채널 분기"]
     W3 --&gt; W4["채널별 발송"]
@@ -903,17 +2294,20 @@ flowchart TD
     W5 --&gt;|No| W9["결과 기록"]
     W8 --&gt; W9
     W9 --&gt; W10["Respond"]
-</div><p>프론트엔드에서 전송 클릭 시 <code>job_id</code> 기반 SSE 스트리밍으로 React Flow 노드 상태가 순차 업데이트됩니다: <code>idle</code> → <code>running</code> (pulse 애니메이션) → <code>completed</code> (녹색)</p>
+</div></div><p>프론트엔드에서 전송 클릭 시 <code>job_id</code> 기반 SSE 스트리밍으로 React Flow 노드 상태가 순차 업데이트됩니다: <code>idle</code> → <code>running</code> (pulse 애니메이션) → <code>completed</code> (녹색)</p>
+</section>
 <hr>
-<h2 id="7-db-보안-감시-data-guardian">7. DB 보안 감시 (Data Guardian) </h2>
-<h3 id="개발-배경">개발 배경 </h3>
+<section class="portfolio-section">
+<h2 id="7-db-보안-감시-data-guardian">7. DB 보안 감시 (Data Guardian)</h2>
+<p class="section-summary">룰엔진(&lt;1ms) + ML 이상탐지 + AI Agent 3단계 위험 분석으로 치명적 SQL 쿼리를 실시간 차단하고, Recovery Agent가 복구 SQL을 제안합니다.</p>
+<h3 id="개발-배경">개발 배경</h3>
 <p>실수로 인한 대량 데이터 삭제/수정은 치명적 비즈니스 손실로 이어집니다.</p>
 <ul>
 <li>신입 개발자가 <code>WHERE</code> 없이 <code>DELETE FROM orders</code> 실행 → 주문 전체 소실</li>
 <li>야간 배치에서 정산 테이블 <code>UPDATE</code> 조건 오류 → 금액 일괄 0원</li>
 </ul>
 <h3 id="3단계--recovery-agent">3단계 + Recovery Agent </h3>
-<div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
     A["SQL 쿼리 입력"] --&gt; M{"감시 모드 선택"}
     M --&gt; B["룰엔진 · 패턴 매칭 · 1ms 미만"]
@@ -925,8 +2319,8 @@ flowchart TD
     E --&gt; WARN["WARNING"]
     E --&gt; BLOCK["BLOCKED · DBA 알림"]
     BLOCK -.-&gt;|"복구 요청"| R["Recovery Agent · 복구 SQL 제안"]
-</div><p><strong>설계 결정 — 멀티 에이전트를 채택하지 않은 이유</strong>:</p>
-<table>
+</div></div><p><strong>설계 결정 — 멀티 에이전트를 채택하지 않은 이유</strong>:</p>
+<div class="table-wrapper"><table aria-label="초기 설계 (멀티 에이전트)">
 <thead>
 <tr>
 <th>초기 설계 (멀티 에이전트)</th>
@@ -951,18 +2345,21 @@ flowchart TD
 <td>복구 SQL "제안"만 (DBA 승인 필수)</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <p><strong>Guardian Agent 도구</strong>: <code>analyze_impact</code> (비즈니스 영향도) · <code>get_user_pattern</code> (사용자 행동 패턴) · <code>search_similar</code> (과거 유사 사건) · <code>execute_decision</code> (차단/승인)</p>
+</section>
 <hr>
-<h2 id="8-ai-프로세스-마이너">8. AI 프로세스 마이너 </h2>
+<section class="portfolio-section">
+<h2 id="8-ai-프로세스-마이너">8. AI 프로세스 마이너</h2>
+<p class="section-summary">주문/CS/정산 이벤트 로그에서 프로세스 패턴을 자동 발견하고, ML로 다음 활동 예측 및 이상 프로세스를 탐지합니다.</p>
 <p>이벤트 로그(주문/CS/정산 3종) 기반으로 프로세스 패턴을 발견하고, ML로 예측 및 이상 탐지를 수행합니다.</p>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     A["이벤트 로그 · 주문/CS/정산"] --&gt; B["프로세스 발견 · 패턴 추출"]
     B --&gt; C["병목 분석 · IQR 이상치"]
     C --&gt; D["AI 자동화 추천 · SOP 생성"]
     B --&gt; E["다음 활동 예측 · RF Top-3"]
     B --&gt; F["이상 프로세스 · IsolationForest"]
-</div><table>
+</div></div><div class="table-wrapper"><table aria-label="기능">
 <thead>
 <tr>
 <th>기능</th>
@@ -997,11 +2394,14 @@ flowchart TD
 <td>경로 기반 이상 케이스 탐지</td>
 </tr>
 </tbody>
-</table>
+</table></div>
+</section>
 <hr>
-<h2 id="9-자동화-엔진-이탈방지--faq--리포트">9. 자동화 엔진 (이탈방지 · FAQ · 리포트) </h2>
+<section class="portfolio-section">
+<h2 id="9-자동화-엔진-이탈방지--faq--리포트">9. 자동화 엔진 (이탈방지 · FAQ · 리포트)</h2>
+<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 3종 자동화 엔진. 이탈방지 자동 조치, FAQ 자동 생성, 운영 리포트를 제공합니다.</p>
 <p>ML 예측 결과를 기반으로 자동 조치까지 수행하는 3종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결합니다.</p>
-<div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
     subgraph Retention["이탈 방지 엔진"]
         R1["ML 이탈 예측 · RF+SHAP"] --&gt; R2["위험 셀러 탐지"]
@@ -1021,8 +2421,8 @@ flowchart TD
 
     ActionLog["Action Logger · 전 조치 이력 추적"]
     Retention &amp; FAQ &amp; Report --&gt; ActionLog
-</div><h3 id="91-이탈-방지-자동-조치">9.1 이탈 방지 자동 조치 </h3>
-<table>
+</div></div><h3 id="91-이탈-방지-자동-조치">9.1 이탈 방지 자동 조치 </h3>
+<div class="table-wrapper"><table aria-label="단계">
 <thead>
 <tr>
 <th style="text-align:center">단계</th>
@@ -1052,7 +2452,7 @@ flowchart TD
 <td>Action Logger</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="92-cs-faq-자동-생성">9.2 CS FAQ 자동 생성 </h3>
 <p>CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.</p>
 <ul>
@@ -1062,7 +2462,7 @@ flowchart TD
 </ul>
 <h3 id="93-운영-리포트-자동-생성">9.3 운영 리포트 자동 생성 </h3>
 <p>플랫폼 전체 KPI를 집계하여 LLM이 자연어 리포트를 자동 작성합니다.</p>
-<table>
+<div class="table-wrapper"><table aria-label="리포트 유형">
 <thead>
 <tr>
 <th style="text-align:center">리포트 유형</th>
@@ -1087,9 +2487,9 @@ flowchart TD
 <td>월간 종합 + 세그먼트 분석 + 개선 제안</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="api-엔드포인트-17개">API 엔드포인트 (17개) </h3>
-<table>
+<div class="table-wrapper"><table aria-label="영역">
 <thead>
 <tr>
 <th>영역</th>
@@ -1184,11 +2584,14 @@ flowchart TD
 <td>파이프라인 추적</td>
 </tr>
 </tbody>
-</table>
+</table></div>
+</section>
 <hr>
-<h2 id="10-프론트엔드-13개-패널">10. 프론트엔드 (13개 패널) </h2>
-<h3 id="ux-설계-원칙">UX 설계 원칙 </h3>
-<table>
+<section class="portfolio-section">
+<h2 id="10-프론트엔드-13개-패널">10. 프론트엔드 (13개 패널)</h2>
+<p class="section-summary">Next.js 14 기반 SPA로 13개 기능 패널을 탭으로 구성. SSE 실시간 스트리밍, DnD 조작, Recharts 시각화, RBAC 접근 제어를 적용했습니다.</p>
+<h3 id="ux-설계-원칙">UX 설계 원칙</h3>
+<div class="table-wrapper"><table aria-label="원칙">
 <thead>
 <tr>
 <th>원칙</th>
@@ -1217,9 +2620,9 @@ flowchart TD
 <td>관리자 13개 / 비관리자 8개 패널</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="패널-구성">패널 구성 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="#">
 <thead>
 <tr>
 <th style="text-align:center">#</th>
@@ -1308,9 +2711,9 @@ flowchart TD
 <td>탭 분리, 파이프라인 추적</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="대시보드-패널-상세">대시보드 패널 상세 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="영역">
 <thead>
 <tr>
 <th>영역</th>
@@ -1351,9 +2754,9 @@ flowchart TD
 <td>색상별 이상 알림 (최신 항목 pulse 애니메이션)</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="분석-패널-상세-9개-서브탭">분석 패널 상세 (9개 서브탭) </h3>
-<table>
+<div class="table-wrapper"><table aria-label="서브탭">
 <thead>
 <tr>
 <th>서브탭</th>
@@ -1408,11 +2811,14 @@ flowchart TD
 <td><code>/api/marketing/optimize</code></td>
 </tr>
 </tbody>
-</table>
+</table></div>
+</section>
 <hr>
-<h2 id="11-기술-스택-및-아키텍처-결정">11. 기술 스택 및 아키텍처 결정 </h2>
-<h3 id="백엔드">백엔드 </h3>
-<table>
+<section class="portfolio-section">
+<h2 id="11-기술-스택-및-아키텍처-결정">11. 기술 스택 및 아키텍처 결정</h2>
+<p class="section-summary">각 기술의 선택 이유와 트레이드오프를 정리합니다. 로컬 실행 가능성, 비용 효율, 해석 가능성을 우선했습니다.</p>
+<h3 id="백엔드">백엔드</h3>
+<div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
 <th>분류</th>
@@ -1472,9 +2878,9 @@ flowchart TD
 <td>시각적 워크플로우, Webhook 트리거</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="프론트엔드">프론트엔드 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
 <th>분류</th>
@@ -1519,9 +2925,9 @@ flowchart TD
 <td>GFM 테이블 + 수학 수식 렌더링</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="인프라">인프라 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
 <th>분류</th>
@@ -1542,9 +2948,9 @@ flowchart TD
 <td>Docker</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="알고리즘-선택-근거">알고리즘 선택 근거 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="모델">
 <thead>
 <tr>
 <th>모델</th>
@@ -1589,10 +2995,10 @@ flowchart TD
 <td>시계열 + 정적 피처 동시 처리</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="production-전환-시-고려사항">Production 전환 시 고려사항 </h3>
 <p>현재 데모는 합성 데이터 + 무료 티어 인프라 기반입니다. 실 서비스 전환 시 아래 리스크를 식별하고 있습니다.</p>
-<table>
+<div class="table-wrapper"><table aria-label="영역">
 <thead>
 <tr>
 <th>영역</th>
@@ -1645,9 +3051,12 @@ flowchart TD
 <td>K8s + Auto-scaling</td>
 </tr>
 </tbody>
-</table>
+</table></div>
+</section>
 <hr>
-<h2 id="12-프로젝트-구조">12. 프로젝트 구조 </h2>
+<section class="portfolio-section">
+<h2 id="12-프로젝트-구조">12. 프로젝트 구조</h2>
+<p class="section-summary">백엔드 9개 도메인 라우터 + 에이전트/RAG/ML/자동화 모듈, 프론트엔드 13개 패널 + SSE 훅의 전체 디렉터리 구조입니다.</p>
 <pre data-role="codeBlock" data-info="" class="language-text"><code>카페24 프로젝트/
 ├── README.md                          # 프로젝트 루트 문서
 ├── portfolio/PORTFOLIO.md              # 포트폴리오 문서 (이 파일)
@@ -1749,9 +3158,12 @@ flowchart TD
     │       └── buttonStyles.js        # CAFE24 버튼 스타일
     ├── lib/                           # API 호출, SSE 파서, 스토리지
     └── styles/globals.css             # CAFE24 디자인 시스템
-</code></pre><hr>
-<h2 id="13-설치-및-배포">13. 설치 및 배포 </h2>
-<h3 id="로컬-실행">로컬 실행 </h3>
+</code></pre></section>
+<hr>
+<section class="portfolio-section">
+<h2 id="13-설치-및-배포">13. 설치 및 배포</h2>
+<p class="section-summary">Vercel(프론트엔드) + Railway(백엔드) 구성으로 배포. 로컬에서도 명령어 4줄로 즉시 실행 가능합니다.</p>
+<h3 id="로컬-실행">로컬 실행</h3>
 <pre data-role="codeBlock" data-info="bash" class="language-bash bash"><code><span class="token comment"># 백엔드</span>
 <span class="token builtin class-name">cd</span> <span class="token string">"backend 리팩토링 시작"</span>
 pip <span class="token function">install</span> <span class="token parameter variable">-r</span> requirements.txt
@@ -1764,13 +3176,13 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 <span class="token function">npm</span> <span class="token function">install</span>
 <span class="token function">npm</span> run dev
 </code></pre><h3 id="배포-아키텍처">배포 아키텍처 </h3>
-<div class="mermaid">flowchart LR
+<div class="mermaid-container"><div class="mermaid">flowchart LR
     User[사용자] --&gt; Vercel["Vercel · Next.js"]
     Vercel --&gt;|"API 프록시"| Railway["Railway · FastAPI"]
     Railway --&gt; OpenAI["OpenAI API"]
     Railway --&gt; n8n["n8n Cloud"]
     n8n --&gt; Resend["Resend Email"]
-</div><table>
+</div></div><div class="table-wrapper"><table aria-label="서비스">
 <thead>
 <tr>
 <th>서비스</th>
@@ -1791,9 +3203,9 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 <td><a href="https://cafe24-backend-production.up.railway.app/docs">https://cafe24-backend-production.up.railway.app/docs</a></td>
 </tr>
 </tbody>
-</table>
+</table></div>
 <h3 id="테스트-계정">테스트 계정 </h3>
-<table>
+<div class="table-wrapper"><table aria-label="계정">
 <thead>
 <tr>
 <th>계정</th>
@@ -1828,65 +3240,58 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 <td style="text-align:center">8개</td>
 </tr>
 </tbody>
-</table>
+</table></div>
+</section>
+<footer class="portfolio-footer">
 <hr>
-<div align="center">
-<h3 id="기술-요약">기술 요약 </h3>
-<p><strong>LLM</strong>: GPT-4o / GPT-4o-mini (Tool Calling + SSE 스트리밍)<br>
-<strong>ML</strong>: RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO<br>
-<strong>RAG</strong>: FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · LightRAG · K2RAG · CRAG<br>
-<strong>Backend</strong>: FastAPI · LangChain · LangGraph · MLflow · n8n · Resend · 106개 API<br>
-<strong>Frontend</strong>: Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX · 13개 패널<br>
-<strong>Automation</strong>: 이탈방지 엔진 · FAQ 자동생성 · 운영 리포트 · 서브에이전트 오케스트레이션</p>
-<hr>
-<p><strong>CAFE24 AI 운영 플랫폼</strong> · 카페24 이커머스 AI 기반 내부 운영 시스템</p>
-<p><strong>🔗 <a href="https://cafe24-frontend.vercel.app/">웹앱에서 모든 기능 직접 체험하기</a></strong> · <strong><a href="https://github.com/ASNGG/cafe24-demo">GitHub에서 전체 소스코드 및 상세 기술 문서 보기</a></strong></p>
+<div class="footer-content">
+<h3 id="기술-요약" class="footer-summary-title">기술 요약</h3>
+<div class="footer-tech-grid">
+<div class="footer-tech-item">
+  <strong>LLM</strong>
+  <span>GPT-4o / GPT-4o-mini (Tool Calling + SSE 스트리밍)</span>
 </div>
+<div class="footer-tech-item">
+  <strong>ML</strong>
+  <span>RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO</span>
+</div>
+<div class="footer-tech-item">
+  <strong>RAG</strong>
+  <span>FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · LightRAG · K2RAG · CRAG</span>
+</div>
+<div class="footer-tech-item">
+  <strong>Backend</strong>
+  <span>FastAPI · LangChain · LangGraph · MLflow · n8n · Resend · 106개 API</span>
+</div>
+<div class="footer-tech-item">
+  <strong>Frontend</strong>
+  <span>Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX · 13개 패널</span>
+</div>
+<div class="footer-tech-item">
+  <strong>Automation</strong>
+  <span>이탈방지 엔진 · FAQ 자동생성 · 운영 리포트 · 서브에이전트 오케스트레이션</span>
+</div>
+</div>
+<div class="footer-divider"></div>
+<p class="footer-title"><strong>CAFE24 AI 운영 플랫폼</strong></p>
+<p class="footer-subtitle">카페24 이커머스 AI 기반 내부 운영 시스템</p>
+<p class="footer-buttons">
+  <a href="https://cafe24-frontend.vercel.app/" class="footer-btn footer-btn-primary">웹앱에서 직접 체험하기</a>
+  <a href="https://github.com/ASNGG/cafe24-demo" class="footer-btn footer-btn-secondary">GitHub 소스코드 보기</a>
+</p>
+</div>
+</footer>
+</main>
 
       </div>
       
       
     
     
-    <script type="module">
-// TODO: If ZenUML gets integrated into mermaid in the future,
-//      we can remove the following lines.
-
-
-var MERMAID_CONFIG = ({"startOnLoad":false});
-if (typeof MERMAID_CONFIG !== 'undefined') {
-  MERMAID_CONFIG.startOnLoad = false
-  MERMAID_CONFIG.cloneCssStyles = false
-  MERMAID_CONFIG.theme = "default"
-}
-
-mermaid.initialize(MERMAID_CONFIG || {})
-if (typeof(window['Reveal']) !== 'undefined') {
-  function mermaidRevealHelper(event) {
-    var currentSlide = event.currentSlide
-    var diagrams = currentSlide.querySelectorAll('.mermaid')
-    for (var i = 0; i < diagrams.length; i++) {
-      var diagram = diagrams[i]
-      if (!diagram.hasAttribute('data-processed')) {
-        mermaid.init(null, diagram, ()=> {
-          Reveal.slide(event.indexh, event.indexv)
-        })
-      }
-    }
-  }
-  Reveal.addEventListener('slidetransitionend', mermaidRevealHelper)
-  Reveal.addEventListener('ready', mermaidRevealHelper)
-  await mermaid.run({
-    nodes: document.querySelectorAll('.mermaid')
-  })
-} else {
-  await mermaid.run({
-    nodes: document.querySelectorAll('.mermaid')
-  })
-}
-</script>
+    <!-- Mermaid 초기화는 DOMContentLoaded에서 처리 -->
     
     
     
   
+    <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:30px;right:30px;width:44px;height:44px;border-radius:50%;background:#00875A;color:#fff;border:none;font-size:20px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.15)">↑</button>
     </body></html>

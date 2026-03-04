@@ -4,12 +4,10 @@ export default function Document() {
   return (
     <Html lang="ko">
       <Head>
-        {/* Pretendard 폰트 preload */}
-        <link
-          rel="preload"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
-          as="style"
-        />
+        {/* CDN preconnect로 폰트 로딩 가속 */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+        {/* Pretendard 폰트 로딩 */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"

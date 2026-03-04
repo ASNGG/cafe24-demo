@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v9.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,7 +22,20 @@ v9.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.0.0** (2026-03-04) — 전체 코드 속도 최적화 (백엔드 API 10-100x, 프론트엔드 번들/렌더링 개선)
+> **v9.1.0** (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **Garbage filter 보정** | 한국어 대형 문서 보호 — unique 문자 100개 이상이면 정상 판정 (기존 39개 문서 누락 해결) |
+| **섹션 분할 강화** | `_split_by_sections`에 `##/###/####` 마크다운 헤더 인식 추가 (기존: 번호 패턴만) |
+| **Bullet 청크 개선** | parent를 원본 섹션 텍스트로 설정 + `[문서:]`, `[섹션:]` 태그 자동 부여 |
+| **쿼리 확장 정제** | PG사명(이니시스/토스페이먼츠 등) 제거 → 일반 동의어(결제수단/결제방법)로 교체 |
+| **BM25 Hybrid 활성화** | BM25/KG 캐시 디스크 저장 + 로드 시 자동 복원, 진단 로그 추가 |
+| **소스 매칭 보너스** | 파일명 키워드 매칭 + 복합어 분해(결제수단→결제+수단) + 가이드 문서 가산점 |
+| **검색 후보 확대** | retrieval_k를 top_k의 3배로 확대 → 보너스 재정렬로 정답 문서 상위 노출 |
+
+<details>
+<summary><b>v9.0.0</b> (2026-03-04) — 전체 코드 속도 최적화 (백엔드 API 10-100x, 프론트엔드 번들/렌더링 개선)</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -34,6 +47,8 @@ v9.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **SSE 스트리밍 O(1)** | useBaseStream.js 메시지 인덱스 캐싱 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1) |
 | **렌더링 최적화** | AgentPanel/SubAgentPanel `prevLengthRef` 교체 (메모리 누적 방지), remarkPlugins 외부 상수화 |
 | **빌드 최적화** | next.config.js `optimizePackageImports` (lucide-react, recharts), GET API 인메모리 캐시 (TTL 60s), 패널 로딩 스켈레톤 |
+
+</details>
 
 ---
 
@@ -612,6 +627,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.1.0 | 2026-03-04 | RAG 검색 품질 근본 개선: 6가설 검증 기반 수정 — garbage filter 한국어 보호, ## 헤더 섹션 분할, bullet 청크 태그/parent 보정, 쿼리 확장 정제, BM25 hybrid 활성화, 소스 매칭 보너스(복합어 분해+가이드 가산), 검색 후보 3배 확대 |
 | 9.0.0 | 2026-03-04 | 전체 코드 속도 최적화: iterrows() 26곳 벡터화(API 10-100x), SHOP_PERF_MAP 캐시 프리빌드, ML 동적 워커+SHAP 배치, LightRAG threading.Event, SSE O(1) 인덱스 캐싱, next.config optimizePackageImports, GET API 캐시(TTL 60s), 패널 로딩 스켈레톤 |
 | 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(29스텝)+_PIPELINE_PLANS(6종, 최대 5단계), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 29개 한글 매핑 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 싱글톤/병렬 로드/캐시, 에이전트 정규식 사전 컴파일/LLM 캐시, 프론트 useBaseStream 공통 훅/React.memo 12건/보안 강화 |

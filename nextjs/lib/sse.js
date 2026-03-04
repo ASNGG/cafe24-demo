@@ -29,55 +29,69 @@ export function createAuthHeaders(auth, extra = {}) {
  * @param {function} [handlers.onError]   - type === 'error' 이벤트
  * @param {function} [handlers.onRagContext] - type === 'rag_context' 이벤트
  * @param {function} [handlers.onStep]    - type === 'step' 이벤트
+ * @param {AbortSignal} [signal] - 취소 시그널 (선택)
  * @returns {Promise<string>} fullText - 누적된 토큰 텍스트
  */
-export async function parseSSEStream(response, handlers = {}) {
+export async function parseSSEStream(response, handlers = {}, signal) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
   let fullText = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  // AbortSignal 연결: 취소 시 reader 해제
+  const onAbort = () => {
+    try { reader.cancel(); } catch (_) {}
+  };
+  if (signal) {
+    if (signal.aborted) { reader.cancel(); return fullText; }
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
 
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const parsed = JSON.parse(line.slice(6));
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
 
-        if (handlers.onMessage) {
-          handlers.onMessage(parsed);
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const parsed = JSON.parse(line.slice(6));
+
+          if (handlers.onMessage) {
+            handlers.onMessage(parsed);
+          }
+
+          switch (parsed.type) {
+            case 'token':
+              fullText += parsed.data;
+              if (handlers.onToken) handlers.onToken(parsed.data, fullText);
+              break;
+            case 'done':
+              if (handlers.onDone) handlers.onDone(parsed.data, fullText);
+              break;
+            case 'error':
+              if (handlers.onError) handlers.onError(parsed.data);
+              break;
+            case 'rag_context':
+              if (handlers.onRagContext) handlers.onRagContext(parsed.data);
+              break;
+            case 'step':
+              if (handlers.onStep) handlers.onStep(parsed.data);
+              break;
+            default:
+              break;
+          }
+        } catch {
+          // JSON 파싱 실패 시 무시
         }
-
-        switch (parsed.type) {
-          case 'token':
-            fullText += parsed.data;
-            if (handlers.onToken) handlers.onToken(parsed.data, fullText);
-            break;
-          case 'done':
-            if (handlers.onDone) handlers.onDone(parsed.data, fullText);
-            break;
-          case 'error':
-            if (handlers.onError) handlers.onError(parsed.data);
-            break;
-          case 'rag_context':
-            if (handlers.onRagContext) handlers.onRagContext(parsed.data);
-            break;
-          case 'step':
-            if (handlers.onStep) handlers.onStep(parsed.data);
-            break;
-          default:
-            break;
-        }
-      } catch {
-        // JSON 파싱 실패 시 무시
       }
     }
+  } finally {
+    if (signal) signal.removeEventListener('abort', onAbort);
   }
 
   return fullText;

@@ -1,4 +1,7 @@
-export default function SectionHeader({ title, subtitle, right }) {
+import React from 'react';
+
+// React.memo: 거의 모든 패널에서 사용하는 순수 표시 컴포넌트
+export default React.memo(function SectionHeader({ title, subtitle, right }) {
   return (
     <div className="mb-4 flex items-end justify-between gap-3">
       <div>
@@ -8,4 +11,4 @@ export default function SectionHeader({ title, subtitle, right }) {
       {right ? <div className="shrink-0">{right}</div> : null}
     </div>
   );
-}
+});

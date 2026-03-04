@@ -74,9 +74,11 @@ DASHBOARD_KEYWORDS: frozenset = frozenset([
 ])
 
 RETENTION_KEYWORDS: frozenset = frozenset([
-    "이탈 위험", "이탈 분석", "리텐션", "retention", "churn",
-    "at-risk", "맞춤 전략", "자동 발송", "리텐션 전략", "이탈 방지",
-    "위험 셀러", "이탈 예측",
+    # 분석 키워드("리텐션", "retention", "churn")는 ANALYSIS_KEYWORDS와 중복되어 제거
+    # → "코호트 리텐션 분석" 같은 질문이 RETENTION으로 잘못 분류되는 문제 방지
+    "이탈 위험", "이탈 분석", "이탈 방지", "이탈 예측",
+    "at-risk", "위험 셀러", "맞춤 전략",
+    "리텐션 전략", "리텐션 메시지", "자동 발송",
 ])
 
 GENERAL_KEYWORDS: frozenset = frozenset([
@@ -107,9 +109,11 @@ KEYWORD_TOOL_MAPPING: Dict[str, List[str]] = {
     "optimize_marketing": ["마케팅 추천", "마케팅 최적화", "광고 추천", "광고 전략", "마케팅 예산", "ROAS 최적화", "마케팅 예산 최적화", "광고 최적화", "마케팅 분석"],
     # 분석 도구
     "get_churn_prediction": ["이탈 분석", "이탈 현황", "이탈 통계", "고위험 셀러", "이탈 요인"],
-    "get_cohort_analysis": ["코호트 분석", "리텐션 분석", "코호트 리텐션", "주간 리텐션", "잔존율"],
+    "get_cohort_analysis": ["코호트", "코호트 분석", "리텐션 분석", "코호트 리텐션", "주간 리텐션", "잔존율"],
     "get_trend_analysis": ["트렌드 분석", "KPI 분석", "지표 분석", "DAU 분석", "상관관계", "활성 셀러", "가입 추이", "전환율", "신규 가입", "변화 분석", "추이 분석", "주문량 분석"],
     "get_gmv_prediction": ["매출 예측", "GMV 분석", "GMV 예측", "수익 분석", "ARPU", "ARPPU", "거래액"],
+    # 셀러 활동 리포트
+    "get_seller_activity_report": ["활동 리포트", "활동 보고서", "활동 보여줘", "활동 현황", "활동 내역"],
     # 리텐션(이탈 방지) 도구
     "get_at_risk_sellers": ["이탈 위험", "위험 셀러", "at-risk", "이탈 방지"],
     "generate_retention_message": ["리텐션 메시지", "맞춤 전략", "리텐션 전략"],

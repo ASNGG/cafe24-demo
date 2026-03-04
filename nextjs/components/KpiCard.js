@@ -1,7 +1,8 @@
 import React from 'react';
 import { cn } from '@/lib/cn';
 
-export default function KpiCard({
+// React.memo: 대시보드에서 4개씩 렌더되는 순수 표시 컴포넌트
+export default React.memo(function KpiCard({
   title,
   value,
   subtitle,
@@ -41,4 +42,4 @@ export default function KpiCard({
       </div>
     </div>
   );
-}
+});

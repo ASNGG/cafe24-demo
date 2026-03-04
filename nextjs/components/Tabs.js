@@ -1,7 +1,7 @@
-import { useRef, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { cn } from '@/lib/cn';
 
-export default function Tabs({ tabs = [], active, onChange }) {
+export default React.memo(function Tabs({ tabs = [], active, onChange }) {
   const tabListRef = useRef(null);
 
   const handleKeyDown = useCallback((e) => {
@@ -62,4 +62,4 @@ export default function Tabs({ tabs = [], active, onChange }) {
       </div>
     </div>
   );
-}
+});

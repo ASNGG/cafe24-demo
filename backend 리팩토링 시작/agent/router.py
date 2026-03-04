@@ -58,6 +58,7 @@ CATEGORY_TOOLS = {
     IntentCategory.PLATFORM: [
         "search_platform",
         "search_platform_lightrag",
+        "get_ecommerce_glossary",       # 이커머스 용어 설명 지원
     ],
     IntentCategory.SHOP: [
         "get_shop_info",
@@ -82,6 +83,7 @@ CATEGORY_TOOLS = {
         "optimize_marketing",       # 셀러별 마케팅 최적화
         "get_shop_performance",     # 셀러 쇼핑몰 성과
         "predict_shop_revenue",     # 셀러 매출 예측
+        "get_seller_activity_report",  # 셀러 활동 리포트
     ],
     IntentCategory.CS: [
         "auto_reply_cs",
@@ -89,6 +91,8 @@ CATEGORY_TOOLS = {
         "get_ecommerce_glossary",
         "get_cs_statistics",
         "classify_inquiry",
+        "search_platform",              # FAQ 질문 RAG 검색 지원
+        "search_platform_lightrag",     # FAQ 질문 LightRAG 검색 지원
     ],
     IntentCategory.RETENTION: [
         "get_at_risk_sellers",
@@ -96,6 +100,7 @@ CATEGORY_TOOLS = {
         "execute_retention_action",
         "analyze_seller",
         "get_cs_statistics",
+        "get_cohort_analysis",          # 코호트 리텐션 분석 지원
     ],
     IntentCategory.DASHBOARD: [
         "get_dashboard_summary",

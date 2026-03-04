@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.0.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.1.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,30 @@ v9.0.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.0.0** (2026-03-04) — 속도 최적화: iterrows() 전면 제거 + 전역 캐시 + 병렬/이벤트 기반 전환
+> **v9.1.0** (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)
+
+#### RAG 청킹 개선 (rag/chunking.py)
+
+| 변경 | 상세 |
+|------|------|
+| **Garbage filter 보정** | `uniq < 100 && ratio < 0.005` — 한국어 대형 문서 39개 누락 해결 |
+| **`_split_by_sections`** | `##/###/####` 마크다운 헤더 인식 추가 (기존: 번호 패턴만) |
+| **Bullet 청크 parent** | 자기 자신 → 원본 섹션 텍스트로 교체 (상위 문맥 복원) |
+| **Bullet 청크 태그** | `[문서:]`, `[섹션:]` 태그 자동 부여 (contextual tag 파이프라인 우회 보정) |
+
+#### RAG 검색 개선 (rag/search.py, rag/service.py)
+
+| 변경 | 상세 |
+|------|------|
+| **쿼리 확장 정제** | PG사명(이니시스/토스페이먼츠) → 일반 동의어(결제수단/결제방법) |
+| **BM25 캐시 저장** | BM25/KG 캐시 디스크 저장 + 로드 시 자동 복원 (재구축 방지) |
+| **BM25 진단 로그** | `SEARCH_SINGLE_QUERY` 로그 — hybrid/vector_only/bm25_only 경로 확인 |
+| **소스 매칭 보너스** | 파일명 키워드 매칭 + 복합어 분해 + 가이드 문서 가산점(1.2) |
+| **검색 후보 확대** | `retrieval_k = max(k * 3, 15)` — 보너스 재정렬 후 정답 상위 노출 |
+| **section_title 전파** | vector 검색 결과에 메타데이터 section_title 포함 → 보너스 계산 활용 |
+
+<details>
+<summary><b>v9.0.0</b> (2026-03-04) — 속도 최적화: iterrows() 전면 제거 + 전역 캐시 + 병렬/이벤트 기반 전환</summary>
 
 #### iterrows() 벡터화 제거 (26곳)
 
@@ -53,6 +76,8 @@ v9.0.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | `rag/light_rag.py` | `time.sleep` polling → `threading.Event` 기반 대기 (최대 5초 → 즉시) |
 | `rag/search.py` | 캐시 히트율 카운터 + 자동 로깅 |
 | `agent/llm.py` | LLM 캐시 키 `api_key[:8]` → SHA-256 해시 8자리 (충돌 방지) |
+
+</details>
 
 <details>
 <summary><b>v8.5.0</b> (2026-02-18) — 백엔드 전체 코드 최적화 1차+2차 통합 (30파일)</summary>

@@ -190,6 +190,7 @@ export default function useBaseStream({
       }, timeoutMs);
 
       let deltaBuf = '';
+      const DELTA_FLUSH_THRESHOLD = 500; // 버퍼가 이 크기 이상이면 즉시 flush
 
       const flushDelta = () => {
         if (!deltaBuf) return;
@@ -297,6 +298,16 @@ export default function useBaseStream({
 
               deltaBuf += delta;
 
+              // 버퍼가 임계값 이상이면 즉시 flush (메모리 누적 방지)
+              if (deltaBuf.length >= DELTA_FLUSH_THRESHOLD) {
+                if (flushTimerRef.current) {
+                  clearTimeout(flushTimerRef.current);
+                  flushTimerRef.current = null;
+                }
+                flushDelta();
+                return;
+              }
+
               // debounce: 마지막 delta 기준 50ms 후 flush
               if (flushTimerRef.current) {
                 clearTimeout(flushTimerRef.current);
@@ -391,6 +402,8 @@ export default function useBaseStream({
 
           onclose() {
             if (isStale()) return;
+            // done 이벤트 후 정상 종료 시에는 에러 불필요
+            if (!activeAssistantIdRef.current) return;
             throw new Error('SSE closed');
           },
         });

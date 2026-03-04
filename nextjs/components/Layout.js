@@ -1,5 +1,5 @@
 // Layout.js - CAFE24 AI 운영 플랫폼
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
 
@@ -15,6 +15,11 @@ export default function Layout({
 
   const username = auth?.username || 'USER';
 
+  // useCallback: Topbar/Sidebar에 전달하는 콜백 안정화 → memo된 자식 리렌더 방지
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const closeWelcomePopup = useCallback(() => setShowWelcomePopup(false), []);
+
   return (
     <div
       className="antialiased min-h-screen bg-gradient-to-br from-cafe24-yellow/10 via-white to-cafe24-orange/5"
@@ -28,7 +33,7 @@ export default function Layout({
 
       <Topbar
         username={username}
-        onOpenSidebar={() => setSidebarOpen(true)}
+        onOpenSidebar={openSidebar}
         onLogout={onLogout}
       />
 
@@ -41,9 +46,9 @@ export default function Layout({
               onExampleQuestion={onExampleQuestion}
               onLogout={onLogout}
               open={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
+              onClose={closeSidebar}
               showWelcomePopup={showWelcomePopup}
-              onCloseWelcomePopup={() => setShowWelcomePopup(false)}
+              onCloseWelcomePopup={closeWelcomePopup}
             />
           </div>
 

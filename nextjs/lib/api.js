@@ -1,6 +1,10 @@
 // GET 요청용 인메모리 캐시 (TTL 60초, 정적 데이터 전용)
 const _apiCache = new Map();
 const CACHE_TTL = 60_000;
+const CACHE_MAX_SIZE = 50; // 캐시 무한 증가 방지
+
+// 동일 요청 중복 호출 방지 (in-flight 요청 공유)
+const _inflightRequests = new Map();
 
 // 캐시 대상 엔드포인트 (정적 데이터만)
 const CACHEABLE_ENDPOINTS = ['/api/shops', '/api/categories'];
@@ -20,6 +24,11 @@ function _getCached(key) {
 }
 
 function _setCache(key, data) {
+  // 캐시 크기 제한: 오래된 항목부터 제거
+  if (_apiCache.size >= CACHE_MAX_SIZE) {
+    const firstKey = _apiCache.keys().next().value;
+    _apiCache.delete(firstKey);
+  }
   _apiCache.set(key, { data, ts: Date.now() });
 }
 
@@ -54,11 +63,17 @@ export async function apiCall({
   responseType = 'json',
   cache = 'no-store',
 }) {
+  const isCacheable = method === 'GET' && CACHEABLE_ENDPOINTS.includes(endpoint);
+
   // GET 캐시 히트 확인 (정적 데이터 엔드포인트만)
-  if (method === 'GET' && CACHEABLE_ENDPOINTS.includes(endpoint)) {
+  if (isCacheable) {
     const cacheKey = _getCacheKey(endpoint, auth);
     const cached = _getCached(cacheKey);
     if (cached) return cached;
+
+    // 동일 GET 요청이 이미 진행 중이면 결과 공유 (중복 호출 방지)
+    const inflight = _inflightRequests.get(cacheKey);
+    if (inflight) return inflight;
   }
 
   const controller = new AbortController();
@@ -87,26 +102,42 @@ export async function apiCall({
     init.body = JSON.stringify(data);
   }
 
-  try {
-    const resp = await fetch(url, init);
-    clearTimeout(t);
+  const doFetch = async () => {
+    try {
+      const resp = await fetch(url, init);
+      clearTimeout(t);
 
-    if (responseType === 'blob') {
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      return await resp.blob();
+      if (responseType === 'blob') {
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.blob();
+      }
+
+      const json = await resp.json().catch(() => ({}));
+
+      // 성공한 GET 정적 데이터 캐시 저장
+      if (isCacheable && json?.status === 'success') {
+        const cacheKey = _getCacheKey(endpoint, auth);
+        _setCache(cacheKey, json);
+      }
+
+      return json;
+    } catch (e) {
+      clearTimeout(t);
+      // AbortController 타임아웃 에러 구분
+      if (e?.name === 'AbortError') {
+        return { status: 'error', message: '요청 시간 초과' };
+      }
+      return { status: 'error', message: String(e?.message || e) };
     }
+  };
 
-    const json = await resp.json().catch(() => ({}));
-
-    // 성공한 GET 정적 데이터 캐시 저장
-    if (method === 'GET' && CACHEABLE_ENDPOINTS.includes(endpoint) && json?.status === 'success') {
-      const cacheKey = _getCacheKey(endpoint, auth);
-      _setCache(cacheKey, json);
-    }
-
-    return json;
-  } catch (e) {
-    clearTimeout(t);
-    return { status: 'error', message: String(e?.message || e) };
+  // 캐시 가능 GET 요청: in-flight 공유로 중복 호출 방지
+  if (isCacheable) {
+    const cacheKey = _getCacheKey(endpoint, auth);
+    const promise = doFetch().finally(() => _inflightRequests.delete(cacheKey));
+    _inflightRequests.set(cacheKey, promise);
+    return promise;
   }
+
+  return doFetch();
 }

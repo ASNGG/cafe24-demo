@@ -1139,11 +1139,16 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
         return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
-        # 날짜 컬럼 파싱이 원본을 변경하므로 copy 필요
-        df = st.DAILY_METRICS_DF.copy()
+        # 원본 DF를 수정하지 않고 조회만 수행 (copy 제거로 메모리/시간 절약)
+        df = st.DAILY_METRICS_DF
 
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
+        # 날짜 컬럼이 아직 datetime이 아닌 경우에만 변환 (지역 변수로 처리)
+        if 'date' in df.columns and not pd.api.types.is_datetime64_any_dtype(df['date']):
+            date_col = pd.to_datetime(df['date'])
+        elif 'date' in df.columns:
+            date_col = df['date']
+        else:
+            date_col = None
 
         # 날짜 필터링
         full_df = df  # fallback용 원본 참조
@@ -1151,8 +1156,8 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
             try:
                 start = pd.to_datetime(start_date)
                 end = pd.to_datetime(end_date)
-                if 'date' in df.columns:
-                    df = df[(df['date'] >= start) & (df['date'] <= end)]
+                if date_col is not None:
+                    df = df[(date_col >= start) & (date_col <= end)]
                     # 날짜 필터링 결과가 부족하면 전체 데이터로 fallback
                     if len(df) < 2:
                         df = full_df
@@ -1305,19 +1310,24 @@ def tool_get_gmv_prediction(days: int = None, start_date: str = None, end_date: 
         return {"status": "error", "message": "일별 지표 데이터가 없습니다."}
 
     try:
-        # 날짜 컬럼 파싱이 원본을 변경하므로 copy 필요
-        metrics_df = st.DAILY_METRICS_DF.copy()
+        # 원본 DF를 수정하지 않고 조회만 수행 (copy 제거로 메모리/시간 절약)
+        metrics_df = st.DAILY_METRICS_DF
 
-        if 'date' in metrics_df.columns:
-            metrics_df['date'] = pd.to_datetime(metrics_df['date'])
+        # 날짜 컬럼이 아직 datetime이 아닌 경우에만 변환 (지역 변수로 처리)
+        if 'date' in metrics_df.columns and not pd.api.types.is_datetime64_any_dtype(metrics_df['date']):
+            date_col = pd.to_datetime(metrics_df['date'])
+        elif 'date' in metrics_df.columns:
+            date_col = metrics_df['date']
+        else:
+            date_col = None
 
         # 날짜 필터링
         if start_date and end_date:
             try:
                 start = pd.to_datetime(start_date)
                 end = pd.to_datetime(end_date)
-                if 'date' in metrics_df.columns:
-                    metrics_df = metrics_df[(metrics_df['date'] >= start) & (metrics_df['date'] <= end)]
+                if date_col is not None:
+                    metrics_df = metrics_df[(date_col >= start) & (date_col <= end)]
             except Exception:
                 pass
 
@@ -1611,31 +1621,12 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
 
         risk_level = "HIGH" if churn_prob > 0.6 else "MEDIUM" if churn_prob > 0.3 else "LOW"
 
-        # SHAP 설명
+        # 모델 내장 feature_importances_ 사용 (SHAP 대비 수백ms 절약)
         top_factors = []
-        if st.SHAP_EXPLAINER_CHURN is not None:
+        if hasattr(st.SELLER_CHURN_MODEL, 'feature_importances_'):
             try:
-                explainer = st.SHAP_EXPLAINER_CHURN
-
-                if hasattr(explainer, 'shap_values'):
-                    shap_result = explainer.shap_values(X)
-                    if isinstance(shap_result, list) and len(shap_result) == 2:
-                        shap_vals = np.array(shap_result[1])[0]
-                    elif isinstance(shap_result, np.ndarray):
-                        if shap_result.ndim == 3:
-                            shap_vals = shap_result[0, :, 1]
-                        else:
-                            shap_vals = shap_result[0]
-                    else:
-                        shap_vals = np.array(shap_result)[0]
-                else:
-                    shap_result = explainer(X)
-                    if hasattr(shap_result, 'values'):
-                        shap_vals = shap_result.values[0]
-                    else:
-                        shap_vals = np.array(shap_result)[0]
-
-                feature_importance = list(zip(feature_cols, np.abs(shap_vals)))
+                importances = st.SELLER_CHURN_MODEL.feature_importances_
+                feature_importance = list(zip(feature_cols, importances))
                 feature_importance.sort(key=lambda x: x[1], reverse=True)
 
                 for feat, imp in feature_importance[:5]:
@@ -1644,7 +1635,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
                         "importance": round(float(imp) * 100, 1),
                     })
             except Exception as e:
-                print(f"[SHAP Error] {type(e).__name__}: {e}")
+                print(f"[FeatureImportance Error] {type(e).__name__}: {e}")
 
         if not top_factors:
             top_factors = [
@@ -2289,7 +2280,14 @@ def search_platform(query: str, top_k: int = 5) -> dict:
     Returns:
         관련 문서 스니펫과 출처
     """
-    return tool_rag_search(query, top_k=top_k, api_key=st.OPENAI_API_KEY)
+    result = tool_rag_search(query, top_k=top_k, api_key=st.OPENAI_API_KEY)
+    # RAG 검색 실패 시 fallback 메시지를 결과에 포함 → LLM이 hallucination 대신 안내
+    if result.get("fallback_message"):
+        result["_llm_instruction"] = (
+            "검색 결과가 부족합니다. 아래 fallback_message를 사용자에게 그대로 전달하세요. "
+            "임의로 답변을 생성하지 마세요."
+        )
+    return result
 
 
 @tool
@@ -2565,6 +2563,8 @@ TRANSLATION_AGENT_TOOLS = CS_AGENT_TOOLS  # multi_agent.py 호환 alias
 RETENTION_AGENT_TOOLS = [
     get_at_risk_sellers,
     get_cs_statistics,
+    generate_retention_message,   # 리텐션 맞춤 메시지 생성
+    execute_retention_action,     # 리텐션 자동 조치 실행
 ]
 
 # ============================================================

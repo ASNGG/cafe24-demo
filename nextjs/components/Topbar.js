@@ -1,6 +1,8 @@
+import React from 'react';
 import { LogOut, Menu } from 'lucide-react';
 
-export default function Topbar({ username, onOpenSidebar, onLogout }) {
+// React.memo: Layout 내부 상태 변경(sidebarOpen 등) 시 불필요한 리렌더 방지
+export default React.memo(function Topbar({ username, onOpenSidebar, onLogout }) {
   return (
     <header className="sticky top-0 z-40">
       <div className="mx-auto max-w-[1320px] px-3 sm:px-4">
@@ -45,4 +47,4 @@ export default function Topbar({ username, onOpenSidebar, onLogout }) {
       </div>
     </header>
   );
-}
+});

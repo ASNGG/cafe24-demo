@@ -49,6 +49,9 @@ from rag.search import (
     QUERY_EXPANSION_MAP, QUERY_INJECTION_RULES,
     rag_search_glossary,
 )
+from rag.search import (
+    _get_search_cache, _set_search_cache,
+)
 from rag.kg import (
     build_knowledge_graph,
     search_knowledge_graph,
@@ -332,6 +335,29 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
                         st.logger.info("BM25_KG_REBUILT_ON_LOAD docs=%d bm25=%s kg=%s",
                                       len(load_docs), bm25_built, kg_built)
 
+                        # 재구축된 BM25/KG 캐시를 디스크에 저장 (다음 로드 시 재구축 방지)
+                        try:
+                            if bm25_built and _search_mod.BM25_CORPUS:
+                                _bm25_save_path = os.path.join(st.RAG_FAISS_DIR, "bm25_cache.json")
+                                with open(_bm25_save_path, "w", encoding="utf-8") as f:
+                                    json.dump({
+                                        "hash": fp,
+                                        "corpus": _search_mod.BM25_CORPUS,
+                                        "doc_map": _search_mod.BM25_DOC_MAP,
+                                    }, f, ensure_ascii=False)
+                                st.logger.info("BM25_CACHE_SAVED_ON_LOAD corpus=%d", len(_search_mod.BM25_CORPUS))
+
+                            if kg_built and _kg_mod.KNOWLEDGE_GRAPH:
+                                _kg_save_path = os.path.join(st.RAG_FAISS_DIR, "kg_cache.json")
+                                with open(_kg_save_path, "w", encoding="utf-8") as f:
+                                    json.dump({
+                                        "hash": fp,
+                                        "kg": _kg_mod.KNOWLEDGE_GRAPH,
+                                    }, f, ensure_ascii=False)
+                                st.logger.info("KG_CACHE_SAVED_ON_LOAD")
+                        except Exception as e:
+                            st.logger.warning("BM25_KG_CACHE_SAVE_ON_LOAD_FAIL err=%s", safe_str(e))
+
                 with st.RAG_LOCK:
                     st.RAG_STORE.update({
                         "ready": True, "hash": fp,
@@ -384,7 +410,7 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
         parent_overlap=500,
         child_size=500,
         child_overlap=100,
-        enable_contextual=True,
+        enable_contextual=False,
         contextual_prefix_func=_generate_contextual_prefix,
         contextual_cache_load_func=_load_contextual_cache,
         contextual_cache_save_func=_save_contextual_cache,
@@ -557,7 +583,14 @@ def _search_single_query(
     retrieval_k: int,
     effective_key: str
 ) -> Tuple[List[Tuple[Dict, float]], List[Tuple[Dict, float]]]:
-    """단일 쿼리로 Vector + BM25 검색 실행"""
+    """단일 쿼리로 Vector + BM25 검색 실행 (결과 TTL 캐시 포함)"""
+
+    # 단일 쿼리 검색 결과 TTL 캐시 (FAISS 임베딩 API 호출 절약)
+    _norm_sq = re.sub(r'\s+', ' ', q.lower().strip()).rstrip('?')
+    _sq_cache_key = f"single:{_norm_sq}:{retrieval_k}"
+    _sq_cached = _get_search_cache(_sq_cache_key)
+    if _sq_cached is not None:
+        return _sq_cached
 
     vector_results = []
     bm25_results = []
@@ -589,12 +622,14 @@ def _search_single_query(
                         continue
 
                     if content:
+                        section_title = safe_str(metadata.get("section_title", ""))
                         vector_results.append((
                             {
                                 "content": content,
                                 "source": source,
                                 "title": source or "doc",
                                 "parent_id": parent_id,
+                                "section_title": section_title,
                                 "matched_child": child_content[:100],
                             },
                             float(dist)
@@ -611,7 +646,18 @@ def _search_single_query(
     if bm25_ready and _search_mod.BM25_INDEX is not None:
         bm25_results = _bm25_search(q, top_k=retrieval_k, parent_content_func=_get_parent_content)
 
-    return vector_results, bm25_results
+    # BM25 기여 진단 로그
+    st.logger.info("SEARCH_SINGLE_QUERY q=%s vec=%d bm25=%d path=%s",
+                   q[:30], len(vector_results), len(bm25_results),
+                   "hybrid" if (vector_results and bm25_results) else
+                   ("vector_only" if vector_results else
+                    ("bm25_only" if bm25_results else "none")))
+
+    # 단일 쿼리 검색 결과 캐시 저장 (FAISS 임베딩 API 재호출 방지)
+    _result_pair = (vector_results, bm25_results)
+    _set_search_cache(_sq_cache_key, _result_pair)
+
+    return _result_pair
 
 
 # ============================================================
@@ -636,6 +682,14 @@ def rag_search_hybrid(
 
     k = max(1, min(int(top_k), st.RAG_MAX_TOPK))
     effective_key = safe_str(api_key).strip() or st.OPENAI_API_KEY
+
+    # 하이브리드 검색 결과 TTL 캐시 (동일 쿼리 반복 호출 방지)
+    _norm_q = re.sub(r'\s+', ' ', original_query.lower().strip()).rstrip('?')
+    _hybrid_cache_key = f"hybrid:{_norm_q}:{k}:{use_reranking}:{use_kg}:{use_fusion}"
+    _cached = _get_search_cache(_hybrid_cache_key)
+    if _cached is not None:
+        st.logger.info("HYBRID_CACHE_HIT query=%s", original_query[:30])
+        return _cached
 
     # RAG 인덱스 준비 확인
     with st.RAG_LOCK:
@@ -669,7 +723,8 @@ def rag_search_hybrid(
                       original_query[:30], len(kg_entities),
                       kg_location_answer or "none")
 
-    retrieval_k = k
+    # 검색 후보 수 확대 — 보너스 재정렬을 위해 더 많은 후보 검색
+    retrieval_k = max(k * 3, 15)
 
     # RAG-Fusion
     if use_fusion and RAG_FUSION_ENABLED:
@@ -739,7 +794,7 @@ def rag_search_hybrid(
     if not fused_results:
         return {"status": "error", "message": "No search results", "results": []}
 
-    # 쿼리-섹션 제목 매칭 보너스
+    # 쿼리-섹션 제목 + 소스 파일명 매칭 보너스
     query_keywords = set(re.findall(r'[가-힣]{2,}', original_query))
     if query_keywords:
         for r in fused_results:
@@ -747,7 +802,11 @@ def rag_search_hybrid(
             section_matches = re.findall(r'\[섹션[^:]*:\s*([^\]]+)\]', content)
             title_matches = re.findall(r'\[제목:\s*([^\]]+)\]', content)
             topic_matches = re.findall(r'\[주제:\s*([^\]]+)\]', content)
+            # 메타데이터 section_title도 포함
+            meta_section = r.get("section_title", "")
             all_titles = section_matches + title_matches + topic_matches
+            if meta_section:
+                all_titles.append(meta_section)
 
             section_match_bonus = 0.0
             for title in all_titles:
@@ -757,6 +816,24 @@ def rag_search_hybrid(
                         pure_title = re.sub(r'^\d+\.[\d.]*\s*', '', title).strip()
                         if kw == pure_title:
                             section_match_bonus = max(section_match_bonus, 1.0)
+
+            # 소스 파일명 매칭 보너스 — 복합어 분해 + 가이드 문서 우선
+            source_name = r.get("source", "").replace("_", " ").replace("-", " ").lower()
+            # 복합어 분해: "결제수단" → {"결제수단", "결제", "수단"}
+            expanded_kws = set()
+            for kw in query_keywords:
+                expanded_kws.add(kw)
+                if len(kw) >= 4:  # 4자 이상 복합어만 분해
+                    expanded_kws.add(kw[:2])
+                    expanded_kws.add(kw[2:])
+            source_kw_hits = sum(1 for kw in expanded_kws if len(kw) >= 2 and kw in source_name)
+            # "가이드" 문서는 FAQ보다 더 포괄적 → 추가 가산
+            is_guide = "가이드" in source_name
+            if source_kw_hits >= 2:
+                source_bonus = 1.2 if is_guide else 0.8
+                section_match_bonus = max(section_match_bonus, source_bonus)
+            elif source_kw_hits == 1:
+                section_match_bonus = max(section_match_bonus, 0.3)
 
             if section_match_bonus > 0:
                 original_score = r.get("fusion_score", 0.0)
@@ -796,7 +873,7 @@ def rag_search_hybrid(
         r["content"] = r.get("content", "")[:st.RAG_SNIPPET_CHARS]
         final_results.append(r)
 
-    return {
+    _result = {
         "status": "success",
         "query": original_query,
         "search_method": search_method,
@@ -811,6 +888,11 @@ def rag_search_hybrid(
         "results": final_results,
         "kg_entities": kg_entities,
     }
+
+    # 하이브리드 검색 결과 캐시 저장 (TTL 5분, 최대 200개)
+    _set_search_cache(_hybrid_cache_key, _result)
+
+    return _result
 
 
 # ============================================================
@@ -846,6 +928,9 @@ def tool_rag_search(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str =
                     "content": safe_str(r.get("content") or "")[:st.RAG_SNIPPET_CHARS],
                 })
 
+    # 최소 품질 임계값 — 이 이하 score는 저품질로 판단
+    MIN_SCORE_THRESHOLD = 0.25
+
     remain = max(0, k - len(merged))
     if remain > 0 and isinstance(hybrid_results, list):
         for r in hybrid_results:
@@ -853,6 +938,11 @@ def tool_rag_search(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str =
             if key and key not in seen:
                 seen.add(key)
                 fusion_score = float(r.get("rerank_score") or r.get("fusion_score") or 0.0)
+
+                # 최소 score 미달 결과 스킵
+                if fusion_score < MIN_SCORE_THRESHOLD:
+                    continue
+
                 content = safe_str(r.get("content") or "")
                 # content가 짧으면(100자 미만) parent chunk에서 보강 시도
                 if len(content) < 100:
@@ -880,12 +970,22 @@ def tool_rag_search(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str =
     with st.RAG_LOCK:
         rag_ready = bool(st.RAG_STORE.get("ready"))
         rag_err = safe_str(st.RAG_STORE.get("error", ""))
-        rag_docs = int(st.RAG_STORE.get("docs_count") or 0)
+        rag_docs = int(st.RAG_STORE.get("chunks_count") or st.RAG_STORE.get("files_count") or 0)
 
     guardrail = ""
 
+    # RAG 결과 품질 평가 — 결과 없거나 최고 score가 낮으면 fallback 안내
+    top_score = max((float(m.get("score") or 0) for m in merged), default=0.0) if merged else 0.0
+    has_quality_results = bool(merged) and top_score >= MIN_SCORE_THRESHOLD
+    fallback_msg = ""
+    if not has_quality_results and not isinstance(gloss, list):
+        fallback_msg = (
+            f"'{safe_str(query)[:50]}' 관련 가이드 문서를 찾지 못했습니다. "
+            "다른 키워드로 다시 검색하거나, 카페24 공식 고객센터(https://support.cafe24.com)를 참고해주세요."
+        )
+
     return {
-        "status": "success" if merged else "error",
+        "status": "success" if has_quality_results else ("partial" if merged else "no_results"),
         "query": safe_str(query),
         "top_k": k,
         "rag_ready": rag_ready,
@@ -895,4 +995,5 @@ def tool_rag_search(query: str, top_k: int = st.RAG_DEFAULT_TOPK, api_key: str =
         "reranked": hybrid_result.get("reranked", False),
         "results": merged,
         "guardrail": guardrail,
+        "fallback_message": fallback_msg,
     }

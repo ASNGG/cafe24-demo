@@ -42,7 +42,9 @@ def _is_garbage_text(txt: str) -> bool:
     if len(t) < 50:
         return True
     uniq = len(set(t))
-    if uniq / max(1, len(t)) < 0.02:
+    # 한국어 대형 문서 보호: unique 문자 100개 이상이면 정상 텍스트로 판정
+    # (한글은 ~2000자 범위라 5만자 이상 문서도 ratio가 0.02 이하로 떨어짐)
+    if uniq < 100 and uniq / max(1, len(t)) < 0.005:
         return True
     meaningful = re.findall(r"[가-힣A-Za-z0-9]", t)
     if len(meaningful) / max(1, len(t)) < 0.15:
@@ -252,11 +254,14 @@ def _create_bullet_chunks(
 # 섹션 분할
 # ============================================================
 def _split_by_sections(text: str, source: str = "") -> List[Tuple[str, str]]:
-    """문서를 섹션 단위로 분리"""
+    """문서를 섹션 단위로 분리 (번호 패턴 + 마크다운 ## 헤더)"""
     if not text:
         return [("", text)]
 
-    section_pattern = re.compile(r'^(\d+\.(?:\d+\.)*\s*.+)$', re.MULTILINE)
+    # 번호 패턴: "1. 제목", "1.2. 제목"
+    number_pattern = re.compile(r'^(\d+\.(?:\d+\.)*\s*.+)$', re.MULTILINE)
+    # 마크다운 헤더: "## 제목", "### 제목" (# 1개는 문서 전체 제목이므로 제외)
+    md_header_pattern = re.compile(r'^(#{2,4})\s+(.+)$')
 
     lines = text.split('\n')
     sections: List[Tuple[str, str]] = []
@@ -264,13 +269,26 @@ def _split_by_sections(text: str, source: str = "") -> List[Tuple[str, str]]:
     current_content: List[str] = []
 
     for line in lines:
-        match = section_pattern.match(line.strip())
-        if match and len(line.strip()) < 100:
+        stripped = line.strip()
+        num_match = number_pattern.match(stripped)
+        md_match = md_header_pattern.match(stripped)
+
+        is_section = False
+        new_title = ""
+
+        if num_match and len(stripped) < 100:
+            is_section = True
+            new_title = stripped
+        elif md_match and len(stripped) < 100:
+            is_section = True
+            new_title = md_match.group(2).strip()
+
+        if is_section:
             if current_content:
                 content = '\n'.join(current_content).strip()
                 if content:
                     sections.append((current_title, content))
-            current_title = line.strip()
+            current_title = new_title
             current_content = [line]
         else:
             current_content.append(line)
@@ -365,6 +383,7 @@ def _create_parent_child_chunks(
     # 1단계: 문서를 섹션 단위로 분리
     section_docs: List[Any] = []
     bullet_child_chunks: List[Any] = []
+    bullet_section_texts: List[str] = []  # 불릿 청크의 원본 섹션 텍스트 (parent 용)
 
     for doc in docs:
         content = safe_str(getattr(doc, "page_content", ""))
@@ -382,6 +401,9 @@ def _create_parent_child_chunks(
             if has_bullets:
                 bullet_chunks = _create_bullet_chunks(blocks, section_title, source, metadata)
                 bullet_child_chunks.extend(bullet_chunks)
+                # 각 불릿 청크에 원본 섹션 텍스트 매핑 (parent 컨텍스트 복원용)
+                for _ in bullet_chunks:
+                    bullet_section_texts.append(section_content)
 
                 for block in blocks:
                     if block["type"] == "prose":
@@ -585,10 +607,35 @@ def _create_parent_child_chunks(
         if contextual_generated_count > 0 and contextual_cache_save_func:
             contextual_cache_save_func()
 
-        # 불릿 청크 추가
+        # 불릿 청크 추가 — parent를 원본 섹션 텍스트로 설정 + 기본 태그 부여
         for i, bullet_chunk in enumerate(bullet_child_chunks):
             bullet_parent_id = f"bullet_{i}"
-            parent_store[bullet_parent_id] = bullet_chunk
+            section_text = bullet_section_texts[i] if i < len(bullet_section_texts) else ""
+            if section_text:
+                bullet_meta = getattr(bullet_chunk, "metadata", {})
+                parent_store[bullet_parent_id] = Document(
+                    page_content=section_text,
+                    metadata={**bullet_meta, "parent_id": bullet_parent_id}
+                )
+            else:
+                parent_store[bullet_parent_id] = bullet_chunk
+
+            # bullet chunk에 최소 태그 추가 (contextual tag 파이프라인 우회 보정)
+            bullet_content = safe_str(getattr(bullet_chunk, "page_content", ""))
+            bullet_meta = getattr(bullet_chunk, "metadata", {})
+            b_source = bullet_meta.get("source", "")
+            b_section = bullet_meta.get("section_title", "")
+            b_tags = []
+            if b_source:
+                b_tags.append(f"[문서: {b_source}]")
+            if b_section:
+                b_tags.append(f"[섹션: {b_section}]")
+            if b_tags:
+                bullet_chunk = Document(
+                    page_content=" ".join(b_tags) + " " + bullet_content,
+                    metadata=bullet_meta,
+                )
+
             child_hash = _sha1_text(safe_str(getattr(bullet_chunk, "page_content", "")))[:16]
             child_to_parent[child_hash] = bullet_parent_id
             bullet_chunk.metadata["parent_id"] = bullet_parent_id

@@ -3,8 +3,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-// remarkMath/rehypeKatex 제거: %가 LaTeX 주석으로 해석되어 **X%** 볼드가 깨지는 문제
-import 'katex/dist/katex.min.css';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import EmptyState from '@/components/EmptyState';
@@ -46,11 +44,14 @@ const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
   );
 });
 
-function Chip({ label, onClick }) {
+// React.memo: 10개 칩이 매 렌더마다 리렌더되는 것 방지
+// onClick에 label을 전달하여 부모에서 인라인 화살표 함수 생성 불필요
+const Chip = React.memo(function Chip({ label, onClick }) {
+  const handleClick = useCallback(() => onClick(label), [onClick, label]);
   return (
     <button
       className="inline-flex items-center gap-2 rounded-full border-2 border-cafe24-orange/20 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm transition active:translate-y-[1px] whitespace-nowrap"
-      onClick={onClick}
+      onClick={handleClick}
       title="클릭하면 질문이 바로 전송됩니다"
       type="button"
     >
@@ -59,7 +60,7 @@ function Chip({ label, onClick }) {
       <ArrowUpRight size={14} className="text-cafe24-brown/50" />
     </button>
   );
-}
+});
 
 function TypingDots() {
   return (
@@ -134,7 +135,8 @@ const MARKDOWN_COMPONENTS = {
   ),
 };
 
-function MarkdownMessage({ content }) {
+// React.memo: 마크다운 파싱은 비용이 큰 작업이므로 content 변경 시에만 리렌더
+const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
   return (
     <ReactMarkdown
       remarkPlugins={REMARK_PLUGINS}
@@ -144,7 +146,7 @@ function MarkdownMessage({ content }) {
       {content || ''}
     </ReactMarkdown>
   );
-}
+});
 
 // ChatMessage: 개별 메시지 렌더링 컴포넌트 (React.memo로 불필요한 리렌더링 방지)
 const ChatMessage = React.memo(function ChatMessage({ msg, isNew, username, onCopy, onResend }) {
@@ -302,6 +304,12 @@ export default function AgentPanel({
     prevLengthRef.current = agentMessages?.length || 0;
   }, [agentMessages]);
 
+  // Chip 클릭 시 안정적인 콜백 (인라인 화살표 함수 제거)
+  const handleChipClick = useCallback((label) => {
+    handleSend(label);
+    setInput('');
+  }, [handleSend]);
+
   // ChatMessage에서 사용할 안정적인 콜백
   const handleCopy = useCallback((content) => {
     navigator.clipboard.writeText(content || '');
@@ -396,10 +404,7 @@ export default function AgentPanel({
               <Chip
                 key={c}
                 label={c}
-                onClick={() => {
-                  handleSend(c);
-                  setInput('');
-                }}
+                onClick={handleChipClick}
               />
             ))}
           </div>

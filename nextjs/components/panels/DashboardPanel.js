@@ -118,8 +118,8 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // 세그먼트 드릴다운 핸들러
-  const handleSegmentClick = async (data) => {
+  // 세그먼트 드릴다운 핸들러 (useCallback: 차트 리렌더 방지)
+  const handleSegmentClick = useCallback(async (data) => {
     if (!data || !data.name) return;
 
     setDrilldownSegment(data);
@@ -163,7 +163,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
     } finally {
       setDrilldownLoading(false);
     }
-  };
+  }, [apiCall, auth]);
 
   // 드릴다운 닫기
   const closeDrilldown = useCallback(() => {

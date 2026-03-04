@@ -1,6 +1,8 @@
+import React from 'react';
 import { ShoppingBag } from 'lucide-react';
 
-export default function EmptyState({ icon: Icon, title = '데이터가 없습니다', desc = '조건을 바꿔 다시 시도해보세요.' }) {
+// React.memo: 여러 패널에서 사용하는 순수 표시 컴포넌트
+export default React.memo(function EmptyState({ icon: Icon, title = '데이터가 없습니다', desc = '조건을 바꿔 다시 시도해보세요.' }) {
   const IconComponent = Icon || ShoppingBag;
   return (
     <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-6 shadow-sm backdrop-blur">
@@ -15,4 +17,4 @@ export default function EmptyState({ icon: Icon, title = '데이터가 없습니
       </div>
     </div>
   );
-}
+});

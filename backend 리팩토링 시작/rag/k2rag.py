@@ -112,6 +112,9 @@ class K2RAGConfig:
 # Global config
 K2RAG_CONFIG = K2RAGConfig()
 
+# LLM 병렬 호출용 스레드 풀 (Step C/D 병렬화)
+_LLM_EXECUTOR = ThreadPoolExecutor(max_workers=5)
+
 # ============================================================
 # State
 # ============================================================
@@ -568,7 +571,7 @@ async def k2rag_search(
             kg_summary = kg_results
 
         # ============================================
-        # Step C: 서브 질문 생성 (KG 요약 청킹)
+        # Step C: 서브 질문 생성 (KG 요약 청킹) — 병렬화
         # ============================================
         sub_questions = []
         if kg_summary:
@@ -578,45 +581,70 @@ async def k2rag_search(
                 K2RAG_CONFIG.subq_chunk_overlap
             )
 
-            for chunk in kg_chunks[:5]:  # 최대 5개 서브 질문
-                sub_q = generate_subquestion(chunk)
-                sub_questions.append(sub_q)
+            # 동기 generate_subquestion()을 스레드 풀에서 병렬 실행
+            loop = asyncio.get_event_loop()
+            subq_tasks = [
+                loop.run_in_executor(_LLM_EXECUTOR, generate_subquestion, chunk)
+                for chunk in kg_chunks[:5]  # 최대 5개 서브 질문
+            ]
+            subq_results = await asyncio.gather(*subq_tasks, return_exceptions=True)
 
-            st.logger.info("K2RAG_SUB_QUESTIONS count=%d", len(sub_questions))
+            for res in subq_results:
+                if isinstance(res, Exception):
+                    st.logger.warning("K2RAG_SUBQ_PARALLEL_FAIL err=%s", safe_str(res))
+                elif res is not None:
+                    sub_questions.append(res)
+
+            st.logger.info("K2RAG_SUB_QUESTIONS count=%d (parallel)", len(sub_questions))
 
         # KG 결과가 없으면 원본 쿼리로 직접 검색
         if not sub_questions:
             sub_questions = [query]
 
         # ============================================
-        # Step D: 각 서브 질문에 대해 Hybrid Search + 답변
+        # Step D: 각 서브 질문에 대해 Hybrid Search + 답변 — 병렬화
         # ============================================
         sub_answers = []
         all_contexts = []
 
+        # D-1: Hybrid Search (CPU 바운드, 빠름) → 순차 실행하여 컨텍스트 수집
+        search_pairs = []  # (sub_q, sub_context) 쌍
         for sub_q in sub_questions:
-            # Hybrid Search
             search_results = hybrid_search(sub_q, top_k=K2RAG_CONFIG.top_k, lambda_weight=K2RAG_CONFIG.hybrid_lambda)
-
             if search_results:
-                # 컨텍스트 구성
                 sub_context = "\n".join([r[0] for r in search_results[:5]])
                 all_contexts.append(sub_context)
+                search_pairs.append((sub_q, sub_context))
 
-                # 서브 답변 생성
-                sub_answer = generate_answer(sub_q, sub_context)
+        # D-2: LLM 답변 생성 → 스레드 풀에서 병렬 실행
+        if search_pairs:
+            loop = asyncio.get_event_loop()
+            answer_tasks = [
+                loop.run_in_executor(_LLM_EXECUTOR, generate_answer, sq, sc)
+                for sq, sc in search_pairs
+            ]
+            answer_results = await asyncio.gather(*answer_tasks, return_exceptions=True)
+
+            for i, ans in enumerate(answer_results):
+                if isinstance(ans, Exception):
+                    st.logger.warning("K2RAG_SUBANSWER_PARALLEL_FAIL err=%s", safe_str(ans))
+                    continue
+                if ans is None:
+                    continue
+
+                sub_q, _ = search_pairs[i]
 
                 # 서브 답변 요약
-                if use_summary and len(sub_answer) > 200:
-                    sub_answer = summarize_text(sub_answer, max_length=150)
+                if use_summary and len(ans) > 200:
+                    ans = summarize_text(ans, max_length=150)
 
                 sub_answers.append({
                     "question": sub_q,
-                    "answer": sub_answer
+                    "answer": ans
                 })
 
         result["sub_answers"] = sub_answers
-        st.logger.info("K2RAG_SUB_ANSWERS count=%d", len(sub_answers))
+        st.logger.info("K2RAG_SUB_ANSWERS count=%d (parallel)", len(sub_answers))
 
         # ============================================
         # Step E: 최종 답변 생성

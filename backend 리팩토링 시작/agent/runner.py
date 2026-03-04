@@ -203,6 +203,8 @@ def run_agent(req, username: str) -> dict:
 
         # 카테고리에 해당하는 도구만 필터링
         if allowed_tool_names:
+            # set 변환으로 O(n*m) → O(n) 탐색 최적화
+            allowed_tool_names = set(allowed_tool_names)
             filtered_tools = [t for t in ALL_TOOLS if t.name in allowed_tool_names]
 
             # 도구가 없으면 전체 도구 사용 (fallback)
@@ -309,7 +311,10 @@ def run_agent(req, username: str) -> dict:
                     args = {"seller_id": seller_id}
                 elif tool_name == "predict_seller_churn" and seller_id:
                     args = {"seller_id": seller_id}
-                elif tool_name == "optimize_marketing" and seller_id:
+                elif tool_name == "optimize_marketing":
+                    if not seller_id:
+                        # seller_id 없으면 강제 호출 스킵 → LLM 자율 처리
+                        continue
                     args = {"seller_id": seller_id}
                 elif tool_name == "get_shop_performance" and shop_id:
                     args = {"shop_id": shop_id}

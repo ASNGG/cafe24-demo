@@ -9,19 +9,27 @@ import dynamic from 'next/dynamic';
 import Layout from '@/components/Layout';
 import Tabs from '@/components/Tabs';
 
-const AgentPanel = dynamic(() => import('@/components/panels/AgentPanel'), { ssr: false });
-const DashboardPanel = dynamic(() => import('@/components/panels/DashboardPanel'), { ssr: false });
-const AnalysisPanel = dynamic(() => import('@/components/panels/AnalysisPanel'), { ssr: false });
-const ModelsPanel = dynamic(() => import('@/components/panels/ModelsPanel'), { ssr: false });
-const SettingsPanel = dynamic(() => import('@/components/panels/SettingsPanel'), { ssr: false });
-const UsersPanel = dynamic(() => import('@/components/panels/UsersPanel'), { ssr: false });
-const LogsPanel = dynamic(() => import('@/components/panels/LogsPanel'), { ssr: false });
-const RagPanel = dynamic(() => import('@/components/panels/RagPanel'), { ssr: false });
-const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: false });
-const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false });
-const ProcessMinerPanel = dynamic(() => import('@/components/panels/ProcessMinerPanel'), { ssr: false });
-const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false });
-const SubAgentPanel = dynamic(() => import('@/components/panels/SubAgentPanel'), { ssr: false });
+const PanelLoader = () => (
+  <div className="animate-pulse p-6 space-y-4">
+    <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+  </div>
+);
+
+const AgentPanel = dynamic(() => import('@/components/panels/AgentPanel'), { ssr: false, loading: PanelLoader });
+const DashboardPanel = dynamic(() => import('@/components/panels/DashboardPanel'), { ssr: false, loading: PanelLoader });
+const AnalysisPanel = dynamic(() => import('@/components/panels/AnalysisPanel'), { ssr: false, loading: PanelLoader });
+const ModelsPanel = dynamic(() => import('@/components/panels/ModelsPanel'), { ssr: false, loading: PanelLoader });
+const SettingsPanel = dynamic(() => import('@/components/panels/SettingsPanel'), { ssr: false, loading: PanelLoader });
+const UsersPanel = dynamic(() => import('@/components/panels/UsersPanel'), { ssr: false, loading: PanelLoader });
+const LogsPanel = dynamic(() => import('@/components/panels/LogsPanel'), { ssr: false, loading: PanelLoader });
+const RagPanel = dynamic(() => import('@/components/panels/RagPanel'), { ssr: false, loading: PanelLoader });
+const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: false, loading: PanelLoader });
+const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false, loading: PanelLoader });
+const ProcessMinerPanel = dynamic(() => import('@/components/panels/ProcessMinerPanel'), { ssr: false, loading: PanelLoader });
+const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false, loading: PanelLoader });
+const SubAgentPanel = dynamic(() => import('@/components/panels/SubAgentPanel'), { ssr: false, loading: PanelLoader });
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {

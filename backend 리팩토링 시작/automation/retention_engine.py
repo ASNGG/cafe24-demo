@@ -78,15 +78,21 @@ def _heuristic_score(row) -> float:
 
 
 def _build_feature_df(df, feature_cols) -> "pd.DataFrame":
-    """이탈 예측용 피처 DataFrame 구성"""
-    X = pd.DataFrame([
-        {col: safe_float(row.get(col, 0)) for col in feature_cols}
-        for _, row in df.iterrows()
-    ])
+    """이탈 예측용 피처 DataFrame 구성 (벡터화)"""
+    cols_no_tier = [c for c in feature_cols if c != "plan_tier_encoded"]
+    present = [c for c in cols_no_tier if c in df.columns]
+    missing = [c for c in cols_no_tier if c not in df.columns]
+
+    X = df[present].copy() if present else pd.DataFrame(index=df.index)
+    for col in missing:
+        X[col] = 0.0
+    X[present] = X[present].apply(pd.to_numeric, errors="coerce").fillna(0.0)
+
     if "plan_tier_encoded" in feature_cols and "plan_tier" in df.columns:
         tier_map = {tier: i for i, tier in enumerate(PLAN_TIERS)}
-        X["plan_tier_encoded"] = df["plan_tier"].map(lambda t: tier_map.get(t, 0))
-    return X
+        X["plan_tier_encoded"] = df["plan_tier"].map(tier_map).fillna(0).astype(int)
+
+    return X[feature_cols]
 
 
 def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
@@ -122,10 +128,13 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
             if st.SHAP_EXPLAINER_CHURN is not None:
                 shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
 
-            for idx, (_, row) in enumerate(df.iterrows()):
+            # threshold 필터링 후 해당 행만 순회 (벡터화 필터)
+            mask = proba >= threshold
+            filtered_indices = np.where(mask)[0]
+
+            for idx in filtered_indices:
                 prob = float(proba[idx])
-                if prob < threshold:
-                    continue
+                row = df.iloc[idx]
 
                 # SHAP top factors
                 top_factors = []
@@ -165,14 +174,28 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
 
 
 def _heuristic_at_risk(df: pd.DataFrame, threshold: float) -> List[Dict]:
-    """ML 모델이 없을 때 휴리스틱으로 이탈 위험 셀러를 산출합니다."""
+    """ML 모델이 없을 때 휴리스틱으로 이탈 위험 셀러를 산출합니다 (벡터화)."""
+    # 벡터화 휴리스틱 점수 계산
+    days = pd.to_numeric(df.get("days_since_last_login", 0), errors="coerce").fillna(0)
+    orders = pd.to_numeric(df.get("total_orders", 0), errors="coerce").fillna(0)
+    revenue = pd.to_numeric(df.get("total_revenue", 0), errors="coerce").fillna(0)
+    refund = pd.to_numeric(df.get("refund_rate", 0), errors="coerce").fillna(0)
+    cs = pd.to_numeric(df.get("cs_tickets", 0), errors="coerce").fillna(0)
+
+    scores = pd.Series(0.3, index=df.index)
+    scores += np.where(days > 14, 0.25, np.where(days > 7, 0.15, 0.0))
+    scores += np.where(orders < 10, 0.1, 0.0)
+    scores += np.where(revenue < 100000, 0.1, 0.0)
+    scores += np.where(refund > 10, 0.1, 0.0)
+    scores += np.where(cs > 20, 0.05, 0.0)
+    scores = scores.clip(0.05, 0.95)
+
+    # threshold 필터링 후 해당 행만 순회
+    mask = scores >= threshold
     results = []
-    for _, row in df.iterrows():
-        score = _heuristic_score(row)
-
-        if score < threshold:
-            continue
-
+    for idx in np.where(mask)[0]:
+        row = df.iloc[idx]
+        score = float(scores.iloc[idx])
         results.append({
             "seller_id": safe_str(row.get("seller_id", "")),
             "churn_probability": round(score * 100, 1),

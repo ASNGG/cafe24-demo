@@ -22,22 +22,6 @@ from api.common import verify_credentials, TextClassifyRequest, time_ago, error_
 
 router = APIRouter(prefix="/api", tags=["shop"])
 
-# ── set_index 캐싱 ──
-_perf_indexed = None       # shop_id 인덱싱된 SHOP_PERFORMANCE_DF 캐시
-_perf_indexed_id = None    # 원본 DF id()로 변경 감지
-
-def _get_perf_indexed():
-    """SHOP_PERFORMANCE_DF의 set_index('shop_id') 결과를 캐싱"""
-    global _perf_indexed, _perf_indexed_id
-    if st.SHOP_PERFORMANCE_DF is None:
-        return None
-    cur_id = id(st.SHOP_PERFORMANCE_DF)
-    if _perf_indexed is not None and _perf_indexed_id == cur_id:
-        return _perf_indexed
-    _perf_indexed = st.SHOP_PERFORMANCE_DF.set_index("shop_id")
-    _perf_indexed_id = cur_id
-    return _perf_indexed
-
 # ── 인사이트 캐싱 ──
 _insights_cache = None
 _insights_cache_ts = 0.0
@@ -55,12 +39,11 @@ def get_shops(
 ):
     """쇼핑몰 목록 조회 (성과 데이터 포함)"""
     result = tool_list_shops(plan_tier=plan_tier, category=category)
-    perf = _get_perf_indexed()
-    if result.get("status") == "success" and perf is not None:
+    perf_map = st.SHOP_PERF_MAP
+    if result.get("status") == "success" and perf_map:
         for shop in result.get("shops", []):
-            sid = shop.get("shop_id", "")
-            if sid in perf.index:
-                row = perf.loc[sid]
+            row = perf_map.get(shop.get("shop_id", ""))
+            if row:
                 shop["usage"] = int(min(100, max(0, float(row.get("customer_retention_rate", 0)) * 100)))
                 shop["cvr"] = float(row.get("conversion_rate", 0))
                 shop["popularity"] = int(min(100, max(0, float(row.get("review_score", 0)) * 20)))
@@ -146,17 +129,19 @@ def get_dashboard_insights(user: dict = Depends(verify_credentials)):
 
         if st.COHORT_RETENTION_DF is not None and len(st.COHORT_RETENTION_DF) > 0:
             cohort_df = st.COHORT_RETENTION_DF
-            for _, row in cohort_df.iloc[::-1].iterrows():
-                week2 = row.get("week2")
-                if week2 is not None and not pd.isna(week2):
-                    week2_val = float(week2)
+            # 역순 탐색: week2가 유효한 첫 번째 행만 사용
+            reversed_cohort = cohort_df.iloc[::-1]
+            if "week2" in reversed_cohort.columns:
+                valid_mask = reversed_cohort["week2"].notna()
+                valid_rows = reversed_cohort[valid_mask]
+                if len(valid_rows) > 0:
+                    week2_val = float(valid_rows.iloc[0]["week2"])
                     if week2_val < 50:
                         insights.append({"type": "warning", "icon": "retention", "title": "리텐션 개선 필요", "description": f"Week 2 리텐션이 {week2_val:.0f}%로 목표(50%) 대비 낮습니다. 온보딩 개선을 권장합니다."})
                     elif week2_val >= 65:
                         insights.append({"type": "positive", "icon": "retention", "title": "리텐션 우수", "description": f"Week 2 리텐션이 {week2_val:.0f}%로 매우 우수합니다."})
                     else:
                         insights.append({"type": "neutral", "icon": "retention", "title": "리텐션 양호", "description": f"Week 2 리텐션이 {week2_val:.0f}%로 목표 수준입니다."})
-                    break
 
         quality_col = "satisfaction_score" if st.CS_STATS_DF is not None and "satisfaction_score" in st.CS_STATS_DF.columns else "avg_quality"
         category_col = "category" if st.CS_STATS_DF is not None and "category" in st.CS_STATS_DF.columns else "lang_name"
@@ -205,16 +190,20 @@ def get_dashboard_alerts(limit: int = 5, user: dict = Depends(verify_credentials
                 df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
                 df = df.sort_values(date_col, ascending=False)
 
-            for _, row in df.head(limit).iterrows():
-                user_id = str(row.get("seller_id", row.get("user_id", "Unknown")))
-                anomaly_type = str(row.get("anomaly_type", "이상 행동"))
-                if "severity" in row.index:
-                    severity = str(row.get("severity", "medium")).lower()
+            top_df = df.head(limit)
+            has_severity = "severity" in top_df.columns
+            has_seller_id = "seller_id" in top_df.columns
+            has_details = "details" in top_df.columns
+            for t in top_df.itertuples(index=False):
+                user_id = str(getattr(t, "seller_id", None) or getattr(t, "user_id", "Unknown")) if has_seller_id or hasattr(t, "user_id") else "Unknown"
+                anomaly_type = str(getattr(t, "anomaly_type", "이상 행동"))
+                if has_severity:
+                    severity = str(getattr(t, "severity", "medium")).lower()
                 else:
-                    score = float(row.get("anomaly_score", 0))
+                    score = float(getattr(t, "anomaly_score", 0))
                     severity = "high" if score > 0.8 else "medium" if score > 0.5 else "low"
-                detail = str(row.get("details", row.get("detail", "")))
-                detected_val = row.get(date_col)
+                detail = str(getattr(t, "details", "") if has_details else getattr(t, "detail", ""))
+                detected_val = getattr(t, date_col, None) if hasattr(t, date_col) else None
 
                 color_type = "red" if severity == "high" else "orange" if severity == "medium" else "yellow"
                 alerts.append({"user_id": user_id, "type": anomaly_type, "severity": severity, "color": color_type, "detail": detail if detail else anomaly_type, "time_ago": time_ago(detected_val)})
@@ -309,19 +298,27 @@ def _build_recent_alerts(filtered_df, date_col: str, reference_date, count: int)
     """최근 이상 알림 목록 생성"""
     recent_df = filtered_df.nlargest(count, date_col) if date_col in filtered_df.columns else filtered_df.head(count)
     alerts = []
-    for _, row in recent_df.iterrows():
-        if date_col in row.index and pd.notna(row[date_col]):
-            time_str = time_ago(row[date_col], now=reference_date)
+    has_date_col = date_col in recent_df.columns
+    has_severity = "severity" in recent_df.columns
+    has_anomaly_score = "anomaly_score" in recent_df.columns
+    has_seller_id = "seller_id" in recent_df.columns
+    has_details = "details" in recent_df.columns
+    for t in recent_df.itertuples(index=False):
+        if has_date_col:
+            date_val = getattr(t, date_col, None)
+            time_str = time_ago(date_val, now=reference_date) if pd.notna(date_val) else "최근"
         else:
             time_str = "최근"
-        if "severity" in row.index:
-            sev = str(row.get("severity", "medium"))
-        elif "anomaly_score" in row.index:
-            score = float(row.get("anomaly_score", 0))
+        if has_severity:
+            sev = str(getattr(t, "severity", "medium"))
+        elif has_anomaly_score:
+            score = float(getattr(t, "anomaly_score", 0))
             sev = "high" if score > 0.8 else "medium" if score > 0.5 else "low"
         else:
             sev = "medium"
-        alerts.append({"id": str(row.get("seller_id", row.get("user_id", "M000000"))), "type": str(row.get("anomaly_type", "알 수 없음")), "severity": sev, "detail": str(row.get("details", row.get("detail", "이상 패턴 감지"))), "time": time_str})
+        user_id = str(getattr(t, "seller_id", "M000000")) if has_seller_id else str(getattr(t, "user_id", "M000000"))
+        detail = str(getattr(t, "details", "이상 패턴 감지")) if has_details else str(getattr(t, "detail", "이상 패턴 감지"))
+        alerts.append({"id": user_id, "type": str(getattr(t, "anomaly_type", "알 수 없음")), "severity": sev, "detail": detail, "time": time_str})
     return alerts
 
 
@@ -375,8 +372,7 @@ def get_anomaly_analysis(days: int = 7, user: dict = Depends(verify_credentials)
                 else:
                     type_severity.columns = ["type", "count"]
                     type_severity["severity"] = "medium"
-                for _, row in type_severity.iterrows():
-                    by_type.append({"type": row["type"], "count": int(row["count"]), "severity": row["severity"]})
+                by_type = [{"type": r["type"], "count": int(r["count"]), "severity": r["severity"]} for r in type_severity.to_dict("records")]
                 by_type.sort(key=lambda x: x["count"], reverse=True)
 
             trend = _build_anomaly_trend(filtered_df, date_col, days, reference_date)
@@ -461,18 +457,27 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
         user_sample_count = min(3 + days // 30 * 2, 7)
         if "churn_probability" in df.columns:
             high_risk_df = df.nlargest(user_sample_count, "churn_probability")
-            for _, row in high_risk_df.iterrows():
-                user_id = row.get("seller_id", row.get("user_id", "M000000"))
-                cluster = int(row.get("cluster", 0))
-                prob = int(row["churn_probability"] * 100)
+            # SHAP 배치 계산 (가능한 경우)
+            batch_shap = None
+            if st.SHAP_EXPLAINER_CHURN is not None and available_features:
+                try:
+                    batch_X = high_risk_df[available_features].fillna(0).values
+                    batch_shap_raw = np.array(_extract_shap_values(st.SHAP_EXPLAINER_CHURN.shap_values(batch_X)))
+                    if batch_shap_raw.ndim == 3:
+                        batch_shap = batch_shap_raw[1] if batch_shap_raw.shape[0] == 2 else batch_shap_raw[0]
+                    else:
+                        batch_shap = batch_shap_raw
+                except Exception:
+                    batch_shap = None
+            id_col_hr = "seller_id" if "seller_id" in high_risk_df.columns else "user_id"
+            for i, t in enumerate(high_risk_df.itertuples(index=False)):
+                user_id = getattr(t, id_col_hr, "M000000")
+                cluster = int(getattr(t, "cluster", 0))
+                prob = int(t.churn_probability * 100)
                 user_factors = []
-                if st.SHAP_EXPLAINER_CHURN is not None and available_features:
+                if batch_shap is not None:
                     try:
-                        user_X = row[available_features].values.reshape(1, -1)
-                        user_shap = np.array(_extract_shap_values(st.SHAP_EXPLAINER_CHURN.shap_values(user_X)))
-                        if user_shap.ndim > 1:
-                            user_shap = user_shap[0]
-                        user_shap = user_shap.flatten()
+                        user_shap = batch_shap[i].flatten()
                         sorted_idx = np.abs(user_shap).argsort()[::-1]
                         for idx in sorted_idx[:3]:
                             feat = available_features[idx]
@@ -480,7 +485,7 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
                             user_factors.append({"factor": feature_names_kr.get(feat, feat), "direction": "위험" if shap_val > 0 else "양호", "impact": round(abs(float(shap_val)), 3)})
                     except Exception:
                         pass
-                high_risk_users.append({"id": user_id, "name": user_id, "segment": row.get("segment_name", f"세그먼트 {cluster}"), "probability": prob, "last_active": None, "factors": user_factors if user_factors else None})
+                high_risk_users.append({"id": user_id, "name": user_id, "segment": getattr(t, "segment_name", f"세그먼트 {cluster}"), "probability": prob, "last_active": None, "factors": user_factors if user_factors else None})
 
         revenue_data = None
         engagement_data = None
@@ -610,7 +615,7 @@ def get_cohort_retention(days: int = 7, user: dict = Depends(verify_credentials)
                     merged = st.SELLERS_DF[["seller_id", "join_date"]].merge(st.SELLER_ANALYTICS_DF[["seller_id", "predicted_ltv"]], on="seller_id", how="inner")
                     merged["cohort_month"] = pd.to_datetime(merged["join_date"], errors="coerce").dt.to_period("M").astype(str)
                     cohort_grp = merged.groupby("cohort_month").agg(ltv=("predicted_ltv", "mean"), users=("seller_id", "count")).reset_index().sort_values("cohort_month", ascending=False).head(6)
-                    ltv_by_cohort = [{"cohort": row["cohort_month"], "ltv": int(row["ltv"]), "users": int(row["users"])} for _, row in cohort_grp.iterrows()]
+                    ltv_by_cohort = [{"cohort": r["cohort_month"], "ltv": int(r["ltv"]), "users": int(r["users"])} for r in cohort_grp.to_dict("records")]
 
         conversion = []
         if st.CONVERSION_FUNNEL_DF is not None and len(st.CONVERSION_FUNNEL_DF) > 0:
@@ -633,9 +638,12 @@ def get_trend_kpis(days: int = 7, user: dict = Depends(verify_credentials)):
         df = st.DAILY_METRICS_DF
         recent_df = df.tail(min(days, len(df)))
         daily_metrics = []
-        for _, r in recent_df.iterrows():
-            d_str = str(r.get("date", ""))
-            daily_metrics.append({"date": d_str[-5:].replace("-", "/") if len(d_str) >= 5 else d_str, "dau": int(r.get("active_shops", 0)), "new_users": int(r.get("new_signups", 0)), "sessions": int(r.get("total_sessions", r.get("active_shops", 0) * 3)), "active_shops": int(r.get("active_shops", 0)), "total_gmv": int(r.get("total_gmv", 0)), "total_orders": int(r.get("total_orders", 0))})
+        has_sessions = "total_sessions" in recent_df.columns
+        for t in recent_df.itertuples(index=False):
+            d_str = str(getattr(t, "date", ""))
+            active = int(getattr(t, "active_shops", 0))
+            sessions = int(getattr(t, "total_sessions", 0)) if has_sessions else active * 3
+            daily_metrics.append({"date": d_str[-5:].replace("-", "/") if len(d_str) >= 5 else d_str, "dau": active, "new_users": int(getattr(t, "new_signups", 0)), "sessions": sessions, "active_shops": active, "total_gmv": int(getattr(t, "total_gmv", 0)), "total_orders": int(getattr(t, "total_orders", 0))})
 
         n = len(recent_df)
         prev_start = max(0, len(df) - n * 2)
@@ -775,9 +783,10 @@ def get_summary_stats(days: int = 7, user: dict = Depends(verify_credentials)):
         summary["category_shops"] = st.SHOPS_DF["category"].value_counts().to_dict()
 
     if st.CS_STATS_DF is not None and len(st.CS_STATS_DF) > 0:
-        stats_list = []
-        for _, row in st.CS_STATS_DF.iterrows():
-            stats_list.append({"category": str(row.get("category", "기타")), "lang_name": str(row.get("category", "기타")), "total_count": int(row.get("total_tickets", 0)), "avg_quality": round(float(row.get("satisfaction_score", 0)) * 20, 1), "avg_resolution_hours": float(row.get("avg_resolution_hours", 0)), "pending_count": 0})
+        stats_list = [
+            {"category": str(r.get("category", "기타")), "lang_name": str(r.get("category", "기타")), "total_count": int(r.get("total_tickets", 0)), "avg_quality": round(float(r.get("satisfaction_score", 0)) * 20, 1), "avg_resolution_hours": float(r.get("avg_resolution_hours", 0)), "pending_count": 0}
+            for r in st.CS_STATS_DF.to_dict("records")
+        ]
         summary["cs_stats_detail"] = stats_list
 
     date_col_logs = "event_date" if st.OPERATION_LOGS_DF is not None and "event_date" in st.OPERATION_LOGS_DF.columns else "timestamp"

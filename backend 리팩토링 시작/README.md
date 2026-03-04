@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.0.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,44 @@ v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v8.5.0** (2026-02-18) — 백엔드 전체 코드 최적화 1차+2차 통합 (30파일)
+> **v9.0.0** (2026-03-04) — 속도 최적화: iterrows() 전면 제거 + 전역 캐시 + 병렬/이벤트 기반 전환
+
+#### iterrows() 벡터화 제거 (26곳)
+
+| 파일 | 제거 수 | 교체 방식 |
+|------|---------|-----------|
+| `agent/tools.py` | 11곳 | `to_dict('records')`, `itertuples()`, 벡터화 연산 |
+| `api/routes_shop.py` | 8곳 | `to_dict('records')`, `itertuples()`, 벡터화 연산 |
+| `api/routes_seller.py` | 4곳 | `to_dict('records')`, `itertuples()`, 벡터화 연산 |
+| `automation/retention_engine.py` | 3곳 | 벡터화 피처 추출, SHAP 배치 계산 |
+
+> API 응답 속도 10-100x 향상
+
+#### 전역 캐시 / 데이터 로딩
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `state.py` | `SHOP_PERF_MAP: Dict[str, Dict]` 전역 캐시 추가 |
+| `data/loader.py` | startup 시 `SHOP_PERF_MAP` 사전 빌드 (`set_index().to_dict('index')`) |
+| `agent/tools.py`, `api/routes_*.py` | 매 호출 `perf_map` 재빌드 → `st.SHOP_PERF_MAP` O(1) 딕셔너리 조회로 교체 |
+
+#### ML / 자동화
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `data/loader.py` | ML 모델 병렬 로딩: `max_workers=6` 하드코딩 → `cpu_count()` 기반 동적 설정 |
+| `automation/retention_engine.py` | SHAP 배치 계산, `iterrows()` → 벡터화 피처 추출 |
+
+#### RAG / 에이전트
+
+| 파일 | 주요 변경 |
+|------|-----------|
+| `rag/light_rag.py` | `time.sleep` polling → `threading.Event` 기반 대기 (최대 5초 → 즉시) |
+| `rag/search.py` | 캐시 히트율 카운터 + 자동 로깅 |
+| `agent/llm.py` | LLM 캐시 키 `api_key[:8]` → SHA-256 해시 8자리 (충돌 방지) |
+
+<details>
+<summary><b>v8.5.0</b> (2026-02-18) — 백엔드 전체 코드 최적화 1차+2차 통합 (30파일)</summary>
 
 #### 전역 상태 / 코어 인프라
 
@@ -75,6 +112,8 @@ v8.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | `process_miner/bottleneck.py` | 중복 헬퍼 → `helpers` import |
 | `process_miner/anomaly_detector.py` | 중복 헬퍼 → `helpers` import |
 | `process_miner/predictor.py` | 중복 헬퍼 → `helpers` import |
+
+</details>
 
 ---
 
@@ -3213,6 +3252,6 @@ flowchart LR
 
 <div align="center">
 
-**Version 8.4.0** | 2026-02-16
+**Version 9.0.0** | 2026-03-04
 
 </div>

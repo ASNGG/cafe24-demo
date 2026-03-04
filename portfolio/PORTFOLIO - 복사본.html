@@ -1,8 +1,15 @@
-<!DOCTYPE html><html><head>
+<!DOCTYPE html><html lang="ko"><head>
       <title>CAFE24 AI 운영 플랫폼 - 포트폴리오</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta name="description" content="CAFE24 AI 운영 플랫폼 - 이커머스 SaaS를 위한 LLM+ML 하이브리드 AI 시스템">
+      <meta property="og:title" content="CAFE24 AI 운영 플랫폼 - 포트폴리오">
+      <meta property="og:description" content="31개 AI 도구, 12개 ML 모델, 8종 RAG 기법을 하나의 에이전트로 통합한 이커머스 AI 운영 시스템">
+      <meta property="og:type" content="website">
+      <meta property="og:url" content="https://asngg.github.io/cafe24-demo/">
+      <meta name="twitter:card" content="summary">
+      <meta name="twitter:title" content="CAFE24 AI 운영 플랫폼">
+      <meta name="twitter:description" content="LLM+ML 하이브리드 AI 이커머스 운영 시스템 포트폴리오">
 
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1586,6 +1593,8 @@ flowchart TB
     end
 
     subgraph Backend["Backend · FastAPI"]
+        State["state.py · 전역 상태 관리"]
+
         subgraph Router["2단계 라우터"]
             R1["키워드 분류 · 0ms"]
             R2["LLM Router · fallback"]
@@ -1610,7 +1619,12 @@ flowchart TB
             Others["+ 9개 모델"]
         end
 
-        State["전역 상태 관리"]
+        subgraph SubSystems["독립 서브시스템"]
+            direction LR
+            Guardian["DB 보안 감시&lt;br/&gt;룰+ML+AI Agent"]
+            ProcessMiner["프로세스 마이너&lt;br/&gt;패턴 발견+병목+예측"]
+            Automation["자동화 엔진&lt;br/&gt;이탈방지·FAQ·리포트"]
+        end
     end
 
     subgraph External["외부 서비스"]
@@ -1622,7 +1636,11 @@ flowchart TB
     Frontend --&gt;|"REST / SSE"| Backend
     Router --&gt; Agent
     Agent --&gt; RAGSystem &amp; MLModels &amp; OpenAI
-    Backend --&gt; n8n &amp; Resend
+    Tools --&gt; State
+    SubSystems --&gt; State
+    Guardian --&gt; OpenAI
+    Automation --&gt; OpenAI &amp; n8n
+    n8n --&gt; Resend
 </div></div><h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름 </h3>
 <p>사용자가 "SEL0001 셀러가 이탈할 확률은?"이라고 질문하면:</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
@@ -1856,13 +1874,20 @@ sequenceDiagram
 </table></div>
 <h3 id="35-멀티-에이전트-langgraph">3.5 멀티 에이전트 (LangGraph) </h3>
 <p>LangGraph <code>StateGraph</code> 기반으로 Coordinator가 질의를 분석하여 전문 에이전트로 라우팅하는 실험적 기능도 구현했습니다.</p>
-<div class="mermaid-container"><div class="mermaid">flowchart TD
-    C["Coordinator · GPT-4o"] --&gt;|"검색"| S["Search Agent · 7개 도구"]
-    C --&gt;|"분석"| A["Analysis Agent · 16개 도구"]
-    C --&gt;|"CS"| T["CS Agent · 5개 도구"]
-    C --&gt;|"리텐션"| R["Sub-Agent · 2개 도구"]
-    S &amp; A &amp; T &amp; R --&gt; Tools["Tool Executor"]
-    Tools --&gt; S &amp; A &amp; T &amp; R --&gt;|"최종 응답"| END
+<div class="mermaid-container"><div class="mermaid">flowchart TB
+    C["Coordinator · GPT-4o (기본)"]
+
+    subgraph agents["전문 에이전트"]
+        direction LR
+        S["Search · 7개 도구"]
+        A["Analysis · 16개 도구"]
+        T["CS · 5개 도구"]
+        R["Sub-Agent · 2개 도구"]
+    end
+
+    C --&gt;|"의도 분류"| agents
+    agents &lt;--&gt;|"도구 호출"| Tools["Tool Executor"]
+    agents --&gt;|"최종 응답"| E(["END"])
 </div></div><p><strong>Sub-Agent (서브에이전트)</strong>: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 2개 도구(get_at_risk_sellers, get_cs_statistics)로 이탈 위험 셀러 탐지 및 CS 현황 분석을 수행합니다.</p>
 <blockquote>
 <p>기본 운영은 single 모드 (1 LLM + 2단계 라우터 + Tool Calling). multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험 모드로 제공합니다.</p>
@@ -1923,7 +1948,7 @@ sequenceDiagram
 <tr>
 <td style="text-align:center">6</td>
 <td><strong>K2RAG</strong></td>
-<td>KG + Hybrid + Corpus Summarization</td>
+<td>KG + Hybrid (Dense 80%+Sparse 20%) + Corpus 요약 93% 시간 절감</td>
 <td><a href="https://arxiv.org/abs/2507.07695">arXiv:2507.07695</a></td>
 <td style="text-align:center">시험중</td>
 </tr>
@@ -2034,7 +2059,7 @@ sequenceDiagram
 <td style="text-align:center">3</td>
 <td><strong>문의 자동 분류</strong></td>
 <td>TF-IDF + RandomForest</td>
-<td>7개 카테고리 자동 분류</td>
+<td>9개 카테고리 자동 분류</td>
 <td>카테고리 + 신뢰도</td>
 </tr>
 <tr>
@@ -2345,10 +2370,123 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<p><strong>Guardian Agent 도구 4개</strong>: <code>analyze_impact</code> (비즈니스 영향도·연쇄 테이블·복구 난이도) · <code>get_user_pattern</code> (최근 30일 행동 패턴·이탈도 계산) · <code>search_similar</code> (과거 유사 사건·실수 비율 통계) · <code>execute_decision</code> (차단/승인 판정)</p>
-<p><strong>Recovery Agent 도구 2개</strong>: <code>search_audit_log</code> (감사 로그 검색) · <code>generate_restore_sql</code> (복구 SQL 생성, DBA 승인 필수)</p>
-<p><strong>ML 이상탐지</strong>: IsolationForest(7 피처: 작업 위험도, 핵심 테이블 여부, 대상 행 수, log(행 수), 추정 금액, 시간대, 야간 여부) → SHAP TreeExplainer로 위험 요인 상위 기여도 분석 → LLM이 ML 결과를 자연어로 해석</p>
-<p><strong>API 5개</strong>: <code>POST /guardian/analyze</code> (3단계 위험 분석) · <code>POST /guardian/recover</code> (자연어 복구 요청) · <code>GET /guardian/logs</code> (감사 로그) · <code>GET /guardian/stats</code> (통계) · <code>POST /guardian/notify-dba</code> (Resend 이메일 알림)</p>
+<h3 id="guardian-agent-도구">Guardian Agent 도구 (4개) </h3>
+<div class="table-wrapper"><table aria-label="Guardian 도구">
+<thead>
+<tr>
+<th>도구</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>analyze_impact</code></td>
+<td>비즈니스 영향도 · 연쇄 테이블 · 복구 난이도 분석</td>
+</tr>
+<tr>
+<td><code>get_user_pattern</code></td>
+<td>최근 30일 행동 패턴 · 이탈도 계산</td>
+</tr>
+<tr>
+<td><code>search_similar</code></td>
+<td>과거 유사 사건 · 실수 비율 통계</td>
+</tr>
+<tr>
+<td><code>execute_decision</code></td>
+<td>차단/승인 최종 판정</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="recovery-agent-도구">Recovery Agent 도구 (2개) </h3>
+<div class="table-wrapper"><table aria-label="Recovery 도구">
+<thead>
+<tr>
+<th>도구</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search_audit_log</code></td>
+<td>감사 로그 검색 (변경 전후 데이터 추적)</td>
+</tr>
+<tr>
+<td><code>generate_restore_sql</code></td>
+<td>복구 SQL 생성 (DBA 승인 필수, 자동 실행 없음)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="ml-이상탐지">ML 이상탐지 </h3>
+<p>IsolationForest (7 피처) → SHAP TreeExplainer 위험 요인 분석 → LLM 자연어 해석:</p>
+<div class="table-wrapper"><table aria-label="ML 피처">
+<thead>
+<tr>
+<th>피처</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>작업 위험도</td>
+<td>DROP/DELETE/UPDATE 등 SQL 유형별 가중치</td>
+</tr>
+<tr>
+<td>핵심 테이블 여부</td>
+<td>orders, settlements 등 비즈니스 핵심 테이블</td>
+</tr>
+<tr>
+<td>대상 행 수</td>
+<td>영향 받는 행 수 (WHERE 조건 기반 추정)</td>
+</tr>
+<tr>
+<td>log(행 수)</td>
+<td>스케일링된 행 수 (이상치 완화)</td>
+</tr>
+<tr>
+<td>추정 금액</td>
+<td>영향 받는 데이터의 추정 금액</td>
+</tr>
+<tr>
+<td>시간대</td>
+<td>실행 시간 (0~23시)</td>
+</tr>
+<tr>
+<td>야간 여부</td>
+<td>22시~06시 야간 작업 플래그</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="guardian-api">API 엔드포인트 (5개) </h3>
+<div class="table-wrapper"><table aria-label="Guardian API">
+<thead>
+<tr>
+<th>엔드포인트</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /guardian/analyze</code></td>
+<td>3단계 위험 분석 (룰→ML→AI Agent)</td>
+</tr>
+<tr>
+<td><code>POST /guardian/recover</code></td>
+<td>자연어 복구 요청 → Recovery Agent</td>
+</tr>
+<tr>
+<td><code>GET /guardian/logs</code></td>
+<td>감사 로그 조회 (필터/페이징)</td>
+</tr>
+<tr>
+<td><code>GET /guardian/stats</code></td>
+<td>위험 등급별 통계</td>
+</tr>
+<tr>
+<td><code>POST /guardian/notify-dba</code></td>
+<td>Resend 이메일 DBA 알림</td>
+</tr>
+</tbody>
+</table></div>
 </section>
 <hr>
 <section class="portfolio-section">
@@ -2397,7 +2535,41 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<p><strong>API 6개</strong>: <code>POST /discover</code> (패턴 발견) · <code>POST /bottlenecks</code> (병목 분석) · <code>POST /recommend</code> (자동화 추천) · <code>POST /predict</code> (다음 활동 예측) · <code>POST /anomalies</code> (이상 탐지) · <code>GET /dashboard</code> (3종 프로세스 요약 통계, TTL 5분 캐시)</p>
+<h3 id="pm-api">API 엔드포인트 (6개) </h3>
+<div class="table-wrapper"><table aria-label="프로세스 마이너 API">
+<thead>
+<tr>
+<th>엔드포인트</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /discover</code></td>
+<td>프로세스 패턴 발견 (Top-10 + 전이 행렬 + Mermaid)</td>
+</tr>
+<tr>
+<td><code>POST /bottlenecks</code></td>
+<td>병목 분석 (평균/중앙값/P95 + 효율성 점수)</td>
+</tr>
+<tr>
+<td><code>POST /recommend</code></td>
+<td>AI 자동화 추천 + SOP 생성</td>
+</tr>
+<tr>
+<td><code>POST /predict</code></td>
+<td>다음 활동 예측 (Top-3 + 확률)</td>
+</tr>
+<tr>
+<td><code>POST /anomalies</code></td>
+<td>이상 프로세스 탐지 + 자연어 근거</td>
+</tr>
+<tr>
+<td><code>GET /dashboard</code></td>
+<td>3종 프로세스 요약 통계 (TTL 5분 캐시)</td>
+</tr>
+</tbody>
+</table></div>
 </section>
 <hr>
 <section class="portfolio-section">
@@ -2458,13 +2630,44 @@ flowchart TD
 </table></div>
 <h3 id="92-cs-faq-자동-생성">9.2 CS FAQ 자동 생성 </h3>
 <p>CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.</p>
+<div class="table-wrapper"><table aria-label="FAQ 파이프라인">
+<thead>
+<tr>
+<th style="text-align:center">단계</th>
+<th>기능</th>
+<th>기술</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1. 분석</td>
+<td>CS 문의 카테고리별 빈도 추출 + 상위 패턴 필터링</td>
+<td>CS_STATS_DF 통계 집계</td>
+</tr>
+<tr>
+<td style="text-align:center">2. 생성</td>
+<td>패턴 기반 FAQ 자동 생성 (카테고리 제약 조건 명시)</td>
+<td>GPT-4o-mini (온도 0.7) → JSON 배열 파싱</td>
+</tr>
+<tr>
+<td style="text-align:center">3. 검토</td>
+<td>관리자가 생성된 FAQ 확인 · 편집</td>
+<td>draft 상태로 저장 (uuid 8자 ID)</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 승인</td>
+<td>FAQ 개별 승인/삭제</td>
+<td>draft → approved 상태 전환</td>
+</tr>
+</tbody>
+</table></div>
 <ul>
-<li><strong>카테고리별 생성</strong>: 배송, 환불, 결제, 상품, 계정, 정산, 기술지원, 마케팅, 기타 9개 카테고리</li>
-<li><strong>승인 워크플로우</strong>: draft → approved 상태 관리</li>
-<li><strong>CRUD</strong>: 생성 · 조회 · 수정 · 삭제 · 승인</li>
+<li><strong>9개 카테고리</strong>: 배송, 환불, 결제, 상품, 계정, 정산, 기술지원, 마케팅, 기타</li>
+<li><strong>LLM 프롬프트</strong>: "카페24 CS 전문가" 역할 + 카테고리 제약 조건으로 카테고리 혼입 방지</li>
+<li><strong>액션 로깅</strong>: 생성/승인/수정/삭제 전 이력 기록</li>
 </ul>
 <h3 id="93-운영-리포트-자동-생성">9.3 운영 리포트 자동 생성 </h3>
-<p>플랫폼 전체 KPI를 집계하여 LLM이 자연어 리포트를 자동 작성합니다.</p>
+<p>6종 데이터소스(GMV/주문/셀러/CS/이상거래/코호트)에서 KPI를 집계하고, LLM이 4단계 구조(핵심지표 → 트렌드 → 이슈 → 권장조치)로 마크다운 리포트를 자동 작성합니다.</p>
 <div class="table-wrapper"><table aria-label="리포트 유형">
 <thead>
 <tr>
@@ -2491,6 +2694,12 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
+<ul>
+<li><strong>KPI 집계</strong>: DAILY_METRICS, SHOPS, SELLER_ANALYTICS, CS_STATS, FRAUD_DETAILS, COHORT_RETENTION 6개 DataFrame</li>
+<li><strong>WoW 트렌드</strong>: 최근 7일 vs 이전 7일 평균 변화율(%) 자동 계산</li>
+<li><strong>LLM 프롬프트</strong>: "카페24 운영 분석가" 역할, 온도 0.3 (정확성 우선)</li>
+<li><strong>파이프라인</strong>: collect → aggregate → write → save (단계별 추적)</li>
+</ul>
 <h3 id="api-엔드포인트-17개">API 엔드포인트 (17개) </h3>
 <div class="table-wrapper"><table aria-label="영역">
 <thead>
@@ -2651,37 +2860,37 @@ flowchart TD
 <td style="text-align:center">3</td>
 <td><strong>분석 (9탭)</strong></td>
 <td>9개 서브탭 동적 임포트 (셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅)</td>
-<td>Recharts (Radar/HeatMap/Composed), dynamic import</td>
+<td>Recharts (Radar/Bar/Area/Line), CSS HeatMap, dynamic import</td>
 </tr>
 <tr>
 <td style="text-align:center">4</td>
 <td><strong>ML 모델</strong></td>
-<td>MLflow 레지스트리, 버전 선택</td>
-<td>실시간 모델 교체</td>
+<td>MLflow 레지스트리 조회, 버전 선택/로드, 실험 메트릭 표시</td>
+<td>Promise.all 병렬 로드, Live/Sample 상태 배지</td>
 </tr>
 <tr>
 <td style="text-align:center">5</td>
 <td><strong>RAG 관리</strong></td>
-<td>모드 선택, 인덱스 빌드, 상태 모니터링</td>
-<td>FAISS/LightRAG/K2RAG</td>
+<td>상태 박스 4종 (인덱스/문서/청크/임베딩), 검색 모드 선택 (RAG/LightRAG/K²RAG/자동)</td>
+<td>Advanced RAG Features 상태 표시, 문서 목록 관리</td>
 </tr>
 <tr>
 <td style="text-align:center">6</td>
 <td><strong>설정</strong></td>
-<td>LLM 파라미터, 프리셋 3종, 시스템 프롬프트</td>
-<td>슬라이더 UI</td>
+<td>모델 선택, 프리셋 3종 (정확한/균형잡힌/창의적), 슬라이더 4개 (Temp/TopP/Presence/Frequency)</td>
+<td>Draft/Save 분리, 백엔드 시스템 프롬프트 읽기 전용</td>
 </tr>
 <tr>
 <td style="text-align:center">7</td>
 <td><strong>셀러 관리</strong></td>
-<td>플랫폼 셀러 계정 관리</td>
-<td>관리자 전용</td>
+<td>사용자 목록 테이블, 신규 계정 추가 (아이디/이름/비밀번호/역할)</td>
+<td>관리자 전용, 역할 기반 접근 (사용자/관리자)</td>
 </tr>
 <tr>
 <td style="text-align:center">8</td>
 <td><strong>활동 로그</strong></td>
-<td>세션 활동 이력</td>
-<td>localStorage</td>
+<td>세션 활동 이력 (시간/사용자/작업/상세), 로그 초기화</td>
+<td>클라이언트 메모리 기반, 최신순 역순 정렬</td>
 </tr>
 <tr>
 <td style="text-align:center">9</td>
@@ -2780,17 +2989,17 @@ flowchart TD
 </tr>
 <tr>
 <td>이상탐지</td>
-<td>ComposedChart + Scatter</td>
+<td>BarChart + AreaChart</td>
 <td><code>/api/analysis/anomaly</code></td>
 </tr>
 <tr>
 <td>예측 분석</td>
-<td>AreaChart (이탈/매출/인게이지먼트)</td>
+<td>카드 UI (이탈/매출/인게이지먼트/이상거래/세그먼트)</td>
 <td><code>/api/analysis/prediction/churn</code></td>
 </tr>
 <tr>
 <td>코호트</td>
-<td>HeatMap + LineChart</td>
+<td>CSS HeatMap + BarChart</td>
 <td><code>/api/analysis/cohort/retention</code></td>
 </tr>
 <tr>
@@ -2805,7 +3014,7 @@ flowchart TD
 </tr>
 <tr>
 <td>CS 분석</td>
-<td>PieChart + 테이블</td>
+<td>테이블 + 품질 바</td>
 <td><code>/api/stats/summary</code></td>
 </tr>
 <tr>
@@ -3068,7 +3277,7 @@ flowchart TD
 │   ├── main.py                        # 앱 진입점 (미들웨어, startup)
 │   ├── state.py                       # 전역 상태 (DataFrame 16개 + 모델 12개)
 │   │
-│   ├── api/                           # REST API (도메인별 분리, 100개 엔드포인트)
+│   ├── api/                           # REST API (도메인별 분리, 106개 엔드포인트)
 │   │   ├── common.py                  # 공통 의존성 (인증, 요청 모델)
 │   │   ├── routes.py                  # 라우터 통합 (9개 도메인 라우터)
 │   │   ├── routes_shop.py             # 쇼핑몰/카테고리/대시보드/분석/통계
@@ -3139,14 +3348,14 @@ flowchart TD
     │   ├── index.js                   # 랜딩 → /app 리다이렉트
     │   ├── login.js                   # 로그인 페이지 (Basic Auth)
     │   ├── app.js                     # 메인 앱 (탭 기반 13개 패널)
-    │   └── api/                       # SSE 프록시 (agent/stream, cs/stream 등 5개)
+    │   └── api/                       # API 프록시 5개 (SSE 3개 + JSON 2개)
     ├── components/
     │   ├── panels/                    # 13개 기능 패널
     │   │   ├── hooks/                 # SSE 스트리밍 훅
     │   │   │   ├── useBaseStream.js   # 공통 SSE 베이스 훅
     │   │   │   ├── useAgentStream.js  # 에이전트 스트리밍
     │   │   │   └── useSubAgentStream.js # 서브에이전트 스트리밍
-    │   │   ├── lab/                   # CS 파이프라인 (12개 컴포넌트, 6단계 스텝)
+    │   │   ├── lab/                   # CS 파이프라인 (12개 컴포넌트, 5단계 스텝)
     │   │   ├── analysis/              # 상세 분석 (9탭 + common 유틸)
     │   │   ├── guardian/              # DB 보안 감시 (MonitorTab, RecoverTab, DashboardTab)
     │   │   │   └── common/ToolStep.js # 도구 실행 단계 공통 컴포넌트
@@ -3297,9 +3506,8 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
     
     
     <!-- Mermaid 초기화는 DOMContentLoaded에서 처리 -->
-    
-    
-    
-  
+
     <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:30px;right:30px;width:44px;height:44px;border-radius:50%;background:#00875A;color:#fff;border:none;font-size:20px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.15)">↑</button>
+  </body>
+</html>
     </body></html>

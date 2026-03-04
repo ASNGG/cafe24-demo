@@ -57,17 +57,43 @@ _SEARCH_CACHE_LOCK = threading.Lock()
 _SEARCH_CACHE_MAX_SIZE = 200
 _SEARCH_CACHE_TTL = 300  # 5분
 
+# 캐시 히트율 모니터링 카운터
+_SEARCH_CACHE_HITS = 0
+_SEARCH_CACHE_MISSES = 0
+
+
+def get_search_cache_stats() -> Dict[str, Any]:
+    """검색 캐시 히트율 통계 반환"""
+    total = _SEARCH_CACHE_HITS + _SEARCH_CACHE_MISSES
+    hit_rate = (_SEARCH_CACHE_HITS / total * 100) if total > 0 else 0.0
+    return {
+        "hits": _SEARCH_CACHE_HITS,
+        "misses": _SEARCH_CACHE_MISSES,
+        "total": total,
+        "hit_rate": round(hit_rate, 1),
+        "cache_size": len(_SEARCH_CACHE),
+    }
+
 
 def _get_search_cache(key: str) -> Optional[Any]:
     """TTL 검색 캐시 조회 (thread-safe, LRU)"""
+    global _SEARCH_CACHE_HITS, _SEARCH_CACHE_MISSES
     with _SEARCH_CACHE_LOCK:
         if key not in _SEARCH_CACHE:
+            _SEARCH_CACHE_MISSES += 1
             return None
         result, ts = _SEARCH_CACHE[key]
         if time.time() - ts > _SEARCH_CACHE_TTL:
             del _SEARCH_CACHE[key]
+            _SEARCH_CACHE_MISSES += 1
             return None
         _SEARCH_CACHE.move_to_end(key)
+        _SEARCH_CACHE_HITS += 1
+        total = _SEARCH_CACHE_HITS + _SEARCH_CACHE_MISSES
+        if total % 50 == 0:
+            hit_rate = _SEARCH_CACHE_HITS / total * 100
+            st.logger.info("SEARCH_CACHE_STATS hits=%d misses=%d rate=%.1f%%",
+                           _SEARCH_CACHE_HITS, _SEARCH_CACHE_MISSES, hit_rate)
         return result
 
 

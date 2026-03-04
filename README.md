@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v8.6.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.0.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,17 +22,18 @@ v8.6.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v8.6.0** (2026-02-18) — 서브에이전트 6개 파이프라인 확장 `🚧 개발중`
+> **v9.0.0** (2026-03-04) — 전체 코드 속도 최적화 (백엔드 API 10-100x, 프론트엔드 번들/렌더링 개선)
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **6개 파이프라인** | 리텐션 전략 · 셀러 종합 진단 · 쇼핑몰 성과 리포트 · 전체 현황 딥 분석 · 이상거래 조사 · CS 품질 분석 |
-| **제네릭 오케스트레이션** | `_STEP_CONFIG`(29스텝) + `_PIPELINE_PLANS`(6종, 최대 5단계)으로 파이프라인 자동 선택 — 기존 retention 전용 → 범용 확장 |
-| **파이프라인 자동 감지** | `_detect_pipeline_type()`: 키워드 기반 + IntentCategory fallback |
-| **sub_agent 플래그** | `AgentRequest.sub_agent` — SubAgentPanel 요청은 카테고리 무관하게 서브에이전트 모드 진입 |
-| **5개 전문 프롬프트** | SELLER_DIAGNOSIS / SHOP_PERFORMANCE / DASHBOARD_DEEP / FRAUD_INVESTIGATION / CS_QUALITY |
-| **신규 스텝 10개** | seller_segment·seller_report·shop_trend·shop_report·segment_analysis·deep_report·fraud_pattern·fraud_impact·cs_sentiment·cs_report |
-| **프론트엔드** | STEP_LABELS 29개 한글 매핑, 6개 추천 칩 (파이프라인 1:1), 사이드바 파이프라인 목록 |
+| **iterrows() 전면 제거** | tools.py 11곳 + routes_shop/seller.py 12곳 + retention_engine.py 3곳 → `to_dict('records')` / `itertuples()` / 벡터화 연산으로 교체 (API 응답 10-100x 향상) |
+| **SHOP_PERF_MAP 캐시** | state.py에 전역 캐시 추가, startup 시 사전 빌드 → tools.py/routes에서 매 호출 재빌드 제거 (O(n) → O(1) 딕셔너리 조회) |
+| **ML 모델 로딩** | max_workers 하드코딩(6) → `cpu_count()` 기반 동적 설정, SHAP 배치 계산 전환 |
+| **LightRAG 이벤트 루프** | `time.sleep` polling → `threading.Event` 기반 대기로 교체 (최대 5초 → 즉시) |
+| **RAG 캐시 모니터링** | 히트율 카운터 + 자동 로깅, LLM 캐시 키 SHA-256 해시로 충돌 방지 |
+| **SSE 스트리밍 O(1)** | useBaseStream.js 메시지 인덱스 캐싱 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1) |
+| **렌더링 최적화** | AgentPanel/SubAgentPanel `prevLengthRef` 교체 (메모리 누적 방지), remarkPlugins 외부 상수화 |
+| **빌드 최적화** | next.config.js `optimizePackageImports` (lucide-react, recharts), GET API 인메모리 캐시 (TTL 60s), 패널 로딩 스켈레톤 |
 
 ---
 
@@ -44,7 +45,7 @@ v8.6.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
 | **RAG 엔진** | 8종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · CRAG · Cross-Encoder) |
 | **API 엔드포인트** | 106개 REST API |
-| **프론트엔드 패널** | 12개 (Dashboard, Agent, Analysis, Lab, 서브에이전트, DB 보안 감시, 자동화 엔진 등) |
+| **프론트엔드 패널** | 13개 (Dashboard, Agent, Analysis, Lab, 서브에이전트, DB 보안 감시, 프로세스 마이너, 자동화 엔진 등) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
 > **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -611,6 +612,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.0.0 | 2026-03-04 | 전체 코드 속도 최적화: iterrows() 26곳 벡터화(API 10-100x), SHOP_PERF_MAP 캐시 프리빌드, ML 동적 워커+SHAP 배치, LightRAG threading.Event, SSE O(1) 인덱스 캐싱, next.config optimizePackageImports, GET API 캐시(TTL 60s), 패널 로딩 스켈레톤 |
 | 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(29스텝)+_PIPELINE_PLANS(6종, 최대 5단계), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 29개 한글 매핑 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 싱글톤/병렬 로드/캐시, 에이전트 정규식 사전 컴파일/LLM 캐시, 프론트 useBaseStream 공통 훅/React.memo 12건/보안 강화 |
 | 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: Retention 파이프라인, 도구 3개 추가(31개), SSE agent_start/agent_end, 실험실 서브에이전트 탭 |

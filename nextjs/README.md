@@ -12,6 +12,22 @@
 
 ---
 
+## 최신 업데이트
+
+> **v9.0.0** (2026-03-04) — 프론트엔드 속도 최적화 (SSE O(1), 번들/렌더링/캐시 개선)
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **SSE 스트리밍 O(1)** | `useBaseStream.js` msgIndexRef 추가 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1), tool_start/tool_end/flushDelta/done/error 모든 이벤트에 인덱스 캐싱 적용 |
+| **AgentPanel 메모리 최적화** | `seenMsgIdsRef`(Set) → `prevLengthRef`(number) 교체로 메모리 누적 방지 |
+| **SubAgentPanel 렌더링 최적화** | `useMemo` remarkPlugins → 모듈 레벨 `SUB_REMARK_PLUGINS` 상수 이동, `prevLengthRef` 교체 |
+| **빌드 최적화** | `next.config.js` experimental.optimizePackageImports 추가 (lucide-react, recharts) |
+| **GET API 캐시** | `lib/api.js` 인메모리 캐시 추가 (Map 기반, TTL 60초, shops/categories 정적 데이터) |
+| **Tailwind 정리** | `tailwind.config.js` content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
+| **패널 로딩 UX** | `pages/app.js` 13개 dynamic import에 PanelLoader 스켈레톤 추가 |
+
+---
+
 ## 목차
 
 0. [프로젝트 개요](#프로젝트-개요)
@@ -27,6 +43,7 @@
 10. [에러 핸들링](#10-에러-핸들링)
 11. [성능 최적화](#11-성능-최적화)
 12. [접근성](#12-접근성)
+13. [버전 히스토리](#13-버전-히스토리)
 
 ---
 
@@ -1631,6 +1648,20 @@ sequenceDiagram
 | **120초 타임아웃** | `useSubAgentStream` | 서브에이전트 장시간 실행 대비 타임아웃 가드 |
 | **abort/stale 가드** | `useSubAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
 
+### v9.0.0 속도 최적화 (2026-03-04)
+
+| 기법 | 적용 위치 | 설명 |
+|------|----------|------|
+| **SSE 메시지 인덱스 캐싱** | `useBaseStream.js` | `msgIndexRef` 추가 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1) |
+| **전 이벤트 인덱스 캐싱** | `useBaseStream.js` | tool_start / tool_end / flushDelta / done / error 모든 이벤트에서 인덱스 캐싱 적용 |
+| **seenMsgIdsRef → prevLengthRef** | `AgentPanel.js` | `seenMsgIdsRef`(Set) → `prevLengthRef`(number) 교체로 메모리 누적 방지 |
+| **remarkPlugins 외부 상수화** | `SubAgentPanel.js` | `useMemo` remarkPlugins → 모듈 레벨 `SUB_REMARK_PLUGINS` 상수로 이동 |
+| **prevLengthRef 교체** | `SubAgentPanel.js` | seenMsgIdsRef → prevLengthRef 교체 (메모리 최적화) |
+| **optimizePackageImports** | `next.config.js` | experimental.optimizePackageImports 추가 (lucide-react, recharts) |
+| **GET 인메모리 캐시** | `lib/api.js` | Map 기반 인메모리 캐시 (TTL 60초, shops/categories 정적 데이터) |
+| **Tailwind content 확장** | `tailwind.config.js` | content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
+| **PanelLoader 스켈레톤** | `pages/app.js` | 13개 dynamic import에 PanelLoader 스켈레톤 추가 |
+
 ### v8.5.0 최적화 (2026-02-18)
 
 **1차 최적화:**
@@ -1703,8 +1734,26 @@ sequenceDiagram
 
 ---
 
+## 13. 버전 히스토리
+
+| 버전 | 날짜 | 주요 변경 |
+|------|------|----------|
+| 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/SubAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |
+| 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~29파일): useBaseStream 공통 훅 추출, React.memo 12건, ChatMessage/ToolCalls 추출, remarkPlugins 상수화, _document.js 추가, 보안 강화(CORS/btoa/cache), ExampleQuestionBridge 제거 |
+| 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: SubAgentPanel 추가, SSE agent_start/agent_end 이벤트, useSubAgentStream 훅 |
+| 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 프론트 번들 -1MB, WAI-ARIA 접근성 |
+| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: AutomationPanel 파이프라인 시각화, RetentionTab/FaqTab/ReportTab |
+| 8.0.0 | 2026-02-10 | 대규모 리팩토링: LabPanel/AnalysisPanel 컴포넌트 분리, CSS 변수 리네이밍, 접근성 개선 |
+| 7.6.0 | 2026-02-10 | README 체계화: 프론트엔드 README UI 상세 역할 분리 |
+| 7.4.0 | 2026-02-10 | KaTeX 수학 렌더링, CAFE24 브랜딩 통일 |
+| 7.3.0 | 2026-02-10 | RAG 패널 UI 리뉴얼: 모드 선택 (Hybrid/LightRAG/K2RAG/Auto) |
+| 6.6.0 | 2026-02-09 | CS 자동화 파이프라인 (접수/답변 분리, DnD, RAG+LLM 스트리밍) |
+| 6.0.0 | 2026-02-06 | 프로젝트 시작 |
+
+---
+
 <div align="center">
 
-**Version 8.5.0** · Last Updated 2026-02-18
+**Version 9.0.0** · Last Updated 2026-03-04
 
 </div>

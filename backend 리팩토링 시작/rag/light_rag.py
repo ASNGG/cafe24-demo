@@ -36,6 +36,7 @@ import state as st
 _LIGHTRAG_LOOP: Optional[asyncio.AbstractEventLoop] = None
 _LIGHTRAG_THREAD: Optional[threading.Thread] = None
 _LIGHTRAG_LOCK = threading.Lock()
+_LIGHTRAG_READY = threading.Event()  # polling 대신 Event 기반 대기
 
 
 def _start_lightrag_event_loop():
@@ -43,6 +44,8 @@ def _start_lightrag_event_loop():
     global _LIGHTRAG_LOOP
     _LIGHTRAG_LOOP = asyncio.new_event_loop()
     asyncio.set_event_loop(_LIGHTRAG_LOOP)
+    # run_forever 진입 직후 Event 시그널 (루프가 실제로 running 상태일 때)
+    _LIGHTRAG_LOOP.call_soon(_LIGHTRAG_READY.set)
     _LIGHTRAG_LOOP.run_forever()
 
 
@@ -52,14 +55,12 @@ def _get_lightrag_loop() -> asyncio.AbstractEventLoop:
 
     with _LIGHTRAG_LOCK:
         if _LIGHTRAG_LOOP is None or not _LIGHTRAG_LOOP.is_running():
+            _LIGHTRAG_READY.clear()
             _LIGHTRAG_THREAD = threading.Thread(target=_start_lightrag_event_loop, daemon=True)
             _LIGHTRAG_THREAD.start()
-            # 루프가 시작될 때까지 대기
-            import time
-            for _ in range(50):  # 최대 5초 대기
-                if _LIGHTRAG_LOOP is not None and _LIGHTRAG_LOOP.is_running():
-                    break
-                time.sleep(0.1)
+
+    # lock 밖에서 Event 대기 (최대 5초, blocking 없이 효율적 대기)
+    _LIGHTRAG_READY.wait(timeout=5.0)
 
     return _LIGHTRAG_LOOP
 

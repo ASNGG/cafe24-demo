@@ -33,7 +33,7 @@ def sellers_autocomplete(q: str = "", limit: int = 8, user: dict = Depends(verif
     if "shop_name" in df.columns:
         mask |= df["shop_name"].str.upper().str.contains(q, na=False)
     matched = df[mask].head(limit)
-    users = [{"id": row["seller_id"], "name": row["seller_id"]} for _, row in matched.iterrows()]
+    users = [{"id": r["seller_id"], "name": r["seller_id"]} for r in matched[["seller_id"]].to_dict("records")]
     return {"status": "success", "users": users}
 
 
@@ -68,15 +68,21 @@ def search_seller(q: str, days: int = 7, user: dict = Depends(verify_credentials
         if not seller_activity.empty:
             seller_activity = seller_activity.tail(days)
             period_stats["active_days"] = len(seller_activity)
-            for _, row in seller_activity.iterrows():
-                revenue = int(row.get("revenue", row.get("daily_revenue", 0)))
-                orders = int(row.get("orders_processed", row.get("daily_orders", 0)))
-                cs = int(row.get("cs_handled", row.get("cs_tickets", 0)))
-                products = int(row.get("products_updated", row.get("product_count", 0)))
-                activity.append({"date": row.get("date", ""), "revenue": revenue, "orders": orders, "product_count": products})
-                period_stats["total_revenue"] += revenue
-                period_stats["total_orders"] += orders
-                period_stats["total_cs"] += cs
+            # 컬럼 존재 여부 사전 확인
+            rev_col = "revenue" if "revenue" in seller_activity.columns else "daily_revenue"
+            ord_col = "orders_processed" if "orders_processed" in seller_activity.columns else "daily_orders"
+            cs_col = "cs_handled" if "cs_handled" in seller_activity.columns else "cs_tickets"
+            prod_col = "products_updated" if "products_updated" in seller_activity.columns else "product_count"
+            # 벡터화로 합계 계산
+            period_stats["total_revenue"] = int(seller_activity[rev_col].fillna(0).sum()) if rev_col in seller_activity.columns else 0
+            period_stats["total_orders"] = int(seller_activity[ord_col].fillna(0).sum()) if ord_col in seller_activity.columns else 0
+            period_stats["total_cs"] = int(seller_activity[cs_col].fillna(0).sum()) if cs_col in seller_activity.columns else 0
+            # activity 리스트 빌드 (itertuples)
+            for t in seller_activity.itertuples(index=False):
+                revenue = int(getattr(t, rev_col, 0) or 0)
+                orders = int(getattr(t, ord_col, 0) or 0)
+                products = int(getattr(t, prod_col, 0) or 0)
+                activity.append({"date": getattr(t, "date", ""), "revenue": revenue, "orders": orders, "product_count": products})
 
     def _percentile_score(value, col_name):
         if st.SELLER_ANALYTICS_DF is None or col_name not in st.SELLER_ANALYTICS_DF.columns:
@@ -100,7 +106,8 @@ def search_seller(q: str, days: int = 7, user: dict = Depends(verify_credentials
         shop_id = seller_data["seller_id"].replace("SEL", "S")
         matched = st.SHOPS_DF[st.SHOPS_DF["shop_id"] == shop_id]
         if len(matched) > 0:
-            top_shops = [s.get("shop_name", s.get("shop_id", "")) for _, s in matched.head(2).iterrows()]
+            name_col = "shop_name" if "shop_name" in matched.columns else "shop_id"
+            top_shops = matched.head(2)[name_col].fillna("").tolist()
 
     model_predictions = {}
     churn_prob = seller_data.get("churn_probability")
@@ -205,9 +212,13 @@ def get_sellers_performance(user: dict = Depends(verify_credentials)):
     try:
         if st.SELLERS_DF is None or st.SELLERS_DF.empty:
             return error_response("셀러 데이터 없음")
-        sellers = []
-        for _, row in st.SELLERS_DF.head(100).iterrows():
-            sellers.append({"id": row.get("seller_id", ""), "name": row.get("seller_id", ""), "plan_tier": row.get("plan_tier", "Standard"), "segment": row.get("segment", "알 수 없음")})
+        cols = ["seller_id", "plan_tier", "segment"]
+        available_cols = [c for c in cols if c in st.SELLERS_DF.columns]
+        top100 = st.SELLERS_DF.head(100)
+        sellers = [
+            {"id": r.get("seller_id", ""), "name": r.get("seller_id", ""), "plan_tier": r.get("plan_tier", "Standard"), "segment": r.get("segment", "알 수 없음")}
+            for r in top100[available_cols].to_dict("records")
+        ]
         return {"status": "success", "sellers": sellers}
     except Exception as e:
         st.logger.error(f"셀러 목록 조회 오류: {e}")

@@ -135,7 +135,8 @@ def load_all_data():
     def _load_model_task(attr_name, filename):
         return attr_name, load_model_safe(get_data_path(filename))
 
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    _ml_workers = min(os.cpu_count() or 4, len(model_tasks))
+    with ThreadPoolExecutor(max_workers=_ml_workers) as executor:
         futures = [
             executor.submit(_load_model_task, attr, fname)
             for attr, fname in model_tasks.items()
@@ -398,6 +399,11 @@ def build_caches():
         for shop_id, group in svc_df.groupby("shop_id"):
             st.SHOP_SERVICE_MAP[shop_id] = group[avail_cols].to_dict("records")
         st.logger.info(f"쇼핑몰 서비스 캐시 구성: {len(st.SHOP_SERVICE_MAP)}개")
+
+    # 쇼핑몰별 성과 KPI 캐시 (O(1) 조회용)
+    if st.SHOP_PERFORMANCE_DF is not None and "shop_id" in st.SHOP_PERFORMANCE_DF.columns:
+        st.SHOP_PERF_MAP = st.SHOP_PERFORMANCE_DF.set_index("shop_id").to_dict("index")
+        st.logger.info(f"쇼핑몰 성과 캐시 구성: {len(st.SHOP_PERF_MAP)}개")
 
 
 def get_data_summary() -> dict:

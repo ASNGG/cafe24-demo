@@ -1,3 +1,28 @@
+// GET 요청용 인메모리 캐시 (TTL 60초, 정적 데이터 전용)
+const _apiCache = new Map();
+const CACHE_TTL = 60_000;
+
+// 캐시 대상 엔드포인트 (정적 데이터만)
+const CACHEABLE_ENDPOINTS = ['/api/shops', '/api/categories'];
+
+function _getCacheKey(endpoint, auth) {
+  return `${endpoint}::${auth?.username || ''}`;
+}
+
+function _getCached(key) {
+  const entry = _apiCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) {
+    _apiCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function _setCache(key, data) {
+  _apiCache.set(key, { data, ts: Date.now() });
+}
+
 export function getApiBase() {
   // ✅ 중요: 외부 접속에서도 동작하게 기본값을 '같은 오리진'으로 둠
   // - 로컬 개발에서 백엔드가 다른 호스트/포트면 NEXT_PUBLIC_API_BASE를 지정
@@ -29,6 +54,13 @@ export async function apiCall({
   responseType = 'json',
   cache = 'no-store',
 }) {
+  // GET 캐시 히트 확인 (정적 데이터 엔드포인트만)
+  if (method === 'GET' && CACHEABLE_ENDPOINTS.includes(endpoint)) {
+    const cacheKey = _getCacheKey(endpoint, auth);
+    const cached = _getCached(cacheKey);
+    if (cached) return cached;
+  }
+
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -65,6 +97,13 @@ export async function apiCall({
     }
 
     const json = await resp.json().catch(() => ({}));
+
+    // 성공한 GET 정적 데이터 캐시 저장
+    if (method === 'GET' && CACHEABLE_ENDPOINTS.includes(endpoint) && json?.status === 'success') {
+      const cacheKey = _getCacheKey(endpoint, auth);
+      _setCache(cacheKey, json);
+    }
+
     return json;
   } catch (e) {
     clearTimeout(t);

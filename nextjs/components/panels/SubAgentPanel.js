@@ -12,6 +12,9 @@ import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, R
 import useSubAgentStream from './hooks/useSubAgentStream';
 import { cafe24BtnInline, cafe24BtnSecondaryInline, cafe24BtnSecondary } from '@/components/common/buttonStyles';
 
+// 모듈 레벨 상수: remarkPlugins 배열 재생성 방지
+const SUB_REMARK_PLUGINS = [remarkGfmPlugin];
+
 const PipelineSteps = React.memo(function PipelineSteps({ steps }) {
   if (!steps?.length) return null;
   return (
@@ -41,7 +44,6 @@ const PipelineSteps = React.memo(function PipelineSteps({ steps }) {
 
 function StepResultCard({ stepNum, result, agentName }) {
   const [open, setOpen] = useState(true);
-  const remarkPlugins = useMemo(() => [remarkGfmPlugin], []);
 
   return (
     <div className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 shadow-sm backdrop-blur">
@@ -65,7 +67,7 @@ function StepResultCard({ stepNum, result, agentName }) {
       {open && (
         <div className="px-3 pb-3">
           <div className="prose prose-sm max-w-none text-cafe24-brown text-xs">
-            <ReactMarkdown remarkPlugins={remarkPlugins}>{result || ''}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={SUB_REMARK_PLUGINS}>{result || ''}</ReactMarkdown>
           </div>
         </div>
       )}
@@ -115,7 +117,6 @@ const SUB_MARKDOWN_COMPONENTS = {
     <a {...props} target="_blank" rel="noopener noreferrer" className="font-extrabold text-cafe24-orange underline underline-offset-2 hover:text-cafe24-brown" />
   ),
 };
-const SUB_REMARK_PLUGINS = [remarkGfmPlugin];
 
 // 백엔드 스텝 이름 → 한글 라벨 매핑
 const STEP_LABELS = {
@@ -226,7 +227,8 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
   const [input, setInput] = useState('');
   const chatBoxRef = useRef(null);
   const scrollRef = useRef(null);
-  const seenMsgIdsRef = useRef(new Set());
+  // prevLengthRef: Set 메모리 누적 방지, 새 메시지만 애니메이션
+  const prevLengthRef = useRef(0);
 
   const {
     messages,
@@ -290,6 +292,11 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
     el.scrollTop = el.scrollHeight;
   }, [messages, isLoading]);
 
+  // 렌더 후 prevLengthRef 갱신 (새 메시지 애니메이션 판별용)
+  useEffect(() => {
+    prevLengthRef.current = messages?.length || 0;
+  }, [messages]);
+
   // 단계별 결과 항목
   const stepResultEntries = useMemo(() => {
     if (!stepResults || typeof stepResults !== 'object') return [];
@@ -319,8 +326,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
               const isUser = m.role === 'user';
               const isPending = !!m?._pending;
               const msgKey = m?._id || idx;
-              const isNew = !seenMsgIdsRef.current.has(msgKey);
-              if (isNew) seenMsgIdsRef.current.add(msgKey);
+              const isNew = idx >= prevLengthRef.current;
 
               return (
                 <motion.div

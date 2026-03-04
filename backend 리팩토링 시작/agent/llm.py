@@ -4,6 +4,7 @@ agent/llm.py - LangChain 기반 LLM 호출 / 스트리밍
 import json
 import re
 import time
+import hashlib
 import inspect
 from typing import Optional, List, Dict, Any
 
@@ -96,8 +97,9 @@ def get_llm(
 ) -> ChatOpenAI:
     model_final = normalize_model_name(model)
 
-    # 캐시 키 생성 (주요 파라미터 조합)
-    cache_key = f"{model_final}:{api_key[:8] if api_key else ''}:{max_tokens}:{streaming}:{temperature}:{top_p}"
+    # 캐시 키 생성 (주요 파라미터 조합, API 키는 SHA256 해시로 충돌 방지)
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:8] if api_key else ''
+    cache_key = f"{model_final}:{key_hash}:{max_tokens}:{streaming}:{temperature}:{top_p}"
     if cache_key in _llm_cache:
         return _llm_cache[cache_key]
     is_gpt5 = model_final.lower().startswith("gpt-5")

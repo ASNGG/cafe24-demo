@@ -3,8 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
+// remarkMath/rehypeKatex 제거: %가 LaTeX 주석으로 해석되어 **X%** 볼드가 깨지는 문제
 import 'katex/dist/katex.min.css';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -85,8 +84,8 @@ function TopProgressBar({ active }) {
 import remarkGfmPlugin from 'remark-gfm';
 
 // 모듈 레벨 상수: 매 렌더마다 새 배열 생성 방지
-const REMARK_PLUGINS = [remarkMath, remarkGfmPlugin];
-const REHYPE_PLUGINS = [rehypeKatex];
+const REMARK_PLUGINS = [remarkGfmPlugin];
+const REHYPE_PLUGINS = [];
 
 // 모듈 레벨 상수: ReactMarkdown components 객체 리렌더 시 재생성 방지
 const MARKDOWN_COMPONENTS = {
@@ -232,8 +231,8 @@ export default function AgentPanel({
 
   const chatBoxRef = useRef(null);
   const scrollRef = useRef(null);
-  // M46: 이미 렌더된 메시지 ID 추적 → 새 메시지만 애니메이션
-  const seenMsgIdsRef = useRef(new Set());
+  // M46: 이전 렌더 시 메시지 길이 추적 → 새 메시지만 애니메이션 (Set 메모리 누적 방지)
+  const prevLengthRef = useRef(0);
 
 
   // M53: SSE 스트리밍 로직을 useAgentStream 훅으로 추출
@@ -298,6 +297,11 @@ export default function AgentPanel({
     el.scrollTop = el.scrollHeight;
   }, [agentMessages, loading]);
 
+  // M46: 렌더 후 prevLengthRef 갱신 (새 메시지 애니메이션 판별용)
+  useEffect(() => {
+    prevLengthRef.current = agentMessages?.length || 0;
+  }, [agentMessages]);
+
   // ChatMessage에서 사용할 안정적인 콜백
   const handleCopy = useCallback((content) => {
     navigator.clipboard.writeText(content || '');
@@ -361,10 +365,9 @@ export default function AgentPanel({
         <div className="card">
           <div ref={chatBoxRef} className="max-h-[62vh] md:max-h-[70vh] overflow-auto pr-1">
             {(agentMessages || []).map((m, idx) => {
-              // M46: 새 메시지만 애니메이션
+              // M46: 새 메시지만 애니메이션 (prevLengthRef로 메모리 누적 방지)
               const msgKey = m?._id || idx;
-              const isNew = !seenMsgIdsRef.current.has(msgKey);
-              if (isNew) seenMsgIdsRef.current.add(msgKey);
+              const isNew = idx >= prevLengthRef.current;
 
               return (
                 <ChatMessage

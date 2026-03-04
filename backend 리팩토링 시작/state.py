@@ -251,6 +251,9 @@ SHOP_SERVICE_MAP: Dict[str, Dict[str, Any]] = {}
 # 셀러별 분석 데이터 캐시
 SELLER_CACHE: Dict[str, Dict[str, Any]] = {}
 
+# 쇼핑몰별 성과 KPI 캐시 (shop_id → {col: val, ...})
+SHOP_PERF_MAP: Dict[str, Dict] = {}
+
 # ============================================================
 # 최근 컨텍스트 저장 (요약 재활용, 크기 제한 + TTL)
 # ============================================================

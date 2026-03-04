@@ -3,6 +3,7 @@ module.exports = {
   content: [
     './pages/**/*.{js,jsx}',
     './components/**/*.{js,jsx}',
+    './lib/**/*.{js,jsx}',
   ],
   theme: {
     extend: {
@@ -10,15 +11,8 @@ module.exports = {
         // CAFE24 브랜드 컬러
         cafe24: {
           blue: '#5B9BF5',
-          navy: '#4A8AE5',
           dark: '#1A1A2E',
           light: '#F8FAFC',
-          gray: '#E8ECF0',
-          accent: '#00C853',
-          warning: '#FF9800',
-          error: '#F44336',
-          white: '#FFFFFF',
-          slate: '#64748B',
           yellow: '#7CB9F7',
           orange: '#5B9BF5',
           brown: '#1A1A2E',

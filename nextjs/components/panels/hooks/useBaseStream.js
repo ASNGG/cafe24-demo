@@ -54,6 +54,7 @@ export default function useBaseStream({
   const stoppedRef = useRef(false);
   const runIdRef = useRef(0);
   const activeAssistantIdRef = useRef(null);
+  const msgIndexRef = useRef(-1);
 
   // 컴포넌트 언마운트 시 모든 타이머/abort 클린업
   useEffect(() => {
@@ -95,14 +96,23 @@ export default function useBaseStream({
       setMessages((prev) => {
         const arr = prev || [];
 
+        // msgIndexRef 활용하여 O(1) 접근 시도
+        let idx = msgIndexRef.current;
         let targetId = aid;
-        if (!targetId) {
+
+        // 캐시된 인덱스 유효성 검증
+        if (idx >= 0 && idx < arr.length && arr[idx]?._id === targetId) {
+          // 캐시 히트
+        } else if (targetId) {
+          // 캐시 미스: fallback으로 findIndex
+          idx = arr.findIndex((m) => m?._id === targetId);
+        } else {
+          // aid 없을 때: 마지막 pending assistant 찾기
           const lastPending = [...arr].reverse().find((m) => m?.role === 'assistant' && m?._pending);
           targetId = lastPending?._id || null;
+          if (!targetId) return arr;
+          idx = arr.findIndex((m) => m?._id === targetId);
         }
-        if (!targetId) return arr;
-
-        const idx = arr.findIndex((m) => m?._id === targetId);
         if (idx < 0) return arr;
 
         const msg = arr[idx] || {};
@@ -112,11 +122,10 @@ export default function useBaseStream({
 
         if (!content || isOnlyWaiting) return arr.filter((m) => m?._id !== targetId);
 
-        return arr.map((m) => {
-          if (m?._id !== targetId) return m;
-          const cur = String(m.content || '');
-          return { ...m, content: cur + '\n\n[중단됨]', _pending: false };
-        });
+        const next = arr.slice();
+        const cur = String(arr[idx].content || '');
+        next[idx] = { ...arr[idx], content: cur + '\n\n[중단됨]', _pending: false };
+        return next;
       });
 
       activeAssistantIdRef.current = null;
@@ -155,7 +164,11 @@ export default function useBaseStream({
         _pending: true,
       };
 
-      setMessages((prev) => [...(prev || []), userMsg, assistantMsg]);
+      setMessages((prev) => {
+        const arr = [...(prev || []), userMsg, assistantMsg];
+        msgIndexRef.current = arr.length - 1;
+        return arr;
+      });
 
       const systemPromptToSend =
         settings?.systemPrompt && String(settings.systemPrompt).trim().length > 0
@@ -183,15 +196,17 @@ export default function useBaseStream({
         const chunk = deltaBuf;
         deltaBuf = '';
 
-        setMessages((prev) =>
-          (prev || []).map((m) => {
-            if (m?._id !== assistantId) return m;
-
-            const isPending = !!m?._pending;
-            if (isPending) return { ...m, content: chunk, _pending: false };
-            return { ...m, content: String(m.content || '') + chunk, _pending: false };
-          })
-        );
+        setMessages((prev) => {
+          const arr = prev || [];
+          const idx = msgIndexRef.current;
+          if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
+          const m = arr[idx];
+          const next = arr.slice();
+          next[idx] = m?._pending
+            ? { ...m, content: chunk, _pending: false }
+            : { ...m, content: String(m.content || '') + chunk, _pending: false };
+          return next;
+        });
       };
 
       const isStale = () =>
@@ -246,8 +261,8 @@ export default function useBaseStream({
               const toolName = data.tool || '도구';
               setMessages((prev) => {
                 const arr = prev || [];
-                const idx = arr.findIndex((m) => m?._id === assistantId);
-                if (idx < 0) return arr;
+                const idx = msgIndexRef.current;
+                if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
                 const m = arr[idx];
                 const statusMsg = `🔧 **${toolName}** 실행 중...`;
                 const updated = m?._pending
@@ -264,8 +279,8 @@ export default function useBaseStream({
               const toolName = data.tool || '도구';
               setMessages((prev) => {
                 const arr = prev || [];
-                const idx = arr.findIndex((m) => m?._id === assistantId);
-                if (idx < 0) return arr;
+                const idx = msgIndexRef.current;
+                if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
                 const m = arr[idx];
                 let content = String(m.content || '');
                 content = content.replace(`🔧 **${toolName}** 실행 중...`, `✅ **${toolName}** 완료`);
@@ -306,17 +321,20 @@ export default function useBaseStream({
               const finalText = String(data.final || '');
               const toolCalls = Array.isArray(data.tool_calls) ? data.tool_calls : [];
 
-              setMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  return {
-                    ...m,
-                    content: finalText || String(m.content || ''),
-                    tool_calls: toolCalls,
-                    _pending: false,
-                  };
-                })
-              );
+              setMessages((prev) => {
+                const arr = prev || [];
+                const idx = msgIndexRef.current;
+                if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
+                const m = arr[idx];
+                const next = arr.slice();
+                next[idx] = {
+                  ...m,
+                  content: finalText || String(m.content || ''),
+                  tool_calls: toolCalls,
+                  _pending: false,
+                };
+                return next;
+              });
 
               // 추가 done 처리
               onDone?.(data);
@@ -351,13 +369,15 @@ export default function useBaseStream({
 
               const msg = data?.message ? String(data.message) : '스트리밍 오류';
 
-              setMessages((prev) =>
-                (prev || []).map((m) => {
-                  if (m?._id !== assistantId) return m;
-                  const cur = String(m.content || '');
-                  return { ...m, content: cur + `\n\n[오류]\n${msg}`, _pending: false };
-                })
-              );
+              setMessages((prev) => {
+                const arr = prev || [];
+                const idx = msgIndexRef.current;
+                if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
+                const m = arr[idx];
+                const next = arr.slice();
+                next[idx] = { ...m, content: String(m.content || '') + `\n\n[오류]\n${msg}`, _pending: false };
+                return next;
+              });
 
               onError?.(msg);
               toast.error(msg);
@@ -388,13 +408,15 @@ export default function useBaseStream({
 
         const msg = String(e || '요청 실패');
 
-        setMessages((prev) =>
-          (prev || []).map((m) => {
-            if (m?._id !== assistantId) return m;
-            const cur = String(m.content || '');
-            return { ...m, content: cur + `\n\n[오류]\n${msg}`, _pending: false };
-          })
-        );
+        setMessages((prev) => {
+          const arr = prev || [];
+          const idx = msgIndexRef.current;
+          if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
+          const m = arr[idx];
+          const next = arr.slice();
+          next[idx] = { ...m, content: String(m.content || '') + `\n\n[오류]\n${msg}`, _pending: false };
+          return next;
+        });
 
         onCatchError?.(msg);
         setLoading(false);

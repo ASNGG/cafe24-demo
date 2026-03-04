@@ -2,6 +2,9 @@
 const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
   images: {
     remotePatterns: [
       {

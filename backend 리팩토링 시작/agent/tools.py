@@ -55,12 +55,8 @@ def tool_get_shop_info(shop_id: str) -> dict:
 
     row = shop.iloc[0]
 
-    # SHOP_PERFORMANCE_DF에서 성과 데이터 조인
-    perf = None
-    if st.SHOP_PERFORMANCE_DF is not None:
-        perf_match = st.SHOP_PERFORMANCE_DF[st.SHOP_PERFORMANCE_DF["shop_id"] == safe_str(row.get("shop_id"))]
-        if not perf_match.empty:
-            perf = perf_match.iloc[0]
+    # SHOP_PERF_MAP 캐시에서 성과 데이터 O(1) 조회
+    perf = st.SHOP_PERF_MAP.get(safe_str(row.get("shop_id"))) if st.SHOP_PERF_MAP else None
 
     name_col = "shop_name" if "shop_name" in row.index else "name"
     return {
@@ -140,26 +136,26 @@ def tool_list_shops(
     if region:
         df = df[df["region"].str.contains(region, na=False, case=False)]
 
-    # SHOP_PERFORMANCE_DF 조인 (월매출 등)
-    perf_map = {}
-    if st.SHOP_PERFORMANCE_DF is not None:
-        for _, p in st.SHOP_PERFORMANCE_DF.iterrows():
-            perf_map[p.get("shop_id")] = p
+    # SHOP_PERFORMANCE_DF 조인 (월매출 등) — st.SHOP_PERF_MAP 캐시 활용
+    perf_map = st.SHOP_PERF_MAP or {}
 
     name_col = "shop_name" if "shop_name" in df.columns else "name"
+    shop_cols = ["shop_id", name_col, "plan_tier", "category", "region", "status"]
+    shop_cols = [c for c in shop_cols if c in df.columns]
+    raw_records = df[shop_cols].to_dict("records")
     shops = []
-    for _, row in df.iterrows():
-        sid = safe_str(row.get("shop_id"))
+    for rec in raw_records:
+        sid = safe_str(rec.get("shop_id"))
         perf = perf_map.get(sid)
         shops.append({
             "shop_id": sid,
-            "name": safe_str(row.get(name_col)),
-            "plan_tier": safe_str(row.get("plan_tier")),
-            "category": safe_str(row.get("category")),
-            "region": safe_str(row.get("region")),
+            "name": safe_str(rec.get(name_col)),
+            "plan_tier": safe_str(rec.get("plan_tier")),
+            "category": safe_str(rec.get("category")),
+            "region": safe_str(rec.get("region")),
             "monthly_revenue": safe_int(perf.get("monthly_revenue")) if perf is not None else 0,
             "monthly_orders": safe_int(perf.get("monthly_orders")) if perf is not None else 0,
-            "shop_status": safe_str(row.get("status")),
+            "shop_status": safe_str(rec.get("status")),
         })
 
     return {
@@ -181,15 +177,17 @@ def tool_get_shop_services(shop_id: str) -> dict:
         if services.empty:
             return {"status": "error", "message": f"쇼핑몰 '{shop_id}'의 서비스 정보를 찾을 수 없습니다."}
 
+        svc_cols = ["service_id", "service_name", "service_type", "status", "monthly_fee", "description"]
+        svc_cols = [c for c in svc_cols if c in services.columns]
         service_list = []
-        for _, row in services.iterrows():
+        for rec in services[svc_cols].to_dict("records"):
             service_list.append({
-                "service_id": safe_str(row.get("service_id")),
-                "service_name": safe_str(row.get("service_name")),
-                "service_type": safe_str(row.get("service_type")),
-                "service_status": safe_str(row.get("status")),
-                "monthly_fee": safe_int(row.get("monthly_fee")),
-                "description": safe_str(row.get("description")),
+                "service_id": safe_str(rec.get("service_id")),
+                "service_name": safe_str(rec.get("service_name")),
+                "service_type": safe_str(rec.get("service_type")),
+                "service_status": safe_str(rec.get("status")),
+                "monthly_fee": safe_int(rec.get("monthly_fee")),
+                "description": safe_str(rec.get("description")),
             })
 
         return {
@@ -257,14 +255,16 @@ def tool_list_categories() -> dict:
     parent_col = "parent_cat" if "parent_cat" in st.CATEGORIES_DF.columns else "parent_id"
     desc_col = "description_ko" if "description_ko" in st.CATEGORIES_DF.columns else "description"
 
+    cat_cols = [id_col, name_col, "name_en", parent_col, desc_col]
+    cat_cols = [c for c in cat_cols if c in st.CATEGORIES_DF.columns]
     categories = []
-    for _, row in st.CATEGORIES_DF.iterrows():
+    for rec in st.CATEGORIES_DF[cat_cols].to_dict("records"):
         categories.append({
-            "category_id": safe_str(row.get(id_col)),
-            "name": safe_str(row.get(name_col)),
-            "name_en": safe_str(row.get("name_en", "")),
-            "parent_id": safe_str(row.get(parent_col)),
-            "description": safe_str(row.get(desc_col)),
+            "category_id": safe_str(rec.get(id_col)),
+            "name": safe_str(rec.get(name_col)),
+            "name_en": safe_str(rec.get("name_en", "")),
+            "parent_id": safe_str(rec.get(parent_col)),
+            "description": safe_str(rec.get(desc_col)),
         })
 
     return {
@@ -558,15 +558,17 @@ def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Opt
         if seller_id and st.FRAUD_DETAILS_DF is not None:
             fraud_records = st.FRAUD_DETAILS_DF[st.FRAUD_DETAILS_DF["seller_id"] == seller_id]
             if not fraud_records.empty:
+                fraud_cols = ["seller_id", "anomaly_score", "anomaly_type", "detected_date", "details"]
+                fraud_cols = [c for c in fraud_cols if c in fraud_records.columns]
                 records = []
-                for _, row in fraud_records.iterrows():
-                    score = safe_float(row.get("anomaly_score", 0))
+                for rec in fraud_records[fraud_cols].to_dict("records"):
+                    score = safe_float(rec.get("anomaly_score", 0))
                     records.append({
-                        "seller_id": safe_str(row.get("seller_id")),
+                        "seller_id": safe_str(rec.get("seller_id")),
                         "anomaly_score": score,
-                        "anomaly_type": safe_str(row.get("anomaly_type")),
-                        "detected_date": safe_str(row.get("detected_date")),
-                        "details": safe_str(row.get("details")),
+                        "anomaly_type": safe_str(rec.get("anomaly_type")),
+                        "detected_date": safe_str(rec.get("detected_date")),
+                        "details": safe_str(rec.get("details")),
                     })
                 max_score = max(r["anomaly_score"] for r in records)
                 return {
@@ -695,14 +697,16 @@ def tool_get_fraud_statistics() -> dict:
 
     # 위험도 높은 순 샘플 (최대 10건)
     sorted_df = df.sort_values("anomaly_score", ascending=False) if "anomaly_score" in df.columns else df
+    sample_cols = ["seller_id", "anomaly_score", "anomaly_type", "detected_date", "details"]
+    sample_cols = [c for c in sample_cols if c in sorted_df.columns]
     fraud_samples = []
-    for _, row in sorted_df.head(10).iterrows():
+    for rec in sorted_df.head(10)[sample_cols].to_dict("records"):
         fraud_samples.append({
-            "seller_id": safe_str(row.get("seller_id")),
-            "anomaly_score": safe_float(row.get("anomaly_score")),
-            "anomaly_type": safe_str(row.get("anomaly_type")),
-            "detected_date": safe_str(row.get("detected_date")),
-            "details": safe_str(row.get("details")),
+            "seller_id": safe_str(rec.get("seller_id")),
+            "anomaly_score": safe_float(rec.get("anomaly_score")),
+            "anomaly_type": safe_str(rec.get("anomaly_type")),
+            "detected_date": safe_str(rec.get("detected_date")),
+            "details": safe_str(rec.get("details")),
         })
 
     return {
@@ -904,11 +908,13 @@ def tool_get_cs_statistics() -> dict:
     cat_col = "category" if "category" in df.columns else "ticket_category"
     by_category = {}
     if cat_col in df.columns and "total_tickets" in df.columns:
-        for _, row in df.iterrows():
-            by_category[str(row[cat_col])] = {
-                "total_tickets": int(row["total_tickets"]),
-                "avg_resolution_hours": safe_float(row.get("avg_resolution_hours", 0)),
-                "satisfaction_score": safe_float(row.get("satisfaction_score", 0)),
+        cs_cols = [cat_col, "total_tickets", "avg_resolution_hours", "satisfaction_score"]
+        cs_cols = [c for c in cs_cols if c in df.columns]
+        for rec in df[cs_cols].to_dict("records"):
+            by_category[str(rec[cat_col])] = {
+                "total_tickets": int(rec["total_tickets"]),
+                "avg_resolution_hours": safe_float(rec.get("avg_resolution_hours", 0)),
+                "satisfaction_score": safe_float(rec.get("satisfaction_score", 0)),
             }
     elif cat_col in df.columns:
         by_category = df[cat_col].value_counts().to_dict()
@@ -966,12 +972,17 @@ def tool_get_churn_prediction(risk_level: str = None, limit: int = None) -> dict
             # 상세 셀러 목록 (limit 적용)
             max_sellers = limit if limit and limit > 0 else 10
             if 'seller_id' in df.columns:
-                for _, row in df.head(max_sellers).iterrows():
-                    seller_info = {"seller_id": row['seller_id']}
-                    if 'churn_probability' in df.columns:
-                        seller_info['churn_probability'] = f"{row['churn_probability'] * 100:.1f}%"
-                    if 'total_revenue' in df.columns:
-                        seller_info['total_revenue'] = safe_int(row['total_revenue'])
+                churn_cols = ['seller_id']
+                if 'churn_probability' in df.columns:
+                    churn_cols.append('churn_probability')
+                if 'total_revenue' in df.columns:
+                    churn_cols.append('total_revenue')
+                for rec in df.head(max_sellers)[churn_cols].to_dict("records"):
+                    seller_info = {"seller_id": rec['seller_id']}
+                    if 'churn_probability' in rec:
+                        seller_info['churn_probability'] = f"{rec['churn_probability'] * 100:.1f}%"
+                    if 'total_revenue' in rec:
+                        seller_info['total_revenue'] = safe_int(rec['total_revenue'])
                     filtered_sellers.append(seller_info)
 
         total = len(df) if not risk_level else original_total
@@ -1088,12 +1099,14 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
         week_cols = [c for c in df.columns if c.startswith("week")]
 
         # 코호트별 리텐션 데이터 구성
+        cohort_cols = ["cohort_month"] + week_cols
+        cohort_cols = [c for c in cohort_cols if c in df.columns]
         retention = {}
-        for _, row in df.iterrows():
-            cohort_name = safe_str(row.get("cohort_month"))
+        for rec in df[cohort_cols].to_dict("records"):
+            cohort_name = safe_str(rec.get("cohort_month"))
             weeks = {}
             for wc in week_cols:
-                val = safe_float(row.get(wc))
+                val = safe_float(rec.get(wc))
                 weeks[wc] = f"{val:.1f}%"
             retention[cohort_name] = {"weeks": weeks}
 
@@ -1452,8 +1465,8 @@ def tool_get_dashboard_summary() -> dict:
         # by_category: {카테고리: 건수} 형태
         by_category = {}
         if cat_col in cs_df.columns and "total_tickets" in cs_df.columns:
-            for _, row in cs_df.iterrows():
-                by_category[str(row[cat_col])] = int(row["total_tickets"])
+            for rec in cs_df[[cat_col, "total_tickets"]].to_dict("records"):
+                by_category[str(rec[cat_col])] = int(rec["total_tickets"])
         elif cat_col in cs_df.columns:
             by_category = cs_df[cat_col].value_counts().to_dict()
 
@@ -1493,9 +1506,12 @@ def tool_get_dashboard_summary() -> dict:
     # CSV 컬럼: date, active_shops, total_gmv, new_signups, total_orders, avg_settlement_time, cs_tickets_open, cs_tickets_resolved, fraud_alerts
     if st.DAILY_METRICS_DF is not None and len(st.DAILY_METRICS_DF) > 0:
         recent_df = st.DAILY_METRICS_DF.tail(14)
+        daily_cols = ["date", "total_gmv", "gmv", "active_shops", "active_sellers",
+                      "total_orders", "new_signups", "new_sellers"]
+        daily_cols = [c for c in daily_cols if c in recent_df.columns]
         daily_list = []
-        for _, row in recent_df.iterrows():
-            date_val = safe_str(row.get("date"))
+        for rec in recent_df[daily_cols].to_dict("records"):
+            date_val = safe_str(rec.get("date"))
             # 날짜를 MM/DD 형식으로 변환
             try:
                 date_display = pd.to_datetime(date_val).strftime("%m/%d")
@@ -1503,10 +1519,10 @@ def tool_get_dashboard_summary() -> dict:
                 date_display = date_val
             daily_list.append({
                 "date": date_display,
-                "gmv": safe_int(row.get("total_gmv", row.get("gmv", 0))),
-                "active_sellers": safe_int(row.get("active_shops", row.get("active_sellers", 0))),
-                "total_orders": safe_int(row.get("total_orders", 0)),
-                "new_sellers": safe_int(row.get("new_signups", row.get("new_sellers", 0))),
+                "gmv": safe_int(rec.get("total_gmv", rec.get("gmv", 0))),
+                "active_sellers": safe_int(rec.get("active_shops", rec.get("active_sellers", 0))),
+                "total_orders": safe_int(rec.get("total_orders", 0)),
+                "new_sellers": safe_int(rec.get("new_signups", rec.get("new_sellers", 0))),
             })
         summary["daily_metrics"] = daily_list
         # 프론트엔드 GMV 차트용: daily_gmv 배열 (date, gmv)
@@ -2382,7 +2398,7 @@ def optimize_marketing(
     Returns:
         마케팅 채널별 투자 추천 (최대 10개), 예상 GMV 증가, 예상 ROAS, 필요 예산
     """
-    return tool_optimize_marketing(seller_id, budget, goal)
+    return tool_optimize_marketing(seller_id, goal=goal, total_budget=budget)
 
 
 # -- 분석 도구 --

@@ -237,6 +237,7 @@ export default function useBaseStream({
             ...bodyExtra,
           }),
           signal: ctrl.signal,
+          openWhenHidden: true,
 
           async onopen(res) {
             if (isStale()) return;
@@ -266,9 +267,11 @@ export default function useBaseStream({
                 if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
                 const m = arr[idx];
                 const statusMsg = `🔧 **${toolName}** 실행 중...`;
+                // _pending 유지: 초기 상태면 true 유지, delta 수신 후면 false 유지
+                // → 다음 delta가 기존 content를 덮어쓰지 않도록 방지
                 const updated = m?._pending
                   ? { ...m, content: statusMsg, _pending: true }
-                  : { ...m, content: String(m.content || '') + '\n' + statusMsg, _pending: true };
+                  : { ...m, content: String(m.content || '') + '\n' + statusMsg };
                 const next = arr.slice();
                 next[idx] = updated;
                 return next;
@@ -286,7 +289,7 @@ export default function useBaseStream({
                 let content = String(m.content || '');
                 content = content.replace(`🔧 **${toolName}** 실행 중...`, `✅ **${toolName}** 완료`);
                 const next = arr.slice();
-                next[idx] = { ...m, content, _pending: true };
+                next[idx] = { ...m, content };
                 return next;
               });
               return;
@@ -331,7 +334,6 @@ export default function useBaseStream({
 
               const finalText = String(data.final || '');
               const toolCalls = Array.isArray(data.tool_calls) ? data.tool_calls : [];
-
               setMessages((prev) => {
                 const arr = prev || [];
                 const idx = msgIndexRef.current;

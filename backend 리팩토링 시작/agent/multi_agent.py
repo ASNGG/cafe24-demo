@@ -25,12 +25,21 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 try:
     from langgraph.graph import StateGraph, END
     from langgraph.prebuilt import ToolNode
+    from langgraph.prebuilt import create_react_agent
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
     StateGraph = None
     END = None
     ToolNode = None
+    create_react_agent = None
+
+try:
+    from langgraph_supervisor import create_supervisor
+    SUPERVISOR_AVAILABLE = True
+except ImportError:
+    create_supervisor = None
+    SUPERVISOR_AVAILABLE = False
 
 from agent.tools import (
     SEARCH_AGENT_TOOLS,
@@ -1163,3 +1172,121 @@ async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
 
 
 # M19/I7: 레거시 호환 코드 제거 (AgentType, TaskStatus, MultiAgentSystem 등)
+
+
+# ============================================================
+# Supervisor 패턴 (일반 질문용)
+# ============================================================
+SUPERVISOR_PROMPT = """당신은 카페24 AI 운영 플랫폼의 Supervisor입니다.
+사용자 질의를 분석하여 적절한 전문 에이전트에게 작업을 위임하고, 결과를 종합하여 답변합니다.
+
+## 전문 에이전트:
+1. **search_agent**: 쇼핑몰/카테고리 정보 조회, 플랫폼 RAG 문서 검색
+   - 쇼핑몰 이름/ID 조회, 목록/서비스 정보, 카테고리 조회
+   - 플랫폼 정책/가이드/용어 검색
+2. **analysis_agent**: 셀러 분석, ML 예측, 매출/KPI 분석
+   - 셀러 상세분석, 세그먼트, 이상거래 탐지, 이탈 예측
+   - 쇼핑몰 성과/매출 예측, 마케팅 최적화
+   - 대시보드, 코호트, 트렌드, GMV 예측
+3. **cs_agent**: CS 응답 생성, 품질 평가, 문의 분류
+   - CS 자동 응답, 품질 평가, 이커머스 용어집, CS 통계
+
+## 판단 기준:
+- 쇼핑몰/카테고리 정보, 플랫폼 정책/기능 질문 → search_agent
+- 셀러 분석, 통계, 예측, 성과, 마케팅 → analysis_agent
+- CS 문의, 상담, 품질 평가 → cs_agent
+- 복합 질문이면 순차적으로 여러 에이전트에게 위임
+- 간단한 인사/일반 대화는 직접 답변 (에이전트 위임 불필요)
+
+## 종합 규칙:
+- 에이전트 결과를 받으면 충분한지 검토
+- 추가 정보가 필요하면 다른 에이전트에게 추가 위임
+- 최종적으로 모든 결과를 종합하여 사용자에게 한국어로 답변
+"""
+
+
+def build_supervisor_graph(llm):
+    """langgraph-supervisor 기반 Supervisor 그래프 생성"""
+    search_agent = create_react_agent(
+        model=llm,
+        tools=SEARCH_AGENT_TOOLS,
+        name="search_agent",
+        prompt=SEARCH_AGENT_PROMPT,
+    )
+
+    analysis_agent = create_react_agent(
+        model=llm,
+        tools=ANALYSIS_AGENT_TOOLS,
+        name="analysis_agent",
+        prompt=ANALYSIS_AGENT_PROMPT,
+    )
+
+    cs_agent = create_react_agent(
+        model=llm,
+        tools=TRANSLATION_AGENT_TOOLS,
+        name="cs_agent",
+        prompt=TRANSLATION_AGENT_PROMPT,
+    )
+
+    workflow = create_supervisor(
+        agents=[search_agent, analysis_agent, cs_agent],
+        model=llm,
+        prompt=SUPERVISOR_PROMPT,
+        output_mode="full_history",
+        supervisor_name="supervisor",
+        add_handoff_messages=True,
+    )
+
+    return workflow.compile()
+
+
+# Supervisor 그래프 모델별 캐시 (기존 _graph_cache와 별도 관리)
+_supervisor_cache: Dict[str, Any] = {}
+
+
+def get_cached_supervisor(llm, model_key: str):
+    """모델별 Supervisor 그래프 캐시"""
+    if model_key not in _supervisor_cache:
+        _supervisor_cache[model_key] = build_supervisor_graph(llm)
+        st.logger.info("SUPERVISOR_GRAPH_BUILD model=%s (cached)", model_key)
+    return _supervisor_cache[model_key]
+
+
+# Intent → Agent 직접 매핑 (supervisor 우회용)
+INTENT_AGENT_MAP = {
+    "shop": "search_agent",
+    "seller": "analysis_agent",
+    "analysis": "analysis_agent",
+    "cs": "cs_agent",
+    "dashboard": "analysis_agent",
+    "retention": "analysis_agent",
+    # platform, general → supervisor 판단 필요
+}
+
+# 개별 워커 에이전트 캐시 (supervisor 우회 직접 호출용)
+_worker_cache: Dict[str, Any] = {}
+
+
+def get_cached_worker(llm, model_key: str, agent_name: str):
+    """개별 워커 에이전트 캐시 반환 (supervisor 우회 직접 호출)"""
+    cache_key = f"{model_key}:{agent_name}"
+    if cache_key not in _worker_cache:
+        if agent_name == "search_agent":
+            agent = create_react_agent(model=llm, tools=SEARCH_AGENT_TOOLS, name="search_agent", prompt=SEARCH_AGENT_PROMPT)
+        elif agent_name == "analysis_agent":
+            agent = create_react_agent(model=llm, tools=ANALYSIS_AGENT_TOOLS, name="analysis_agent", prompt=ANALYSIS_AGENT_PROMPT)
+        elif agent_name == "cs_agent":
+            agent = create_react_agent(model=llm, tools=TRANSLATION_AGENT_TOOLS, name="cs_agent", prompt=TRANSLATION_AGENT_PROMPT)
+        else:
+            return None
+        _worker_cache[cache_key] = agent
+        st.logger.info("WORKER_AGENT_BUILD agent=%s model=%s (cached)", agent_name, model_key)
+    return _worker_cache[cache_key]
+
+
+# 에이전트 설명 헬퍼
+AGENT_DESCRIPTIONS = {
+    "search_agent": "검색 에이전트 — 쇼핑몰/카테고리/플랫폼 정보 검색",
+    "analysis_agent": "분석 에이전트 — 셀러 분석, ML 예측, KPI 분석",
+    "cs_agent": "CS 에이전트 — CS 응답 생성, 품질 평가",
+}

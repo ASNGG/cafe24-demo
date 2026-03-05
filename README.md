@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v9.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,7 +22,18 @@ v9.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.1.0** (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)
+> **v9.2.0** (2026-03-05) — Supervisor 멀티에이전트 패턴 + 하이브리드 라우팅
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **Supervisor 패턴 도입** | `langgraph-supervisor` 기반 Supervisor 멀티에이전트 — LLM Supervisor가 전문 워커 에이전트(search/analysis/cs)에 작업 위임 |
+| **전문 워커 에이전트** | search_agent (쇼핑몰/카테고리/RAG), analysis_agent (셀러 분석/ML 예측/KPI), cs_agent (CS 자동응답/품질 평가) |
+| **하이브리드 라우팅** | 명확한 질문(SHOP/SELLER/CS): 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문(PLATFORM/GENERAL): Supervisor LLM이 판단하여 워커 위임 |
+| **워커 직접 스트리밍** | 워커 에이전트 응답을 직접 SSE 스트리밍 (supervisor 재요약 제거) — `langgraph_checkpoint_ns` 기반 외부 노드 식별 |
+| **응답 속도 개선** | 평균 첫 delta 3.9초, 평균 총시간 7.6초 |
+
+<details>
+<summary><b>v9.1.0</b> (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -33,6 +44,8 @@ v9.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **BM25 Hybrid 활성화** | BM25/KG 캐시 디스크 저장 + 로드 시 자동 복원, 진단 로그 추가 |
 | **소스 매칭 보너스** | 파일명 키워드 매칭 + 복합어 분해(결제수단→결제+수단) + 가이드 문서 가산점 |
 | **검색 후보 확대** | retrieval_k를 top_k의 3배로 확대 → 보너스 재정렬로 정답 문서 상위 노출 |
+
+</details>
 
 <details>
 <summary><b>v9.0.0</b> (2026-03-04) — 전체 코드 속도 최적화 (백엔드 API 10-100x, 프론트엔드 번들/렌더링 개선)</summary>
@@ -107,11 +120,12 @@ v9.1.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | 특징 | 설명 |
 |------|------|
 | **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 서브에이전트: GPT-4o-mini) |
-| **2단계 라우터** | 키워드 분류(비용 0, <1ms) -> LLM Router(gpt-4o-mini fallback) |
+| **하이브리드 라우팅** | 명확한 질문: 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문: Supervisor LLM이 판단하여 워커 위임 |
+| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor → 전문 워커(search/analysis/cs) 위임 패턴, 워커 직접 스트리밍 |
 | **RAG 8종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + CRAG(검색 품질 교정) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
 | **서브에이전트 오케스트레이션** | 복합 요청 자동 분해 → 단계별 순차 실행 (Coordinator → Plan → Dispatch → Agent → 결과 누적) |
-| **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 (delta/tool_start/tool_end/agent_start/agent_end/done/error) |
+| **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 — 워커 에이전트 직접 스트리밍 (7종 이벤트: delta/tool_start/tool_end/agent_start/agent_end/done/error) |
 | **DB 보안 감시** | 룰엔진(<1ms) + Isolation Forest + SHAP + LangChain Agent + Recovery Agent |
 | **CS 자동화** | 접수(DnD 분류) -> 답변(RAG+LLM) -> 회신(n8n) 워크플로우 |
 | **마케팅 최적화** | P-PSO(Particle Swarm Optimization) 기반 채널별 예산 배분 최적화 |
@@ -138,14 +152,16 @@ flowchart TB
             Routes["routes_shop · routes_seller · routes_cs<br/>routes_rag · routes_ml · routes_guardian<br/>routes_agent · routes_admin"]
         end
 
-        subgraph Router["2단계 라우터"]
-            R1["1. 키워드 분류<br/>(비용 0, <1ms)"]
-            R2["2. LLM Router<br/>(gpt-4o-mini fallback)"]
+        subgraph Router["하이브리드 라우터"]
+            R1["1. 키워드 사전라우팅<br/>(비용 0, <1ms)"]
+            R2["2. Supervisor LLM<br/>(애매한 질문 fallback)"]
         end
 
-        subgraph Agent["AI 에이전트"]
-            Runner["runner.py<br/>Tool Calling 실행기"]
-            MultiAgent["multi_agent.py<br/>LangGraph 멀티 에이전트"]
+        subgraph Agent["AI 에이전트 (Supervisor 패턴)"]
+            Supervisor["Supervisor<br/>langgraph-supervisor"]
+            SearchAgent["search_agent<br/>쇼핑몰/카테고리/RAG"]
+            AnalysisAgent["analysis_agent<br/>셀러 분석/ML 예측/KPI"]
+            CSAgent["cs_agent<br/>CS 자동응답/품질 평가"]
             SubAgent["서브에이전트 오케스트레이션<br/>coordinator → dispatcher<br/>→ retention_agent"]
             Tools["31개 도구 함수"]
             CRAG["crag.py<br/>Corrective RAG"]
@@ -192,23 +208,28 @@ flowchart TB
     Service --> HybridRAG
     Service --> Chunking
     RAGSystem --> OpenAI
-    Runner --> Tools
-    MultiAgent --> Tools
+    Supervisor --> SearchAgent
+    Supervisor --> AnalysisAgent
+    Supervisor --> CSAgent
+    SearchAgent --> Tools
+    AnalysisAgent --> Tools
+    CSAgent --> Tools
     SubAgent --> Tools
     Backend --> n8n
     Backend --> Resend
     State --> DataLoader
 ```
 
-### 요청 처리 흐름
+### 요청 처리 흐름 (하이브리드 라우팅)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant User as 사용자
     participant FE as Frontend (Next.js)
-    participant Router as 2단계 라우터
-    participant Agent as AI Agent (runner.py)
+    participant Router as 하이브리드 라우터
+    participant Sup as Supervisor
+    participant Worker as 워커 에이전트
     participant Tool as Tool Executor (tools.py)
     participant ML as ML Model (.pkl)
     participant LLM as GPT-4o-mini
@@ -216,22 +237,23 @@ sequenceDiagram
     User->>FE: "SEL0001 셀러가 이탈할 확률은?"
     FE->>Router: SSE 연결 (/api/agent/stream)
 
-    Note over Router: 1단계: 키워드 "이탈" + "SEL" ID 감지
-    Note over Router: -> IntentCategory.SELLER
-    Note over Router: -> predict_seller_churn 강제 실행
-    Router->>Agent: 셀러 도구 9개만 전달
+    Note over Router: 키워드 "이탈" + "SEL" ID 감지<br/>→ IntentCategory.SELLER (명확)
+    Note over Router: Supervisor 우회,<br/>analysis_agent 직접 호출 (3초 절감)
+    Router->>Worker: analysis_agent 직접 실행
 
-    Agent->>LLM: Tool Calling 요청
-    LLM-->>Agent: predict_seller_churn("SEL0001") 호출 결정
+    Worker->>LLM: Tool Calling 요청
+    LLM-->>Worker: predict_seller_churn("SEL0001") 호출 결정
 
-    Agent->>Tool: predict_seller_churn("SEL0001")
+    Worker->>Tool: predict_seller_churn("SEL0001")
     Tool->>ML: RandomForest.predict_proba() + SHAP
     ML-->>Tool: 이탈 확률 73% + SHAP 피처 기여도
-    Tool-->>Agent: 예측 결과 JSON
+    Tool-->>Worker: 예측 결과 JSON
 
-    Agent->>LLM: 도구 결과 + 시스템 프롬프트
-    LLM-->>FE: SSE 스트리밍 (토큰 단위)
+    Worker->>LLM: 도구 결과 + 시스템 프롬프트
+    LLM-->>FE: SSE 직접 스트리밍 (워커 응답, 토큰 단위)
     FE-->>User: "이탈 확률 73%, 주요 원인: 매출 감소, 14일 미접속..."
+
+    Note over User,LLM: 애매한 질문 (PLATFORM/GENERAL)의 경우<br/>Supervisor LLM이 적절한 워커에게 위임
 ```
 
 ### 데이터 플로우
@@ -245,7 +267,7 @@ flowchart LR
 
     subgraph Request["요청 처리"]
         FE["Frontend<br/>(Next.js 프록시)"] --> routes["api/<br/>8개 도메인 라우터<br/>89개 엔드포인트"]
-        routes --> agent["agent/<br/>runner + tools"]
+        routes --> agent["agent/<br/>supervisor + workers + tools"]
         routes --> ml["ml/<br/>모델 추론"]
         routes --> rag["rag/<br/>service 파사드<br/>+ search · chunking · kg"]
         agent --> state2["state.py"]
@@ -264,7 +286,7 @@ flowchart LR
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
 | **AI 에이전트** | 자연어로 데이터 분석/예측 요청 (Single/Multi/서브에이전트 모드) | GPT-4o-mini + Tool Calling + 31개 도구 |
-| **멀티 에이전트** | Coordinator가 질의 분석 후 전문 에이전트에 라우팅 | LangGraph (Coordinator/Search/Analysis/CS Agent) |
+| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트에 작업 위임 + 하이브리드 라우팅 | langgraph-supervisor (Supervisor → search/analysis/cs Agent) |
 | **서브에이전트 오케스트레이션** `🚧 개발중` | 복합 요청을 자동 분해 → 단계별 순차 실행 (Retention 서브에이전트) | sub_agent_coordinator + dispatcher + retention_agent |
 | **RAG 8종 기법** | 8가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + CRAG + Cross-Encoder |
 | **Corrective RAG** | 검색 결과 자동 품질 평가 및 교정 | RetrievalGrader + QueryRewriter (CRAG 패턴) |
@@ -406,7 +428,7 @@ sequenceDiagram
 |------|------|------|
 | **프레임워크** | FastAPI 0.110+ | REST API, SSE 스트리밍 |
 | **LLM** | OpenAI GPT-4o / GPT-4o-mini | 에이전트 추론, RAG 답변 생성 (Coordinator: GPT-4o) |
-| **에이전트** | LangChain 0.2+, LangGraph 0.2+ | Tool Calling, 멀티 에이전트 |
+| **에이전트** | LangChain 0.2+, LangGraph 0.2+, langgraph-supervisor | Tool Calling, Supervisor 멀티에이전트 |
 | **벡터 검색** | FAISS (faiss-cpu) | Dense Vector Search |
 | **GraphRAG** | LightRAG (lightrag-hku) | 지식 그래프 기반 검색 |
 | **ML** | scikit-learn, LightGBM, XGBoost | 모델 학습/추론 |
@@ -475,7 +497,7 @@ sequenceDiagram
 │   │   ├── intent.py                  # 의도 분류 (RETENTION 인텐트 포함)
 │   │   ├── semantic_router.py         # 시맨틱 라우터
 │   │   ├── crag.py                    # Corrective RAG
-│   │   ├── multi_agent.py             # LangGraph 멀티 에이전트
+│   │   ├── multi_agent.py             # Supervisor 멀티에이전트 (langgraph-supervisor)
 │   │   └── sub_agent/                 # 서브에이전트 오케스트레이션
 │   │       ├── coordinator.py         # 복합 요청 분해 (plan 생성)
 │   │       ├── dispatcher.py          # 서브에이전트 순차 실행
@@ -627,6 +649,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.2.0 | 2026-03-05 | Supervisor 멀티에이전트 패턴: langgraph-supervisor 기반 Supervisor → 전문 워커(search/analysis/cs) 위임, 하이브리드 라우팅(키워드 사전라우팅 + Supervisor fallback), 워커 직접 스트리밍(supervisor 재요약 제거), 평균 첫 delta 3.9초/총시간 7.6초 |
 | 9.1.0 | 2026-03-04 | RAG 검색 품질 근본 개선: 6가설 검증 기반 수정 — garbage filter 한국어 보호, ## 헤더 섹션 분할, bullet 청크 태그/parent 보정, 쿼리 확장 정제, BM25 hybrid 활성화, 소스 매칭 보너스(복합어 분해+가이드 가산), 검색 후보 3배 확대 |
 | 9.0.0 | 2026-03-04 | 전체 코드 속도 최적화: iterrows() 26곳 벡터화(API 10-100x), SHOP_PERF_MAP 캐시 프리빌드, ML 동적 워커+SHAP 배치, LightRAG threading.Event, SSE O(1) 인덱스 캐싱, next.config optimizePackageImports, GET API 캐시(TTL 60s), 패널 로딩 스켈레톤 |
 | 8.6.0 | 2026-02-18 | `🚧 개발중` 서브에이전트 6개 파이프라인 확장: 리텐션·셀러진단·쇼핑몰성과·딥분석·이상거래·CS품질, 제네릭 _STEP_CONFIG(29스텝)+_PIPELINE_PLANS(6종, 최대 5단계), sub_agent 플래그, 5개 전문 프롬프트, STEP_LABELS 29개 한글 매핑 |

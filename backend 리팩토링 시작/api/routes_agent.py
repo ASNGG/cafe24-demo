@@ -14,7 +14,7 @@ from core.utils import safe_str
 from core.memory import clear_memory, append_memory
 from agent.llm import pick_api_key
 from agent.runner import run_agent
-from agent.multi_agent import run_sub_agent_stream
+from agent.multi_agent import run_sub_agent_stream, get_cached_supervisor, get_cached_worker, AGENT_DESCRIPTIONS, INTENT_AGENT_MAP
 from rag.service import tool_rag_search
 from rag.light_rag import lightrag_search_sync, LIGHTRAG_AVAILABLE
 from rag.k2rag import k2rag_search_sync
@@ -50,7 +50,6 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
         final_buf = []
 
         try:
-            from langgraph.prebuilt import create_react_agent
             from langchain_openai import ChatOpenAI
             from agent.tools import ALL_TOOLS
             from agent.router import classify_and_get_tools, IntentCategory
@@ -58,7 +57,7 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
             user_text = safe_str(req.user_input)
             rag_mode = req.rag_mode or "auto"
             api_key = pick_api_key(req.api_key)
-            category, allowed_tool_names = classify_and_get_tools(user_text, api_key, use_llm_fallback=False)
+            category, allowed_tool_names = classify_and_get_tools(user_text, api_key, use_llm_fallback=True)
 
             st.logger.info("STREAM_ROUTER category=%s allowed_tools=%s", category.value, allowed_tool_names)
 
@@ -114,14 +113,12 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
             rag_context = ""
             simple_patterns = ["안녕", "고마워", "감사", "뭐해", "ㅎㅎ", "ㅋㅋ", "네", "응", "오케이", "bye", "hi", "hello", "thanks"]
             is_simple = any(p in user_text.lower() for p in simple_patterns) and len(user_text) < 20
-            skip_rag = category not in [IntentCategory.PLATFORM, IntentCategory.GENERAL, IntentCategory.SHOP]
-            if skip_rag:
-                st.logger.info("SKIP_RAG category=%s", category.value)
 
-            if not is_simple and not skip_rag:
+            if not is_simple:
                 try:
                     _rag_start = _time.time()
                     if rag_mode == "lightrag":
+                        yield sse_pack("tool_start", {"tool": "search_platform_lightrag", "args": {"query": user_text, "mode": "hybrid"}})
                         rag_out = lightrag_search_sync(user_text, mode="hybrid")
                         _rag_elapsed = (_time.time() - _rag_start) * 1000
                         st.logger.info("LIGHTRAG_SEARCH_TIME elapsed=%.0fms", _rag_elapsed)
@@ -133,7 +130,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                 max_chars = st.LIGHTRAG_CONFIG.get("context_max_chars", 1500)
                                 rag_context = f"\n\n## 검색된 플랫폼 정보 (LightRAG):\n{context_text[:max_chars]}\n"
                                 tools = [t for t in tools if t.name != "search_platform_lightrag"]
+                        yield sse_pack("tool_end", {"tool": "search_platform_lightrag", "elapsed_ms": _rag_elapsed})
                     elif rag_mode == "k2rag":
+                        yield sse_pack("tool_start", {"tool": "k2rag_search", "args": {"query": user_text}})
                         rag_out = k2rag_search_sync(user_text, top_k=10, use_kg=True, use_summary=True)
                         _rag_elapsed = (_time.time() - _rag_start) * 1000
                         st.logger.info("K2RAG_SEARCH_TIME elapsed=%.0fms", _rag_elapsed)
@@ -144,12 +143,20 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                 tool_calls_log.append({"tool": "k2rag_search", "args": {"query": user_text}, "result": {"status": "success", "answer_len": len(answer), "context_len": len(context)}})
                                 rag_context = f"\n\n## 검색된 플랫폼 정보 (K2RAG):\n{answer or context[:2000]}\n"
                                 tools = [t for t in tools if t.name not in ["search_platform_docs", "search_platform_lightrag"]]
+                        yield sse_pack("tool_end", {"tool": "k2rag_search", "elapsed_ms": _rag_elapsed})
                     else:
+                        yield sse_pack("tool_start", {"tool": "search_platform_docs", "args": {"query": user_text}})
                         rag_out = tool_rag_search(user_text, top_k=st.RAG_DEFAULT_TOPK, api_key=api_key)
+                        _rag_elapsed = (_time.time() - _rag_start) * 1000
                         if isinstance(rag_out, dict) and rag_out.get("status") == "success":
                             results = rag_out.get("results") or []
                             if results:
-                                tool_calls_log.append({"tool": "rag_search", "args": {"query": user_text}, "result": rag_out})
+                                tool_calls_log.append({"tool": "rag_search", "args": {"query": user_text}, "result": {
+                                    "status": rag_out.get("status", "success"),
+                                    "query": user_text,
+                                    "results_count": len(results),
+                                    "sources": [r.get("source", "") for r in results[:5]],
+                                }})
                                 rag_context = "\n\n## 검색된 플랫폼 정보 (참고용):\n"
                                 for r in results[:5]:
                                     content = r.get("content", "")[:800]
@@ -159,6 +166,7 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                     else:
                                         rag_context += f"- {content}\n"
                                 tools = [t for t in tools if t.name != "search_platform_docs"]
+                        yield sse_pack("tool_end", {"tool": "search_platform_docs", "elapsed_ms": _rag_elapsed})
                 except Exception as _e:
                     st.logger.warning("RAG_SEARCH_FAIL err=%s", safe_str(_e))
 
@@ -221,12 +229,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
             model_name = req.model or "gpt-4o-mini"
             llm = ChatOpenAI(model=model_name, api_key=api_key, streaming=True, max_tokens=req.max_tokens or 1500, temperature=req.temperature or 0.7)
 
-            use_direct_llm = not tools or (category == IntentCategory.PLATFORM and rag_context)
-            if use_direct_llm:
-                mode = "PLATFORM_RAG_DIRECT" if category == IntentCategory.PLATFORM else "GENERAL"
-                st.logger.info("STREAM_%s_MODE direct LLM response", mode)
-                if category == IntentCategory.PLATFORM:
-                    llm = ChatOpenAI(model=model_name, api_key=api_key, streaming=True, max_tokens=req.max_tokens or 1500, temperature=0.2)
+            # === 간단 인사 → 직접 LLM 응답 (Supervisor 불필요) ===
+            if is_simple:
+                st.logger.info("STREAM_SIMPLE_MODE direct LLM response")
                 _llm_start = _time.time()
                 _first_token = True
                 async for chunk in llm.astream([{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}]):
@@ -244,47 +249,228 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                 yield sse_pack("done", {"ok": True, "final": full_response, "tool_calls": tool_calls_log})
                 return
 
-            agent = create_react_agent(llm, tools, prompt=system_prompt)
-            current_tool = None
-            async for event in agent.astream_events({"messages": [("user", user_text)]}, version="v2", config={"recursion_limit": 10}):
-                if await request.is_disconnected():
-                    return
-                kind = event.get("event", "")
-                data = event.get("data", {})
-                if kind == "on_tool_start":
-                    tool_name = event.get("name", "도구")
-                    tool_input = data.get("input", {})
-                    current_tool = tool_name
-                    yield sse_pack("tool_start", {"tool": tool_name, "args": tool_input})
-                elif kind == "on_tool_end":
-                    end_tool_name = event.get("name") or current_tool or "unknown"
-                    tool_output = data.get("output", {})
-                    if hasattr(tool_output, "content"):
-                        content = tool_output.content
-                        if isinstance(content, str):
-                            try:
-                                tool_output = json.loads(content)
-                            except (json.JSONDecodeError, TypeError):
-                                tool_output = {"status": "success", "data": content}
-                        elif isinstance(content, (dict, list)):
-                            tool_output = content
-                        else:
-                            tool_output = {"status": "success", "data": safe_str(content)}
-                    elif not isinstance(tool_output, (str, dict, list, int, float, bool, type(None))):
-                        tool_output = {"status": "success", "data": safe_str(tool_output)}
-                    tool_calls_log.append({"tool": end_tool_name, "result": tool_output})
-                    yield sse_pack("tool_end", {"tool": end_tool_name, "status": "success"})
-                    current_tool = None
-                elif kind == "on_chat_model_stream":
-                    chunk = data.get("chunk")
-                    if chunk:
+            # === 멀티에이전트 실행 ===
+            from core.utils import normalize_model_name
+            from core.memory import memory_messages
+
+            agent_llm = ChatOpenAI(
+                model=model_name,
+                api_key=api_key,
+                streaming=True,
+                max_tokens=req.max_tokens or 1500,
+                temperature=req.temperature or 0.7,
+            )
+            model_key = normalize_model_name(model_name)
+
+            # 입력 메시지 구성
+            prev_messages = memory_messages(username)
+            input_messages = []
+            for msg in prev_messages:
+                role, content = msg.get("role", ""), msg.get("content", "")
+                if role == "user":
+                    input_messages.append({"role": "user", "content": content})
+                elif role == "assistant":
+                    input_messages.append({"role": "assistant", "content": content})
+
+            # RAG 컨텍스트가 있으면 system message로 포함
+            if rag_context:
+                input_messages.append({
+                    "role": "system",
+                    "content": f"다음은 사전 검색된 플랫폼 정보입니다. 참고하여 답변하세요:\n{rag_context}"
+                })
+
+            input_messages.append({"role": "user", "content": user_text})
+
+            # 키워드 사전 라우팅: intent가 명확하면 supervisor 우회 → 워커 직접 호출
+            target_agent_name = INTENT_AGENT_MAP.get(category.value)
+            use_direct_worker = False
+            if target_agent_name:
+                worker_graph = get_cached_worker(agent_llm, model_key, target_agent_name)
+                if worker_graph:
+                    use_direct_worker = True
+                    st.logger.info("DIRECT_WORKER category=%s agent=%s (supervisor bypass)", category.value, target_agent_name)
+
+            if use_direct_worker:
+                # === 워커 직접 호출 (supervisor 우회 — 3초 절감) ===
+                yield sse_pack("agent_start", {
+                    "agent": target_agent_name,
+                    "description": AGENT_DESCRIPTIONS.get(target_agent_name, target_agent_name),
+                })
+
+                current_tool = None
+                async for event in worker_graph.astream_events(
+                    {"messages": input_messages},
+                    version="v2",
+                    config={"recursion_limit": 25},
+                ):
+                    if await request.is_disconnected():
+                        return
+                    kind = event.get("event", "")
+                    data = event.get("data", {})
+
+                    if kind == "on_tool_start":
+                        tool_name = event.get("name", "도구")
+                        tool_input = data.get("input", {})
+                        current_tool = tool_name
+                        yield sse_pack("tool_start", {"tool": tool_name, "args": tool_input})
+
+                    elif kind == "on_tool_end":
+                        end_tool_name = event.get("name") or current_tool or "unknown"
+                        tool_output = data.get("output", {})
+                        if hasattr(tool_output, "content"):
+                            content = tool_output.content
+                            if isinstance(content, str):
+                                try:
+                                    tool_output = json.loads(content)
+                                except (json.JSONDecodeError, TypeError):
+                                    tool_output = {"status": "success", "data": content}
+                            elif isinstance(content, (dict, list)):
+                                tool_output = content
+                            else:
+                                tool_output = {"status": "success", "data": safe_str(content)}
+                        elif not isinstance(tool_output, (str, dict, list, int, float, bool, type(None))):
+                            tool_output = {"status": "success", "data": safe_str(tool_output)}
+                        # RAG 도구 결과는 크기가 클 수 있으므로 요약만 저장
+                        if isinstance(tool_output, dict) and "results" in tool_output and isinstance(tool_output.get("results"), list):
+                            results_list = tool_output["results"]
+                            tool_output = {
+                                "status": tool_output.get("status", "success"),
+                                "query": tool_output.get("query", ""),
+                                "results_count": len(results_list),
+                                "sources": [r.get("source", "") for r in results_list[:5]],
+                            }
+                        tool_calls_log.append({"tool": end_tool_name, "result": tool_output})
+                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "success"})
+                        current_tool = None
+
+                    elif kind == "on_chat_model_stream":
+                        chunk = data.get("chunk")
+                        if not chunk or getattr(chunk, "tool_call_chunks", None):
+                            continue
                         content = getattr(chunk, "content", "")
                         if isinstance(content, str) and content:
                             final_buf.append(content)
                             yield sse_pack("delta", {"delta": content})
 
+                yield sse_pack("agent_end", {
+                    "agent": target_agent_name,
+                    "description": AGENT_DESCRIPTIONS.get(target_agent_name, target_agent_name),
+                })
+
+                final_text = "".join(final_buf).strip() or "요청을 처리했습니다."
+                append_memory(username, user_text, final_text)
+                st.logger.info("STREAM_DONE_WORKER tool_calls_count=%d tool_calls=%s", len(tool_calls_log), [t.get("tool") for t in tool_calls_log])
+                yield sse_pack("done", {"ok": True, "final": final_text, "tool_calls": tool_calls_log})
+                return
+
+            # === Supervisor 멀티에이전트 (PLATFORM, GENERAL 등 라우팅 필요) ===
+            supervisor_graph = get_cached_supervisor(agent_llm, model_key)
+
+            current_tool = None
+            active_worker = None
+            worker_responded = False
+            async for event in supervisor_graph.astream_events(
+                {"messages": input_messages},
+                version="v2",
+                config={"recursion_limit": 25},
+            ):
+                if await request.is_disconnected():
+                    return
+                kind = event.get("event", "")
+                data = event.get("data", {})
+                metadata = event.get("metadata", {})
+
+                # langgraph_checkpoint_ns 에서 외부 노드 이름 추출
+                # 형식: "supervisor:UUID|agent:UUID" → 첫 세그먼트 = "supervisor"
+                checkpoint_ns = metadata.get("langgraph_checkpoint_ns", "")
+                outer_node = checkpoint_ns.split(":")[0] if checkpoint_ns else ""
+
+                # 워커 → supervisor 복귀 감지:
+                # active_worker가 있는 상태에서 supervisor 모델 시작 = 워커 완료
+                if (active_worker
+                    and outer_node == "supervisor"
+                    and kind == "on_chat_model_start"):
+                    yield sse_pack("agent_end", {
+                        "agent": active_worker,
+                        "description": AGENT_DESCRIPTIONS.get(active_worker, active_worker),
+                    })
+                    active_worker = None
+
+                if kind == "on_tool_start":
+                    tool_name = event.get("name", "도구")
+                    tool_input = data.get("input", {})
+                    # handoff 도구는 agent_start로 변환
+                    if tool_name.startswith("transfer_to_"):
+                        agent_name = tool_name.replace("transfer_to_", "")
+                        active_worker = agent_name
+                        yield sse_pack("agent_start", {
+                            "agent": agent_name,
+                            "description": AGENT_DESCRIPTIONS.get(agent_name, agent_name),
+                        })
+                    else:
+                        current_tool = tool_name
+                        yield sse_pack("tool_start", {"tool": tool_name, "args": tool_input})
+
+                elif kind == "on_tool_end":
+                    end_tool_name = event.get("name") or current_tool or "unknown"
+                    if end_tool_name.startswith("transfer_to_"):
+                        pass  # handoff 종료는 스킵
+                    else:
+                        tool_output = data.get("output", {})
+                        if hasattr(tool_output, "content"):
+                            content = tool_output.content
+                            if isinstance(content, str):
+                                try:
+                                    tool_output = json.loads(content)
+                                except (json.JSONDecodeError, TypeError):
+                                    tool_output = {"status": "success", "data": content}
+                            elif isinstance(content, (dict, list)):
+                                tool_output = content
+                            else:
+                                tool_output = {"status": "success", "data": safe_str(content)}
+                        elif not isinstance(tool_output, (str, dict, list, int, float, bool, type(None))):
+                            tool_output = {"status": "success", "data": safe_str(tool_output)}
+                        # RAG 도구 결과는 크기가 클 수 있으므로 요약만 저장
+                        if isinstance(tool_output, dict) and "results" in tool_output and isinstance(tool_output.get("results"), list):
+                            results_list = tool_output["results"]
+                            tool_output = {
+                                "status": tool_output.get("status", "success"),
+                                "query": tool_output.get("query", ""),
+                                "results_count": len(results_list),
+                                "sources": [r.get("source", "") for r in results_list[:5]],
+                            }
+                        tool_calls_log.append({"tool": end_tool_name, "result": tool_output})
+                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "success"})
+                        current_tool = None
+
+                elif kind == "on_chat_model_stream":
+                    chunk = data.get("chunk")
+                    if not chunk or getattr(chunk, "tool_call_chunks", None):
+                        continue
+                    content = getattr(chunk, "content", "")
+                    if not isinstance(content, str) or not content:
+                        continue
+
+                    if outer_node == "supervisor" and not worker_responded:
+                        # supervisor 직접 응답 (워커 미사용 시)
+                        final_buf.append(content)
+                        yield sse_pack("delta", {"delta": content})
+                    elif outer_node != "supervisor" and active_worker:
+                        # 워커 에이전트의 텍스트 응답 → 직접 스트리밍
+                        worker_responded = True
+                        final_buf.append(content)
+                        yield sse_pack("delta", {"delta": content})
+
+            # 루프 종료 후: 마지막 워커가 agent_end 없이 끝난 경우 처리
+            if active_worker:
+                yield sse_pack("agent_end", {
+                    "agent": active_worker,
+                    "description": AGENT_DESCRIPTIONS.get(active_worker, active_worker),
+                })
+
             final_text = "".join(final_buf).strip() or "요청을 처리했습니다."
             append_memory(username, user_text, final_text)
+            st.logger.info("STREAM_DONE tool_calls_count=%d tool_calls=%s", len(tool_calls_log), [t.get("tool") for t in tool_calls_log])
             yield sse_pack("done", {"ok": True, "final": final_text, "tool_calls": tool_calls_log})
             return
 

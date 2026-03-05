@@ -209,10 +209,10 @@ const ChatMessage = React.memo(function ChatMessage({ msg, isNew, username, onCo
     </motion.div>
   );
 }, (prev, next) => {
-  // content, role, _pending만 비교하여 리렌더링 결정
   return prev.msg.content === next.msg.content
     && prev.msg.role === next.msg.role
-    && prev.msg._pending === next.msg._pending;
+    && prev.msg._pending === next.msg._pending
+    && prev.msg.tool_calls === next.msg.tool_calls;
 });
 
 export default function AgentPanel({
@@ -261,16 +261,13 @@ export default function AgentPanel({
   const chips = useMemo(() => {
     const shopId = selectedShop || 'S0001';
     return [
-      '셀러 이탈 예측 분석 보여줘',
-      '셀러 활동 현황',
-      '코호트 리텐션 분석',
-      'KPI 트렌드 분석',
-      '이상거래 탐지 현황',
-      '셀러 세그먼트 통계',
-      '대시보드 전체 현황',
       `${shopId} 쇼핑몰 정보 알려줘`,
+      `${shopId} 매출 성과 분석해줘`,
+      'SEL0001 셀러 활동 현황',
       'Premium 등급 쇼핑몰 목록',
-      'CS 문의 통계 보여줘',
+      '쇼핑몰 SEO 최적화 방법 알려줘',
+      '카페24 결제 수단 안내해줘',
+      '반품 처리 절차 알려줘',
     ];
   }, [selectedShop]);
 

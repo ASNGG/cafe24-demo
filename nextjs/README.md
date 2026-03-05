@@ -14,17 +14,13 @@
 
 ## 최신 업데이트
 
-> **v9.0.0** (2026-03-04) — 프론트엔드 속도 최적화 (SSE O(1), 번들/렌더링/캐시 개선)
+> **v9.1.0** (2026-03-05) — AgentPanel 추천 질문 경량화 + Supervisor 멀티에이전트 연동
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **SSE 스트리밍 O(1)** | `useBaseStream.js` msgIndexRef 추가 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1), tool_start/tool_end/flushDelta/done/error 모든 이벤트에 인덱스 캐싱 적용 |
-| **AgentPanel 메모리 최적화** | `seenMsgIdsRef`(Set) → `prevLengthRef`(number) 교체로 메모리 누적 방지 |
-| **SubAgentPanel 렌더링 최적화** | `useMemo` remarkPlugins → 모듈 레벨 `SUB_REMARK_PLUGINS` 상수 이동, `prevLengthRef` 교체 |
-| **빌드 최적화** | `next.config.js` experimental.optimizePackageImports 추가 (lucide-react, recharts) |
-| **GET API 캐시** | `lib/api.js` 인메모리 캐시 추가 (Map 기반, TTL 60초, shops/categories 정적 데이터) |
-| **Tailwind 정리** | `tailwind.config.js` content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
-| **패널 로딩 UX** | `pages/app.js` 13개 dynamic import에 PanelLoader 스켈레톤 추가 |
+| **AgentPanel 추천 질문** | chips 배열 10개 → 7개로 축소 — 무거운 전체 데이터 처리 질문(이탈 예측, 코호트, KPI 트렌드 등) 제거, 경량 조회/RAG 질문 중심으로 재구성 |
+| **Supervisor 멀티에이전트** | 백엔드 Supervisor 패턴 전환에 따라 `agent_start`/`agent_end` 이벤트에 실제 워커 에이전트 이름 표시 (search_agent, analysis_agent, cs_agent) |
+| **SSE 프로토콜 유지** | 프론트엔드 SSE 7종 이벤트(delta, tool_start, tool_end, done, error, agent_start, agent_end) 동일 유지 — 추가 변경 없음 |
 
 ---
 
@@ -61,7 +57,7 @@ graph LR
 
     subgraph Backend["FastAPI Backend :8001"]
         API["REST API"]
-        Agent["AI Agent<br/>(LangChain)"]
+        Agent["AI Agent<br/>(LangChain Supervisor)"]
         ML["ML 모델<br/>(12종)"]
         RAG["RAG<br/>(FAISS + LightRAG)"]
     end
@@ -276,6 +272,20 @@ flowchart TB
 | 비즈니스 KPI | 12 | "최근 7일 KPI 트렌드 분석해줘" |
 | 셀러 분석 | 12 | "우수 셀러 세그먼트 통계 알려줘" |
 | 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
+
+**추천 질문 chips** (AgentPanel 하단, 7개 — `selectedShop` 동적 바인딩):
+
+| # | 질문 | 유형 |
+|---|------|------|
+| 1 | `{shopId} 쇼핑몰 정보 알려줘` | 쇼핑몰 조회 |
+| 2 | `{shopId} 매출 성과 분석해줘` | 매출 분석 |
+| 3 | `SEL0001 셀러 활동 현황` | 셀러 조회 |
+| 4 | `Premium 등급 쇼핑몰 목록` | 등급별 조회 |
+| 5 | `쇼핑몰 SEO 최적화 방법 알려줘` | RAG 검색 |
+| 6 | `카페24 결제 수단 안내해줘` | RAG 검색 |
+| 7 | `반품 처리 절차 알려줘` | RAG 검색 |
+
+> 기존 10개에서 7개로 축소 — 무거운 전체 데이터 처리 질문(셀러 이탈 예측 분석, 코호트 리텐션 분석, KPI 트렌드 분석, 이상거래 탐지 현황, 셀러 세그먼트 통계, 대시보드 전체 현황, CS 문의 통계)을 제거하고 경량 조회/RAG 질문 중심으로 재구성
 
 **빠른 분석 버튼 (AgentPanel 하단):**
 
@@ -952,8 +962,8 @@ flowchart LR
 
 | 이벤트 | data 필드 | 처리 |
 |--------|-----------|------|
-| `agent_start` | `{agent, step, total_steps}` | steps 배열에 단계 추가 + currentStep 업데이트 |
-| `agent_end` | `{agent, step, summary}` | stepResults에 결과 저장, steps.status → `done` |
+| `agent_start` | `{agent, step, total_steps}` | steps 배열에 단계 추가 + currentStep 업데이트 (agent: search_agent, analysis_agent, cs_agent 등) |
+| `agent_end` | `{agent, step, summary}` | stepResults에 결과 저장, steps.status → `done` (Supervisor가 위임한 워커 에이전트명 표시) |
 | `delta` | `{delta: "..."}` | 50ms 버퍼 → 어시스턴트 메시지 실시간 업데이트 |
 | `tool_start` | `{tool, args}` | 도구 실행 시작 표시 |
 | `tool_end` | `{tool, status}` | 도구 실행 완료 표시 |
@@ -1132,8 +1142,10 @@ await fetchEventSource('/api/agent/stream', {
 | `delta` | 토큰 스트리밍 | `{"delta": "이탈"}` |
 | `done` | 응답 완료 | `{"ok": true, "final": "...", "tool_calls": [...]}` |
 | `error` | 오류 발생 | `{"message": "..."}` |
-| `agent_start` | 서브에이전트 단계 시작 | `{"agent": "...", "step": 1, "total_steps": 3}` |
-| `agent_end` | 서브에이전트 단계 완료 | `{"agent": "...", "step": 1, "summary": "..."}` |
+| `agent_start` | 워커 에이전트 단계 시작 (Supervisor 패턴) | `{"agent": "search_agent", "step": 1, "total_steps": 3}` |
+| `agent_end` | 워커 에이전트 단계 완료 (Supervisor 패턴) | `{"agent": "search_agent", "step": 1, "summary": "..."}` |
+
+> `agent_start`/`agent_end`의 `agent` 필드에 백엔드 Supervisor가 위임한 실제 워커 에이전트 이름이 전달된다: `search_agent`, `analysis_agent`, `cs_agent` 등
 
 ### 4.4 SSE 프록시 (5개)
 
@@ -1543,7 +1555,9 @@ sequenceDiagram
     Panel->>Proxy: POST /api/agent/stream<br/>(fetchEventSource)
     Proxy->>Backend: POST /api/agent/stream<br/>(body 스트림 릴레이, duplex: half)
 
-    loop SSE 이벤트 스트리밍
+    loop SSE 이벤트 스트리밍 (Supervisor 멀티에이전트)
+        Backend-->>Proxy: event: agent_start (워커 에이전트 시작)
+        Proxy-->>Panel: 에이전트명 표시 (search_agent 등)
         Backend-->>Proxy: event: tool_start
         Proxy-->>Panel: 도구 실행 표시 (접이식)
         Backend-->>Proxy: event: tool_end
@@ -1551,6 +1565,8 @@ sequenceDiagram
         Backend-->>Proxy: event: delta (토큰)
         Proxy-->>Panel: onmessage 콜백
         Panel-->>User: 실시간 마크다운 렌더링
+        Backend-->>Proxy: event: agent_end (워커 에이전트 완료)
+        Proxy-->>Panel: 에이전트 결과 요약
     end
 
     Backend-->>Proxy: event: done
@@ -1738,6 +1754,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.1.0 | 2026-03-05 | AgentPanel 추천 질문 경량화(10개→7개), Supervisor 멀티에이전트 연동(agent_start/agent_end에 워커 에이전트명 표시) |
 | 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/SubAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~29파일): useBaseStream 공통 훅 추출, React.memo 12건, ChatMessage/ToolCalls 추출, remarkPlugins 상수화, _document.js 추가, 보안 강화(CORS/btoa/cache), ExampleQuestionBridge 제거 |
 | 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: SubAgentPanel 추가, SSE agent_start/agent_end 이벤트, useSubAgentStream 훅 |
@@ -1754,6 +1771,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 9.0.0** · Last Updated 2026-03-04
+**Version 9.1.0** · Last Updated 2026-03-05
 
 </div>

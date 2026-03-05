@@ -1556,8 +1556,8 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <tbody>
 <tr>
 <td><strong>에이전트 라우터</strong></td>
-<td>키워드 분류 (0ms)</td>
-<td>LLM Router (gpt-4o-mini)</td>
+<td>키워드 사전라우팅 → 워커 직접 호출 (0ms)</td>
+<td>Supervisor LLM 판단 (gpt-4o-mini)</td>
 </tr>
 <tr>
 <td><strong>DB 보안 감시</strong></td>
@@ -1583,7 +1583,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <hr>
 <section class="portfolio-section">
 <h2 id="2-시스템-아키텍처">2. 시스템 아키텍처</h2>
-<p class="section-summary">Browser → Next.js → FastAPI 프록시 구조에서 2단계 라우터가 의도를 분류하고, AI 에이전트가 RAG/ML 도구를 호출하여 SSE로 스트리밍 응답합니다.</p>
+<p class="section-summary">Browser → Next.js → FastAPI 프록시 구조에서 키워드 사전라우팅 + LLM Supervisor 하이브리드로 의도를 분류하고, 전문 워커 에이전트가 RAG/ML 도구를 호출하여 SSE로 스트리밍 응답합니다.</p>
 <h3 id="전체-아키텍처">전체 아키텍처</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TB
@@ -1595,14 +1595,16 @@ flowchart TB
     subgraph Backend["Backend · FastAPI"]
         State["state.py · 전역 상태 관리"]
 
-        subgraph Router["2단계 라우터"]
-            R1["키워드 분류 · 0ms"]
-            R2["LLM Router · fallback"]
+        subgraph Router["하이브리드 라우터"]
+            R1["키워드 사전라우팅 · 0ms"]
+            R2["Supervisor LLM · fallback"]
         end
 
-        subgraph Agent["AI 에이전트"]
-            Runner["Tool Calling 실행기"]
-            MultiAgent["LangGraph 멀티 에이전트"]
+        subgraph Agent["AI 에이전트 · Supervisor 패턴"]
+            Supervisor["Supervisor · langgraph-supervisor"]
+            SearchAgent["search_agent · 검색"]
+            AnalysisAgent["analysis_agent · 분석"]
+            CSAgent["cs_agent · CS"]
             Tools["31개 도구 함수"]
         end
 
@@ -1648,8 +1650,9 @@ sequenceDiagram
     autonumber
     participant User as 사용자
     participant FE as Next.js
-    participant Router as 2단계 라우터
-    participant Agent as AI Agent
+    participant Router as 키워드 사전라우팅
+    participant Sup as Supervisor
+    participant Worker as analysis_agent
     participant Tool as Tool Executor
     participant ML as ML Model (.pkl)
     participant LLM as GPT-4o-mini
@@ -1657,45 +1660,48 @@ sequenceDiagram
     User-&gt;&gt;FE: "SEL0001 셀러가 이탈할 확률은?"
     FE-&gt;&gt;Router: SSE 연결 (/api/agent/stream)
 
-    Note over Router: 1단계: 키워드 "이탈" + "SEL" ID 감지&lt;br/&gt;→ IntentCategory.SELLER&lt;br/&gt;→ predict_seller_churn 강제 실행
-    Router-&gt;&gt;Agent: 셀러 도구 9개만 전달
+    Note over Router: 키워드 "이탈" + "SEL" ID 감지&lt;br/&gt;→ IntentCategory.SELLER&lt;br/&gt;→ analysis_agent 직접 호출 (3초 절감)
+    Router-&gt;&gt;Worker: 워커 직접 호출 (Supervisor 우회)
 
-    Agent-&gt;&gt;LLM: Tool Calling 요청
-    LLM--&gt;&gt;Agent: predict_seller_churn("SEL0001")
+    Worker-&gt;&gt;LLM: Tool Calling 요청
+    LLM--&gt;&gt;Worker: predict_seller_churn("SEL0001")
 
-    Agent-&gt;&gt;Tool: predict_seller_churn("SEL0001")
+    Worker-&gt;&gt;Tool: predict_seller_churn("SEL0001")
     Tool-&gt;&gt;ML: RandomForest.predict_proba() + SHAP
     ML--&gt;&gt;Tool: 이탈 확률 73% + SHAP 피처 기여도
-    Tool--&gt;&gt;Agent: 예측 결과 JSON
+    Tool--&gt;&gt;Worker: 예측 결과 JSON
 
-    Agent-&gt;&gt;LLM: 도구 결과 + 시스템 프롬프트
-    LLM--&gt;&gt;FE: SSE 스트리밍 (토큰 단위)
+    Worker-&gt;&gt;LLM: 도구 결과 + 시스템 프롬프트
+    LLM--&gt;&gt;FE: SSE 직접 스트리밍 (재요약 없음)
     FE--&gt;&gt;User: "이탈 확률 73%, 주요 원인: 매출 감소..."
+
+    Note over Router,Sup: 애매한 질문 → Supervisor LLM이 워커 선택
 </div></div></section>
 <hr>
 <section class="portfolio-section">
 <h2 id="3-ai-에이전트-시스템">3. AI 에이전트 시스템</h2>
-<p class="section-summary">키워드 기반 즉시 분류(0ms) + LLM fallback 2단계 라우터로 31개 도구를 8개 카테고리로 축소하여 Tool Calling 정확도를 높입니다.</p>
-<h3 id="31-2단계-인텐트-라우터">3.1 2단계 인텐트 라우터</h3>
+<p class="section-summary"><code>langgraph-supervisor</code> 기반 Supervisor 멀티에이전트 패턴으로 3개 전문 워커(search/analysis/cs)가 31개 도구를 분담합니다. 키워드 사전라우팅 + LLM Supervisor 하이브리드로 응답 속도와 정확도를 동시에 확보합니다.</p>
+<h3 id="31-2단계-인텐트-라우터">3.1 하이브리드 라우팅 (키워드 + Supervisor)</h3>
 <p><strong>문제</strong>: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.</p>
-<p><strong>해결</strong>: 2단계 Router 패턴으로 도구 선택 공간을 8개 카테고리로 축소합니다.</p>
+<p><strong>해결</strong>: 키워드 사전라우팅 + LLM Supervisor 하이브리드 패턴으로, 명확한 intent는 워커 직접 호출(3초 절감), 애매한 질문은 Supervisor LLM이 판단합니다. 각 워커에 관련 도구만 배정하여 선택 공간을 축소합니다.</p>
 <div class="mermaid-container"><div class="mermaid">flowchart TB
     Q["사용자 질문"]
 
-    subgraph Stage1["1단계: 키워드 Router"]
-        K1["매출 · 이탈 · GMV → ANALYSIS"]
-        K2["플랫폼 · 정책 → PLATFORM"]
-        K3["SEL0001 패턴 → SELLER"]
+    subgraph Stage1["키워드 사전라우팅"]
+        K1["매출 · 이탈 · GMV → analysis_agent"]
+        K2["플랫폼 · 정책 → search_agent"]
+        K3["CS · 문의 → cs_agent"]
     end
 
-    subgraph Stage2["2단계: LLM Router"]
-        L1["GPT-4o-mini 분류"]
-        L2["JSON 응답 파싱"]
+    subgraph Stage2["Supervisor LLM (fallback)"]
+        L1["GPT-4o-mini 워커 선택"]
+        L2["의도 분석 → 워커 배정"]
     end
 
-    Q --&gt;|"0ms, 비용 0"| Stage1
-    Stage1 --&gt;|"매칭 실패 → fallback"| Stage2
-    Stage1 &amp; Stage2 --&gt; Tools["카테고리별 도구 2~11개만 노출"]
+    Q --&gt;|"명확한 intent · 0ms"| Stage1
+    Stage1 --&gt;|"매칭 실패"| Stage2
+    Stage1 --&gt;|"워커 직접 호출 · 3초 절감"| Workers["전문 워커 에이전트"]
+    Stage2 --&gt;|"LLM 판단"| Workers
 </div></div><p><strong>IntentCategory (8개)</strong>:</p>
 <div class="table-wrapper"><table aria-label="카테고리">
 <thead>
@@ -1872,26 +1878,91 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="35-멀티-에이전트-langgraph">3.5 멀티 에이전트 (LangGraph) </h3>
-<p>LangGraph <code>StateGraph</code> 기반으로 Coordinator가 질의를 분석하여 전문 에이전트로 라우팅하는 실험적 기능도 구현했습니다.</p>
-<div class="mermaid-container"><div class="mermaid">flowchart TB
-    C["Coordinator · GPT-4o (기본)"]
+<h3 id="35-supervisor-멀티에이전트">3.5 Supervisor 멀티에이전트 </h3>
+<p><code>langgraph-supervisor</code> 기반 Supervisor 패턴으로 전문 워커 에이전트가 도구를 분담합니다.</p>
+<h4>기존 → 변경</h4>
+<div class="table-wrapper"><table aria-label="구조 비교">
+<thead>
+<tr>
+<th></th>
+<th>기존 구조</th>
+<th>변경 구조 (Supervisor 패턴)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>에이전트</strong></td>
+<td>키워드 분류기 → 단일 ReAct 에이전트 (31개 도구 전부 배정)</td>
+<td>키워드 사전라우팅 + LLM Supervisor 하이브리드 → 3개 전문 워커</td>
+</tr>
+<tr>
+<td><strong>라우팅</strong></td>
+<td>2단계 라우터 (키워드 → LLM fallback)</td>
+<td>명확한 intent → 워커 직접 호출 (3초 절감), 애매한 질문 → Supervisor LLM 판단</td>
+</tr>
+<tr>
+<td><strong>응답</strong></td>
+<td>LLM이 재요약 후 스트리밍</td>
+<td>워커 직접 스트리밍 (supervisor 재요약 제거, 첫 delta 평균 3.9초)</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Supervisor → Worker 구조</h4>
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+flowchart TB
+    Q["사용자 질문"]
 
-    subgraph agents["전문 에이전트"]
-        direction LR
-        S["Search · 7개 도구"]
-        A["Analysis · 16개 도구"]
-        T["CS · 5개 도구"]
-        R["Sub-Agent · 2개 도구"]
+    subgraph Routing["하이브리드 라우팅"]
+        KW["키워드 사전라우팅 · 0ms"]
+        SUP["Supervisor LLM · fallback"]
     end
 
-    C --&gt;|"의도 분류"| agents
-    agents &lt;--&gt;|"도구 호출"| Tools["Tool Executor"]
-    agents --&gt;|"최종 응답"| E(["END"])
-</div></div><p><strong>Sub-Agent (서브에이전트)</strong>: 복합 리텐션 요청을 오케스트레이션하는 에이전트입니다. Coordinator → Dispatcher → Retention 사이클로 동작하며, 2개 도구(get_at_risk_sellers, get_cs_statistics)로 이탈 위험 셀러 탐지 및 CS 현황 분석을 수행합니다.</p>
+    subgraph Workers["전문 워커 에이전트"]
+        direction LR
+        S["search_agent&lt;br/&gt;쇼핑몰·카테고리 조회&lt;br/&gt;플랫폼 RAG 검색"]
+        A["analysis_agent&lt;br/&gt;셀러 분석·ML 예측&lt;br/&gt;KPI 분석"]
+        C["cs_agent&lt;br/&gt;CS 자동응답&lt;br/&gt;품질 평가"]
+    end
+
+    Q --&gt;|"명확한 intent"| KW
+    Q --&gt;|"애매한 질문"| SUP
+    KW --&gt;|"워커 직접 호출 · 3초 절감"| Workers
+    SUP --&gt;|"LLM 판단"| Workers
+    Workers &lt;--&gt;|"Tool Calling"| Tools["31개 도구 함수"]
+    Workers --&gt;|"직접 SSE 스트리밍&lt;br/&gt;재요약 없음"| E(["사용자 응답"])
+</div></div>
+<h4>워커별 도구 분담</h4>
+<div class="table-wrapper"><table aria-label="워커 도구">
+<thead>
+<tr>
+<th>워커</th>
+<th>역할</th>
+<th>주요 도구</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search_agent</code></td>
+<td>쇼핑몰/카테고리 정보 조회, 플랫폼 RAG 검색</td>
+<td><code>get_shop_info</code>, <code>list_shops</code>, <code>search_platform</code>, <code>search_platform_lightrag</code> 등</td>
+</tr>
+<tr>
+<td><code>analysis_agent</code></td>
+<td>셀러 분석, ML 예측, KPI 분석</td>
+<td><code>analyze_seller</code>, <code>predict_seller_churn</code>, <code>predict_shop_revenue</code>, <code>get_cohort_analysis</code> 등</td>
+</tr>
+<tr>
+<td><code>cs_agent</code></td>
+<td>CS 자동응답, 품질 평가</td>
+<td><code>auto_reply_cs</code>, <code>check_cs_quality</code>, <code>classify_inquiry</code>, <code>get_cs_statistics</code> 등</td>
+</tr>
+</tbody>
+</table></div>
+<h4>하이브리드 라우팅 설계 근거</h4>
 <blockquote>
-<p>기본 운영은 single 모드 (1 LLM + 2단계 라우터 + Tool Calling). multi 모드는 에이전트별 독립 프롬프트 + 도구 세트로 동작하며, 실험 모드로 제공합니다.</p>
+<p><strong>설계 기반</strong>: Anthropic <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> — "빠른 규칙 우선 + AI fallback" 패턴을 Supervisor 멀티에이전트에 적용. 명확한 intent는 키워드 매칭으로 워커를 직접 호출하여 Supervisor LLM 호출 비용(약 3초)을 절감하고, 애매한 질문만 Supervisor가 판단합니다.</p>
 </blockquote>
+<p>SSE 이벤트 7종 프로토콜(<code>delta</code>, <code>tool_start</code>, <code>tool_end</code>, <code>done</code>, <code>error</code>, <code>agent_start</code>, <code>agent_end</code>)은 기존과 동일하게 유지됩니다.</p>
 </section>
 <hr>
 <section class="portfolio-section">
@@ -3047,12 +3118,12 @@ flowchart TD
 <tr>
 <td><strong>LLM</strong></td>
 <td>OpenAI GPT-4o / GPT-4o-mini</td>
-<td>Tool Calling 정확도 + 비용 효율 (Coordinator: GPT-4o)</td>
+<td>Tool Calling 정확도 + 비용 효율 (Supervisor: GPT-4o)</td>
 </tr>
 <tr>
 <td><strong>에이전트</strong></td>
-<td>LangChain + LangGraph</td>
-<td>Tool Calling 추상화 + StateGraph 멀티 에이전트</td>
+<td>LangChain + LangGraph + langgraph-supervisor</td>
+<td>Supervisor 멀티에이전트 · 3개 전문 워커 · 하이브리드 라우팅</td>
 </tr>
 <tr>
 <td><strong>벡터 검색</strong></td>
@@ -3296,7 +3367,7 @@ flowchart TD
 │   │   ├── router.py                  # 2단계 라우터 (키워드 → LLM)
 │   │   ├── intent.py                  # 인텐트 분류
 │   │   ├── semantic_router.py         # 시맨틱 라우터
-│   │   ├── multi_agent.py             # LangGraph 멀티 에이전트 + 서브에이전트
+│   │   ├── multi_agent.py             # Supervisor 멀티에이전트 (langgraph-supervisor)
 │   │   ├── crag.py                    # Corrective RAG
 │   │   └── llm.py                     # ChatOpenAI 인스턴스 팩토리 (모델별 분기, 재시도)
 │   │
@@ -3478,7 +3549,7 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 </div>
 <div class="footer-tech-item">
   <strong>Backend</strong>
-  <span>FastAPI · LangChain · LangGraph · MLflow · n8n · Resend · 106개 API</span>
+  <span>FastAPI · LangChain · LangGraph · langgraph-supervisor · MLflow · n8n · Resend · 106개 API</span>
 </div>
 <div class="footer-tech-item">
   <strong>Frontend</strong>

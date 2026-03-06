@@ -27,4 +27,12 @@ export const REPORT_STEPS = [
   { key: 'history', label: '이력 관리', desc: '리포트 조회', icon: ClipboardList },
 ];
 
+export const UPGRADE_STEPS = [
+  { key: 'detect', label: '후보 탐지', desc: '규칙 기반 탐지', icon: Search },
+  { key: 'analyze', label: '성과 분석', desc: '매출/주문 분석', icon: BarChart3 },
+  { key: 'generate', label: '메시지 생성', desc: 'LLM 추천 메시지', icon: Sparkles },
+  { key: 'execute', label: '제안 실행', desc: '업그레이드 제안', icon: Play },
+  { key: 'log', label: '결과 기록', desc: '액션 로깅', icon: FileText },
+];
+
 export const CS_CATEGORIES = ["배송", "환불", "결제", "상품", "계정", "정산", "기술지원", "마케팅", "기타"];

@@ -94,6 +94,16 @@ def load_all_data():
             except Exception as e:
                 st.logger.error(f"CSV 병렬 로드 실패: {e}")
 
+    # SELLER_ANALYTICS_DF 후처리: plan_tier_encoded → plan_tier 디코딩
+    if st.SELLER_ANALYTICS_DF is not None and "plan_tier_encoded" in st.SELLER_ANALYTICS_DF.columns:
+        from core.constants import PLAN_TIERS
+        st.SELLER_ANALYTICS_DF["plan_tier"] = (
+            st.SELLER_ANALYTICS_DF["plan_tier_encoded"]
+            .map({i: t for i, t in enumerate(PLAN_TIERS)})
+            .fillna("Basic")
+        )
+        st.logger.info("SELLER_ANALYTICS_DF: plan_tier 컬럼 디코딩 완료")
+
     # 운영 로그 (nrows 제한이 있어 별도 처리)
     logs_path = get_data_path("operation_logs.csv")
     if logs_path.exists():

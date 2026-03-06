@@ -1454,8 +1454,8 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <div class="stat-card">
   <div class="stat-icon">⚙️</div>
   <div class="stat-label">자동화 엔진</div>
-  <div class="stat-value">3종</div>
-  <div class="stat-desc">이탈방지 · FAQ · 리포트</div>
+  <div class="stat-value">4종</div>
+  <div class="stat-desc">이탈방지 · 업그레이드 · FAQ · 리포트</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">📊</div>
@@ -1476,7 +1476,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   <a href="#6-cs-%EC%9E%90%EB%8F%99%ED%99%94-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8" class="toc-item"><span class="toc-num">06</span> CS 자동화 파이프라인</a>
   <a href="#7-db-%EB%B3%B4%EC%95%88-%EA%B0%90%EC%8B%9C-data-guardian" class="toc-item"><span class="toc-num">07</span> DB 보안 감시 (Data Guardian)</a>
   <a href="#8-ai-%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4-%EB%A7%88%EC%9D%B4%EB%84%88" class="toc-item"><span class="toc-num">08</span> AI 프로세스 마이너</a>
-  <a href="#9-%EC%9E%90%EB%8F%99%ED%99%94-%EC%97%94%EC%A7%84-%EC%9D%B4%ED%83%88%EB%B0%A9%EC%A7%80--faq--%EB%A6%AC%ED%8F%AC%ED%8A%B8" class="toc-item"><span class="toc-num">09</span> 자동화 엔진</a>
+  <a href="#9-%EC%9E%90%EB%8F%99%ED%99%94-%EC%97%94%EC%A7%84-%EC%9D%B4%ED%83%88%EB%B0%A9%EC%A7%80--%EC%97%85%EA%B7%B8%EB%A0%88%EC%9D%B4%EB%93%9C--faq--%EB%A6%AC%ED%8F%AC%ED%8A%B8" class="toc-item"><span class="toc-num">09</span> 자동화 엔진</a>
   <a href="#10-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-13%EA%B0%9C-%ED%8C%A8%EB%84%90" class="toc-item"><span class="toc-num">10</span> 프론트엔드 (13개 패널)</a>
   <a href="#11-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%8F-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B2%B0%EC%A0%95" class="toc-item"><span class="toc-num">11</span> 기술 스택 및 아키텍처 결정</a>
   <a href="#12-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B5%AC%EC%A1%B0" class="toc-item"><span class="toc-num">12</span> 프로젝트 구조</a>
@@ -2644,9 +2644,9 @@ flowchart TD
 </section>
 <hr>
 <section class="portfolio-section">
-<h2 id="9-자동화-엔진-이탈방지--faq--리포트">9. 자동화 엔진 (이탈방지 · FAQ · 리포트)</h2>
-<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 3종 자동화 엔진. 이탈방지(RF+SHAP → LLM → 4종 조치 + 벌크 실행), FAQ 자동 생성(CS 패턴 분석 → LLM → 승인 워크플로우), 운영 리포트(KPI 집계 → LLM 작성)를 17개 API로 제공하며, Action Logger가 전 조치 이력과 파이프라인 단계를 추적합니다.</p>
-<p>ML 예측 결과를 기반으로 자동 조치까지 수행하는 3종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하고, 각 엔진은 <code>create_pipeline_run</code>으로 단계별 실행 상태를 실시간 추적합니다.</p>
+<h2 id="9-자동화-엔진-이탈방지--업그레이드--faq--리포트">9. 자동화 엔진 (이탈방지 · 업그레이드 · FAQ · 리포트)</h2>
+<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 4종 자동화 엔진. 이탈방지(RF+SHAP → LLM → 4종 조치 + 벌크 실행), 플랜 업그레이드(규칙 기반 탐지 → LLM 추천 메시지 → 4종 액션), FAQ 자동 생성(CS 패턴 분석 → LLM → 승인 워크플로우), 운영 리포트(KPI 집계 → LLM 작성)를 20개 API로 제공하며, Action Logger가 전 조치 이력과 파이프라인 단계를 추적합니다.</p>
+<p>ML 예측 결과를 기반으로 자동 조치까지 수행하는 4종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하고, 각 엔진은 <code>create_pipeline_run</code>으로 단계별 실행 상태를 실시간 추적합니다.</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
     subgraph Retention["이탈 방지 엔진"]
@@ -2665,8 +2665,13 @@ flowchart TD
         P2 --&gt; P3["일간/주간/월간 리포트"]
     end
 
+    subgraph Upgrade["플랜 업그레이드 엔진"]
+        U1["규칙 기반 후보 탐지&lt;br/&gt;매출·주문수 임계값"] --&gt; U2["LLM 맞춤 추천 메시지"]
+        U2 --&gt; U3["업그레이드 제안 실행&lt;br/&gt;(추천·혜택안내·상담·메시지)"]
+    end
+
     ActionLog["Action Logger · 전 조치 이력 추적"]
-    Retention &amp; FAQ &amp; Report --&gt; ActionLog
+    Retention &amp; Upgrade &amp; FAQ &amp; Report --&gt; ActionLog
 </div></div><h3 id="91-이탈-방지-자동-조치">9.1 이탈 방지 자동 조치 </h3>
 <div class="table-wrapper"><table aria-label="단계">
 <thead>
@@ -2699,7 +2704,45 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<h3 id="92-cs-faq-자동-생성">9.2 CS FAQ 자동 생성 </h3>
+<h3 id="92-플랜-업그레이드-자동-추천">9.2 플랜 업그레이드 자동 추천</h3>
+<p>매출과 주문수 기반 규칙 엔진으로 업그레이드 후보를 탐지하고, LLM이 맞춤 추천 메시지를 생성하여 4종 액션(추천 발송, 혜택 안내, 상담 요청, 맞춤 메시지)을 실행합니다.</p>
+<div class="table-wrapper"><table aria-label="업그레이드 파이프라인">
+<thead>
+<tr>
+<th style="text-align:center">단계</th>
+<th>기능</th>
+<th>기술</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1. 탐지</td>
+<td>매출/주문수 임계값 기반 업그레이드 후보 탐지 (Basic→Standard→Premium→Enterprise)</td>
+<td>규칙 기반 (매출 60% + 주문수 40% 가중 점수)</td>
+</tr>
+<tr>
+<td style="text-align:center">2. 분석</td>
+<td>셀러 성과 데이터 종합 분석 (매출, 주문, 상품수, 환불률, 접속 빈도)</td>
+<td>SELLER_ANALYTICS_DF 기반</td>
+</tr>
+<tr>
+<td style="text-align:center">3. 메시지</td>
+<td>상위 플랜 혜택 기반 맞춤 업그레이드 추천 메시지</td>
+<td>GPT-4o-mini (JSON 응답)</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 실행</td>
+<td>업그레이드 추천 / 혜택 안내 / 상담 예약 / 맞춤 메시지 발송</td>
+<td>4종 action_type + Action Logger 추적</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>플랜 티어</strong>: Basic → Standard → Premium → Enterprise (4단계)</li>
+<li><strong>임계값</strong>: Basic→Standard(매출 500만 or 주문 100건), Standard→Premium(매출 2,000만 or 주문 500건), Premium→Enterprise(매출 5,000만 or 주문 2,000건)</li>
+<li><strong>점수 산정</strong>: 매출 비율(60%) + 주문수 비율(40%) 가중 합산 → 0~100점</li>
+</ul>
+<h3 id="93-cs-faq-자동-생성">9.3 CS FAQ 자동 생성 </h3>
 <p>CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.</p>
 <div class="table-wrapper"><table aria-label="FAQ 파이프라인">
 <thead>
@@ -2737,7 +2780,7 @@ flowchart TD
 <li><strong>LLM 프롬프트</strong>: "카페24 CS 전문가" 역할 + 카테고리 제약 조건으로 카테고리 혼입 방지</li>
 <li><strong>액션 로깅</strong>: 생성/승인/수정/삭제 전 이력 기록</li>
 </ul>
-<h3 id="93-운영-리포트-자동-생성">9.3 운영 리포트 자동 생성 </h3>
+<h3 id="94-운영-리포트-자동-생성">9.4 운영 리포트 자동 생성 </h3>
 <p>6종 데이터소스(GMV/주문/셀러/CS/이상거래/코호트)에서 KPI를 집계하고, LLM이 4단계 구조(핵심지표 → 트렌드 → 이슈 → 권장조치)로 마크다운 리포트를 자동 작성합니다.</p>
 <div class="table-wrapper"><table aria-label="리포트 유형">
 <thead>
@@ -2771,7 +2814,7 @@ flowchart TD
 <li><strong>LLM 프롬프트</strong>: "카페24 운영 분석가" 역할, 온도 0.3 (정확성 우선)</li>
 <li><strong>파이프라인</strong>: collect → aggregate → write → save (단계별 추적)</li>
 </ul>
-<h3 id="api-엔드포인트-17개">API 엔드포인트 (17개) </h3>
+<h3 id="api-엔드포인트-20개">API 엔드포인트 (20개) </h3>
 <div class="table-wrapper"><table aria-label="영역">
 <thead>
 <tr>
@@ -2805,6 +2848,21 @@ flowchart TD
 <td></td>
 <td><code>GET /retention/history</code></td>
 <td>조치 이력</td>
+</tr>
+<tr>
+<td><strong>업그레이드</strong></td>
+<td><code>GET /upgrade/candidates</code></td>
+<td>업그레이드 후보 셀러 목록 (limit 파라미터)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>POST /upgrade/message</code></td>
+<td>맞춤 업그레이드 추천 메시지 생성</td>
+</tr>
+<tr>
+<td></td>
+<td><code>POST /upgrade/execute</code></td>
+<td>업그레이드 조치 실행 (upgrade_recommend/benefit_info/consultation_request/custom_message)</td>
 </tr>
 <tr>
 <td><strong>FAQ</strong></td>
@@ -2990,7 +3048,7 @@ flowchart TD
 <tr>
 <td style="text-align:center">13</td>
 <td><strong>자동화 엔진</strong></td>
-<td>3탭 (이탈 방지/FAQ 자동생성/운영 리포트), 개요 통계 카드</td>
+<td>4탭 (이탈 방지/플랜 업그레이드/FAQ 자동생성/운영 리포트), 개요 통계 카드</td>
 <td>탭 컴포넌트 분리, 파이프라인 추적</td>
 </tr>
 </tbody>
@@ -3390,6 +3448,7 @@ flowchart TD
 │   │
 │   ├── automation/                    # 자동화 엔진
 │   │   ├── retention_engine.py        # 셀러 이탈 방지 (ML+LLM 자동 조치)
+│   │   ├── upgrade_engine.py         # 셀러 플랜 업그레이드 추천 (규칙+LLM)
 │   │   ├── faq_engine.py              # CS FAQ 자동 생성 (패턴 분석+LLM)
 │   │   ├── report_engine.py           # 운영 리포트 자동 생성
 │   │   └── action_logger.py           # 전 조치 이력 로깅 + 파이프라인 추적
@@ -3430,7 +3489,7 @@ flowchart TD
     │   │   ├── analysis/              # 상세 분석 (9탭 + common 유틸)
     │   │   ├── guardian/              # DB 보안 감시 (MonitorTab, RecoverTab, DashboardTab)
     │   │   │   └── common/ToolStep.js # 도구 실행 단계 공통 컴포넌트
-    │   │   ├── automation/            # 자동화 엔진 (RetentionTab, FaqTab, ReportTab)
+    │   │   ├── automation/            # 자동화 엔진 (RetentionTab, UpgradeTab, FaqTab, ReportTab)
     │   │   ├── process-miner/         # 프로세스 마이너 (Discover, Bottleneck, Recommend)
     │   │   ├── AgentPanel.js          # AI 에이전트 채팅 패널
     │   │   ├── SubAgentPanel.js       # 서브에이전트 패널

@@ -4,16 +4,18 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Zap, Shield, FileText, HelpCircle,
+  Zap, Shield, FileText, HelpCircle, TrendingUp,
 } from 'lucide-react';
 import RetentionTab from '@/components/panels/automation/RetentionTab';
 import FaqTab from '@/components/panels/automation/FaqTab';
 import ReportTab from '@/components/panels/automation/ReportTab';
+import UpgradeTab from '@/components/panels/automation/UpgradeTab';
 
 const TABS = [
   { key: 'retention', label: '이탈 방지', icon: Shield },
   { key: 'faq', label: 'FAQ 자동 생성', icon: HelpCircle },
   { key: 'report', label: '운영 리포트', icon: FileText },
+  { key: 'upgrade', label: '플랜 업그레이드', icon: TrendingUp },
 ];
 
 export default function AutomationPanel({ auth, apiCall }) {
@@ -82,6 +84,7 @@ export default function AutomationPanel({ auth, apiCall }) {
       {activeTab === 'retention' && <RetentionTab auth={auth} apiCall={apiCall} />}
       {activeTab === 'faq' && <FaqTab auth={auth} apiCall={apiCall} />}
       {activeTab === 'report' && <ReportTab auth={auth} apiCall={apiCall} />}
+      {activeTab === 'upgrade' && <UpgradeTab auth={auth} apiCall={apiCall} />}
     </div>
   );
 }

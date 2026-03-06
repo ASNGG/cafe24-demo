@@ -112,6 +112,7 @@ v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
 | **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
 | **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) + 서브에이전트 오케스트레이션 (분석→CS확인→전략→발송 자동화) |
+| **플랜 업그레이드** | 수동 셀러 분석, 일괄 안내 | 규칙 기반 후보 탐지 (매출/주문수 임계값) → LLM 맞춤 추천 메시지 → 4종 액션 자동 실행 |
 | **CS FAQ** | 수동 FAQ 작성·관리 | CS 문의 패턴 분석 → LLM FAQ 자동 생성 → 승인 워크플로우 |
 | **운영 리포트** | 수동 KPI 집계·보고서 작성 | 전체 DF 자동 집계 → LLM 마크다운 리포트 (일간/주간/월간) |
 
@@ -418,6 +419,32 @@ sequenceDiagram
     FE-->>User: 분석 결과 + 발송 완료 표시
 ```
 
+### 셀러 플랜 업그레이드 자동 추천
+
+```mermaid
+flowchart TD
+    A["규칙 기반 후보 탐지<br/>(매출/주문수 임계값)"]
+    B["LLM 맞춤 추천 메시지 생성<br/>(GPT-4o-mini)"]
+    C{"4종 액션 실행"}
+    D["upgrade_recommend<br/>플랜 업그레이드 추천"]
+    E["benefit_info<br/>상위 플랜 혜택 안내"]
+    F["consultation_request<br/>전담 매니저 상담 요청"]
+    G["custom_message<br/>맞춤 메시지 발송"]
+
+    A --> B --> C
+    C --> D
+    C --> E
+    C --> F
+    C --> G
+```
+
+| 항목 | 설명 |
+|------|------|
+| **후보 탐지** | 매출/주문수 임계값 기반 규칙 엔진으로 업그레이드 대상 셀러 자동 탐지 |
+| **메시지 생성** | GPT-4o-mini가 셀러별 매출·주문·카테고리 데이터를 분석하여 맞춤 추천 메시지 작성 |
+| **액션 실행** | upgrade_recommend · benefit_info · consultation_request · custom_message 4종 |
+| **API** | `GET /api/automation/upgrade/candidates` · `POST /api/automation/upgrade/message` · `POST /api/automation/upgrade/execute` |
+
 ---
 
 ## 4. 기술 스택
@@ -480,12 +507,13 @@ sequenceDiagram
 │   │   ├── routes_rag.py              # RAG 검색/문서 관리 API
 │   │   ├── routes_ml.py               # ML 모델 추론/학습 API
 │   │   ├── routes_guardian.py         # DB 보안 감시 API
-│   │   ├── routes_automation.py       # 자동화 엔진 API (14개 엔드포인트)
+│   │   ├── routes_automation.py       # 자동화 엔진 API (17개 엔드포인트)
 │   │   ├── routes_agent.py            # AI 에이전트 API
 │   │   └── routes_admin.py            # 관리/설정/로그 API
-│   ├── automation/                    # 자동화 엔진 (이탈방지/FAQ/리포트)
+│   ├── automation/                    # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트)
 │   │   ├── action_logger.py           # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
 │   │   ├── retention_engine.py        # 셀러 이탈 방지 자동 조치 엔진
+│   │   ├── upgrade_engine.py          # 셀러 플랜 업그레이드 자동 추천 엔진
 │   │   ├── faq_engine.py              # CS FAQ 자동 생성 엔진
 │   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
 │   ├── agent/                         # AI 에이전트
@@ -513,9 +541,10 @@ sequenceDiagram
 │   ├── ml/                            # ML 모델 학습/추론 (train_models, helpers, revenue, marketing, mlflow)
 │   ├── core/                          # 유틸리티 (constants, utils, memory, parsers)
 │   ├── data/                          # 데이터 로더
-│   ├── automation/                    # 자동화 엔진 (이탈방지/FAQ/리포트)
-│   │   ├── action_logger.py           # 자동화 조치 로깅 + FAQ/리포트 저장소
+│   ├── automation/                    # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트)
+│   │   ├── action_logger.py           # 자동화 조치 로깅 + FAQ/리포트/리텐션 저장소
 │   │   ├── retention_engine.py        # 셀러 이탈 방지 자동 조치 엔진
+│   │   ├── upgrade_engine.py          # 셀러 플랜 업그레이드 자동 추천 엔진
 │   │   ├── faq_engine.py              # CS FAQ 자동 생성 엔진
 │   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
 │   ├── process_miner/                 # AI 프로세스 마이너 (6개 엔드포인트)
@@ -530,9 +559,10 @@ sequenceDiagram
     │   ├── common/                    # 공통 컴포넌트 (CustomTooltip, StatCard, constants)
     │   ├── automation/                # 자동화 엔진 공통 컴포넌트
     │   │   ├── PipelineFlow.js      # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
+    │   │   ├── UpgradeTab.js        # 셀러 플랜 업그레이드 추천 탭
     │   │   └── constants.js         # 파이프라인 스텝 상수 + CS 카테고리
     │   └── panels/                    # 12개 기능 패널
-    │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/FAQ/리포트 3탭)
+    │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트 4탭)
     │       ├── lab/                   # CS 자동화 실험실 + 🧬 서브에이전트 탭 (11개+ 파일)
     │       ├── analysis/              # 분석 패널 (9개 탭 + 1 컨테이너, 10개 파일)
     │       └── ...                    # 기타 패널
@@ -656,8 +686,8 @@ cd nextjs && npx vercel --prod
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~71파일): 백엔드 싱글톤/병렬 로드/캐시, 에이전트 정규식 사전 컴파일/LLM 캐시, 프론트 useBaseStream 공통 훅/React.memo 12건/보안 강화 |
 | 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: Retention 파이프라인, 도구 3개 추가(31개), SSE agent_start/agent_end, 실험실 서브에이전트 탭 |
 | 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 99파일 순 -7,000줄, 프론트 번들 -1MB, WAI-ARIA 접근성 |
-| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 파이프라인 시각화, RetentionTab/FaqTab/ReportTab, API 17개 |
-| 8.1.0 | 2026-02-12 | 자동화 엔진 3대 기능: 셀러 이탈 방지(ML+SHAP→LLM→자동조치), CS FAQ 자동 생성(패턴분석→LLM→승인관리), 운영 리포트 자동 생성(KPI집계→LLM 마크다운). API 14개, 자동화 패널 추가 |
+| 8.2.0 | 2026-02-12 | 자동화 엔진 고도화: 파이프라인 시각화, RetentionTab/UpgradeTab/FaqTab/ReportTab, API 20개 |
+| 8.1.0 | 2026-02-12 | 자동화 엔진 4대 기능: 셀러 이탈 방지(ML+SHAP→LLM→자동조치), 셀러 플랜 업그레이드 추천(규칙 기반 후보 탐지→LLM 맞춤 메시지→4종 액션), CS FAQ 자동 생성(패턴분석→LLM→승인관리), 운영 리포트 자동 생성(KPI집계→LLM 마크다운). API 17개, 자동화 패널 추가 |
 | 8.0.0 | 2026-02-10 | 대규모 리팩토링: routes.py 8개 도메인 라우터 분리, service.py 파사드+모듈 분리, LabPanel/AnalysisPanel 컴포넌트 분리, 보안 강화(프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL), CSS 변수 리네이밍, 접근성 개선 |
 | 7.6.0 | 2026-02-10 | README 체계화: 루트(프로젝트 개요) / 백엔드(기술 상세) / 프론트엔드(UI 상세) 역할 분리 |
 | 7.5.0 | 2026-02-10 | README 전면 리뉴얼: 백엔드/프론트엔드/루트 README 코드 기준 정확성 검증 |

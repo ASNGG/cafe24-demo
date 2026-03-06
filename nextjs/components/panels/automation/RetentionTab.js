@@ -1,6 +1,6 @@
 // components/panels/automation/RetentionTab.js
 // M68: AutomationPanel 분리 - 탭 1: 셀러 이탈 방지 자동 조치
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
 import {
@@ -110,6 +110,8 @@ export default function RetentionTab({ auth, apiCall }) {
   const [currentStep, setCurrentStep] = useState(null);
   const [selectedSellers, setSelectedSellers] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const messageRef = useRef(null);
+  const historyRef = useRef(null);
 
   const fetchAtRisk = useCallback(async () => {
     setLoading(true);
@@ -164,6 +166,7 @@ export default function RetentionTab({ auth, apiCall }) {
         setMessage(res);
         setPipelineStatus(prev => ({ ...prev, generate: { status: 'complete', detail: '메시지 생성됨' } }));
         setCurrentStep(null);
+        setTimeout(() => messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
       } else {
         toast.error(res?.detail || '메시지 생성 실패');
       }
@@ -237,6 +240,7 @@ export default function RetentionTab({ auth, apiCall }) {
       if (res?.status === 'success') {
         setHistory(res.history || []);
         setShowHistory(true);
+        setTimeout(() => historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
       }
     } catch (e) {
       toast.error('이력 조회 실패');
@@ -288,6 +292,25 @@ export default function RetentionTab({ auth, apiCall }) {
         </div>
       </div>
 
+      {showHistory && history.length > 0 && (
+        <div ref={historyRef} className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-bold text-gray-700">조치 이력</h4>
+            <button onClick={() => setShowHistory(false)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
+          </div>
+          <div className="space-y-1.5 max-h-60 overflow-y-auto">
+            {history.map((h, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-1.5">
+                <CheckCircle2 size={12} className="text-green-500" />
+                <span className="text-gray-500 w-24">{new Date(h.timestamp * 1000).toLocaleString('ko-KR')}</span>
+                <span className="font-semibold text-gray-700">{h.seller_id || h.target_id}</span>
+                <span className="text-gray-500">{h.action_type}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <PipelineFlow steps={RETENTION_STEPS} stepStatuses={pipelineStatus} currentStep={currentStep} />
 
       {sellers.length > 0 && (
@@ -319,90 +342,72 @@ export default function RetentionTab({ auth, apiCall }) {
           )}
           <div className="space-y-2">
             {sellers.map((s, i) => (
-              <SellerCard
-                key={s.seller_id || i}
-                s={s}
-                i={i}
-                isSelected={selectedSeller === s.seller_id}
-                isChecked={selectedSellers.has(s.seller_id)}
-                msgLoading={msgLoading}
-                onSelect={setSelectedSeller}
-                onToggleCheck={(sellerId) => {
-                  setSelectedSellers(prev => {
-                    const next = new Set(prev);
-                    if (next.has(sellerId)) next.delete(sellerId);
-                    else next.add(sellerId);
-                    return next;
-                  });
-                }}
-                onGenerateMessage={generateMessage}
-                riskColor={riskColor}
-              />
+              <React.Fragment key={s.seller_id || i}>
+                <SellerCard
+                  s={s}
+                  i={i}
+                  isSelected={selectedSeller === s.seller_id}
+                  isChecked={selectedSellers.has(s.seller_id)}
+                  msgLoading={msgLoading}
+                  onSelect={setSelectedSeller}
+                  onToggleCheck={(sellerId) => {
+                    setSelectedSellers(prev => {
+                      const next = new Set(prev);
+                      if (next.has(sellerId)) next.delete(sellerId);
+                      else next.add(sellerId);
+                      return next;
+                    });
+                  }}
+                  onGenerateMessage={generateMessage}
+                  riskColor={riskColor}
+                />
+                {message && selectedSeller === s.seller_id && (
+                  <div ref={messageRef} className="rounded-xl border border-cafe24-yellow/50 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 ml-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MessageSquare className="text-cafe24-orange" size={18} />
+                      <h4 className="text-sm font-bold text-gray-800">
+                        {message.seller_id} 리텐션 메시지
+                      </h4>
+                      {message.urgency && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          message.urgency === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {message.urgency === 'high' ? '긴급' : '보통'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
+                      <ReactMarkdown>{message.message || ''}</ReactMarkdown>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {ACTION_TYPES.map(act => {
+                        const ActIcon = act.icon;
+                        return (
+                          <button
+                            key={act.key}
+                            onClick={() => executeAction(message.seller_id, act.key)}
+                            disabled={execLoading}
+                            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-cafe24-yellow hover:bg-cafe24-yellow/10 disabled:opacity-50 transition-all"
+                          >
+                            {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
+                            {act.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {message.recommended_actions && message.recommended_actions.length > 0 && (
+                      <div className="mt-3 text-[10px] text-gray-500">
+                        AI 추천: {message.recommended_actions.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
       )}
 
-      {message && (
-        <div className="rounded-2xl border border-cafe24-yellow/50 bg-gradient-to-r from-yellow-50 to-orange-50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <MessageSquare className="text-cafe24-orange" size={18} />
-            <h4 className="text-sm font-bold text-gray-800">
-              {message.seller_id} 리텐션 메시지
-            </h4>
-            {message.urgency && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                message.urgency === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {message.urgency === 'high' ? '긴급' : '보통'}
-              </span>
-            )}
-          </div>
-          <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
-            <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {ACTION_TYPES.map(act => {
-              const ActIcon = act.icon;
-              return (
-                <button
-                  key={act.key}
-                  onClick={() => executeAction(message.seller_id, act.key)}
-                  disabled={execLoading}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-cafe24-yellow hover:bg-cafe24-yellow/10 disabled:opacity-50 transition-all"
-                >
-                  {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
-                  {act.label}
-                </button>
-              );
-            })}
-          </div>
-          {message.recommended_actions && message.recommended_actions.length > 0 && (
-            <div className="mt-3 text-[10px] text-gray-500">
-              AI 추천: {message.recommended_actions.join(', ')}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showHistory && history.length > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-gray-700">조치 이력</h4>
-            <button onClick={() => setShowHistory(false)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
-          </div>
-          <div className="space-y-1.5 max-h-60 overflow-y-auto">
-            {history.map((h, i) => (
-              <div key={i} className="flex items-center gap-3 text-xs border-b border-gray-100 pb-1.5">
-                <CheckCircle2 size={12} className="text-green-500" />
-                <span className="text-gray-500 w-24">{new Date(h.timestamp * 1000).toLocaleString('ko-KR')}</span>
-                <span className="font-semibold text-gray-700">{h.seller_id || h.target_id}</span>
-                <span className="text-gray-500">{h.action_type}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

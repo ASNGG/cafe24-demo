@@ -199,7 +199,7 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(103개 REST API)**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(106개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
 - **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유) + 서브에이전트 오케스트레이션(6종 파이프라인, 최대 5단계, 29개 스텝 설정) 포함 (🚧 개발중)
@@ -225,7 +225,7 @@ flowchart TB
     end
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
-        ROUTES["api/ 도메인별 라우터 9개<br/>(103개 엔드포인트)"]
+        ROUTES["api/ 도메인별 라우터 9개<br/>(106개 엔드포인트)"]
         PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
@@ -346,7 +346,7 @@ backend 리팩토링 시작/
 │   ├── routes_rag.py                # RAG/LightRAG/K2RAG API
 │   ├── routes_ml.py                 # ML/MLflow/마케팅 API
 │   ├── routes_guardian.py           # Guardian/보안감시 API
-│   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/FAQ/리포트, 14개 엔드포인트)
+│   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/업그레이드/FAQ/리포트, 17개 엔드포인트)
 │   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 하이브리드 라우팅: 워커 직접/Supervisor 경유, 서브에이전트 모드 분기)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
@@ -386,6 +386,7 @@ backend 리팩토링 시작/
 ├── automation/                      # 자동화 엔진 (탐지→자동실행) + 파이프라인 추적
 │   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
 │   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
+│   ├── upgrade_engine.py            # 셀러 플랜 업그레이드 추천 (규칙 기반 후보 탐지→LLM 메시지→액션 실행)
 │   ├── faq_engine.py                # CS FAQ 자동 생성 (패턴분석→LLM, 카테고리 강제)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
 │
@@ -1904,7 +1905,7 @@ python ml/train_models.py
 | `routes_ml.py` | ML/MLflow/마케팅 | `/api/mlflow/*`, `/api/marketing/*` |
 | `routes_guardian.py` | Guardian/보안감시 | `/api/guardian/*` |
 | `routes_agent.py` | 에이전트/채팅 | `/api/agent/*` |
-| `routes_automation.py` | 자동화 엔진 | `/api/automation/retention/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` |
+| `routes_automation.py` | 자동화 엔진 | `/api/automation/retention/*`, `/api/automation/upgrade/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` |
 | `routes_admin.py` | 관리/설정/사용자 | `/api/settings/*`, `/api/users`, `/api/login` |
 
 ### API 응답 형식
@@ -3346,12 +3347,14 @@ flowchart TD
 flowchart LR
     subgraph Detection["탐지 (기존)"]
         CHURN["이탈 예측<br/>(RandomForest + SHAP)"]
+        PLAN["플랜 성장 탐지<br/>(규칙 기반 임계값)"]
         CS["CS 문의 분류<br/>(TF-IDF + RF)"]
         KPI["KPI 집계<br/>(16개 DataFrame)"]
     end
 
-    subgraph Automation["자동 실행 (신규)"]
+    subgraph Automation["자동 실행 (4종)"]
         RET["retention_engine<br/>리텐션 메시지 생성"]
+        UPG["upgrade_engine<br/>업그레이드 추천"]
         FAQ["faq_engine<br/>FAQ 자동 생성"]
         RPT["report_engine<br/>리포트 자동 작성"]
     end
@@ -3361,6 +3364,7 @@ flowchart LR
     end
 
     CHURN --> RET --> GPT
+    PLAN --> UPG --> GPT
     CS --> FAQ --> GPT
     KPI --> RPT --> GPT
 ```
@@ -3371,10 +3375,33 @@ flowchart LR
 |------|------|----------|
 | `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()`, `create_pipeline_run()`, `update_pipeline_step()`, `get_pipeline_run()` |
 | `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
+| `upgrade_engine.py` | 규칙 기반 후보 탐지 → LLM 추천 메시지 → 업그레이드 실행 | `get_upgrade_candidates()`, `generate_upgrade_message()`, `execute_upgrade()` |
 | `faq_engine.py` | CS 패턴 분석 → LLM FAQ 생성 → 승인 관리 | `analyze_cs_patterns()`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
 
-### 16.3 API 엔드포인트 (17개)
+### 16.2.1 업그레이드 엔진 (`upgrade_engine.py`)
+
+셀러의 매출/주문 데이터를 분석하여 상위 플랜으로의 업그레이드가 적합한 후보를 자동 탐지하고, LLM으로 맞춤 추천 메시지를 생성한 뒤 업그레이드 액션을 실행합니다.
+
+**플랜 티어:**
+
+```
+Basic → Standard → Premium → Enterprise
+```
+
+**업그레이드 임계값:**
+
+| 현재 플랜 | 추천 플랜 | 매출 기준 | 주문수 기준 |
+|-----------|-----------|-----------|------------|
+| Basic | Standard | 500만원 이상 | 100건 이상 |
+| Standard | Premium | 2,000만원 이상 | 500건 이상 |
+| Premium | Enterprise | 5,000만원 이상 | 2,000건 이상 |
+
+**점수 산출:** 매출 60% + 주문수 40% 가중 합산으로 후보 우선순위를 결정합니다.
+
+**처리 흐름:** 규칙 기반 후보 탐지 → 매출/주문 가중 점수 산출 → LLM 맞춤 추천 메시지 생성 → 업그레이드 액션 실행
+
+### 16.3 API 엔드포인트 (20개)
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
@@ -3383,6 +3410,9 @@ flowchart LR
 | POST | `/api/automation/retention/execute` | 자동 조치 실행 (coupon/upgrade/manager/message) |
 | POST | `/api/automation/retention/execute-bulk` | 벌크 조치 실행 (다중 셀러 일괄 처리) |
 | GET | `/api/automation/retention/history` | 리텐션 조치 이력 |
+| GET | `/api/automation/upgrade/candidates` | 업그레이드 후보 셀러 목록 |
+| POST | `/api/automation/upgrade/message` | 맞춤 추천 메시지 생성 |
+| POST | `/api/automation/upgrade/execute` | 업그레이드 조치 실행 |
 | POST | `/api/automation/faq/analyze` | CS 문의 패턴 분석 |
 | POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 (카테고리 필터 + 프롬프트 강제) |
 | GET | `/api/automation/faq/list` | FAQ 목록 (status 필터) |
@@ -3403,6 +3433,7 @@ flowchart LR
 | 엔진 | 파이프라인 스텝 |
 |------|----------------|
 | `retention_engine` | detect → analyze (위험 셀러 탐지) / execute → log (조치 실행) |
+| `upgrade_engine` | scan → score (후보 탐지) / message → execute → log (업그레이드 실행) |
 | `faq_engine` | analyze → select → generate → review → approve |
 | `report_engine` | collect → aggregate → write → save |
 

@@ -20,6 +20,7 @@ from automation import action_logger
 from automation import retention_engine
 from automation import faq_engine
 from automation import report_engine
+from automation.upgrade_engine import get_upgrade_candidates, generate_upgrade_message, execute_upgrade_action
 
 router = APIRouter(prefix="/api/automation", tags=["automation"])
 
@@ -58,6 +59,21 @@ class FaqUpdateRequest(BaseModel):
 class RetentionBulkExecuteRequest(BaseModel):
     seller_ids: List[str]
     action_type: str = Field("custom_message", description="coupon | upgrade_offer | manager_assign | custom_message")
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
+
+class UpgradeMessageRequest(BaseModel):
+    seller_id: str
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
+
+class UpgradeExecuteRequest(BaseModel):
+    seller_id: str
+    action_type: str = Field("upgrade_recommend", description="upgrade_recommend | benefit_info | consultation_request | custom_message")
     api_key: str = Field("", alias="apiKey")
     class Config:
         populate_by_name = True
@@ -344,4 +360,56 @@ def execute_retention_bulk(
         }
     except Exception as e:
         st.logger.error("RETENTION_BULK_ERROR: %s", safe_str(e))
+        raise HTTPException(status_code=500, detail=safe_str(e))
+
+
+# ============================================================
+# 6. 플랜 업그레이드 추천
+# ============================================================
+@router.get("/upgrade/candidates")
+def get_upgrade_candidates_route(
+    limit: int = Query(20, ge=1, le=100),
+    user=Depends(verify_credentials),
+):
+    """업그레이드 후보 셀러 목록 조회"""
+    try:
+        candidates = get_upgrade_candidates(limit=limit)
+        return {"status": "success", "candidates": candidates, "total": len(candidates)}
+    except Exception as e:
+        st.logger.error("UPGRADE_CANDIDATES_ERROR: %s", safe_str(e))
+        raise HTTPException(status_code=500, detail=safe_str(e))
+
+
+@router.post("/upgrade/message")
+def generate_upgrade_message_route(
+    req: UpgradeMessageRequest,
+    user=Depends(verify_credentials),
+):
+    """플랜 업그레이드 추천 메시지 생성"""
+    try:
+        result = generate_upgrade_message(
+            seller_id=req.seller_id,
+            api_key=req.api_key,
+        )
+        return {"status": "success", **result}
+    except Exception as e:
+        st.logger.error("UPGRADE_MESSAGE_ERROR: %s", safe_str(e))
+        raise HTTPException(status_code=500, detail=safe_str(e))
+
+
+@router.post("/upgrade/execute")
+def execute_upgrade_action_route(
+    req: UpgradeExecuteRequest,
+    user=Depends(verify_credentials),
+):
+    """플랜 업그레이드 조치 실행"""
+    try:
+        result = execute_upgrade_action(
+            seller_id=req.seller_id,
+            action_type=req.action_type,
+            api_key=req.api_key,
+        )
+        return {"status": "success", **result}
+    except Exception as e:
+        st.logger.error("UPGRADE_EXECUTE_ERROR: %s", safe_str(e))
         raise HTTPException(status_code=500, detail=safe_str(e))

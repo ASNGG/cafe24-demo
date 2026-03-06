@@ -289,6 +289,7 @@ export default function FaqTab({ auth, apiCall }) {
               <option value="">전체 카테고리</option>
               {CS_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
+            <label className="text-xs text-gray-500">생성 개수:</label>
             <select
               value={genCount}
               onChange={(e) => setGenCount(parseInt(e.target.value))}

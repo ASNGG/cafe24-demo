@@ -46,6 +46,7 @@ class RetentionExecuteRequest(BaseModel):
 class FaqGenerateRequest(BaseModel):
     category: Optional[str] = None
     count: int = Field(5, ge=1, le=20)
+    mode: str = "kmeans"
     api_key: str = Field("", alias="apiKey")
     class Config:
         populate_by_name = True
@@ -156,13 +157,25 @@ def get_retention_history(
 # ============================================================
 # 2. CS FAQ 자동 생성
 # ============================================================
+class FaqAnalyzeRequest(BaseModel):
+    mode: str = "kmeans"  # "kmeans" or "llm"
+    category: Optional[str] = None
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
 @router.post("/faq/analyze")
 def analyze_cs_patterns(
+    req: FaqAnalyzeRequest = FaqAnalyzeRequest(),
     user=Depends(verify_credentials),
 ):
-    """CS 문의 패턴 분석"""
+    """CS 문의 패턴 분석 (mode: kmeans / llm)"""
     try:
-        result = faq_engine.analyze_cs_patterns()
+        result = faq_engine.analyze_cs_patterns(
+            category=req.category,
+            mode=req.mode,
+            api_key=req.api_key,
+        )
         return {"status": "success", **result}
     except Exception as e:
         st.logger.error("FAQ_ANALYZE_ERROR: %s", safe_str(e))
@@ -179,6 +192,7 @@ def generate_faq(
         result = faq_engine.generate_faq_items(
             category=req.category,
             count=req.count,
+            mode=req.mode,
             api_key=req.api_key,
         )
         return {"status": "success", **result}

@@ -2645,7 +2645,7 @@ flowchart TD
 <hr>
 <section class="portfolio-section">
 <h2 id="9-자동화-엔진-이탈방지--업그레이드--faq--리포트">9. 자동화 엔진 (이탈방지 · 업그레이드 · FAQ · 리포트)</h2>
-<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 4종 자동화 엔진. 이탈방지(RF+SHAP → LLM → 4종 조치 + 벌크 실행), 플랜 업그레이드(규칙 기반 탐지 → LLM 추천 메시지 → 4종 액션), FAQ 자동 생성(CS 패턴 분석 → LLM → 승인 워크플로우), 운영 리포트(KPI 집계 → LLM 작성)를 20개 API로 제공하며, Action Logger가 전 조치 이력과 파이프라인 단계를 추적합니다.</p>
+<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 4종 자동화 엔진. 이탈방지(RF+SHAP → LLM → 4종 조치 + 벌크 실행), 플랜 업그레이드(규칙 기반 탐지 → LLM 추천 메시지 → 4종 액션), FAQ 자동 생성(TF-IDF+K-Means / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 워크플로우), 운영 리포트(KPI 집계 → LLM 작성)를 20개 API로 제공하며, Action Logger가 전 조치 이력과 파이프라인 단계를 추적합니다.</p>
 <p>ML 예측 결과를 기반으로 자동 조치까지 수행하는 4종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하고, 각 엔진은 <code>create_pipeline_run</code>으로 단계별 실행 상태를 실시간 추적합니다.</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
@@ -2656,7 +2656,7 @@ flowchart TD
     end
 
     subgraph FAQ["FAQ 자동 생성 엔진"]
-        F1["CS 문의 패턴 분석"] --&gt; F2["LLM FAQ 자동 생성"]
+        F1["TF-IDF · K-Means + PCA&lt;br/&gt;or LLM 의미 분류"] --&gt; F2["클러스터별&lt;br/&gt;LLM FAQ 생성"]
         F2 --&gt; F3["관리자 승인/편집"]
     end
 
@@ -2743,7 +2743,7 @@ flowchart TD
 <li><strong>점수 산정</strong>: 매출 비율(60%) + 주문수 비율(40%) 가중 합산 → 0~100점</li>
 </ul>
 <h3 id="93-cs-faq-자동-생성">9.3 CS FAQ 자동 생성 </h3>
-<p>CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.</p>
+<p>CS 문의 텍스트를 TF-IDF 임베딩 + 실루엣 최적 K-Means 클러스터링 또는 LLM 의미 분류(듀얼 모드)로 그룹핑한 뒤, 클러스터별 대표 질문 기반으로 FAQ를 자동 생성합니다. 관리자가 승인/편집/삭제할 수 있습니다.</p>
 <div class="table-wrapper"><table aria-label="FAQ 파이프라인">
 <thead>
 <tr>
@@ -2755,30 +2755,37 @@ flowchart TD
 <tbody>
 <tr>
 <td style="text-align:center">1. 분석</td>
-<td>CS 문의 카테고리별 빈도 추출 + 상위 패턴 필터링</td>
-<td>CS_STATS_DF 통계 집계</td>
+<td>카테고리별 CS 문의 TF-IDF 벡터화 + 실루엣 최적 K 탐색</td>
+<td>K-Means: TF-IDF + Silhouette + PCA 2D 시각화 / LLM: GPT-4o-mini 의미 분류</td>
 </tr>
 <tr>
-<td style="text-align:center">2. 생성</td>
-<td>패턴 기반 FAQ 자동 생성 (카테고리 제약 조건 명시)</td>
-<td>GPT-4o-mini (온도 0.7) → JSON 배열 파싱</td>
+<td style="text-align:center">2. 클러스터링</td>
+<td>K-Means or LLM 의미 그룹핑 (듀얼 모드)</td>
+<td>scikit-learn K-Means + PCA / GPT-4o-mini</td>
 </tr>
 <tr>
-<td style="text-align:center">3. 검토</td>
+<td style="text-align:center">3. 생성</td>
+<td>클러스터별 대표 질문 기반 FAQ 자동 생성 (클러스터당 1~3개)</td>
+<td>GPT-4o-mini (온도 0.7) → JSON 배열</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 검토</td>
 <td>관리자가 생성된 FAQ 확인 · 편집</td>
-<td>draft 상태로 저장 (uuid 8자 ID)</td>
+<td>draft 상태로 저장</td>
 </tr>
 <tr>
-<td style="text-align:center">4. 승인</td>
+<td style="text-align:center">5. 승인</td>
 <td>FAQ 개별 승인/삭제</td>
 <td>draft → approved 상태 전환</td>
 </tr>
 </tbody>
 </table></div>
 <ul>
+<li><strong>듀얼 모드</strong>: K-Means (TF-IDF + 실루엣 최적 K + PCA 산점도) / LLM (GPT-4o-mini 의미 분류 + 주제 라벨)</li>
+<li><strong>시각화</strong>: Recharts 실루엣 바 차트 + PCA 2D 군집 산점도 (중심점 다이아몬드 표시)</li>
+<li><strong>클러스터당 FAQ</strong>: 생성 개수를 클러스터 수 × 클러스터당 FAQ 수(1~3)로 자동 계산</li>
 <li><strong>9개 카테고리</strong>: 배송, 환불, 결제, 상품, 계정, 정산, 기술지원, 마케팅, 기타</li>
-<li><strong>LLM 프롬프트</strong>: "카페24 CS 전문가" 역할 + 카테고리 제약 조건으로 카테고리 혼입 방지</li>
-<li><strong>액션 로깅</strong>: 생성/승인/수정/삭제 전 이력 기록</li>
+<li><strong>합성 데이터</strong>: cs_tickets.csv 503건 (주제-변형 구조)</li>
 </ul>
 <h3 id="94-운영-리포트-자동-생성">9.4 운영 리포트 자동 생성 </h3>
 <p>6종 데이터소스(GMV/주문/셀러/CS/이상거래/코호트)에서 KPI를 집계하고, LLM이 4단계 구조(핵심지표 → 트렌드 → 이슈 → 권장조치)로 마크다운 리포트를 자동 작성합니다.</p>

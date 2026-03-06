@@ -135,6 +135,9 @@ DAILY_METRICS_DF: Optional[pd.DataFrame] = None
 # CS 문의 통계
 CS_STATS_DF: Optional[pd.DataFrame] = None
 
+# CS 문의 원문 (임베딩/클러스터링용)
+CS_TICKETS_DF: Optional[pd.DataFrame] = None
+
 # 이상거래 상세 데이터
 FRAUD_DETAILS_DF: Optional[pd.DataFrame] = None
 

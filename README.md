@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.2.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,7 +22,16 @@ v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.2.0** (2026-03-05) — Supervisor 멀티에이전트 패턴 + 하이브리드 라우팅
+> **v9.2.1** (2026-03-06) — CS FAQ 클러스터링 고도화 (TF-IDF + K-Means / LLM 듀얼 모드)
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **FAQ 클러스터링 듀얼 모드** | K-Means 모드: TF-IDF 임베딩 + 실루엣 계수 최적 K 자동 탐색 · LLM 모드: GPT-4o-mini 의미 기반 그룹핑 + 주제 라벨 |
+| **합성 CS 데이터** | cs_tickets.csv 503건 (9개 카테고리, 주제-변형 구조) — 클러스터링 품질 검증용 |
+| **FaqTab UI 개선** | K-Means/LLM 듀얼 모드 토글, 카테고리별 아코디언, Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(중심점 다이아몬드), 클러스터당 FAQ 수(1~3) 선택 |
+
+<details>
+<summary><b>v9.2.0</b> (2026-03-05) — Supervisor 멀티에이전트 패턴 + 하이브리드 라우팅</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -31,6 +40,8 @@ v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **하이브리드 라우팅** | 명확한 질문(SHOP/SELLER/CS): 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문(PLATFORM/GENERAL): Supervisor LLM이 판단하여 워커 위임 |
 | **워커 직접 스트리밍** | 워커 에이전트 응답을 직접 SSE 스트리밍 (supervisor 재요약 제거) — `langgraph_checkpoint_ns` 기반 외부 노드 식별 |
 | **응답 속도 개선** | 평균 첫 delta 3.9초, 평균 총시간 7.6초 |
+
+</details>
 
 <details>
 <summary><b>v9.1.0</b> (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)</summary>
@@ -113,7 +124,7 @@ v9.2.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
 | **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) + 서브에이전트 오케스트레이션 (분석→CS확인→전략→발송 자동화) |
 | **플랜 업그레이드** | 수동 셀러 분석, 일괄 안내 | 규칙 기반 후보 탐지 (매출/주문수 임계값) → LLM 맞춤 추천 메시지 → 4종 액션 자동 실행 |
-| **CS FAQ** | 수동 FAQ 작성·관리 | CS 문의 패턴 분석 → LLM FAQ 자동 생성 → 승인 워크플로우 |
+| **CS FAQ** | 수동 FAQ 작성·관리 | TF-IDF + 실루엣 최적 K-Means / LLM 의미 분류 듀얼 클러스터링 → FAQ 자동 생성 → 승인 워크플로우 |
 | **운영 리포트** | 수동 KPI 집계·보고서 작성 | 전체 DF 자동 집계 → LLM 마크다운 리포트 (일간/주간/월간) |
 
 ### 핵심 기술 하이라이트
@@ -679,6 +690,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.2.1 | 2026-03-06 | CS FAQ 클러스터링 고도화: TF-IDF + 실루엣 최적 K-Means + PCA 2D 시각화 / LLM 의미 분류 듀얼 모드, Recharts 실루엣 바 차트 + 군집 산점도, 클러스터당 FAQ 수 자동 계산, cs_tickets.csv 503건 |
 | 9.2.0 | 2026-03-05 | Supervisor 멀티에이전트 패턴: langgraph-supervisor 기반 Supervisor → 전문 워커(search/analysis/cs) 위임, 하이브리드 라우팅(키워드 사전라우팅 + Supervisor fallback), 워커 직접 스트리밍(supervisor 재요약 제거), 평균 첫 delta 3.9초/총시간 7.6초 |
 | 9.1.0 | 2026-03-04 | RAG 검색 품질 근본 개선: 6가설 검증 기반 수정 — garbage filter 한국어 보호, ## 헤더 섹션 분할, bullet 청크 태그/parent 보정, 쿼리 확장 정제, BM25 hybrid 활성화, 소스 매칭 보너스(복합어 분해+가이드 가산), 검색 후보 3배 확대 |
 | 9.0.0 | 2026-03-04 | 전체 코드 속도 최적화: iterrows() 26곳 벡터화(API 10-100x), SHOP_PERF_MAP 캐시 프리빌드, ML 동적 워커+SHAP 배치, LightRAG threading.Event, SSE O(1) 인덱스 캐싱, next.config optimizePackageImports, GET API 캐시(TTL 60s), 패널 로딩 스켈레톤 |

@@ -11,13 +11,21 @@ export const RETENTION_STEPS = [
   { key: 'log', label: '결과 기록', desc: '액션 로깅', icon: FileText },
 ];
 
-export const FAQ_STEPS = [
-  { key: 'analyze', label: '패턴 분석', desc: 'CS 문의 패턴', icon: Search },
-  { key: 'select', label: '카테고리', desc: '카테고리 선정', icon: ClipboardList },
+export const FAQ_STEPS_KMEANS = [
+  { key: 'analyze', label: '분석·클러스터링', desc: 'TF-IDF + K-Means', icon: Search },
   { key: 'generate', label: 'FAQ 생성', desc: 'LLM 자동 생성', icon: Sparkles },
   { key: 'review', label: '검토/편집', desc: '초안 검토', icon: HelpCircle },
   { key: 'approve', label: '승인/배포', desc: 'FAQ 승인', icon: CheckCircle2 },
 ];
+
+export const FAQ_STEPS_LLM = [
+  { key: 'analyze', label: '분석·클러스터링', desc: 'LLM 의미 분류', icon: Search },
+  { key: 'generate', label: 'FAQ 생성', desc: 'LLM 자동 생성', icon: Sparkles },
+  { key: 'review', label: '검토/편집', desc: '초안 검토', icon: HelpCircle },
+  { key: 'approve', label: '승인/배포', desc: 'FAQ 승인', icon: CheckCircle2 },
+];
+
+export const FAQ_STEPS = FAQ_STEPS_KMEANS;
 
 export const REPORT_STEPS = [
   { key: 'collect', label: '데이터 수집', desc: '전체 KPI 수집', icon: Search },

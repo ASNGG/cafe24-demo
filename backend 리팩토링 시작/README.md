@@ -387,7 +387,7 @@ backend 리팩토링 시작/
 │   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
 │   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
 │   ├── upgrade_engine.py            # 셀러 플랜 업그레이드 추천 (규칙 기반 후보 탐지→LLM 메시지→액션 실행)
-│   ├── faq_engine.py                # CS FAQ 자동 생성 (패턴분석→LLM, 카테고리 강제)
+│   ├── faq_engine.py                # CS FAQ 자동 생성 (TF-IDF+K-Means+PCA / LLM 듀얼 클러스터링 → FAQ 생성)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
 │
 ├── process_miner/                   # AI 프로세스 마이너
@@ -3376,7 +3376,7 @@ flowchart LR
 | `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()`, `create_pipeline_run()`, `update_pipeline_step()`, `get_pipeline_run()` |
 | `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
 | `upgrade_engine.py` | 규칙 기반 후보 탐지 → LLM 추천 메시지 → 업그레이드 실행 | `get_upgrade_candidates()`, `generate_upgrade_message()`, `execute_upgrade()` |
-| `faq_engine.py` | CS 패턴 분석 → LLM FAQ 생성 → 승인 관리 | `analyze_cs_patterns()`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
+| `faq_engine.py` | TF-IDF+K-Means+PCA 2D / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 관리 | `analyze_cs_patterns(mode='kmeans'/'llm')`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
 
 ### 16.2.1 업그레이드 엔진 (`upgrade_engine.py`)
@@ -3413,7 +3413,7 @@ Basic → Standard → Premium → Enterprise
 | GET | `/api/automation/upgrade/candidates` | 업그레이드 후보 셀러 목록 |
 | POST | `/api/automation/upgrade/message` | 맞춤 추천 메시지 생성 |
 | POST | `/api/automation/upgrade/execute` | 업그레이드 조치 실행 |
-| POST | `/api/automation/faq/analyze` | CS 문의 패턴 분석 |
+| POST | `/api/automation/faq/analyze` | CS 문의 클러스터링 분석 (mode: kmeans/llm) |
 | POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 (카테고리 필터 + 프롬프트 강제) |
 | GET | `/api/automation/faq/list` | FAQ 목록 (status 필터) |
 | PUT | `/api/automation/faq/{id}/approve` | FAQ 승인 |
@@ -3434,7 +3434,7 @@ Basic → Standard → Premium → Enterprise
 |------|----------------|
 | `retention_engine` | detect → analyze (위험 셀러 탐지) / execute → log (조치 실행) |
 | `upgrade_engine` | scan → score (후보 탐지) / message → execute → log (업그레이드 실행) |
-| `faq_engine` | analyze → select → generate → review → approve |
+| `faq_engine` | analyze (TF-IDF+PCA / LLM) → cluster → generate → review → approve |
 | `report_engine` | collect → aggregate → write → save |
 
 ---

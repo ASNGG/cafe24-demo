@@ -73,6 +73,7 @@ def load_all_data():
         "SHOP_PERFORMANCE_DF": "shop_performance.csv",
         "DAILY_METRICS_DF": "daily_metrics.csv",
         "CS_STATS_DF": "cs_stats.csv",
+        "CS_TICKETS_DF": "cs_tickets.csv",
         "FRAUD_DETAILS_DF": "fraud_details.csv",
         "COHORT_RETENTION_DF": "cohort_retention.csv",
         "CONVERSION_FUNNEL_DF": "conversion_funnel.csv",

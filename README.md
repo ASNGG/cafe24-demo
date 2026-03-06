@@ -14,7 +14,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v9.2.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,13 +22,27 @@ v9.2.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.2.1** (2026-03-06) — CS FAQ 클러스터링 고도화 (TF-IDF + K-Means / LLM 듀얼 모드)
+> **v9.2.2** (2026-03-06) — FAQ 클러스터 선택 기능 + LLM 모드 최적화 + 크래시 버그 수정
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **FAQ 클러스터 선택 기능** | 분석 후 각 클러스터에 체크박스 표시, 원하는 클러스터만 선택하여 FAQ 생성 · 전체 선택/해제 토글 |
+| **FAQ 생성 개수 자동 계산** | 기존 고정 개수 → 선택된 클러스터 수 × 클러스터당(1~3) 자동 계산 |
+| **LLM 모드 카테고리 제한** | 전체 분석 시 건수 상위에서 랜덤 3개만 LLM 호출 (속도 최적화) |
+| **카테고리 변경 시 아코디언 자동 펼침** | 카테고리 변경 시 해당 클러스터 아코디언 자동 펼침 UX 개선 |
+| **FAQ 생성 크래시 버그 수정** | Pydantic 422 에러 + toast.error React 크래시 + Recharts Cell+shape 크래시 해결 |
+| **ChartErrorBoundary** | Recharts 차트 ErrorBoundary 도입으로 차트 렌더링 오류 격리 |
+
+<details>
+<summary><b>v9.2.1</b> (2026-03-06) — CS FAQ 클러스터링 고도화 (TF-IDF + K-Means / LLM 듀얼 모드)</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
 | **FAQ 클러스터링 듀얼 모드** | K-Means 모드: TF-IDF 임베딩 + 실루엣 계수 최적 K 자동 탐색 · LLM 모드: GPT-4o-mini 의미 기반 그룹핑 + 주제 라벨 |
 | **합성 CS 데이터** | cs_tickets.csv 503건 (9개 카테고리, 주제-변형 구조) — 클러스터링 품질 검증용 |
 | **FaqTab UI 개선** | K-Means/LLM 듀얼 모드 토글, 카테고리별 아코디언, Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(중심점 다이아몬드), 클러스터당 FAQ 수(1~3) 선택 |
+
+</details>
 
 <details>
 <summary><b>v9.2.0</b> (2026-03-05) — Supervisor 멀티에이전트 패턴 + 하이브리드 라우팅</summary>
@@ -690,6 +704,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.2.2 | 2026-03-06 | FAQ 클러스터 선택 기능(체크박스+전체 토글), FAQ 생성 개수 자동 계산(선택 클러스터 수 × 1~3), LLM 모드 카테고리 제한(상위 랜덤 3개만 호출), 카테고리 변경 시 아코디언 자동 펼침, FAQ 생성 크래시 버그 3건 수정(Pydantic 422/toast.error/Recharts Cell+shape), ChartErrorBoundary 도입 |
 | 9.2.1 | 2026-03-06 | CS FAQ 클러스터링 고도화: TF-IDF + 실루엣 최적 K-Means + PCA 2D 시각화 / LLM 의미 분류 듀얼 모드, Recharts 실루엣 바 차트 + 군집 산점도, 클러스터당 FAQ 수 자동 계산, cs_tickets.csv 503건 |
 | 9.2.0 | 2026-03-05 | Supervisor 멀티에이전트 패턴: langgraph-supervisor 기반 Supervisor → 전문 워커(search/analysis/cs) 위임, 하이브리드 라우팅(키워드 사전라우팅 + Supervisor fallback), 워커 직접 스트리밍(supervisor 재요약 제거), 평균 첫 delta 3.9초/총시간 7.6초 |
 | 9.1.0 | 2026-03-04 | RAG 검색 품질 근본 개선: 6가설 검증 기반 수정 — garbage filter 한국어 보호, ## 헤더 섹션 분할, bullet 청크 태그/parent 보정, 쿼리 확장 정제, BM25 hybrid 활성화, 소스 매칭 보너스(복합어 분해+가이드 가산), 검색 후보 3배 확대 |

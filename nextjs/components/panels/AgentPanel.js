@@ -52,7 +52,7 @@ const Chip = React.memo(function Chip({ label, onClick }) {
     <button
       className="inline-flex items-center gap-2 rounded-full border-2 border-cafe24-orange/20 bg-white/80 px-3 py-1.5 text-xs font-extrabold text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm transition active:translate-y-[1px] whitespace-nowrap"
       onClick={handleClick}
-      title="클릭하면 질문이 바로 전송됩니다"
+      data-tooltip="클릭하면 질문이 바로 전송됩니다"
       type="button"
     >
       <ShoppingBag size={14} className="text-cafe24-orange" />
@@ -190,7 +190,7 @@ const ChatMessage = React.memo(function ChatMessage({ msg, isNew, username, onCo
             <button
               onClick={() => onCopy(msg.content || '')}
               className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-brown hover:bg-cafe24-beige transition shadow-sm"
-              title="복사"
+              data-tooltip="복사"
             >
               <Copy size={14} />
             </button>
@@ -198,7 +198,7 @@ const ChatMessage = React.memo(function ChatMessage({ msg, isNew, username, onCo
               <button
                 onClick={() => onResend(msg.content || '')}
                 className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
-                title="다시 질문"
+                data-tooltip="다시 질문"
               >
                 <RefreshCcw size={14} />
               </button>
@@ -440,7 +440,7 @@ export default function AgentPanel({
                 toast('중단됨');
               }}
               disabled={!loading}
-              title="스트리밍 중단"
+              data-tooltip="스트리밍 중단"
               type="button"
             >
               중단

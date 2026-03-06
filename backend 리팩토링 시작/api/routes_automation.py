@@ -45,8 +45,10 @@ class RetentionExecuteRequest(BaseModel):
 
 class FaqGenerateRequest(BaseModel):
     category: Optional[str] = None
-    count: int = Field(5, ge=1, le=20)
+    count: int = Field(5, ge=1, le=100)
     mode: str = "kmeans"
+    selected_clusters: Optional[List[dict]] = Field(None, alias="selectedClusters",
+        description="선택된 클러스터 목록 [{category, cluster_id, representative, samples}]")
     api_key: str = Field("", alias="apiKey")
     class Config:
         populate_by_name = True
@@ -194,6 +196,7 @@ def generate_faq(
             count=req.count,
             mode=req.mode,
             api_key=req.api_key,
+            selected_clusters=req.selected_clusters,
         )
         return {"status": "success", **result}
     except Exception as e:

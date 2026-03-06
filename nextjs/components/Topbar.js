@@ -37,7 +37,7 @@ export default React.memo(function Topbar({ username, onOpenSidebar, onLogout })
               type="button"
               onClick={onLogout}
               className="inline-flex items-center gap-2 rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 px-3 py-2 text-xs font-extrabold text-cafe24-brown shadow-sm hover:bg-cafe24-yellow/20 active:translate-y-[1px]"
-              title="로그아웃"
+              data-tooltip="로그아웃"
             >
               <LogOut size={16} />
               로그아웃

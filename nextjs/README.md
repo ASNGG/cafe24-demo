@@ -14,13 +14,14 @@
 
 ## 최신 업데이트
 
-> **v9.1.0** (2026-03-05) — AgentPanel 추천 질문 경량화 + Supervisor 멀티에이전트 연동
+> **v9.2.0** (2026-03-06) — FaqTab 클러스터 선택 UI + 안전 처리 강화
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **AgentPanel 추천 질문** | chips 배열 10개 → 7개로 축소 — 무거운 전체 데이터 처리 질문(이탈 예측, 코호트, KPI 트렌드 등) 제거, 경량 조회/RAG 질문 중심으로 재구성 |
-| **Supervisor 멀티에이전트** | 백엔드 Supervisor 패턴 전환에 따라 `agent_start`/`agent_end` 이벤트에 실제 워커 에이전트 이름 표시 (search_agent, analysis_agent, cs_agent) |
-| **SSE 프로토콜 유지** | 프론트엔드 SSE 7종 이벤트(delta, tool_start, tool_end, done, error, agent_start, agent_end) 동일 유지 — 추가 변경 없음 |
+| **FaqTab 클러스터 선택** | 카테고리별 전체 선택/해제 체크박스 + 개별 클러스터 선택 UI 추가, `selectedClusters` (Set) 상태로 선택/해제 추적, FAQ 생성 버튼에 `(N개)` 예상 생성 개수 표시 |
+| **FaqTab 카테고리 연동** | 카테고리 드롭다운 변경 시 해당 카테고리 아코디언 자동 펼침, `selectedCount` useMemo로 카테고리 필터 연동 FAQ 예상 생성 개수 계산 |
+| **FaqTab 안정성 개선** | `ChartErrorBoundary` (React class component) 추가로 Recharts 차트 ErrorBoundary 적용, `toast.error` Pydantic 422 detail 배열 → 문자열 변환 (React 크래시 방지), Tooltip formatter null safety |
+| **FaqTab 차트 간소화** | Recharts 중심점 Scatter: Cell+shape 조합 제거 → 단순 diamond+고정fill(`#1e293b`)로 변경, `generateFaqs`에서 선택된 클러스터만 `selectedClusters` 필드로 백엔드 전달 |
 
 ---
 
@@ -142,10 +143,11 @@ nextjs/
 │       │   └── common/
 │       │       └── ToolStep.js   # MonitorTab + RecoverTab 공통 도구 단계 표시
 │       │
-│       ├── automation/            # 자동화 엔진 공통 컴포넌트
-│       │   ├── PipelineFlow.js    # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
+│       ├── automation/            # 자동화 엔진 탭 컴포넌트 (4개)
+│       │   ├── RetentionTab.js    # 이탈 방지 탭
 │       │   ├── UpgradeTab.js      # 셀러 플랜 업그레이드 자동 추천
-│       │   └── constants.js       # 파이프라인 스텝 상수 (RETENTION/UPGRADE/FAQ/REPORT_STEPS) + CS 카테고리
+│       │   ├── FaqTab.js          # FAQ 자동 생성 (클러스터 선택 UI + ChartErrorBoundary + selectedClusters Set)
+│       │   └── ReportTab.js       # 운영 리포트 자동 생성
 │       │
 │       ├── lab/                    # LabPanel 분리 (11개 파일)
 │       │   ├── LabPanel.js         # 메인 컨테이너
@@ -870,7 +872,7 @@ flowchart LR
 |-----|------|----------------|------|
 | 1 | **이탈 방지** | 위험탐지 → 이탈분석 → 메시지생성 → 조치실행 → 결과기록 | ML 이탈 예측(threshold 조절) → 셀러 프리뷰 카드(5개 KPI) + 리스크 게이지 → LLM 메시지 → 자동 조치 + 벌크 액션(체크박스 다중 선택) |
 | 2 | **플랜 업그레이드** | 후보탐지 → 사용량분석 → 추천생성 → 메시지발송 → 결과기록 | 플랜 업그레이드 후보 셀러 자동 탐지 → 사용량 기반 상위 플랜 추천 → LLM 개인화 메시지 생성 → 자동 발송 |
-| 3 | **FAQ 자동 생성** | 패턴분석 → K-Means 클러스터링 → FAQ생성 → 검토/편집 → 승인/배포 | K-Means/LLM 듀얼 모드 토글 → 카테고리별 아코디언 → Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(중심점 다이아몬드) → 클러스터당 FAQ(1~3) 생성 → 검색·필터 → 승인/삭제 |
+| 3 | **FAQ 자동 생성** | 패턴분석 → K-Means 클러스터링 → FAQ생성 → 검토/편집 → 승인/배포 | K-Means/LLM 듀얼 모드 토글 → 카테고리별 아코디언(카테고리 드롭다운 변경 시 자동 펼침) → 클러스터 선택 체크박스(전체/개별) → Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(중심점 diamond+고정fill, ChartErrorBoundary) → 선택된 클러스터만 FAQ 생성(버튼에 예상 N개 표시) → 검색·필터 → 승인/삭제 |
 | 4 | **운영 리포트** | 데이터수집 → KPI집계 → 리포트작성 → 결과저장 → 이력관리 | 리포트 유형 선택 → LLM 마크다운 리포트 → KPI 트렌드 표시(↑↓ + WoW 변화율) → 섹션 네비게이션 pill → 이력 조회 |
 
 **내부 컴포넌트:**
@@ -879,7 +881,7 @@ flowchart LR
 |----------|------|
 | `RetentionTab` | 이탈 위험 셀러 탐지 + 셀러 프리뷰(주문수/매출/접속일/환불률/상품수) + 리스크 게이지 바 + LLM 메시지 생성 + 4종 자동 조치 + 벌크 액션 |
 | `UpgradeTab` | 플랜 업그레이드 후보 탐지 + 사용량 기반 상위 플랜 추천 + LLM 개인화 메시지 생성 + 자동 발송 |
-| `FaqTab` | K-Means/LLM 듀얼 모드 토글 + 카테고리별 아코디언(K값·실루엣·클러스터) + Recharts 실루엣 바 차트 + PCA 2D 군집 산점도 + 클러스터당 FAQ(1~3) 생성/검색·필터/승인/삭제 CRUD |
+| `FaqTab` | K-Means/LLM 듀얼 모드 토글 + 카테고리별 아코디언(K값·실루엣·클러스터, 카테고리 드롭다운 연동 자동 펼침) + 클러스터 선택 체크박스(전체/개별, `selectedClusters` Set + `selectedCount` useMemo) + Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(ChartErrorBoundary, 중심점 diamond+고정fill) + FAQ 생성 버튼(예상 N개 표시) + 선택된 클러스터만 백엔드 전달 + toast.error Pydantic 422 안전 처리 + Tooltip null safety + 검색·필터/승인/삭제 CRUD |
 | `ReportTab` | 리포트 생성 + KPI 트렌드 카드 + 마크다운 뷰어 + 섹션 네비게이션 + 생성 이력 |
 | `PipelineFlow` | 공통 파이프라인 시각화 — 5단계 수평 노드 + 상태 애니메이션 + 결과 배지 (`automation/PipelineFlow.js`) |
 
@@ -1757,6 +1759,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |
 | 9.1.0 | 2026-03-05 | AgentPanel 추천 질문 경량화(10개→7개), Supervisor 멀티에이전트 연동(agent_start/agent_end에 워커 에이전트명 표시) |
 | 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/SubAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~29파일): useBaseStream 공통 훅 추출, React.memo 12건, ChatMessage/ToolCalls 추출, remarkPlugins 상수화, _document.js 추가, 보안 강화(CORS/btoa/cache), ExampleQuestionBridge 제거 |
@@ -1774,6 +1777,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 9.1.0** · Last Updated 2026-03-05
+**Version 9.2.0** · Last Updated 2026-03-06
 
 </div>

@@ -4,6 +4,7 @@ automation/faq_engine.py - CS FAQ 자동 생성 엔진
 CS 문의 원문 TF-IDF 임베딩 → 실루엣 계수 최적 K → K-Means 클러스터링 → LLM FAQ 생성
 """
 import json
+import random
 import re
 import uuid
 import time
@@ -277,18 +278,25 @@ def analyze_cs_patterns(
     all_clusters = []
 
     if cat_col:
-        for cat, grp in df.groupby(cat_col):
+        cat_groups = [(str(cat), grp) for cat, grp in df.groupby(cat_col)]
+
+        # LLM 모드: 전체 카테고리 분석 시 최대 3개 랜덤 선택 (속도)
+        if mode == "llm" and len(cat_groups) > 3:
+            cat_groups_sorted = sorted(cat_groups, key=lambda x: len(x[1]), reverse=True)
+            cat_groups = random.sample(cat_groups_sorted[:6], min(3, len(cat_groups_sorted)))
+
+        for cat, grp in cat_groups:
             texts = grp["inquiry_text"].dropna().tolist()
             if len(texts) < 2:
                 continue
             if mode == "llm":
-                result = cluster_fn(texts, category=str(cat), api_key=api_key)
+                result = cluster_fn(texts, category=cat, api_key=api_key)
             else:
                 result = cluster_fn(texts)
             for cl in result["clusters"]:
-                cl["category"] = str(cat)
+                cl["category"] = cat
             cat_result = {
-                "category": str(cat),
+                "category": cat,
                 "count": len(texts),
                 "optimal_k": result["optimal_k"],
                 "silhouette": result["silhouette"],
@@ -361,8 +369,10 @@ def generate_faq_items(
     count: int = 5,
     mode: str = "kmeans",
     api_key: str = "",
+    selected_clusters: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
-    """클러스터링 결과 기반으로 LLM을 사용하여 FAQ를 자동 생성합니다."""
+    """클러스터링 결과 기반으로 LLM을 사용하여 FAQ를 자동 생성합니다.
+    selected_clusters가 주어지면 재분석 없이 해당 클러스터만 사용합니다."""
     run_id = None
     try:
         if category and category not in CS_TICKET_CATEGORIES:
@@ -377,22 +387,32 @@ def generate_faq_items(
             return {"generated_count": 0, "faqs": [], "error": "API 키가 설정되지 않았습니다."}
 
         run_id = create_pipeline_run("faq", ["analyze", "generate", "review", "approve"])
-        update_pipeline_step(run_id, "analyze", "processing")
 
-        patterns = analyze_cs_patterns(category=category, top_n=count * 2, mode=mode, api_key=api_key)
-        clusters = patterns.get("clusters", [])
-        method = patterns.get("method", "no_data")
-        cat_results = patterns.get("category_results", [])
+        # 선택된 클러스터가 있으면 재분석 생략
+        if selected_clusters:
+            clusters = selected_clusters
+            method = mode
+            update_pipeline_step(run_id, "analyze", "complete", {
+                "method": method,
+                "clusters": len(clusters),
+                "category": category or "all",
+                "note": "사용자 선택 클러스터",
+            })
+        else:
+            update_pipeline_step(run_id, "analyze", "processing")
+            patterns = analyze_cs_patterns(category=category, top_n=count * 2, mode=mode, api_key=api_key)
+            clusters = patterns.get("clusters", [])
+            method = patterns.get("method", "no_data")
 
-        update_pipeline_step(run_id, "analyze", "complete", {
-            "method": method,
-            "total": patterns.get("total_inquiries", 0),
-            "clusters": len(clusters),
-            "category": category or "all",
-        })
+            update_pipeline_step(run_id, "analyze", "complete", {
+                "method": method,
+                "total": patterns.get("total_inquiries", 0),
+                "clusters": len(clusters),
+                "category": category or "all",
+            })
 
-        if not clusters and not patterns.get("categories"):
-            return {"generated_count": 0, "faqs": [], "warning": "분석할 CS 문의 데이터가 없습니다."}
+            if not clusters and not patterns.get("categories"):
+                return {"generated_count": 0, "faqs": [], "warning": "분석할 CS 문의 데이터가 없습니다."}
 
         update_pipeline_step(run_id, "generate", "processing")
 
@@ -400,11 +420,11 @@ def generate_faq_items(
         if clusters:
             cluster_text = ""
             for i, cl in enumerate(clusters[:count], 1):
-                samples = "\n    ".join(cl["samples"][:3])
+                samples = "\n    ".join((cl.get("samples") or [])[:3])
                 cat_label = f" [{cl['category']}]" if cl.get("category") else ""
                 cluster_text += (
-                    f"\n클러스터 {i}{cat_label} ({cl['size']}건):\n"
-                    f"  대표 질문: {cl['representative']}\n"
+                    f"\n클러스터 {i}{cat_label} ({cl.get('size', 0)}건):\n"
+                    f"  대표 질문: {cl.get('representative', '')}\n"
                     f"  유사 질문 예시:\n    {samples}\n"
                 )
 

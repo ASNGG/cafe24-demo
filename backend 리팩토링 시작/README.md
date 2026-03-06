@@ -18,7 +18,7 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.2.0** (2026-03-05) — Supervisor 멀티에이전트 + 하이브리드 라우팅 도입
+> **v9.2.0** (2026-03-06) — Supervisor 멀티에이전트 + 하이브리드 라우팅 + FAQ 생성 개선
 
 #### Supervisor 멀티에이전트 패턴 (agent/multi_agent.py)
 
@@ -48,6 +48,14 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | **워커 직접 스트리밍** | 워커 에이전트 응답을 delta로 직접 전달 (supervisor 재요약 제거) |
 | **agent_end 감지** | `on_chat_model_start` + `outer_node == "supervisor"` 조건으로 워커 완료 판단 |
 | **handoff 이벤트 변환** | `transfer_to_*` 도구 호출 → `agent_start` SSE 이벤트로 자동 변환 |
+
+#### FAQ 자동 생성 개선 (automation/faq_engine.py, api/routes_automation.py)
+
+| 변경 | 상세 |
+|------|------|
+| **`selected_clusters` 파라미터** | `generate_faq_items(selected_clusters=...)` — 프론트에서 선택된 클러스터를 직접 전달하면 재분석 없이 바로 LLM FAQ 생성 |
+| **LLM 모드 카테고리 제한** | 전체 카테고리 분석 시 건수 상위 6개 중 최대 3개만 랜덤 선택 (`random.sample`) — 속도 최적화 |
+| **`FaqGenerateRequest` 확장** | `selected_clusters` 필드 추가 (alias: `selectedClusters`), `count` 상한 `le=20` → `le=100`으로 변경 |
 
 <details>
 <summary><b>v9.1.0</b> (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)</summary>
@@ -387,7 +395,7 @@ backend 리팩토링 시작/
 │   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
 │   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
 │   ├── upgrade_engine.py            # 셀러 플랜 업그레이드 추천 (규칙 기반 후보 탐지→LLM 메시지→액션 실행)
-│   ├── faq_engine.py                # CS FAQ 자동 생성 (TF-IDF+K-Means+PCA / LLM 듀얼 클러스터링 → FAQ 생성)
+│   ├── faq_engine.py                # CS FAQ 자동 생성 (TF-IDF+K-Means+PCA / LLM 듀얼 클러스터링 → FAQ 생성, 선택 클러스터 직접 전달 지원)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
 │
 ├── process_miner/                   # AI 프로세스 마이너
@@ -3376,7 +3384,7 @@ flowchart LR
 | `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()`, `create_pipeline_run()`, `update_pipeline_step()`, `get_pipeline_run()` |
 | `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
 | `upgrade_engine.py` | 규칙 기반 후보 탐지 → LLM 추천 메시지 → 업그레이드 실행 | `get_upgrade_candidates()`, `generate_upgrade_message()`, `execute_upgrade()` |
-| `faq_engine.py` | TF-IDF+K-Means+PCA 2D / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 관리 | `analyze_cs_patterns(mode='kmeans'/'llm')`, `generate_faq_items()`, `approve_faq()`, `list_faqs()` |
+| `faq_engine.py` | TF-IDF+K-Means+PCA 2D / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 관리. LLM 모드 전체 분석 시 건수 상위 6개 중 3개 카테고리 랜덤 선택 (속도 최적화) | `analyze_cs_patterns(mode='kmeans'/'llm')`, `generate_faq_items(selected_clusters=...)`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
 
 ### 16.2.1 업그레이드 엔진 (`upgrade_engine.py`)
@@ -3414,7 +3422,7 @@ Basic → Standard → Premium → Enterprise
 | POST | `/api/automation/upgrade/message` | 맞춤 추천 메시지 생성 |
 | POST | `/api/automation/upgrade/execute` | 업그레이드 조치 실행 |
 | POST | `/api/automation/faq/analyze` | CS 문의 클러스터링 분석 (mode: kmeans/llm) |
-| POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 (카테고리 필터 + 프롬프트 강제) |
+| POST | `/api/automation/faq/generate` | LLM FAQ 자동 생성 (카테고리 필터 + 프롬프트 강제, `selectedClusters` 전달 시 재분석 생략, count 상한 100) |
 | GET | `/api/automation/faq/list` | FAQ 목록 (status 필터) |
 | PUT | `/api/automation/faq/{id}/approve` | FAQ 승인 |
 | PUT | `/api/automation/faq/{id}` | FAQ 수정 |
@@ -3434,13 +3442,13 @@ Basic → Standard → Premium → Enterprise
 |------|----------------|
 | `retention_engine` | detect → analyze (위험 셀러 탐지) / execute → log (조치 실행) |
 | `upgrade_engine` | scan → score (후보 탐지) / message → execute → log (업그레이드 실행) |
-| `faq_engine` | analyze (TF-IDF+PCA / LLM) → cluster → generate → review → approve |
+| `faq_engine` | analyze (TF-IDF+PCA / LLM, 또는 `selected_clusters` 전달 시 생략) → generate → review → approve |
 | `report_engine` | collect → aggregate → write → save |
 
 ---
 
 <div align="center">
 
-**Version 9.0.0** | 2026-03-04
+**Version 9.2.0** | 2026-03-06
 
 </div>

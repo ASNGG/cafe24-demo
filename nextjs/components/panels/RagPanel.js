@@ -250,9 +250,9 @@ export default function RagPanel({ auth, apiCall, addLog, settings, setSettings 
           <div className="mt-4">
             <button
               disabled
-              className="w-full rounded-2xl border border-cafe24-brown/20 bg-cafe24-brown/10 px-4 py-2.5 text-sm font-black text-cafe24-brown/40 cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full rounded-2xl border border-cafe24-brown/20 bg-cafe24-brown/10 px-4 py-2.5 text-sm font-black text-cafe24-brown/40 cursor-not-allowed flex items-center justify-center gap-2 data-tooltip-wrap"
               type="button"
-              title="프로덕션 환경에서 비활성화됨 (LLM API 비용 발생)"
+              data-tooltip="프로덕션 환경에서 비활성화됨 (LLM API 비용 발생)"
             >
               <RefreshCw size={16} />
               인덱스 재빌드 (비활성화)

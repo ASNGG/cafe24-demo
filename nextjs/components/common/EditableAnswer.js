@@ -77,7 +77,7 @@ export default function EditableAnswer({
         <button
           onClick={(e) => { e.stopPropagation(); startEdit(); }}
           className="absolute top-1 right-1 p-1 rounded bg-white/80 border border-gray-200 opacity-0 group-hover/editable:opacity-100 transition-opacity hover:bg-gray-50"
-          title="답변 수정"
+          data-tooltip="답변 수정"
         >
           <Edit3 className="w-3 h-3 text-gray-500" />
         </button>

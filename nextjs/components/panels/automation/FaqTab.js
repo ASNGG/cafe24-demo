@@ -1,6 +1,6 @@
 // components/panels/automation/FaqTab.js
 // CS FAQ 자동 생성 — TF-IDF + 실루엣 최적 K + K-Means / LLM 듀얼 클러스터링
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, Component } from 'react';
 import toast from 'react-hot-toast';
 import {
   Zap, Loader2, RefreshCw, Trash2, Edit3,
@@ -12,6 +12,15 @@ import {
 } from 'recharts';
 import PipelineFlow from '@/components/automation/PipelineFlow';
 import { FAQ_STEPS_KMEANS, FAQ_STEPS_LLM, CS_CATEGORIES } from '@/components/automation/constants';
+
+class ChartErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) return <div className="text-xs text-gray-400 p-2 text-center">차트 렌더링 중 오류가 발생했습니다.</div>;
+    return this.props.children;
+  }
+}
 
 function FaqList({ faqs, faqSearch, setFaqSearch, faqStatusFilter, setFaqStatusFilter, faqCategoryFilter, setFaqCategoryFilter, approveFaq, startEdit, deleteFaq }) {
   const filteredFaqs = useMemo(() => faqs.filter(f => {
@@ -73,14 +82,14 @@ function FaqList({ faqs, faqSearch, setFaqSearch, faqStatusFilter, setFaqStatusF
               </div>
               <div className="flex gap-1 ml-2">
                 {faq.status !== 'approved' && (
-                  <button onClick={() => approveFaq(faq.id)} className="p-1 rounded hover:bg-green-100 text-green-600" title="승인">
+                  <button onClick={() => approveFaq(faq.id)} className="p-1 rounded hover:bg-green-100 text-green-600" data-tooltip="승인">
                     <ThumbsUp size={14} />
                   </button>
                 )}
-                <button onClick={() => startEdit(faq)} className="p-1 rounded hover:bg-blue-100 text-blue-600" title="수정">
+                <button onClick={() => startEdit(faq)} className="p-1 rounded hover:bg-blue-100 text-blue-600" data-tooltip="수정">
                   <Edit3 size={14} />
                 </button>
-                <button onClick={() => deleteFaq(faq.id)} className="p-1 rounded hover:bg-red-100 text-red-600" title="삭제">
+                <button onClick={() => deleteFaq(faq.id)} className="p-1 rounded hover:bg-red-100 text-red-600" data-tooltip="삭제">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -128,8 +137,42 @@ export default function FaqTab({ auth, apiCall }) {
   const [faqCategoryFilter, setFaqCategoryFilter] = useState('');
   const [expandedCats, setExpandedCats] = useState({});
   const [analyzeMode, setAnalyzeMode] = useState('kmeans'); // 'kmeans' | 'llm'
+  const [selectedClusters, setSelectedClusters] = useState(new Set()); // "카테고리:cluster_id"
+  const [faqCategories, setFaqCategories] = useState([]); // FAQ 생성 가능 카테고리 (최대 3개)
+
+  // 현재 카테고리 필터에 맞는 선택된 클러스터 수
+  const selectedCount = useMemo(() => {
+    if (!patterns) return 0;
+    let count = 0;
+    (patterns.category_results || []).forEach(cr => {
+      if (genCategory && cr.category !== genCategory) return;
+      (cr.clusters || []).forEach(cl => {
+        if (selectedClusters.has(`${cr.category}:${cl.cluster_id}`)) count++;
+      });
+    });
+    return count;
+  }, [patterns, selectedClusters, genCategory]);
 
   const toggleCat = (cat) => setExpandedCats(prev => ({ ...prev, [cat]: !prev[cat] }));
+
+  const toggleCluster = (cat, clusterId) => {
+    const key = `${cat}:${clusterId}`;
+    setSelectedClusters(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllClusters = (cat, clusters) => {
+    setSelectedClusters(prev => {
+      const next = new Set(prev);
+      const keys = clusters.map(cl => `${cat}:${cl.cluster_id}`);
+      const allSelected = keys.every(k => next.has(k));
+      keys.forEach(k => allSelected ? next.delete(k) : next.add(k));
+      return next;
+    });
+  };
 
   const analyzePatterns = useCallback(async () => {
     setAnalyzing(true);
@@ -145,9 +188,31 @@ export default function FaqTab({ auth, apiCall }) {
       });
       if (res?.status === 'success') {
         setPatterns(res);
-        // 첫 번째 카테고리 자동 펼치기
+        // 전체 클러스터 자동 선택 + 첫 번째 카테고리 펼치기
+        // FAQ 생성 가능 카테고리: 최대 3개 랜덤 선택 (LLM 비용)
+        const analyzedCats = (res.category_results || []).map(cr => cr.category);
+        let faqCats;
+        if (analyzedCats.length <= 3) {
+          faqCats = analyzedCats;
+        } else {
+          const shuffled = [...analyzedCats].sort(() => Math.random() - 0.5);
+          faqCats = shuffled.slice(0, 3);
+        }
+        setFaqCategories(faqCats);
+
+        // FAQ 가능 카테고리의 클러스터만 자동 선택
+        const allKeys = new Set();
+        (res.category_results || []).forEach(cr => {
+          if (!faqCats.includes(cr.category)) return;
+          (cr.clusters || []).forEach(cl => allKeys.add(`${cr.category}:${cl.cluster_id}`));
+        });
+        setSelectedClusters(allKeys);
+        if (genCategory && !faqCats.includes(genCategory)) {
+          setGenCategory('');
+        }
         if (res.category_results?.length > 0) {
-          setExpandedCats({ [res.category_results[0].category]: true });
+          const firstFaq = res.category_results.find(cr => faqCats.includes(cr.category));
+          setExpandedCats({ [(firstFaq || res.category_results[0]).category]: true });
         }
         toast.success(`CS 패턴 분석 완료 (${res.method === 'clustering' ? '클러스터링' : 'fallback'})`);
         setPipelineStatus(prev => ({
@@ -156,7 +221,7 @@ export default function FaqTab({ auth, apiCall }) {
         }));
         setCurrentStep(null);
       } else {
-        toast.error(res?.detail || '분석 실패');
+        toast.error(typeof res?.detail === 'string' ? res.detail : '분석 실패');
         setPipelineStatus(prev => ({ ...prev, analyze: { status: 'error' } }));
       }
     } catch (e) {
@@ -184,9 +249,21 @@ export default function FaqTab({ auth, apiCall }) {
       toast.error('CS 패턴 분석을 먼저 실행해주세요');
       return;
     }
-    // 클러스터 수 × 클러스터당 FAQ 수 = 총 생성 개수
-    const totalK = patterns.category_results?.reduce((sum, cr) => sum + (cr.optimal_k || 0), 0) || 5;
-    const count = totalK * perCluster;
+    // 선택된 클러스터만 추출 (카테고리 필터 적용)
+    const selClusters = [];
+    (patterns.category_results || []).forEach(cr => {
+      if (genCategory && cr.category !== genCategory) return;
+      (cr.clusters || []).forEach(cl => {
+        if (selectedClusters.has(`${cr.category}:${cl.cluster_id}`)) {
+          selClusters.push({ ...cl, category: cr.category });
+        }
+      });
+    });
+    if (selClusters.length === 0) {
+      toast.error('FAQ를 생성할 클러스터를 선택해주세요');
+      return;
+    }
+    const count = selClusters.length * perCluster;
     setGenerating(true);
     setPipelineStatus(prev => ({ ...prev, generate: { status: 'processing' } }));
     setCurrentStep('generate');
@@ -194,7 +271,12 @@ export default function FaqTab({ auth, apiCall }) {
       const res = await apiCall({
         endpoint: '/api/automation/faq/generate',
         auth, method: 'POST',
-        data: { category: genCategory || null, count, mode: analyzeMode },
+        data: {
+          category: genCategory || null,
+          count,
+          mode: analyzeMode,
+          selectedClusters: selClusters,
+        },
         timeoutMs: analyzeMode === 'llm' ? 120000 : 60000,
       });
       if (res?.status === 'success') {
@@ -207,14 +289,14 @@ export default function FaqTab({ auth, apiCall }) {
         setCurrentStep(null);
         loadFaqs();
       } else {
-        toast.error(res?.detail || 'FAQ 생성 실패');
+        toast.error(typeof res?.detail === 'string' ? res.detail : 'FAQ 생성 실패');
       }
     } catch (e) {
       toast.error('FAQ 생성 실패');
     } finally {
       setGenerating(false);
     }
-  }, [apiCall, auth, genCategory, perCluster, patterns, loadFaqs]);
+  }, [apiCall, auth, genCategory, perCluster, patterns, loadFaqs, analyzeMode, selectedClusters]);
 
   const approveFaq = useCallback(async (faqId) => {
     try {
@@ -278,20 +360,27 @@ export default function FaqTab({ auth, apiCall }) {
             CS 패턴 분석
           </button>
           <div className="flex items-center gap-2">
-            <select value={genCategory} onChange={(e) => setGenCategory(e.target.value)}
+            <select value={genCategory} onChange={(e) => {
+                setGenCategory(e.target.value);
+                if (e.target.value && patterns) {
+                  setExpandedCats(prev => ({ ...prev, [e.target.value]: true }));
+                }
+              }}
               className="rounded-lg border border-gray-200 px-2 py-1 text-xs">
               <option value="">전체 카테고리</option>
-              {CS_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              {(faqCategories.length > 0 ? faqCategories : CS_CATEGORIES).map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </select>
             <label className="text-xs text-gray-500">클러스터당:</label>
-            <select value={perCluster} onChange={(e) => setPerCluster(parseInt(e.target.value))}
-              className="rounded-lg border border-gray-200 px-2 py-1 text-xs">
-              {[1, 2, 3].map(n => <option key={n} value={n}>{n}개</option>)}
-            </select>
+            <span data-tooltip="LLM 비용 문제로 클러스터당 1개 고정" className="data-tooltip-wrap">
+              <select value={1} disabled
+                className="rounded-lg border border-gray-200 px-2 py-1 text-xs opacity-50 cursor-not-allowed">
+                <option value={1}>1개</option>
+              </select>
+            </span>
             <button onClick={generateFaqs} disabled={generating}
               className="flex items-center gap-1.5 rounded-lg bg-cafe24-yellow px-3 py-1.5 text-xs font-semibold text-cafe24-brown hover:bg-cafe24-orange hover:text-white disabled:opacity-50">
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-              FAQ 생성
+              FAQ 생성{selectedCount > 0 ? ` (${selectedCount * perCluster}개)` : ''}
             </button>
           </div>
           <button onClick={loadFaqs} disabled={faqsLoading}
@@ -328,13 +417,20 @@ export default function FaqTab({ auth, apiCall }) {
             <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-1.5 mb-4">
               {patterns.categories.map((cat, i) => {
                 const catResult = (patterns.category_results || []).find(cr => cr.category === cat.category);
+                const analyzed = !!catResult;
+                const faqEnabled = faqCategories.includes(cat.category);
+                const tooltipText = !analyzed ? 'LLM 비용 문제로 미분류' : !faqEnabled ? 'LLM 비용 문제로 FAQ 비활성' : '';
                 return (
-                  <button key={i} onClick={() => toggleCat(cat.category)}
-                    className={`rounded-lg p-2 border text-left transition-all hover:shadow-sm ${
-                      expandedCats[cat.category] ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-blue-100 bg-white'
+                  <div key={i} className="relative group">
+                  <button onClick={() => analyzed && toggleCat(cat.category)}
+                    disabled={!analyzed}
+                    className={`w-full rounded-lg p-2 border text-left transition-all ${
+                      !analyzed ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed' :
+                      !faqEnabled ? 'border-gray-200 bg-gray-50/50 opacity-60' :
+                      expandedCats[cat.category] ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200' : 'border-blue-100 bg-white hover:shadow-sm'
                     }`}>
                     <div className="text-[10px] text-gray-500 truncate">{cat.category}</div>
-                    <div className="text-sm font-bold text-gray-800">{cat.count}</div>
+                    <div className={`text-sm font-bold ${analyzed ? 'text-gray-800' : 'text-gray-400'}`}>{cat.count}</div>
                     {catResult && (
                       <div className="flex items-center gap-1 mt-0.5">
                         {patterns.method === 'llm' ? (
@@ -350,6 +446,13 @@ export default function FaqTab({ auth, apiCall }) {
                       </div>
                     )}
                   </button>
+                  {tooltipText && (
+                    <div className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-lg bg-gray-800 text-white text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-lg">
+                      {tooltipText}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>
@@ -394,6 +497,7 @@ export default function FaqTab({ auth, apiCall }) {
                 <div className="px-3 pb-3 space-y-3">
                   {/* K-Means 차트 영역 */}
                   {patterns.method !== 'llm' && (
+                    <ChartErrorBoundary>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {/* 실루엣 점수 바 차트 */}
                       {cr.scores && cr.scores.length > 1 && (
@@ -404,7 +508,7 @@ export default function FaqTab({ auth, apiCall }) {
                               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                               <XAxis dataKey="k" tick={{ fontSize: 10 }} tickFormatter={(v) => `K=${v}`} />
                               <YAxis tick={{ fontSize: 10 }} domain={[0, 'auto']} />
-                              <Tooltip formatter={(v) => v.toFixed(4)} labelFormatter={(v) => `K=${v}`} />
+                              <Tooltip formatter={(v) => typeof v === 'number' ? v.toFixed(4) : String(v ?? '')} labelFormatter={(v) => `K=${v}`} />
                               <Bar dataKey="silhouette" radius={[4, 4, 0, 0]}>
                                 {cr.scores.map((s, i) => (
                                   <Cell key={i} fill={s.k === cr.optimal_k ? '#3b82f6' : '#d1d5db'} />
@@ -435,18 +539,20 @@ export default function FaqTab({ auth, apiCall }) {
                                 );
                               }} />
                               {/* 문의 포인트 */}
-                              <Scatter data={cr.points} shape="circle">
+                              <Scatter data={cr.points} fill="#94a3b8">
                                 {cr.points.map((p, i) => (
-                                  <Cell key={i} fill={CLUSTER_COLORS[p.cluster % CLUSTER_COLORS.length]} fillOpacity={0.6} r={3} />
+                                  <Cell key={i} fill={CLUSTER_COLORS[(p.cluster ?? 0) % CLUSTER_COLORS.length]} fillOpacity={0.6} />
                                 ))}
                               </Scatter>
                               {/* 중심점 */}
-                              {cr.centroids && (
-                                <Scatter data={cr.centroids.map(c => ({ ...c, isCentroid: true, text: `중심점 ${c.cluster}` }))} shape="diamond">
-                                  {cr.centroids.map((c, i) => (
-                                    <Cell key={i} fill={CLUSTER_COLORS[c.cluster % CLUSTER_COLORS.length]} stroke="#000" strokeWidth={1} r={6} />
-                                  ))}
-                                </Scatter>
+                              {cr.centroids && cr.centroids.length > 0 && (
+                                <Scatter
+                                  data={cr.centroids.map(c => ({ ...c, isCentroid: true, text: `중심점 ${c.cluster}` }))}
+                                  shape="diamond"
+                                  fill="#1e293b"
+                                  strokeWidth={2}
+                                  stroke="#fff"
+                                />
                               )}
                             </ScatterChart>
                           </ResponsiveContainer>
@@ -461,12 +567,43 @@ export default function FaqTab({ auth, apiCall }) {
                         </div>
                       )}
                     </div>
+                    </ChartErrorBoundary>
                   )}
 
-                  {/* 클러스터 목록 */}
-                  {(cr.clusters || []).map((cl, cli) => (
-                    <div key={cli} className="rounded-lg border border-gray-100 bg-gray-50/50 p-2.5">
+                  {/* 클러스터 목록 — 선택 체크박스 */}
+                  {(() => {
+                    const isFaqEnabled = faqCategories.includes(cr.category);
+                    return <>
+                  {!isFaqEnabled && (cr.clusters || []).length > 0 && (
+                    <div className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2.5 py-1.5 mb-1" data-tooltip="LLM 비용 문제로 FAQ 생성 비활성">
+                      이 카테고리는 FAQ 생성이 비활성화되어 있습니다 (LLM 비용 절감)
+                    </div>
+                  )}
+                  {isFaqEnabled && (cr.clusters || []).length > 0 && (
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-500 hover:text-gray-700">
+                        <input type="checkbox"
+                          checked={(cr.clusters || []).every(cl => selectedClusters.has(`${cr.category}:${cl.cluster_id}`))}
+                          onChange={() => toggleAllClusters(cr.category, cr.clusters || [])}
+                          className="rounded border-gray-300 text-blue-500 w-3.5 h-3.5" />
+                        전체 선택
+                      </label>
+                      <span className="text-[10px] text-gray-400">
+                        ({(cr.clusters || []).filter(cl => selectedClusters.has(`${cr.category}:${cl.cluster_id}`)).length}/{(cr.clusters || []).length}개 선택)
+                      </span>
+                    </div>
+                  )}
+                  {(cr.clusters || []).map((cl, cli) => {
+                    const clKey = `${cr.category}:${cl.cluster_id}`;
+                    const isSelected = selectedClusters.has(clKey);
+                    return (
+                    <div key={cli} className={`rounded-lg border p-2.5 transition-all ${
+                      !isFaqEnabled ? 'border-gray-100 bg-gray-50/50 opacity-60' :
+                      isSelected ? 'border-blue-300 bg-blue-50/30 cursor-pointer' : 'border-gray-100 bg-gray-50/50 opacity-50 cursor-pointer'
+                    }`} onClick={() => isFaqEnabled && toggleCluster(cr.category, cl.cluster_id)}>
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {isFaqEnabled && <input type="checkbox" checked={isSelected} readOnly
+                          className="rounded border-gray-300 text-blue-500 w-3.5 h-3.5 pointer-events-none" />}
                         <span className="text-[10px] w-5 h-5 rounded-full flex items-center justify-center text-white font-bold"
                           style={{ backgroundColor: CLUSTER_COLORS[cl.cluster_id % CLUSTER_COLORS.length] }}>
                           {cl.cluster_id}
@@ -482,7 +619,7 @@ export default function FaqTab({ auth, apiCall }) {
                         <span className="text-xs font-semibold text-gray-800">{cl.representative}</span>
                       </div>
                       {cl.samples && cl.samples.length > 1 && (
-                        <div className="flex flex-wrap gap-1 mt-1 ml-7">
+                        <div className="flex flex-wrap gap-1 mt-1 ml-9">
                           {cl.samples.filter(s => s !== cl.representative).slice(0, 3).map((s, si) => (
                             <span key={si} className="text-[10px] bg-white text-gray-500 px-1.5 py-0.5 rounded border border-gray-100">
                               {s.length > 45 ? s.slice(0, 45) + '...' : s}
@@ -491,7 +628,10 @@ export default function FaqTab({ auth, apiCall }) {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
+                  </>;
+                  })()}
                 </div>
               )}
             </div>

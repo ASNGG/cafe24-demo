@@ -200,7 +200,7 @@ function Chip({ label, onClick, disabled }) {
     <button
       className={`inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-extrabold transition whitespace-nowrap ${disabled ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : 'border-cafe24-orange/20 bg-white/80 text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm active:translate-y-[1px]'}`}
       onClick={disabled ? undefined : onClick}
-      title={disabled ? '개발중 (비활성화)' : '클릭하면 질문이 바로 전송됩니다'}
+      data-tooltip={disabled ? '개발중 (비활성화)' : '클릭하면 질문이 바로 전송됩니다'}
       type="button"
       disabled={disabled}
     >
@@ -372,7 +372,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
                             toast.success('복사되었습니다');
                           }}
                           className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-brown hover:bg-cafe24-beige transition shadow-sm"
-                          title="복사"
+                          data-tooltip="복사"
                         >
                           <Copy size={14} />
                         </button>
@@ -380,7 +380,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
                           <button
                             onClick={() => handleSend(m.content || '')}
                             className="p-1.5 rounded-lg bg-white/90 border border-cafe24-brown/20 text-cafe24-brown/60 hover:text-cafe24-orange hover:bg-cafe24-beige transition shadow-sm"
-                            title="다시 질문"
+                            data-tooltip="다시 질문"
                           >
                             <RefreshCcw size={14} />
                           </button>
@@ -457,7 +457,7 @@ export default function SubAgentPanel({ auth, selectedShop, addLog, settings, ap
                 toast('중단됨');
               }}
               disabled={!isLoading}
-              title="파이프라인 중단"
+              data-tooltip="파이프라인 중단"
               type="button"
             >
               중단

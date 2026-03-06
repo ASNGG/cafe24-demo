@@ -123,7 +123,7 @@ function SidebarContent({
             <button
               onClick={onLogout}
               className="p-2 rounded-lg hover:bg-cafe24-orange/10 transition-colors"
-              title="로그아웃"
+              data-tooltip="로그아웃"
             >
               <LogOut className="w-4 h-4 text-cafe24-brown/60" />
             </button>

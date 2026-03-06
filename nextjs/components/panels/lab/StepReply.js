@@ -282,7 +282,7 @@ export default function StepReply({ channels, selectedChannels, setSelectedChann
                             key={ch.key}
                             onClick={() => ch.enabled && toggleAutoChannel(idx, ch.key)}
                             disabled={disabled}
-                            title={!ch.enabled ? '미구현' : ''}
+                            data-tooltip={!ch.enabled ? '미구현' : ''}
                             className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium transition-all ${
                               !ch.enabled
                                 ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'

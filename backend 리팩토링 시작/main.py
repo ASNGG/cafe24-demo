@@ -28,7 +28,6 @@ from fastapi.responses import JSONResponse
 
 import state as st
 from api.routes import router as api_router
-from process_miner.routes import pm_router
 from data.loader import init_data_models
 from rag.service import rag_build_or_load_index
 from rag.light_rag import (
@@ -144,7 +143,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 라우터 등록
 # ============================================================
 app.include_router(api_router)
-app.include_router(pm_router)
 
 # ============================================================
 # 직접 실행

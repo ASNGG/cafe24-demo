@@ -29,7 +29,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (12개)](#2-패널-12개)
+2. [패널 (11개)](#2-패널-11개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -46,13 +46,13 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝, 자동화 엔진 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 자동화 엔진 등 **11개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["12개 패널"]
+        Panels["11개 패널"]
         SSEProxy["SSE 프록시<br/>(5개 API Route)"]
     end
 
@@ -94,7 +94,7 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth, password btoa 인코딩)
-│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 11개 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   └── stream.js           # SSE 프록시 (AI 에이전트)
@@ -116,12 +116,12 @@ nextjs/
 │   ├── ToastProvider.js            # 전역 토스트 알림 (react-hot-toast)
 │   ├── common/                     # 공통 컴포넌트
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
-│   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
+│   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel 등에서 사용)
 │   │   ├── toolRegistry.js         # 에이전트 도구 레지스트리 (31개 도구 메타데이터)
 │   │   ├── ToolExplorer.js         # 인터랙티브 도구 탐색기 (아코디언 UI, Framer Motion)
 │   │   └── constants.js            # 공통 상수 (COLORS, getSeverityClasses 등)
 │   │
-│   └── panels/                     # 기능별 패널 (12개)
+│   └── panels/                     # 기능별 패널 (11개)
 │       ├── AgentPanel.js           # AI 에이전트 (19줄 래퍼 → MultiAgentPanel 직접 렌더)
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
@@ -132,7 +132,6 @@ nextjs/
 │       ├── LogsPanel.js            # 활동 로그 뷰어
 │       ├── LabPanel.js             # CS 자동화 파이프라인 (→ lab/ 위임)
 │       ├── GuardianPanel.js        # DB 보안 감시
-│       ├── ProcessMinerPanel.js    # 프로세스 마이닝
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/플랜 업그레이드/FAQ/리포트 4탭)
 │       ├── MultiAgentPanel.js    # Supervisor 멀티에이전트 채팅 + 파이프라인 (메인 UI)
 │       │
@@ -195,15 +194,15 @@ nextjs/
 
 ---
 
-## 2. 패널 (12개)
+## 2. 패널 (11개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
-    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["7개 탭"]
+    Role -->|"관리자<br/>(Admin)"| Admin["11개 탭 전부"]
+    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["6개 탭"]
 
     Admin --> A1["AI 에이전트"]
     Admin --> A2["대시보드"]
@@ -212,25 +211,23 @@ graph TD
     Admin --> A5["RAG 문서"]
     Admin --> A6["CS 자동화"]
     Admin --> A7["DB 보안 감시"]
-    Admin --> A8["프로세스 마이너"]
-    Admin --> A9["자동화 엔진"]
-    Admin --> A10["LLM 설정"]
-    Admin --> A11["셀러 관리"]
-    Admin --> A12["로그"]
+    Admin --> A8["자동화 엔진"]
+    Admin --> A9["LLM 설정"]
+    Admin --> A10["셀러 관리"]
+    Admin --> A11["로그"]
 
     User --> U1["AI 에이전트"]
     User --> U2["대시보드"]
     User --> U3["분석"]
     User --> U4["CS 자동화"]
     User --> U5["DB 보안 감시"]
-    User --> U6["프로세스 마이너"]
-    User --> U7["자동화 엔진"]
+    User --> U6["자동화 엔진"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 12개 전부 | 12 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation | 7 |
+| **관리자** (Admin) | 11개 전부 | 11 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, Automation | 6 |
 
 ---
 
@@ -403,7 +400,7 @@ flowchart TB
 | **API** | `GET /api/mlflow/models`, `GET /api/mlflow/experiments`, `GET /api/mlflow/models/selected`, `POST /api/mlflow/models/select` |
 | **권한** | 관리자 전용 |
 
-**관리 모델 13종** (MLflow 등록 11 + 프로세스마이너 비등록 2):
+**관리 모델 11종** (MLflow 등록):
 
 | 모델명 | 알고리즘 | 용도 |
 |--------|----------|------|
@@ -418,8 +415,6 @@ flowchart TB
 | 상품수요예측 | XGBoost | 상품별 수요 예측 |
 | 정산이상탐지 | DBSCAN | 정산 이상 패턴 탐지 |
 | Guardian감사로그이상탐지 | IsolationForest | 감사 로그 이상 패턴 탐지 |
-| 다음활동예측 | RandomForest Classifier | 프로세스 다음 활동 Top-3 예측 |
-| 이상프로세스탐지 | IsolationForest | 경로 기반 이상 프로세스 케이스 탐지 |
 
 ---
 
@@ -757,98 +752,7 @@ flowchart LR
 
 ---
 
-### 2.11 ProcessMinerPanel (실험실 - 프로세스 마이닝)
-
-| 항목 | 내용 |
-|------|------|
-| **파일** | `components/panels/ProcessMinerPanel.js` |
-| **역할** | 이커머스 프로세스 마이닝 -- 프로세스 발견 + ML 다음 활동 예측 + 병목 분석 + ML 이상 프로세스 탐지 + AI 자동화 추천 |
-| **API** | `POST /api/process-miner/discover`, `POST /api/process-miner/predict`, `POST /api/process-miner/bottlenecks`, `POST /api/process-miner/anomalies`, `POST /api/process-miner/recommend` |
-| **공통 컴포넌트** | `common/StatCard.js` (통계 카드) |
-| **권한** | 전체 사용자 |
-
-> **핵심 컨셉**: 이벤트 로그 기반 프로세스 플로우 시각화 + ML 모델로 다음 활동 예측 및 이상 프로세스 탐지
-
-**3개 서브탭:**
-
-```mermaid
-flowchart LR
-    subgraph Tab1["프로세스 발견"]
-        D1["플로우 시각화"]
-        D2["Top 패턴"]
-        D3["전이 행렬"]
-        D4["ML 다음 활동 예측"]
-    end
-    subgraph Tab2["병목 분석"]
-        B1["병목 구간 분석"]
-        B2["ML 이상 프로세스 탐지"]
-    end
-    subgraph Tab3["AI 자동화 추천"]
-        R1["자동화 가능 구간"]
-        R2["ROI 분석"]
-    end
-```
-
-| 탭 | 이름 | 기능 |
-|-----|------|------|
-| 1 | **프로세스 발견** | 프로세스 플로우 시각화 + 통계 + ML 다음 활동 예측 |
-| 2 | **병목 분석** | 병목 구간 분석 + ML 이상 프로세스 탐지 |
-| 3 | **AI 자동화 추천** | 자동화 가능 구간 추천 + ROI 분석 |
-
-**프로세스 유형:**
-
-| 값 | 이름 |
-|----|------|
-| `order` | 주문 프로세스 |
-| `cs` | CS 문의 프로세스 |
-| `settlement` | 정산 프로세스 |
-
-**ML 기능 1 -- 다음 활동 예측 (프로세스 발견 탭):**
-
-| 항목 | 내용 |
-|------|------|
-| **API** | `POST /api/process-miner/predict` |
-| **입력** | 케이스 ID |
-| **출력** | 현재 활동 기준 다음 활동 Top-3 (확률 가로 막대 바) |
-| **부가 정보** | 모델 정확도 배지, 피처 중요도 차트 (접기/펼치기) |
-
-**ML 기능 2 -- 이상 프로세스 탐지 (병목 분석 탭):**
-
-| 항목 | 내용 |
-|------|------|
-| **API** | `POST /api/process-miner/anomalies` |
-| **요약 카드** | 전체 케이스 수, 이상 케이스 수, 이상 비율 |
-| **정상 패턴** | 정상 프로세스 요약 텍스트 (emerald 박스) |
-| **이상 케이스** | 최대 10건 표시 -- 시퀀스 화살표, 예외 활동 빨간색 하이라이트, anomaly_score, 루프 배지 |
-
-**공통 컨트롤** (모든 탭 상단):
-- 프로세스 유형 select (`order` / `cs` / `settlement`)
-- 케이스 수 select (`100` / `200` / `500` 건)
-
-**내부 컴포넌트:**
-
-| 컴포넌트 | 역할 |
-|----------|------|
-| `DiscoverTab` | 프로세스 발견 -- 플로우 시각화 + Top 패턴 + 전이 행렬 + ML 예측 |
-| `BottleneckTab` | 병목 분석 -- 병목 구간 테이블 + ML 이상 프로세스 탐지 |
-| `RecommendTab` | AI 자동화 추천 -- 자동화 가능 구간 + ROI 분석 |
-| `ProcessFlowDiagram` | 프로세스 플로우 커스텀 렌더링 (위상 정렬 BFS + 노드 클릭 상세) |
-| `TransitionMatrix` | 전이 행렬 테이블 (활동 간 빈도/확률 매트릭스) |
-| `FeatureImportanceChart` | ML 피처 중요도 가로 막대 차트 |
-| `SimpleMarkdown` | 간이 마크다운 렌더러 (h1~h3, 리스트, 볼드, 줄바꿈) |
-
-**유틸리티 함수:**
-
-| 함수 | 설명 |
-|------|------|
-| `formatMinutes(min)` | 분 → 초/분/시간/일 자동 변환 |
-| `formatNumber(n)` | 숫자 콤마 포맷 |
-| `formatPercent(n)` | 소수 → 백분율 변환 (예: 0.85 → "85.0%") |
-| `isSuccess(res)` | API 응답 성공 여부 (`success` or `ok`) |
-
----
-
-### 2.12 AutomationPanel (자동화 엔진)
+### 2.11 AutomationPanel (자동화 엔진)
 
 | 항목 | 내용 |
 |------|------|
@@ -1062,7 +966,7 @@ useBaseStream.js (~250줄)            # 공통: SSE 연결, delta 버퍼, 메시
 | 컴포넌트 | 파일 | 설명 |
 |----------|------|------|
 | **CustomTooltip** | `common/CustomTooltip.js` | Recharts 차트 공통 툴팁 (DashboardPanel, AnalysisPanel에서 중복 추출) |
-| **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel StatCard + ProcessMinerPanel SummaryCard 통합) |
+| **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel 등에서 사용) |
 | **toolRegistry** | `common/toolRegistry.js` | 에이전트 도구 레지스트리 — 31개 도구 메타데이터 (이름, 설명, 파라미터, 소속 에이전트) 9개 카테고리로 분류 |
 | **ToolExplorer** | `common/ToolExplorer.js` | 인터랙티브 도구 탐색기 — 카테고리별 아코디언 UI, 도구명/설명/파라미터 표시, Framer Motion 애니메이션, 카테고리별 accent 색상 |
 | **constants** | `common/constants.js` | 공통 상수 (COLORS 차트/UI 색상, `getSeverityClasses()` 헬퍼) |
@@ -1498,7 +1402,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 11개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1517,7 +1421,7 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
+| 관리자 | `admin` | `admin123` | Admin | 11개 전부 |
 | 운영자 | `operator` | `oper123` | Operator | 7개 (공개) |
 | 분석가 | `analyst` | `analyst123` | Analyst | 7개 (공개) |
 | 사용자 | `user` | `user123` | User | 7개 (공개) |
@@ -1686,7 +1590,7 @@ sequenceDiagram
 | **optimizePackageImports** | `next.config.js` | experimental.optimizePackageImports 추가 (lucide-react, recharts) |
 | **GET 인메모리 캐시** | `lib/api.js` | Map 기반 인메모리 캐시 (TTL 60초, shops/categories 정적 데이터) |
 | **Tailwind content 확장** | `tailwind.config.js` | content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
-| **PanelLoader 스켈레톤** | `pages/app.js` | 12개 dynamic import에 PanelLoader 스켈레톤 추가 |
+| **PanelLoader 스켈레톤** | `pages/app.js` | 11개 dynamic import에 PanelLoader 스켈레톤 추가 |
 
 ### v8.5.0 최적화 (2026-02-18)
 

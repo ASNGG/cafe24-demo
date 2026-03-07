@@ -1277,7 +1277,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   <a href="#3-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-8%EC%A2%85-%EA%B8%B0%EB%B2%95" class="toc-item"><span class="toc-num">03</span> RAG 시스템 (4종 활성 + 4종 확장)</a>
   <a href="#4-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-12%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">04</span> ML 파이프라인 (12개 모델)</a>
   <a href="#5-%EC%9E%90%EB%8F%99%ED%99%94-%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">05</span> 자동화 시스템 (CS 파이프라인 · 이탈방지 · 업그레이드 · FAQ · 리포트)</a>
-  <a href="#6-%EB%8F%85%EB%A6%BD-%EC%84%9C%EB%B8%8C%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">06</span> 독립 서브시스템 (Data Guardian · 프로세스 마이너)</a>
+  <a href="#6-%EB%8F%85%EB%A6%BD-%EC%84%9C%EB%B8%8C%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">06</span> 독립 서브시스템 (Data Guardian)</a>
   <a href="#7-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%B0%ED%8F%AC" class="toc-item"><span class="toc-num">07</span> 프론트엔드 · 기술 스택 · 배포</a>
 </div>
 </nav>
@@ -1330,11 +1330,6 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <td>수동 모니터링</td>
 <td>룰엔진 + ML + LangChain Agent 3단계 실시간 차단</td>
 </tr>
-<tr>
-<td><strong>운영 프로세스</strong></td>
-<td>경험 기반 병목 파악</td>
-<td>이벤트 로그 기반 프로세스 마이닝 + ML 이상 탐지 + 자동화 추천</td>
-</tr>
 </tbody>
 </table></div>
 <h3 id="핵심-설계-원칙">핵심 설계 원칙</h3>
@@ -1376,7 +1371,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <h3 id="전체-아키텍처">전체 아키텍처</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
-    FE["Frontend · Next.js 14&lt;br/&gt;13개 패널 · SSE 스트리밍"]
+    FE["Frontend · Next.js 14&lt;br/&gt;12개 패널 · SSE 스트리밍"]
 
     FE -->|"REST / SSE"| Router
 
@@ -1403,7 +1398,6 @@ flowchart TD
     subgraph SubSys["독립 서브시스템"]
         direction LR
         G["DB 보안 감시&lt;br/&gt;룰+ML+Agent"]
-        PM["프로세스 마이너&lt;br/&gt;패턴·병목·예측"]
         Auto["자동화 엔진&lt;br/&gt;이탈방지·FAQ·리포트"]
     end
 
@@ -2240,7 +2234,7 @@ flowchart TD
 <!-- ===== 섹션 6: 독립 서브시스템 ===== -->
 <section class="portfolio-section">
 <h2 id="6-독립-서브시스템">6. 독립 서브시스템</h2>
-<p class="section-summary">메인 에이전트 밖에서 독립적으로 작동하는 두 서브시스템 — Data Guardian이 치명적 SQL 쿼리를 1ms 안에 차단하고, 프로세스 마이너가 운영 병목을 자동 발견합니다.</p>
+<p class="section-summary">메인 에이전트 밖에서 독립적으로 작동하는 서브시스템 — Data Guardian이 치명적 SQL 쿼리를 1ms 안에 차단합니다.</p>
 
 <h3 id="data-guardian">Data Guardian</h3>
 <p>룰엔진(&lt;1ms) + IsolationForest ML 이상탐지 + AI Agent 3단계 위험 분석으로 치명적 SQL 쿼리를 실시간 차단하고, Recovery Agent가 복구 SQL을 제안합니다.</p>
@@ -2312,59 +2306,15 @@ flowchart TD
 </tbody>
 </table></div>
 
-<h3 id="프로세스-마이너">프로세스 마이너</h3>
-<p>주문/CS/정산 3종 이벤트 로그에서 프로세스 패턴을 자동 발견하고, ML 기반 예측 및 이상 탐지를 수행합니다.</p>
-<div class="mermaid-container"><div class="mermaid">flowchart LR
-    A["이벤트 로그 · 주문/CS/정산"] --> B["프로세스 발견 · 패턴 추출"]
-    B --> C["병목 분석 · IQR 이상치"]
-    C --> D["AI 자동화 추천 · SOP 생성"]
-    B --> E["다음 활동 예측 · RF Top-3"]
-    B --> F["이상 프로세스 · IsolationForest"]
-</div></div><div class="table-wrapper"><table aria-label="기능">
-<thead>
-<tr>
-<th>기능</th>
-<th>기술</th>
-<th>설명</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>프로세스 발견</strong></td>
-<td>Counter 빈도 분석 + 전이 행렬</td>
-<td>Top-10 패턴 추출, 전이 확률·평균 소요시간 계산, Mermaid 다이어그램 자동 생성</td>
-</tr>
-<tr>
-<td><strong>병목 분석</strong></td>
-<td>IQR 이상치 탐지 + P95</td>
-<td>전이별 평균/중앙값/P95 소요시간, 시간대별 분포, 효율성 점수(0~100)</td>
-</tr>
-<tr>
-<td><strong>자동화 추천</strong></td>
-<td>GPT-4o-mini (규칙 기반 폴백)</td>
-<td>자동화 가능 구간 + 우선순위 정렬 + SOP 문서 생성</td>
-</tr>
-<tr>
-<td><strong>다음 활동 예측</strong></td>
-<td>RandomForest (7개 피처)</td>
-<td>process_type·activity·step_index·hour·weekday·metadata 2종</td>
-</tr>
-<tr>
-<td><strong>이상 프로세스</strong></td>
-<td>IsolationForest (5+N 피처)</td>
-<td>경로 길이·소요시간·루프·예외 경로·활동별 빈도 벡터</td>
-</tr>
-</tbody>
-</table></div>
 </section>
 <hr>
 
 <!-- ===== 섹션 7: 프론트엔드 · 기술 스택 · 배포 ===== -->
 <section class="portfolio-section">
 <h2 id="7-프론트엔드-기술-스택-배포">7. 프론트엔드 · 기술 스택 · 배포</h2>
-<p class="section-summary">Next.js 14 기반 13개 패널 SPA로, 에이전트 대화부터 ML 모델 교체까지 하나의 화면에서 제어합니다.</p>
+<p class="section-summary">Next.js 14 기반 12개 패널 SPA로, 에이전트 대화부터 ML 모델 교체까지 하나의 화면에서 제어합니다.</p>
 
-<h3 id="패널-구성">패널 구성 (13개)</h3>
+<h3 id="패널-구성">패널 구성 (12개)</h3>
 <div class="table-wrapper"><table aria-label="프론트엔드 패널 구성">
 <thead>
 <tr>
@@ -2437,18 +2387,12 @@ flowchart TD
 </tr>
 <tr>
 <td style="text-align:center">11</td>
-<td><strong>프로세스 마이너</strong></td>
-<td>3탭 (프로세스 발견/병목 분석/AI 자동화 추천)</td>
-<td>위상 정렬 BFS 렌더링, WAI-ARIA 탭</td>
-</tr>
-<tr>
-<td style="text-align:center">12</td>
 <td><strong>서브에이전트</strong></td>
 <td>6종 파이프라인 오케스트레이션</td>
 <td>SSE 스트리밍, react-markdown, 파이프라인 시각화</td>
 </tr>
 <tr>
-<td style="text-align:center">13</td>
+<td style="text-align:center">12</td>
 <td><strong>자동화 엔진</strong></td>
 <td>4탭 (이탈 방지/플랜 업그레이드/FAQ 자동생성/운영 리포트)</td>
 <td>탭 컴포넌트 분리, 파이프라인 추적</td>

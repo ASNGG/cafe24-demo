@@ -1,5 +1,5 @@
 // components/common/StatCard.js
-// 통합 통계 카드 (GuardianPanel의 StatCard + ProcessMinerPanel의 SummaryCard 통합)
+// 통합 통계 카드 (GuardianPanel 등에서 사용)
 
 const COLOR_MAP = {
   indigo: 'border-indigo-200 bg-indigo-50/50 text-indigo-600',

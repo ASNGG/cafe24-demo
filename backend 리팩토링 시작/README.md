@@ -202,16 +202,6 @@ v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 | `automation/action_logger.py` | 5개 저장소 크기 제한 (ACTION_LOG 5000, FAQ 1000, REPORT 500, RETENTION 1000, PIPELINE 500) |
 | `automation/retention_engine.py` | 중복 코드 5개 공통 함수 통합 (`_extract_shap_values`, `_shap_top_factors`, `_heuristic_score`, `_build_feature_df`) |
 
-#### 프로세스 마이너
-
-| 파일 | 주요 변경 |
-|------|-----------|
-| `process_miner/helpers.py` *(신규)* | `parse_timestamp` + `group_events_by_case` 공통 헬퍼 추출 |
-| `process_miner/miner.py` | 중복 헬퍼 → `helpers` import |
-| `process_miner/bottleneck.py` | 중복 헬퍼 → `helpers` import |
-| `process_miner/anomaly_detector.py` | 중복 헬퍼 → `helpers` import |
-| `process_miner/predictor.py` | 중복 헬퍼 → `helpers` import |
-
 </details>
 
 ---
@@ -232,8 +222,7 @@ v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 12. [환경 설정](#12-환경-설정)
 13. [Core 모듈](#13-core-모듈)
 14. [DB 보안 감시 (Data Guardian)](#14-db-보안-감시-data-guardian)
-15. [AI 프로세스 마이너](#15-ai-프로세스-마이너)
-16. [자동화 엔진](#16-자동화-엔진)
+15. [자동화 엔진](#15-자동화-엔진)
 
 ---
 
@@ -248,7 +237,6 @@ v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
 - **CS 자동화**: ML 문의 분류(TF-IDF + RF, 9개 카테고리) -> RAG+LLM 답변 생성(SSE 스트리밍) -> n8n Cloud 워크플로우 -> Resend 이메일 발송. 신뢰도 >= 0.75 자동 처리, 미만 시 담당자 검토 분기
 - **DB 보안 감시 (Data Guardian)**: 룰엔진(<1ms, O(1) 조건 분기) + IsolationForest ML(7개 피처) + LangChain `create_agent` AI Agent 3단계 쿼리 위험도 분석. 복구 SQL은 "제안만" (DBA 승인 필수)
-- **AI 프로세스 마이너**: 이벤트 로그(주문/CS/정산 3종) 기반 프로세스 패턴 발견(전이 행렬 + Mermaid), IQR 병목 분석, GPT-4o-mini 자동화 추천 + SOP 생성, RandomForest 다음 활동 예측(Top-3), IsolationForest 이상 프로세스 탐지
 - **시스템 프롬프트 통합**: 백엔드 중앙 관리 프롬프트(constants.py -> state.py -> runner.py) + 프론트엔드 실시간 수정. `system_prompt.json` 영속화, KaTeX 수식 렌더링 지원
 
 ### 시스템 아키텍처
@@ -266,7 +254,6 @@ flowchart TB
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
         ROUTES["api/ 도메인별 라우터 9개<br/>(112개 엔드포인트)"]
-        PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
             ROUTER["2단계 라우터<br/>(키워드 + LLM)"]
@@ -292,7 +279,6 @@ flowchart TB
         end
 
         GUARDIAN["DB 보안 감시<br/>(룰엔진 + ML + Agent)"]
-        MINER["AI 프로세스 마이너<br/>(5개 분석 모듈)"]
     end
 
     subgraph External["외부 서비스"]
@@ -301,10 +287,9 @@ flowchart TB
         RESEND["Resend<br/>(이메일 발송)"]
     end
 
-    FE --> NP & SSE --> ROUTES & PM_ROUTES
+    FE --> NP & SSE --> ROUTES
     ROUTES --> Agent --> TOOLS --> ML & RAG
     ROUTES --> GUARDIAN
-    PM_ROUTES --> MINER
     Agent --> OPENAI
     ROUTES --> N8N --> RESEND
     TOOLS --> State
@@ -423,16 +408,6 @@ backend 리팩토링 시작/
 │   ├── upgrade_engine.py            # 셀러 플랜 업그레이드 추천 (규칙 기반 후보 탐지→LLM 메시지→액션 실행)
 │   ├── faq_engine.py                # CS FAQ 자동 생성 (TF-IDF+K-Means+PCA / LLM 듀얼 클러스터링 → FAQ 생성, 선택 클러스터 직접 전달 지원)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
-│
-├── process_miner/                   # AI 프로세스 마이너
-│   ├── __init__.py
-│   ├── event_generator.py           # 데모 이벤트 로그 생성 (주문/CS/정산 3종)
-│   ├── miner.py                     # 프로세스 패턴 발견 + 전이 행렬 + Mermaid 다이어그램
-│   ├── bottleneck.py                # 병목 분석 (IQR 이상치, 시간대별 분포, 효율성 점수)
-│   ├── predictor.py                 # 다음 활동 예측 (RandomForest, SHA256 해시 기반 모델 캐싱)
-│   ├── anomaly_detector.py          # 이상 프로세스 탐지 (IsolationForest, 경로 기반)
-│   ├── recommender.py               # LLM 자동화 추천 + SOP 생성 (GPT-4o-mini / 규칙 기반 fallback)
-│   └── routes.py                    # 전용 API 라우터 (/api/process-miner/*)
 │
 ├── data/
 │   └── loader.py                    # 데이터 로더 (CSV 16개 -> DataFrame + ML 모델 12개 + 스케일러/인코더)
@@ -2101,19 +2076,6 @@ data: {"ok": true, "final": "...", "tool_calls": [...]}
 | POST | `/api/settings/prompt/reset` | 프롬프트 초기화 |
 | POST | `/api/settings/llm/reset` | LLM 설정 초기화 (admin 전용) |
 
-### 프로세스 마이너
-
-별도 라우터: `pm_router = APIRouter(prefix="/api/process-miner")`
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| POST | `/api/process-miner/discover` | 프로세스 패턴 발견 (전이 행렬, Mermaid 다이어그램) |
-| POST | `/api/process-miner/bottlenecks` | 병목 분석 (IQR 이상치, 효율성 점수, 시간대별 분포) |
-| POST | `/api/process-miner/recommend` | AI 자동화 추천 (GPT-4o-mini 분석 + SOP 문서 생성) |
-| POST | `/api/process-miner/predict` | 다음 활동 예측 (RandomForest, Top-3 확률) |
-| POST | `/api/process-miner/anomalies` | 이상 프로세스 탐지 (IsolationForest, 경로 기반) |
-| GET | `/api/process-miner/dashboard` | 3개 프로세스(주문/CS/정산) 요약 대시보드 |
-
 ### OCR
 
 | Method | Endpoint | 설명 |
@@ -2756,489 +2718,11 @@ SQLite objects created in a thread can only be used in that same thread
 
 ---
 
-## 15. AI 프로세스 마이너
-
-### 15.1 개발 배경
-
-카페24 우대사항 중 **"다양한 AI 도구를 활용한 개발 생산성 향상, 프로세스 자동화, 성능개선 경험"** 에 직접 부합하는 기능입니다. 이커머스 플랫폼에서 주문/CS/정산 프로세스는 수백 개의 케이스가 다양한 경로로 진행되며, 수작업으로 병목을 식별하거나 비정상 패턴을 탐지하기 어렵습니다.
-
-**프로세스 마이닝(Process Mining)** 기법을 적용하여 이벤트 로그로부터:
-
-1. **프로세스 패턴 발견** — 어떤 경로로 업무가 진행되는지 전이 행렬과 Mermaid 다이어그램으로 시각화
-2. **병목 지점 식별** — IQR 기반 통계적 이상치 탐지로 어디서 시간이 가장 많이 소요되는지 분석
-3. **AI 자동화 추천** — GPT-4o-mini가 패턴/병목 데이터를 종합 분석하여 자동화 방안 + SOP 문서 생성
-4. **다음 활동 예측 (Predictive Process Mining)** — RandomForest가 현재 상태에서 다음 활동을 확률적으로 예측 (Top-3)
-5. **이상 프로세스 탐지** — IsolationForest가 정상 경로에서 벗어난 비정상 케이스를 자동 식별
-
-을 수행합니다. 기존 에이전트 시스템(31개 도구)과 완전히 독립된 별도 패키지로, `main.py`에 2줄 추가만으로 통합됩니다.
-
-### 15.2 설계 철학
-
-| 설계 결정 | 근거 |
-|-----------|------|
-| **별도 패키지** (`process_miner/`) | 기존 API 코드와 분리, 독립적 확장 가능 |
-| **별도 라우터** (`pm_router`) | `main.py`에 2줄 추가만으로 통합 (`from process_miner.routes import pm_router` + `app.include_router(pm_router)`) |
-| **데모 데이터 자체 생성** | 외부 DB/CSV 의존 없이 `event_generator.py`가 현실적 데이터 생성 |
-| **LLM + 규칙 기반 이중화** | OpenAI API 키 유무에 관계없이 항상 동작 (Graceful Degradation) |
-| **프론트 하드코딩 Zero** | 모든 분석 데이터는 백엔드 API에서 전달, 프론트는 렌더링만 담당 |
-
-### 15.3 전체 아키텍처
-
-```mermaid
-flowchart TD
-    subgraph Frontend["Frontend (ProcessMinerPanel.js)"]
-        F1["프로세스 발견"]
-        F2["병목 분석"]
-        F3["AI 자동화 추천"]
-        F4["다음활동 예측"]
-        F5["이상프로세스"]
-    end
-
-    F1 -->|"POST /discover"| Routes
-    F2 -->|"POST /bottlenecks"| Routes
-    F3 -->|"POST /recommend"| Routes
-    F4 -->|"POST /predict"| Routes
-    F5 -->|"POST /anomalies"| Routes
-
-    subgraph Backend["Backend (process_miner/)"]
-        Routes["routes.py<br/>(API 라우터, 6개 엔드포인트)"]
-        EG["event_generator.py<br/>(이벤트 로그 생성)"]
-        MN["miner.py<br/>(패턴 발견 + 전이 행렬 + Mermaid)"]
-        BN["bottleneck.py<br/>(병목 분석 + IQR 이상치 + 효율성 점수)"]
-        RC["recommender.py<br/>(GPT-4o-mini 분석 / 규칙 기반 fallback)"]
-        PR["predictor.py<br/>(RandomForest 다음 활동 예측)"]
-        AD["anomaly_detector.py<br/>(IsolationForest 경로 이상 탐지)"]
-        OpenAI["OpenAI API (gpt-4o-mini)"]
-
-        Routes --> EG
-        EG --> MN
-        Routes --> BN
-        Routes --> RC
-        Routes --> PR
-        Routes --> AD
-        RC --> OpenAI
-    end
-```
-
-### 15.4 모듈 상세
-
-#### 15.4.1 이벤트 로그 생성 (`event_generator.py`, 266줄)
-
-카페24 운영 시나리오 기반 현실적 데모 이벤트 로그를 생성합니다. 외부 DB나 CSV에 의존하지 않고, `random.Random(seed=42)` 기반으로 동일 파라미터 시 동일 결과를 보장합니다.
-
-**프로세스 유형 3종:**
-
-| 유형 | 정상 경로 | 예외 경로 (분기) |
-|------|-----------|------------------|
-| **주문** (`order`) | 주문생성 → 결제확인 → 재고차감 → 배송요청 → 배송중 → 배송완료 | 결제실패, 배송지연, 반품요청, CS 이관 |
-| **CS** (`cs`) | CS접수 → 자동분류 → 담당자배정 → 1차응대 → 해결완료 | 에스컬레이션(루프), 재문의(루프) |
-| **정산** (`settlement`) | 정산요청 → 데이터검증 → 금액계산 → 승인 → 지급완료 | 검증실패(재시도), 재계산, 보류 |
-
-**경로 분기 확률:**
-- 정상 경로: **70~80%** (`rng.uniform(0.70, 0.80)`)
-- 예외 경로: **20~30%** (가중치 기반 랜덤 선택)
-
-**소요시간 범위 설정 (현실적 시뮬레이션):**
-
-| 활동 | 소요시간 범위 | 비고 |
-|------|--------------|------|
-| 결제확인 | 3~30분 | PG 처리 시간 |
-| 배송중 | 1시간~2일 | 물류 소요시간 |
-| 배송완료 | 12시간~3일 | 택배 배송 시간 |
-| 반품요청 | 1일~7일 | 고객 결정 시간 |
-| 자동분류 | 1~3분 | 시스템 자동 처리 |
-| 1차응대 | 10분~2시간 | 담당자 응대 시간 |
-| 정산승인 | 2시간~1일 | 관리자 승인 대기 |
-
-**이벤트 레코드 구조:**
-```python
-{
-    "case_id": "ORD-20250201-0001",     # 프로세스별 유니크 ID
-    "process_type": "order",
-    "activity": "결제확인",
-    "timestamp": "2025-02-01T10:23:00",  # ISO 8601
-    "actor": "system",                    # 담당자 (system/operator_01/manager_01/finance_01)
-    "duration_minutes": 15,               # 이전 활동으로부터 소요시간
-    "metadata": {                         # 프로세스별 메타데이터
-        "payment_method": "card",
-        "product_category": "의류",
-        "order_amount": 89000
-    }
-}
-```
-
-**액터 체계:**
-
-| 액터 타입 | 풀 크기 | 담당 활동 예시 |
-|-----------|--------|---------------|
-| `system` | 1명 | 주문생성, 결제확인, 자동분류, 데이터검증 |
-| `operator` | 5명 | 배송중, 배송완료, 1차응대, 해결완료 |
-| `manager` | 2명 | 에스컬레이션, 승인, 보류 |
-| `finance` | 2명 | 금액계산, 재계산, 지급완료 |
-
-#### 15.4.2 프로세스 발견 (`miner.py`, 192줄)
-
-이벤트 로그에서 프로세스 패턴, 전이 행렬, Mermaid 다이어그램을 생성합니다.
-
-**알고리즘:**
-
-1. **케이스 그룹화**: `defaultdict(list)` + timestamp 정렬
-2. **시퀀스 패턴 추출**: 각 케이스의 activity 시퀀스를 `tuple`로 변환 → `Counter.most_common(10)`
-3. **전이 행렬 계산**:
-   - `(from_act, to_act)` 쌍별 횟수 집계
-   - `outgoing_counts[from_act]`로 전이 확률 = `count / total_out`
-   - 전이별 평균 소요시간(분) 계산
-4. **Mermaid 다이어그램 자동 생성**: `graph LR` 형식, 노드 ID 매핑(한국어 → `A0`, `A1`, ...), 엣지 라벨에 빈도/확률 표시
-
-**출력 구조:**
-```python
-{
-    "total_cases": 200,           # 전체 케이스 수
-    "unique_patterns": 8,         # 고유 패턴 수
-    "avg_duration_minutes": 4567.8,  # 전체 평균 소요시간(분)
-    "top_patterns": [             # Top 10 패턴
-        {
-            "sequence": ["주문생성", "결제확인", "재고차감", "배송요청", "배송중", "배송완료"],
-            "count": 140,
-            "ratio": 0.7,         # 전체 대비 비율
-            "avg_duration_minutes": 4200.5
-        }
-    ],
-    "transitions": [              # 전이 행렬
-        {
-            "from": "주문생성",
-            "to": "결제확인",
-            "count": 195,
-            "probability": 0.975,  # 전이 확률
-            "avg_minutes": 16.3    # 평균 소요시간
-        }
-    ],
-    "activities": ["주문생성", "결제확인", ...],  # 등장순 전체 활동 목록
-    "mermaid_diagram": "graph LR\n    A0[\"주문생성\"]\n    ..."
-}
-```
-
-#### 15.4.3 병목 분석 (`bottleneck.py`, 226줄)
-
-전이별 소요시간 분포를 분석하여 병목 지점과 이상치 케이스를 식별합니다.
-
-**분석 알고리즘:**
-
-1. **전이별 소요시간 수집**: `(from_act, to_act)` → `[(duration_min, case_id, timestamp), ...]`
-2. **통계 계산**: 평균, 중앙값(P50), P95 (선형 보간)
-3. **IQR 기반 이상치 탐지**:
-   ```
-   Q1 = percentile(25)
-   Q3 = percentile(75)
-   IQR = Q3 - Q1
-   Upper Fence = Q3 + 1.5 * IQR
-   → duration > Upper Fence인 케이스를 이상치로 분류
-   ```
-4. **병목 심각도 분류**:
-   - `high`: P95 >= 1440분 (24시간)
-   - `medium`: P95 >= 240분 (4시간)
-   - `low`: P95 < 240분
-5. **시간대별 분포**: 전이 완료 시점 기준으로 morning(06-12)/afternoon(12-18)/evening(18-22)/night(22-06) 분류
-6. **효율성 점수 (0~100)**: 가중 평균
-   - 이상치 비율 (40%): `max(0, 1 - outlier_ratio * 3)` — 33% 이상이면 0점
-   - 중앙값/평균 비율 (30%): 1에 가까울수록 좋음 (편차 적음)
-   - high severity 비율 (30%): high가 적을수록 좋음
-
-**출력 구조:**
-```python
-{
-    "bottlenecks": [  # 평균 소요시간 내림차순 Top 5
-        {
-            "from_step": "배송중",
-            "to_step": "배송완료",
-            "avg_duration_minutes": 2345.6,
-            "median_duration_minutes": 2100.0,
-            "p95_duration_minutes": 4200.0,
-            "case_count": 195,
-            "severity": "high",        # high / medium / low
-            "outlier_count": 12,
-            "outlier_cases": [
-                {"case_id": "ORD-20250201-0042", "duration_minutes": 6200.3}
-            ]
-        }
-    ],
-    "time_analysis": {
-        "morning": 123.4,     # 시간대별 평균 소요시간(분)
-        "afternoon": 98.7,
-        "evening": 145.2,
-        "night": 67.8
-    },
-    "total_avg_process_hours": 76.1,  # 전체 평균 프로세스 소요시간(시간)
-    "efficiency_score": 62.5          # 0~100 스케일
-}
-```
-
-#### 15.4.4 AI 자동화 추천 (`recommender.py`, 255줄)
-
-프로세스 발견 + 병목 분석 결과를 GPT-4o-mini에 전달하여 자동화 추천안과 SOP 문서를 생성합니다.
-
-**2중 추천 전략:**
-
-| 모드 | 조건 | 방식 |
-|------|------|------|
-| **LLM 분석** | `OPENAI_API_KEY` 존재 | GPT-4o-mini가 패턴/병목 데이터를 분석하여 추천 |
-| **규칙 기반 Fallback** | API 키 없음 또는 LLM 호출 실패 | 규칙 기반 추천 (평균 >60분 → high/ml_based, >20분 → medium/rule_based) |
-
-**LLM 프롬프트 구조:**
-
-```
-[역할] e-커머스 운영 자동화 전문가
-[입력]
-  - 프로세스 유형: CS 문의 처리
-  - 패턴 Top 5: CS접수 → 자동분류 → ... (빈도, 비율)
-  - 병목 Top 5: 담당자배정 → 1차응대 (평균: 66.3분, P95: 118.2분)
-[출력 형식] JSON (recommendations, sop_document, summary, estimated_time_saving_percent)
-```
-
-**자동화 유형 분류 (LLM이 데이터 기반으로 판단):**
-
-| 유형 | 설명 | 적용 예시 |
-|------|------|-----------|
-| `rule_based` | 규칙 기반 자동화 | CS접수 → 자동분류 (조건 분기) |
-| `ml_based` | ML 모델 기반 자동화 | 담당자배정 → 1차응대 (예측 모델) |
-| `llm_based` | LLM 기반 자동화 | 1차응대 → 해결완료 (자동 응답 생성) |
-
-**SOP 문서 생성:**
-- LLM 모드: GPT-4o-mini가 마크다운 형식 SOP 문서 작성
-- Fallback 모드: 최빈 패턴 기반 단계별 SOP 자동 생성 (`_generate_fallback_sop`)
-
-**JSON 파싱 안전장치 (`_parse_llm_json`):**
-
-LLM 출력은 프롬프트에 "순수 JSON만 출력"을 지시해도 마크다운 코드 블록이나 설명 텍스트가 섞일 수 있습니다. 3단계 파싱 전략으로 안정성을 확보합니다:
-
-1. ` ```json ... ``` ` 마크다운 코드 블록 추출 시도
-2. 직접 `json.loads()` 시도 (순수 JSON인 경우)
-3. 첫 `{` ~ 마지막 `}` 구간 추출 후 재시도 (앞뒤 텍스트 제거)
-4. 모두 실패 시 -> 규칙 기반 fallback 결과 반환 (서비스 중단 없음)
-
-#### 15.4.5 다음 활동 예측 (`predictor.py`, 261줄)
-
-이벤트 로그에서 RandomForest 기반으로 현재 상태의 다음 활동(activity)을 확률적으로 예측합니다.
-
-**알고리즘:**
-- **모델**: RandomForestClassifier (`n_estimators=100`, `max_depth=10`, `class_weight="balanced"`)
-- SHA256 해시 기반 모델 캐싱 (동일 데이터 재학습 방지, 데이터 변경 시에만 재학습)
-
-**7개 피처:**
-
-| 인덱스 | 피처명 | 설명 |
-|--------|--------|------|
-| 0 | `process_type` | 프로세스 유형 인코딩 (order=0, cs=1, settlement=2) |
-| 1 | `current_activity` | 현재 활동 (LabelEncoder) |
-| 2 | `step_index` | 케이스 내 현재 단계 인덱스 |
-| 3 | `hour` | 이벤트 발생 시각 (0~23) |
-| 4 | `weekday` | 이벤트 발생 요일 (0~6) |
-| 5 | `metadata_0` | 결제수단 / 채널 / 정산유형 |
-| 6 | `metadata_1` | 문의유형 / 셀러등급 |
-
-**프로세스별 메타데이터 인코딩:**
-
-| 매핑 | 프로세스 | 값 예시 |
-|------|----------|---------|
-| `PAYMENT_METHOD_MAP` | 주문 | card=0, bank_transfer=1, virtual_account=2, phone=3, kakao_pay=4 |
-| `CHANNEL_MAP` | CS | chat=0, phone=1, email=2, kakao=3 |
-| `INQUIRY_TYPE_MAP` | CS | 배송문의=0, 반품/교환=1, 결제문의=2, 상품문의=3, 기타=4 |
-| `SETTLEMENT_TYPE_MAP` | 정산 | 일반정산=0, 긴급정산=1, 수동정산=2 |
-| `SELLER_TIER_MAP` | 정산 | silver=0, gold=1, platinum=2, diamond=3 |
-
-**학습 데이터 구성:**
-- 케이스 시퀀스에서 `(현재 이벤트 피처, 다음 activity)` 쌍을 생성
-- `_prepare_training_data()`: 모든 케이스에서 연속 이벤트 쌍 추출
-
-**출력 구조:**
-```python
-{
-    "case_id": "ORD-20250201-0042",
-    "current_activity": "결제확인",
-    "predictions": [                    # Top-3 확률
-        {"activity": "재고차감", "probability": 0.82},
-        {"activity": "결제실패", "probability": 0.12},
-        {"activity": "CS 이관", "probability": 0.06}
-    ],
-    "model_accuracy": 0.89,            # 학습 데이터 정확도
-    "feature_importance": {             # 피처 중요도
-        "process_type": 0.05,
-        "current_activity": 0.45,
-        "step_index": 0.22,
-        "hour": 0.08,
-        "weekday": 0.04,
-        "metadata_0": 0.10,
-        "metadata_1": 0.06
-    }
-}
-```
-
-**주요 함수:**
-
-| 함수 | 역할 |
-|------|------|
-| `_build_features()` | 단일 이벤트에서 7개 피처 벡터 추출 |
-| `_prepare_training_data()` | 케이스 시퀀스에서 학습 쌍 생성 |
-| `train_predictor()` | RandomForest 학습 + 정확도 평가 |
-| `predict_next_activity()` | 특정 케이스의 다음 활동 Top-3 예측 |
-
-#### 15.4.6 이상 프로세스 탐지 (`anomaly_detector.py`, 286줄)
-
-IsolationForest를 사용하여 비정상적인 활동 시퀀스를 가진 케이스를 탐지합니다. `bottleneck.py`가 **시간 기반**(IQR) 이상치를 찾는 반면, 이 모듈은 **경로 기반** 이상 프로세스를 식별합니다.
-
-**알고리즘:**
-- **모델**: IsolationForest (`contamination=0.15`)
-- 정상 경로에서 벗어난 케이스를 이상(anomaly)으로 판정
-
-**피처 구성:**
-
-| 피처 | 설명 |
-|------|------|
-| `sequence_length` | 케이스 내 이벤트 개수 |
-| `total_duration_minutes` | 전체 소요시간(분) |
-| `unique_activity_count` | 고유 활동 수 |
-| `has_loop` | 루프(반복 활동) 존재 여부 (0/1) |
-| `exception_step_count` | 정상 경로 외 활동 횟수 |
-| activity 등장 횟수 벡터 | 각 활동별 등장 횟수 (가변 길이) |
-
-**정상 활동 집합 (`NORMAL_ACTIVITIES`):**
-
-| 프로세스 | 정상 경로 활동 |
-|----------|---------------|
-| `order` | 주문생성, 결제확인, 재고차감, 배송요청, 배송중, 배송완료 |
-| `cs` | CS접수, 자동분류, 담당자배정, 1차응대, 해결완료 |
-| `settlement` | 정산요청, 데이터검증, 금액계산, 승인, 지급완료 |
-
-**bottleneck.py와의 차이:**
-
-| 구분 | bottleneck.py | anomaly_detector.py |
-|------|---------------|---------------------|
-| 분석 대상 | 전이(transition) 시간 | 케이스(case) 경로 |
-| 알고리즘 | IQR (통계적 이상치) | IsolationForest (ML 이상치) |
-| 탐지 기준 | 소요시간 > Upper Fence | 경로 패턴 비정상 |
-| 출력 단위 | 전이 구간별 이상치 | 케이스별 이상 판정 |
-
-**이상 판정 근거 자동 생성 (`_generate_anomaly_reason()`):**
-- 소요시간이 평균 대비 `2배 이상` → "평균 대비 X배 소요"
-- 시퀀스 길이가 평균 대비 `1.5배 이상` → "평균 대비 X배 긴 시퀀스"
-- 루프(반복 활동) 존재 → "루프 발생"
-- 예외 경로 활동 존재 → "예외 경로 활동 포함: [활동명]"
-
-**출력 구조:**
-```python
-{
-    "total_cases": 200,
-    "anomaly_count": 30,
-    "anomaly_ratio": 0.15,
-    "anomalies": [
-        {
-            "case_id": "ORD-20250201-0042",
-            "sequence": ["주문생성", "결제확인", "결제실패", "결제확인", "재고차감", "배송요청", "배송지연", "배송중", "배송완료"],
-            "duration_minutes": 8542.3,
-            "anomaly_score": -0.23,         # IsolationForest 점수 (음수일수록 이상)
-            "reason": "평균 대비 2.1배 소요, 예외 경로 활동 포함: 결제실패, 배송지연"
-        }
-    ],
-    "feature_importance": {
-        "sequence_length": 0.18,
-        "total_duration_minutes": 0.25,
-        "unique_activity_count": 0.12,
-        "has_loop": 0.15,
-        "exception_step_count": 0.30
-    },
-    "normal_pattern_summary": {
-        "avg_sequence_length": 6.2,
-        "avg_duration_minutes": 4200.5,
-        "normal_activity_count": 6
-    }
-}
-```
-
-**주요 함수:**
-
-| 함수 | 역할 |
-|------|------|
-| `_encode_case()` | 단일 케이스를 피처 벡터로 변환 |
-| `_prepare_case_features()` | 전체 케이스에서 피처 행렬 생성 |
-| `detect_anomalies()` | IsolationForest 학습 + 이상 케이스 탐지 |
-| `_generate_anomaly_reason()` | 이상 판정 근거 자연어 생성 |
-
-#### 15.4.7 API 라우터 (`routes.py`, 211줄)
-
-별도 라우터: `APIRouter(prefix="/api/process-miner", tags=["process-miner"])`
-
-| Method | Endpoint | 설명 | 요청 바디 |
-|--------|----------|------|-----------|
-| POST | `/discover` | 프로세스 패턴 발견 | `{process_type, n_cases}` |
-| POST | `/bottlenecks` | 병목 분석 | `{process_type, n_cases}` |
-| POST | `/recommend` | AI 자동화 추천 + SOP | `{process_type, n_cases}` |
-| POST | `/predict` | 다음 활동 예측 (RandomForest) | `{process_type, n_cases, case_id}` |
-| POST | `/anomalies` | 이상 프로세스 탐지 (IsolationForest) | `{process_type, n_cases}` |
-| GET | `/dashboard` | 3종 프로세스 요약 대시보드 | - |
-
-**요청 파라미터:**
-- `process_type`: `"order"` / `"cs"` / `"settlement"` / `"all"` (기본: `"order"`)
-- `n_cases`: 10~5000 (기본: 200)
-
-**데이터 흐름 (recommend 엔드포인트):**
-```mermaid
-flowchart TD
-    API["POST /api/process-miner/recommend"] --> S1["1. generate_event_logs<br/>(process_type, n_cases) → events[]"]
-    S1 --> S2["2. discover_process(events)<br/>→ discovery_result"]
-    S1 --> S3["3. analyze_bottlenecks(events)<br/>→ bottleneck_result"]
-    S2 & S3 --> S4["4. recommend_automation<br/>(discovery, bottleneck)"]
-    S4 -->|"API 키 O"| LLM["GPT-4o-mini 분석<br/>→ 자동화 추천 + SOP"]
-    S4 -->|"API 키 X"| Rule["규칙 기반 fallback<br/>→ 자동화 추천 + SOP"]
-```
-
-### 15.5 프론트엔드 (`ProcessMinerPanel.js`, 927줄)
-
-3개 서브탭으로 구성된 분석 패널:
-
-| 탭 | 기능 | 주요 컴포넌트 | API |
-|----|------|---------------|-----|
-| **프로세스 발견** | 패턴 목록 + 프로세스 플로우 + 전이 행렬 + Mermaid 코드 + 다음 활동 예측 | `ProcessFlowDiagram` (위상정렬 BFS), `TransitionMatrix` (확률 히트맵), 예측 확률 바 차트, 피처 중요도 | POST `/discover`, POST `/predict` |
-| **병목 분석** | 효율성 게이지 + 병목 구간 카드 + 시간대별 바차트 + 이상 프로세스 탐지 | `EfficiencyGauge` (SVG 원형), `BottleneckItem` (심각도 색상 + 이상치 아코디언), `TimeAnalysisChart`, 이상 케이스 리스트 (예외 활동 하이라이트) | POST `/bottlenecks`, POST `/anomalies` |
-| **AI 자동화 추천** | 추천 카드 + SOP 문서 뷰어 | 자동화 유형 아이콘 (Zap/Brain/Bot), `SimpleMarkdown` 렌더러 | POST `/recommend` |
-
-**프론트엔드 데이터 정규화:**
-- 백엔드 응답 `{ status: "success", data: {...} }` → `setResult(res.data || res)`로 안전하게 언래핑
-- 필드명 호환: `from_step` / `from`, `avg_duration_minutes` / `avg_minutes` 양쪽 지원
-- 효율성 점수: 0~1 또는 0~100 양쪽 자동 정규화
-
-### 15.6 기술적 특징 요약
-
-| 특징 | 설명 | 관련 모듈 |
-|------|------|-----------|
-| **Process Mining** | Counter 기반 패턴 빈도 분석, 전이 확률 행렬 | `miner.py` |
-| **통계적 이상치 탐지** | IQR (Interquartile Range) 기반 Upper Fence | `bottleneck.py` |
-| **백분위수 계산** | 선형 보간 방식 (numpy 없이 순수 Python으로 P50/P95 계산) | `bottleneck.py` |
-| **LLM 구조화 출력** | 프롬프트 엔지니어링 + 3단계 JSON 파싱 안전장치 | `recommender.py` |
-| **Graceful Degradation** | API 키 유무/LLM 실패 상관없이 항상 결과 반환 (규칙 기반 fallback) | `recommender.py` |
-| **Mermaid 자동 생성** | `<br/>` 줄바꿈 사용 (Mermaid에서 `\n` 미지원), 한국어 노드 ID 자동 매핑 | `miner.py` |
-| **Predictive Process Mining** | RandomForest 기반 다음 활동 예측 (7피처, Top-3 확률, SHA256 해시 캐싱) | `predictor.py` |
-| **Path-based Anomaly Detection** | IsolationForest 기반 경로 이상 탐지 (bottleneck의 시간 기반 IQR과 상호보완) | `anomaly_detector.py` |
-| **시드 기반 재현성** | `random.Random(seed=42)` -- 동일 파라미터 시 동일 결과 (데모 안정성) | `event_generator.py` |
-| **독립 패키지** | 기존 API 코드와 분리 (9개 도메인 라우터), `main.py`에 2줄 추가로 통합 | `process_miner/` |
-
-### 15.7 프로세스 마이너 vs 기존 ML 모델 비교
-
-| 구분 | 기존 ML 모델 (8장) | 프로세스 마이너 (15장) |
-|------|---------------------|----------------------|
-| **분석 대상** | 셀러/쇼핑몰 개체(Entity) | 프로세스 경로(Sequence) |
-| **데이터** | 합성 CSV (train_models.py) | 자체 생성 이벤트 로그 (event_generator.py) |
-| **에이전트 연동** | Tool Calling으로 호출 | 별도 API 엔드포인트 (/api/process-miner/*) |
-| **ML 기법** | 지도/비지도 학습 (분류, 회귀, 클러스터링) | 전이 행렬, 통계 분석, 예측, 이상탐지 |
-| **LLM 활용** | 에이전트가 결과를 자연어로 설명 | 추천 엔진이 직접 GPT-4o-mini 호출 |
-| **시각화** | 프론트엔드 차트 | Mermaid 다이어그램 + 프론트엔드 차트 |
-
----
-
-## 16. 자동화 엔진
+## 15. 자동화 엔진
 
 `automation/` 패키지는 기존 ML 탐지 결과를 **자동 조치로 연결**하는 "데이터 분석 → AI 판단 → 자동 실행" 패턴을 구현합니다.
 
-### 16.1 아키텍처
+### 15.1 아키텍처
 
 ```mermaid
 flowchart LR
@@ -3266,7 +2750,7 @@ flowchart LR
     KPI --> RPT --> GPT
 ```
 
-### 16.2 모듈 구성
+### 15.2 모듈 구성
 
 | 모듈 | 역할 | 주요 함수 |
 |------|------|----------|
@@ -3276,7 +2760,7 @@ flowchart LR
 | `faq_engine.py` | TF-IDF+K-Means+PCA 2D / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 관리. LLM 모드 전체 분석 시 건수 상위 6개 중 3개 카테고리 랜덤 선택 (속도 최적화) | `analyze_cs_patterns(mode='kmeans'/'llm')`, `generate_faq_items(selected_clusters=...)`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
 
-### 16.2.1 업그레이드 엔진 (`upgrade_engine.py`)
+### 15.2.1 업그레이드 엔진 (`upgrade_engine.py`)
 
 셀러의 매출/주문 데이터를 분석하여 상위 플랜으로의 업그레이드가 적합한 후보를 자동 탐지하고, LLM으로 맞춤 추천 메시지를 생성한 뒤 업그레이드 액션을 실행합니다.
 
@@ -3298,7 +2782,7 @@ Basic → Standard → Premium → Enterprise
 
 **처리 흐름:** 규칙 기반 후보 탐지 → 매출/주문 가중 점수 산출 → LLM 맞춤 추천 메시지 생성 → 업그레이드 액션 실행
 
-### 16.3 API 엔드포인트 (20개)
+### 15.3 API 엔드포인트 (20개)
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
@@ -3323,7 +2807,7 @@ Basic → Standard → Premium → Enterprise
 | GET | `/api/automation/categories` | CS 카테고리 목록 (9종) |
 | GET | `/api/automation/pipeline/{run_id}` | 파이프라인 실행 상태 조회 |
 
-### 16.4 파이프라인 추적
+### 15.4 파이프라인 추적
 
 각 엔진 함수는 실행 시 `create_pipeline_run()`으로 파이프라인을 생성하고, 단계별로 `update_pipeline_step()`으로 상태를 업데이트합니다. 프론트엔드 PipelineFlow 컴포넌트가 이 상태를 시각화합니다.
 

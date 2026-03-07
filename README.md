@@ -137,8 +137,8 @@ v9.3.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **AI 도구** | 31개 (Tool Calling 기반) |
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
 | **RAG 엔진** | 7종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · Cross-Encoder) |
-| **API 엔드포인트** | 112개 REST API (api/ 106 + process_miner/ 6) |
-| **프론트엔드 패널** | 12개 (Agent, Dashboard, Analysis, Models, RAG, Lab, Guardian, Process Miner, Automation, Settings, Users, Logs) |
+| **API 엔드포인트** | 106개 REST API |
+| **프론트엔드 패널** | 11개 (Agent, Dashboard, Analysis, Models, RAG, Lab, Guardian, Automation, Settings, Users, Logs) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
 > **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -175,7 +175,6 @@ v9.3.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **매출 예측** | 경험 기반 예측 | LightGBM 기반 다변량 매출 예측 |
 | **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 31 Tools) |
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
-| **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
 | **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) |
 | **플랜 업그레이드** | 수동 셀러 분석, 일괄 안내 | 규칙 기반 후보 탐지 (매출/주문수 임계값) → LLM 맞춤 추천 메시지 → 4종 액션 자동 실행 |
 | **CS FAQ** | 수동 FAQ 작성·관리 | TF-IDF + 실루엣 최적 K-Means / LLM 의미 분류 듀얼 클러스터링 → FAQ 자동 생성 → 승인 워크플로우 |
@@ -357,7 +356,6 @@ flowchart LR
 | **마케팅 최적화** | 마케팅 채널별 예산 ROI 최적화 (6개 채널) | P-PSO (메타휴리스틱 최적화) |
 | **CS 자동화** | 문의 자동 분류 -> RAG 답변 -> 회신 | TF-IDF + RF + RAG + SSE + n8n |
 | **DB 보안 감시** | DB 대량 변경 실시간 차단 + SHAP 위험 분석 + 복구 SQL 생성 | 룰엔진 + Isolation Forest + SHAP + LangChain Agent |
-| **프로세스 마이너** | 프로세스 패턴 발견, 병목 분석, AI 자동화 추천, 이상 탐지 | Counter + IQR + GPT-4o-mini + RandomForest + IsolationForest |
 | **AI 인사이트** | 대시보드 데이터 기반 동적 인사이트 자동 생성 | 실시간 데이터 분석 |
 | **셀러 종합 프로필** | 레이더 차트 + 5개 ML 모델 예측 결과 통합 | Percentile 기반 스코어링 |
 | **OCR** | 이미지에서 텍스트 추출 + RAG 문서 등록 | EasyOCR |
@@ -430,17 +428,6 @@ flowchart TD
     E --> H
     H --> I
     H -.->|"복구 요청"| J
-```
-
-### 프로세스 마이너
-
-```mermaid
-flowchart LR
-    A["이벤트 로그<br/>(주문/CS/정산)"] --> B["프로세스 발견<br/>패턴 추출 + 빈도 분석"]
-    B --> C["병목 분석<br/>IQR 기반 이상치 탐지"]
-    C --> D["AI 자동화 추천<br/>GPT-4o-mini"]
-    B --> E["이상 프로세스 탐지<br/>IsolationForest"]
-    B --> F["다음 활동 예측<br/>RandomForest"]
 ```
 
 ### 셀러 플랜 업그레이드 자동 추천
@@ -564,7 +551,6 @@ flowchart TD
 │   │   ├── upgrade_engine.py          # 셀러 플랜 업그레이드 자동 추천 엔진
 │   │   ├── faq_engine.py              # CS FAQ 자동 생성 엔진
 │   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
-│   ├── process_miner/                 # AI 프로세스 마이너 (6개 엔드포인트)
 │   ├── Dockerfile                     # Docker 빌드
 │   └── README.md                      # 백엔드 상세 문서
 │
@@ -639,10 +625,10 @@ npm run dev -- -H 0.0.0.0
 
 | 계정 | 비밀번호 | 역할 | 접근 패널 |
 |------|---------|------|-----------|
-| `admin` | `admin123` | 관리자 | 전체 (12개) |
-| `analyst` | `analyst123` | 분석가 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 프로세스 마이너, 자동화 엔진 |
-| `user` | `user123` | 사용자 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 프로세스 마이너, 자동화 엔진 |
-| `operator` | `oper123` | 운영자 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 프로세스 마이너, 자동화 엔진 |
+| `admin` | `admin123` | 관리자 | 전체 (11개) |
+| `analyst` | `analyst123` | 분석가 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 자동화 엔진 |
+| `user` | `user123` | 사용자 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 자동화 엔진 |
+| `operator` | `oper123` | 운영자 | 에이전트, 대시보드, 분석, 실험실, DB 보안 감시, 자동화 엔진 |
 
 ### 환경 변수
 
@@ -717,8 +703,6 @@ cd nextjs && npx vercel --prod
 | 7.5.0 | 2026-02-10 | README 전면 리뉴얼: 백엔드/프론트엔드/루트 README 코드 기준 정확성 검증 |
 | 7.4.0 | 2026-02-10 | KaTeX 수학 렌더링, 시스템 프롬프트 통합 (constants.py), CAFE24 브랜딩 통일 |
 | 7.3.0 | 2026-02-10 | RAG 패널 UI 리뉴얼: 모드 선택 (Hybrid/LightRAG/K2RAG/Auto), 기능 상태 모니터링 |
-| 7.2.0 | 2026-02-09 | 프로세스 마이너 ML 확장: 다음 활동 예측, 이상 프로세스 탐지 |
-| 7.1.0 | 2026-02-09 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + LLM 자동화 추천) |
 | 6.9.3 | 2026-02-09 | DB 보안 감시 ML 이상탐지, 감시 모드 선택, 프리셋 시나리오 8개 |
 | 6.9.2 | 2026-02-09 | DB 보안 감시 (룰엔진 + LangChain Agent + Resend 알림) |
 | 6.9.0 | 2026-02-09 | n8n 실제 연동, job_id 기반 SSE, 콜백 엔드포인트 |

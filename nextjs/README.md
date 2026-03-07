@@ -14,14 +14,14 @@
 
 ## 최신 업데이트
 
-> **v9.2.0** (2026-03-06) — FaqTab 클러스터 선택 UI + 안전 처리 강화
+> **v9.3.0** (2026-03-07) — Supervisor 통합 + 인터랙티브 도구 탐색기 + Dead Code 정리
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **FaqTab 클러스터 선택** | 카테고리별 전체 선택/해제 체크박스 + 개별 클러스터 선택 UI 추가, `selectedClusters` (Set) 상태로 선택/해제 추적, FAQ 생성 버튼에 `(N개)` 예상 생성 개수 표시 |
-| **FaqTab 카테고리 연동** | 카테고리 드롭다운 변경 시 해당 카테고리 아코디언 자동 펼침, `selectedCount` useMemo로 카테고리 필터 연동 FAQ 예상 생성 개수 계산 |
-| **FaqTab 안정성 개선** | `ChartErrorBoundary` (React class component) 추가로 Recharts 차트 ErrorBoundary 적용, `toast.error` Pydantic 422 detail 배열 → 문자열 변환 (React 크래시 방지), Tooltip formatter null safety |
-| **FaqTab 차트 간소화** | Recharts 중심점 Scatter: Cell+shape 조합 제거 → 단순 diamond+고정fill(`#1e293b`)로 변경, `generateFaqs`에서 선택된 클러스터만 `selectedClusters` 필드로 백엔드 전달 |
+| **Supervisor 통합** | AgentPanel → MultiAgentPanel 직접 렌더하는 19줄 래퍼로 변경, 모드 토글 제거. 모든 채팅이 Supervisor 멀티에이전트 경유 |
+| **인터랙티브 도구 탐색기** | `common/toolRegistry.js` (31개 도구 데이터) + `common/ToolExplorer.js` (아코디언 UI) 신규 추가, MultiAgentPanel 사이드바에 통합 |
+| **Dead Code 정리** | `useAgentStream.js` 삭제 (useMultiAgentStream만 사용), app.js에서 `agentMessages`/`totalQueries` state 제거, sub-agent 탭 제거 (13탭 → 12탭) |
+| **추천 칩 개선** | "전체 셀러" 대상 무거운 ML 분석 칩 제거 → 개별 셀러/쇼핑몰 대상 경량 질문 7개로 교체 |
 
 ---
 
@@ -29,7 +29,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (13개)](#2-패널-13개)
+2. [패널 (12개)](#2-패널-12개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -46,13 +46,13 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅, 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝, 서브에이전트 실험 등 **13개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 프로세스 마이닝, 자동화 엔진 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["13개 패널"]
+        Panels["12개 패널"]
         SSEProxy["SSE 프록시<br/>(5개 API Route)"]
     end
 
@@ -94,7 +94,7 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth, password btoa 인코딩)
-│   ├── app.js                      # 메인 앱 (탭 기반 13개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   └── stream.js           # SSE 프록시 (AI 에이전트)
@@ -117,10 +117,12 @@ nextjs/
 │   ├── common/                     # 공통 컴포넌트
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
 │   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel + ProcessMinerPanel)
+│   │   ├── toolRegistry.js         # 에이전트 도구 레지스트리 (31개 도구 메타데이터)
+│   │   ├── ToolExplorer.js         # 인터랙티브 도구 탐색기 (아코디언 UI, Framer Motion)
 │   │   └── constants.js            # 공통 상수 (COLORS, getSeverityClasses 등)
 │   │
-│   └── panels/                     # 기능별 패널 (13개)
-│       ├── AgentPanel.js           # AI 에이전트 채팅
+│   └── panels/                     # 기능별 패널 (12개)
+│       ├── AgentPanel.js           # AI 에이전트 (19줄 래퍼 → MultiAgentPanel 직접 렌더)
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
 │       ├── ModelsPanel.js          # MLflow 모델 관리
@@ -132,12 +134,11 @@ nextjs/
 │       ├── GuardianPanel.js        # DB 보안 감시
 │       ├── ProcessMinerPanel.js    # 프로세스 마이닝
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/플랜 업그레이드/FAQ/리포트 4탭)
-│       ├── SubAgentPanel.js      # 서브에이전트 (파이프라인 실행 + 채팅)
+│       ├── MultiAgentPanel.js    # Supervisor 멀티에이전트 채팅 + 파이프라인 (메인 UI)
 │       │
 │       ├── hooks/                 # 패널 전용 커스텀 훅
-│       │   ├── useBaseStream.js      # SSE 스트리밍 공통 로직 (~250줄, useAgentStream + useSubAgentStream 통합)
-│       │   ├── useAgentStream.js     # 에이전트 SSE 훅 (useBaseStream 호출, ~43줄)
-│       │   └── useSubAgentStream.js  # 서브에이전트 SSE 훅 (useBaseStream + agent_start/agent_end, ~123줄)
+│       │   ├── useBaseStream.js      # SSE 스트리밍 공통 로직 (~250줄)
+│       │   └── useMultiAgentStream.js # Supervisor SSE 훅 (useBaseStream + agent_start/agent_end, ~123줄)
 │       │
 │       ├── guardian/              # GuardianPanel 공통 컴포넌트
 │       │   └── common/
@@ -160,7 +161,7 @@ nextjs/
 │       │   ├── DraggableCard.js    # HTML5 DnD 카드
 │       │   ├── WorkflowNode.js     # React Flow 커스텀 노드
 │       │   ├── constants.js        # 샘플 데이터, 채널 메타
-│       │   └── utils.js            # 유틸리티 함수
+│       │   └── utils.js            # 공통 유틸 (EmptyStep, renderMd, KpiMini)
 │       │
 │       └── analysis/               # AnalysisPanel 분리 (10개 파일)
 │           ├── AnalysisPanel.js    # 메인 컨테이너 (9개 탭 오케스트레이션)
@@ -194,15 +195,15 @@ nextjs/
 
 ---
 
-## 2. 패널 (13개)
+## 2. 패널 (12개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["13개 탭 전부"]
-    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["8개 탭"]
+    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
+    Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["7개 탭"]
 
     Admin --> A1["AI 에이전트"]
     Admin --> A2["대시보드"]
@@ -213,10 +214,9 @@ graph TD
     Admin --> A7["DB 보안 감시"]
     Admin --> A8["프로세스 마이너"]
     Admin --> A9["자동화 엔진"]
-    Admin --> A10["서브에이전트"]
-    Admin --> A11["LLM 설정"]
-    Admin --> A12["셀러 관리"]
-    Admin --> A13["로그"]
+    Admin --> A10["LLM 설정"]
+    Admin --> A11["셀러 관리"]
+    Admin --> A12["로그"]
 
     User --> U1["AI 에이전트"]
     User --> U2["대시보드"]
@@ -225,13 +225,12 @@ graph TD
     User --> U5["DB 보안 감시"]
     User --> U6["프로세스 마이너"]
     User --> U7["자동화 엔진"]
-    User --> U8["서브에이전트"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 13개 전부 | 13 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation, SubAgent | 8 |
+| **관리자** (Admin) | 12개 전부 | 12 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, ProcessMiner, Automation | 7 |
 
 ---
 
@@ -239,21 +238,23 @@ graph TD
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/AgentPanel.js` |
-| **역할** | AI 에이전트와 실시간 채팅, 도구 호출 결과 표시, 수학 수식 렌더링 |
-| **API** | `POST /api/agent/stream` (SSE) |
-| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `katex` |
+| **파일** | `components/panels/AgentPanel.js` (19줄 래퍼 → MultiAgentPanel 직접 렌더) |
+| **역할** | Supervisor 멀티에이전트 채팅 — MultiAgentPanel에 모든 UI/로직 위임 |
+| **구조** | AgentPanel은 props만 전달하는 단순 래퍼. 실제 채팅/파이프라인/도구 탐색기 등 모든 기능은 MultiAgentPanel에서 처리 |
+
+> **v9.3.0 변경**: 기존 독립 채팅 UI → MultiAgentPanel 직접 렌더로 전환. 모든 질문이 Supervisor 멀티에이전트를 경유하므로 별도 모드 토글 불필요
 
 ```mermaid
 flowchart TB
     Q["사용자 입력"]
-    Mode["RAG 모드 선택<br/>(rag / lightrag / k2rag / auto)"]
+    AP["AgentPanel<br/>(19줄 래퍼)"]
+    SP["MultiAgentPanel<br/>(Supervisor 멀티에이전트)"]
     SSE["/api/agent/stream (SSE)"]
     R1["토큰 단위 실시간 표시"]
     R2["마크다운 + GFM 테이블<br/>+ KaTeX 수학 렌더링"]
     R3["도구 호출 결과 (접이식)"]
 
-    Q --> Mode --> SSE --> R1 & R2 & R3
+    Q --> AP --> SP --> SSE --> R1 & R2 & R3
 ```
 
 **RAG 모드 선택** (RagPanel에서 설정, `settings.ragMode`로 전달):
@@ -276,19 +277,19 @@ flowchart TB
 | 셀러 분석 | 12 | "우수 셀러 세그먼트 통계 알려줘" |
 | 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
 
-**추천 질문 chips** (AgentPanel 하단, 7개 — `selectedShop` 동적 바인딩):
+**추천 질문 chips** (MultiAgentPanel 하단, 7개 — `selectedShop` 동적 바인딩):
 
 | # | 질문 | 유형 |
 |---|------|------|
-| 1 | `{shopId} 쇼핑몰 정보 알려줘` | 쇼핑몰 조회 |
-| 2 | `{shopId} 매출 성과 분석해줘` | 매출 분석 |
-| 3 | `SEL0001 셀러 활동 현황` | 셀러 조회 |
-| 4 | `Premium 등급 쇼핑몰 목록` | 등급별 조회 |
-| 5 | `쇼핑몰 SEO 최적화 방법 알려줘` | RAG 검색 |
-| 6 | `카페24 결제 수단 안내해줘` | RAG 검색 |
-| 7 | `반품 처리 절차 알려줘` | RAG 검색 |
+| 1 | `{shopId} 쇼핑몰 성과 분석하고 종합 리포트 만들어줘` | 쇼핑몰 파이프라인 |
+| 2 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | 리텐션 파이프라인 |
+| 3 | `SEL0001 셀러 종합 진단 리포트 작성해줘` | 셀러 진단 |
+| 4 | `SEL0001 이상거래 조사해줘` | 이상거래 파이프라인 |
+| 5 | `CS 품질 통계 조회해줘` | CS 품질 |
+| 6 | `카페24 반품 처리 절차 알려줘` | RAG 검색 |
+| 7 | `세그먼트별 셀러 통계 요약해줘` | 데이터 조회 |
 
-> 기존 10개에서 7개로 축소 — 무거운 전체 데이터 처리 질문(셀러 이탈 예측 분석, 코호트 리텐션 분석, KPI 트렌드 분석, 이상거래 탐지 현황, 셀러 세그먼트 통계, 대시보드 전체 현황, CS 문의 통계)을 제거하고 경량 조회/RAG 질문 중심으로 재구성
+> 개별 셀러/쇼핑몰 대상 경량 질문 중심 — "전체 셀러" 대상 무거운 ML 분석 칩 제거
 
 **빠른 분석 버튼 (AgentPanel 하단):**
 
@@ -642,7 +643,7 @@ flowchart LR
 | `DraggableCard` | `lab/DraggableCard.js` | HTML5 DnD 카드 (드래그 핸들, 카테고리 배지, 드롭존 하이라이트) |
 | `WorkflowNode` | `lab/WorkflowNode.js` | React Flow 커스텀 노드 |
 | `constants` | `lab/constants.js` | 샘플 문의 데이터, 채널 메타정보 |
-| `utils` | `lab/utils.js` | 유틸리티 함수 |
+| `utils` | `lab/utils.js` | 공통 유틸 (EmptyStep, renderMd, KpiMini) |
 
 **애니메이션 (Framer Motion):**
 - `AnimatePresence` + `motion.div`로 스텝 전환 시 슬라이드 인/아웃 (`x: 20 → 0 → -20`, 0.2s)
@@ -887,18 +888,19 @@ flowchart LR
 
 ---
 
-### 2.13 SubAgentPanel (실험실 - 서브에이전트) 🚧 개발중
+### MultiAgentPanel (AgentPanel 내부 구현 — Supervisor 멀티에이전트)
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/SubAgentPanel.js` (PipelineSteps/MarkdownMessage/ToolCalls React.memo 적용) |
-| **역할** | 서브에이전트 파이프라인 실행 -- 다단계 AI 에이전트가 순차적으로 분석/실행하고 결과를 실시간 스트리밍 |
-| **훅** | `components/panels/hooks/useSubAgentStream.js` (~123줄, useBaseStream 기반) |
+| **파일** | `components/panels/MultiAgentPanel.js` (PipelineSteps/MarkdownMessage/ToolCalls React.memo 적용) |
+| **역할** | Supervisor 멀티에이전트 채팅 + 파이프라인 실행 — AgentPanel이 이 컴포넌트를 직접 렌더 |
+| **훅** | `components/panels/hooks/useMultiAgentStream.js` (~123줄, useBaseStream 기반) |
 | **API** | `POST /api/agent/stream` (SSE, `sub_agent: true` 플래그) |
-| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `framer-motion` |
+| **라이브러리** | `@microsoft/fetch-event-source`, `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `framer-motion` |
+| **사이드바** | 도구 탐색기 (`ToolExplorer`), 파이프라인 정보 요약, LLM 설정 요약 |
 | **권한** | 전체 사용자 |
 
-> **핵심 컨셉**: 복합 업무를 여러 서브에이전트가 파이프라인으로 분담 처리. 각 단계의 진행 상태와 결과를 실시간으로 시각화
+> **핵심 컨셉**: 모든 채팅이 Supervisor 멀티에이전트를 경유. 복합 업무는 워커 에이전트가 파이프라인으로 분담 처리하고, 각 단계의 진행 상태와 결과를 실시간으로 시각화
 
 **아키텍처:**
 
@@ -918,9 +920,9 @@ flowchart LR
 |------|------|
 | **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 |
 | **StepResultCard** | 단계별 결과 접기/펼치기 -- 마크다운 렌더링 (`react-markdown` + `remark-gfm`) |
-| **채팅 UI** | messages 기반 대화 인터페이스 -- AgentPanel과 동일 패턴 |
-| **추천 칩** | 6개 추천 칩 -- 파이프라인 1:1 매핑 |
-| **사이드바** | 파이프라인 정보 요약 + LLM 설정 요약 |
+| **채팅 UI** | messages 기반 대화 인터페이스 -- 마크다운 + KaTeX 수학 렌더링 |
+| **추천 칩** | 7개 추천 칩 -- 개별 셀러/쇼핑몰 대상 경량 질문 |
+| **사이드바** | 도구 탐색기 (`ToolExplorer` 아코디언), 파이프라인 정보 요약, LLM 설정 요약 |
 
 **파이프라인 (6개):** 🚧
 
@@ -952,16 +954,17 @@ flowchart LR
 | `cs_sentiment` | CS 감성 분석 |
 | `cs_report` | CS 품질 리포트 |
 
-**추천 칩 (6개 -- 파이프라인 1:1):** 🚧
+**추천 칩 (7개 -- 개별 셀러/쇼핑몰 대상):**
 
-| # | 추천 칩 | 파이프라인 |
-|---|--------|----------|
-| 1 | 🔄 리텐션 분석 | 리텐션 |
-| 2 | 👤 셀러 진단 | 셀러 진단 |
-| 3 | 🏪 쇼핑몰 성과 | 쇼핑몰 성과 |
-| 4 | 📊 딥 분석 | 딥 분석 |
-| 5 | 🚨 이상거래 | 이상거래 |
-| 6 | 💬 CS 품질 | CS 품질 |
+| # | 추천 칩 | 유형 |
+|---|--------|------|
+| 1 | `{shopId} 쇼핑몰 성과 분석하고 종합 리포트 만들어줘` | 쇼핑몰 파이프라인 |
+| 2 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | 리텐션 파이프라인 |
+| 3 | `SEL0001 셀러 종합 진단 리포트 작성해줘` | 셀러 진단 |
+| 4 | `SEL0001 이상거래 조사해줘` | 이상거래 파이프라인 |
+| 5 | `CS 품질 통계 조회해줘` | CS 품질 |
+| 6 | `카페24 반품 처리 절차 알려줘` | RAG 검색 |
+| 7 | `세그먼트별 셀러 통계 요약해줘` | 데이터 조회 |
 
 **SSE 이벤트 스펙 (7종):**
 
@@ -978,10 +981,11 @@ flowchart LR
 **SSE 훅 아키텍처 (useBaseStream 통합):**
 
 ```
-useBaseStream.js (~250줄)          # 공통: SSE 연결, delta 버퍼, 메시지 관리, abort/stale 가드
-├── useAgentStream.js (~43줄)      # AgentPanel용: useBaseStream 직접 호출
-└── useSubAgentStream.js (~123줄)  # SubAgentPanel용: useBaseStream + agent_start/agent_end 핸들링
+useBaseStream.js (~250줄)            # 공통: SSE 연결, delta 버퍼, 메시지 관리, abort/stale 가드
+└── useMultiAgentStream.js (~123줄)  # MultiAgentPanel용: useBaseStream + agent_start/agent_end 핸들링
 ```
+
+> `useAgentStream.js`는 v9.3.0에서 삭제 (dead file). AgentPanel이 MultiAgentPanel을 직접 렌더하므로 useMultiAgentStream만 사용
 
 | 기능 | 설명 |
 |------|------|
@@ -989,9 +993,9 @@ useBaseStream.js (~250줄)          # 공통: SSE 연결, delta 버퍼, 메시�
 | **메시지 상태 관리** | `messages`, `setMessages` -- 채팅 히스토리 |
 | **파이프라인 상태** | `steps` (단계 배열), `currentStep` (현재 단계), `stepResults` (결과 맵), `pipelineStatus` (전체 상태) |
 | **50ms 델타 버퍼** | delta 이벤트를 50ms 간격으로 버퍼링하여 렌더링 최적화 |
-| **120초 타임아웃** | 서브에이전트 응답 대기 최대 시간 |
+| **120초 타임아웃** | 멀티에이전트 응답 대기 최대 시간 |
 | **abort/stale 가드** | AbortController + stale 플래그로 중복 요청 방지 |
-| **sub_agent 플래그** | 요청 시 `sub_agent: true`로 서브에이전트 모드 활성화 |
+| **sub_agent 플래그** | 요청 시 `sub_agent: true`로 멀티에이전트 모드 활성화 |
 | **stopStream 버그 수정** | isPending 조건 제거로 메시지 유실 방지 |
 
 **내부 컴포넌트:**
@@ -1012,8 +1016,8 @@ useBaseStream.js (~250줄)          # 공통: SSE 연결, delta 버퍼, 메시�
 | 패턴 | 적용 위치 | 설정 |
 |------|----------|------|
 | 슬라이드 전환 | LabPanel 스텝 전환 | `AnimatePresence` + `x: 20→0→-20`, 0.2s |
-| 단계 전환 | SubAgentPanel 파이프라인 | 단계 시작/완료 시 `motion.div` 등장/상태 전환 |
-| 결과 카드 등장 | SubAgentPanel StepResultCard | 접기/펼치기 `AnimatePresence` 애니메이션 |
+| 단계 전환 | MultiAgentPanel 파이프라인 | 단계 시작/완료 시 `motion.div` 등장/상태 전환 |
+| 결과 카드 등장 | MultiAgentPanel StepResultCard | 접기/펼치기 `AnimatePresence` 애니메이션 |
 | 스프링 로고 | Login 페이지 CAFE24 로고 | `spring` 이징, 바운스 |
 | 플로팅 아이콘 | Login 배경 이커머스 아이콘 5개 | `y` 반복 애니메이션 |
 | 에러 메시지 | Login 에러 텍스트 | 페이드 인 + 슬라이드 |
@@ -1053,12 +1057,14 @@ useBaseStream.js (~250줄)          # 공통: SSE 연결, delta 버퍼, 메시�
 | **Topbar** | `Topbar.js` | CAFE24 SVG 로고, 사용자명, 로그아웃 버튼 |
 | **Tabs** | `Tabs.js` | 역할별 필터링된 탭 네비게이션, ARIA 접근성 (`role="tablist"`, `role="tab"`, `aria-selected`), ArrowLeft/ArrowRight 키보드 네비게이션 |
 
-### 공통 컴포넌트 (신규)
+### 공통 컴포넌트
 
 | 컴포넌트 | 파일 | 설명 |
 |----------|------|------|
 | **CustomTooltip** | `common/CustomTooltip.js` | Recharts 차트 공통 툴팁 (DashboardPanel, AnalysisPanel에서 중복 추출) |
 | **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel StatCard + ProcessMinerPanel SummaryCard 통합) |
+| **toolRegistry** | `common/toolRegistry.js` | 에이전트 도구 레지스트리 — 31개 도구 메타데이터 (이름, 설명, 파라미터, 소속 에이전트) 9개 카테고리로 분류 |
+| **ToolExplorer** | `common/ToolExplorer.js` | 인터랙티브 도구 탐색기 — 카테고리별 아코디언 UI, 도구명/설명/파라미터 표시, Framer Motion 애니메이션, 카테고리별 accent 색상 |
 | **constants** | `common/constants.js` | 공통 상수 (COLORS 차트/UI 색상, `getSeverityClasses()` 헬퍼) |
 
 ### UI 컴포넌트
@@ -1492,7 +1498,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 13개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1511,10 +1517,10 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 13개 전부 |
-| 운영자 | `operator` | `oper123` | Operator | 8개 (공개) |
-| 분석가 | `analyst` | `analyst123` | Analyst | 8개 (공개) |
-| 사용자 | `user` | `user123` | User | 8개 (공개) |
+| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
+| 운영자 | `operator` | `oper123` | Operator | 7개 (공개) |
+| 분석가 | `analyst` | `analyst123` | Analyst | 7개 (공개) |
+| 사용자 | `user` | `user123` | User | 7개 (공개) |
 
 ### 8.3 앱 초기화 (`pages/app.js`)
 
@@ -1664,10 +1670,9 @@ sequenceDiagram
 | **mount 가드** | `pages/app.js` | `mounted` 플래그로 언마운트 후 상태 업데이트 방지 |
 | **SSE 유틸 공통화** | `lib/sse.js` | LabPanel 내 SSE 파싱/인증 헤더 3회 반복 코드를 공통 모듈로 추출 |
 | **컴포넌트 분리** | `panels/lab/`, `panels/analysis/` | 대형 단일 파일을 기능별 모듈로 분리하여 번들 최적화 |
-| **dynamic import** | `SubAgentPanel` | `next/dynamic` SSR 비활성화로 클라이언트 전용 로딩 |
-| **50ms 델타 버퍼** | `useSubAgentStream` | SSE delta 이벤트를 50ms 간격 버퍼링하여 렌더링 횟수 절감 |
-| **120초 타임아웃** | `useSubAgentStream` | 서브에이전트 장시간 실행 대비 타임아웃 가드 |
-| **abort/stale 가드** | `useSubAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
+| **50ms 델타 버퍼** | `useMultiAgentStream` | SSE delta 이벤트를 50ms 간격 버퍼링하여 렌더링 횟수 절감 |
+| **120초 타임아웃** | `useMultiAgentStream` | Supervisor 장시간 실행 대비 타임아웃 가드 |
+| **abort/stale 가드** | `useMultiAgentStream` | AbortController + stale 플래그로 중복 요청 및 언마운트 후 상태 업데이트 방지 |
 
 ### v9.0.0 속도 최적화 (2026-03-04)
 
@@ -1676,12 +1681,12 @@ sequenceDiagram
 | **SSE 메시지 인덱스 캐싱** | `useBaseStream.js` | `msgIndexRef` 추가 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1) |
 | **전 이벤트 인덱스 캐싱** | `useBaseStream.js` | tool_start / tool_end / flushDelta / done / error 모든 이벤트에서 인덱스 캐싱 적용 |
 | **seenMsgIdsRef → prevLengthRef** | `AgentPanel.js` | `seenMsgIdsRef`(Set) → `prevLengthRef`(number) 교체로 메모리 누적 방지 |
-| **remarkPlugins 외부 상수화** | `SubAgentPanel.js` | `useMemo` remarkPlugins → 모듈 레벨 `SUB_REMARK_PLUGINS` 상수로 이동 |
-| **prevLengthRef 교체** | `SubAgentPanel.js` | seenMsgIdsRef → prevLengthRef 교체 (메모리 최적화) |
+| **remarkPlugins 외부 상수화** | `MultiAgentPanel.js` | `useMemo` remarkPlugins → 모듈 레벨 `MULTI_REMARK_PLUGINS` 상수로 이동 |
+| **prevLengthRef 교체** | `MultiAgentPanel.js` | seenMsgIdsRef → prevLengthRef 교체 (메모리 최적화) |
 | **optimizePackageImports** | `next.config.js` | experimental.optimizePackageImports 추가 (lucide-react, recharts) |
 | **GET 인메모리 캐시** | `lib/api.js` | Map 기반 인메모리 캐시 (TTL 60초, shops/categories 정적 데이터) |
 | **Tailwind content 확장** | `tailwind.config.js` | content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
-| **PanelLoader 스켈레톤** | `pages/app.js` | 13개 dynamic import에 PanelLoader 스켈레톤 추가 |
+| **PanelLoader 스켈레톤** | `pages/app.js` | 12개 dynamic import에 PanelLoader 스켈레톤 추가 |
 
 ### v8.5.0 최적화 (2026-02-18)
 
@@ -1696,27 +1701,25 @@ sequenceDiagram
 | **remarkPlugins/rehypePlugins 상수화** | `AgentPanel.js` | 모듈 레벨 상수로 추출하여 매 렌더링 재생성 방지 |
 | **useMemo 의존성 세분화** | `DashboardPanel.js` | `dashboard` 전체 객체 대신 구체적 하위 경로로 의존성 최적화 |
 | **자동 폴링 document.hidden 체크** | `DashboardPanel.js` | 탭 비활성 시 불필요한 폴링 방지 |
-| **flushTimer debounce 개선** | `useAgentStream.js` | 델타 버퍼 flush 타이머 debounce 방식 개선 |
-| **cleanup 강화** | `useAgentStream.js` | `timeoutRef`/`abortRef` 정리 강화로 메모리 누수 방지 |
-| **flushTimer debounce 개선** | `useSubAgentStream.js` | 델타 버퍼 flush 타이머 debounce 방식 개선 |
-| **cleanup 강화** | `useSubAgentStream.js` | cleanup 시 `timeoutRef`/`abortRef` 정리 강화 |
-| **done 이벤트 통합** | `useSubAgentStream.js` | done 이벤트 중복 상태 업데이트를 단일 호출로 통합 |
+| **flushTimer debounce 개선** | `useMultiAgentStream.js` | 델타 버퍼 flush 타이머 debounce 방식 개선 |
+| **cleanup 강화** | `useMultiAgentStream.js` | cleanup 시 `timeoutRef`/`abortRef` 정리 강화 |
+| **done 이벤트 통합** | `useMultiAgentStream.js` | done 이벤트 중복 상태 업데이트를 단일 호출로 통합 |
 | **saveToStorage 크기 제한** | `lib/storage.js` | 1MB 크기 제한 + `QuotaExceededError` 핸들링 |
 
 **2차 최적화 (29파일):**
 
 | 카테고리 | 기법 | 적용 위치 | 설명 |
 |----------|------|----------|------|
-| **SSE 훅 통합** | useBaseStream 공통 추출 | `hooks/useBaseStream.js` (신규) | useAgentStream + useSubAgentStream 공통 로직 ~250줄 추출 |
-| | useAgentStream 경량화 | `hooks/useAgentStream.js` | 382줄 → 43줄 (useBaseStream 호출) |
-| | useSubAgentStream 경량화 | `hooks/useSubAgentStream.js` | 450줄 → 123줄 (useBaseStream + agent_start/agent_end) |
+| **SSE 훅 통합** | useBaseStream 공통 추출 | `hooks/useBaseStream.js` (신규) | useAgentStream + useMultiAgentStream 공통 로직 ~250줄 추출 |
+| | useMultiAgentStream 경량화 | `hooks/useMultiAgentStream.js` | 450줄 → 123줄 (useBaseStream + agent_start/agent_end) |
+| | useAgentStream 삭제 | `hooks/useAgentStream.js` (삭제) | v9.3.0에서 dead file 제거 |
 | | stopStream 버그 수정 | `useBaseStream.js` | isPending 조건 제거로 메시지 유실 방지 |
 | **공통 컴포넌트 추출** | ToolStep 공통화 | `guardian/common/ToolStep.js` (신규) | MonitorTab + RecoverTab 도구 단계 표시 중복 제거 |
 | | EmptyState icon prop | `EmptyState.js` | icon prop 추가 (하위 호환) |
 | | getSeverityClasses 헬퍼 | `common/constants.js` | 위험도별 클래스 헬퍼 함수 추가 |
 | **패널 최적화** | MARKDOWN_COMPONENTS 상수 | `AgentPanel.js` | 마크다운 컴포넌트 맵 모듈 레벨 상수화 |
 | | mapUserData/shops useEffect 분리 | `AnalysisPanel.js` | `mapUserData()` 헬퍼 추출, shops useEffect 분리 |
-| | React.memo 3건 | `SubAgentPanel.js` | PipelineSteps, MarkdownMessage, ToolCalls React.memo 적용 |
+| | React.memo 3건 | `MultiAgentPanel.js` | PipelineSteps, MarkdownMessage, ToolCalls React.memo 적용 |
 | | IIFE → FaqList + useMemo | `FaqTab.js` | 즉시실행함수 패턴을 FaqList 컴포넌트 + useMemo로 개선 |
 | | SellerCard React.memo | `RetentionTab.js` | 셀러 카드 React.memo 적용 |
 | | maxDuration useMemo | `BottleneckTab.js` | maxDuration 계산 useMemo 적용 |
@@ -1759,9 +1762,10 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 개별 셀러/쇼핑몰 대상으로 교체 |
 | 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |
 | 9.1.0 | 2026-03-05 | AgentPanel 추천 질문 경량화(10개→7개), Supervisor 멀티에이전트 연동(agent_start/agent_end에 워커 에이전트명 표시) |
-| 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/SubAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |
+| 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/MultiAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |
 | 8.5.0 | 2026-02-18 | 전체 코드 최적화 1차+2차 통합 (~29파일): useBaseStream 공통 훅 추출, React.memo 12건, ChatMessage/ToolCalls 추출, remarkPlugins 상수화, _document.js 추가, 보안 강화(CORS/btoa/cache), ExampleQuestionBridge 제거 |
 | 8.4.0 | 2026-02-16 | 서브에이전트 오케스트레이션: SubAgentPanel 추가, SSE agent_start/agent_end 이벤트, useSubAgentStream 훅 |
 | 8.3.0 | 2026-02-12 | 전체 코드 최적화 150건: 프론트 번들 -1MB, WAI-ARIA 접근성 |
@@ -1777,6 +1781,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 9.2.0** · Last Updated 2026-03-06
+**Version 9.3.0** · Last Updated 2026-03-07
 
 </div>

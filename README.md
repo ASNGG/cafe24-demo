@@ -12,9 +12,8 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
-[![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org)
 
-v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.3.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -22,7 +21,46 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.2.2** (2026-03-06) — FAQ 클러스터 선택 기능 + LLM 모드 최적화 + 크래시 버그 수정
+> **v9.3.2** (2026-03-08) — 멀티에이전트 워커 프롬프트 전면 개편 + 데드코드 대규모 정리
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 각각 역할별 특화 분석 지침 추가 (예: churn_analyst SHAP 원인 순위 표, cs_quality_analyst 카테고리별 비교 표 등) |
+| **Supervisor 프롬프트 강화** | 대화 맥락 유지(이전 대상 자동 추적), 형식적 응답 금지("성공적으로 조회했습니다" 등), 최소 3개 인사이트 필수, 금액 포맷 규칙(₩+콤마, 억/만원 환산) |
+| **백엔드 데드코드 삭제** | 미사용 파일 12개 삭제 — crag.py, semantic_router.py, parsers.py, n8n/_writer.py, ml/helpers.py, ml/mlflow_tracker.py, 크롤러 2개, 테스트 스크립트 3개, CS 티켓 생성 스크립트 |
+| **프론트엔드 데드코드 삭제** | 미사용 파일 2개 삭제 — DataState.js, useCheckboxSelection.js |
+| **미사용 함수 제거** | marketing_optimizer.py에서 2개, revenue_model.py에서 1개 (`__main__` 전용 함수) |
+| **RAG 기법 정정** | 8종 → 7종 (CRAG는 구현만 되고 실제 연동되지 않아 제거) |
+| **문서 동기화** | README 3개 + 포트폴리오 HTML에서 삭제된 모듈 참조 일괄 제거 |
+
+<details>
+<summary><b>v9.3.1</b> (2026-03-07) — 멀티에이전트 리네이밍 + RAG 워커 추가 + UX 개선</summary>
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **멀티에이전트 리네이밍** | "서브에이전트" → "멀티에이전트" 전면 리네이밍 (프론트/백 파일명·변수명·API 파라미터·UI 텍스트) |
+| **platform_searcher 워커** | 8번째 워커 추가 — RAG 검색(FAISS+BM25) + LightRAG + 쇼핑몰/카테고리/용어 조회, FAQ 질문 시 RAG 도구 강제 호출 |
+| **도구 재시도 제한** | 에이전트 도구 호출 3회 실패 시 자동 중단 (무한 루프 방지) |
+| **응답 중복 제거** | 워커+Supervisor 이중 스트리밍 버그 수정 — Supervisor 최종 응답만 출력 |
+| **사이드바 독립 스크롤** | 질문 목록 펼침 시 사이드바 자체 스크롤 (메인 콘텐츠와 분리) |
+| **답변 내 에이전트 표시** | 워커 뱃지+도구 실행 정보를 채팅 상단이 아닌 AI 답변 말풍선 내부로 이동 |
+
+</details>
+
+<details>
+<summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 인터랙티브 도구 탐색기 + 코드 대규모 정리</summary>
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **Supervisor 통합** | AI 에이전트 탭이 항상 Supervisor(8워커) 모드로 동작, 일반/Supervisor 모드 토글 제거 |
+| **인터랙티브 도구 탐색기** | 31개 AI 도구를 6개 카테고리로 분류한 아코디언 UI (toolRegistry.js + ToolExplorer.js) |
+| **위험 질문 제거** | "전체 셀러/전체 데이터" 대상 ML 분석 추천 질문 제거, 개별 엔티티 대상으로 교체 |
+| **AgentPanel 코드 정리** | AgentPanel 638줄 → 19줄 래퍼로 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
+
+</details>
+
+<details>
+<summary><b>v9.2.2</b> (2026-03-06) — FAQ 클러스터 선택 기능 + LLM 모드 최적화 + 크래시 버그 수정</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -32,6 +70,8 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **카테고리 변경 시 아코디언 자동 펼침** | 카테고리 변경 시 해당 클러스터 아코디언 자동 펼침 UX 개선 |
 | **FAQ 생성 크래시 버그 수정** | Pydantic 422 에러 + toast.error React 크래시 + Recharts Cell+shape 크래시 해결 |
 | **ChartErrorBoundary** | Recharts 차트 ErrorBoundary 도입으로 차트 렌더링 오류 격리 |
+
+</details>
 
 <details>
 <summary><b>v9.2.1</b> (2026-03-06) — CS FAQ 클러스터링 고도화 (TF-IDF + K-Means / LLM 듀얼 모드)</summary>
@@ -96,9 +136,9 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 |------|------|
 | **AI 도구** | 31개 (Tool Calling 기반) |
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
-| **RAG 엔진** | 8종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · CRAG · Cross-Encoder) |
-| **API 엔드포인트** | 106개 REST API |
-| **프론트엔드 패널** | 13개 (Dashboard, Agent, Analysis, Lab, 서브에이전트, DB 보안 감시, 프로세스 마이너, 자동화 엔진 등) |
+| **RAG 엔진** | 7종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · Cross-Encoder) |
+| **API 엔드포인트** | 112개 REST API (api/ 106 + process_miner/ 6) |
+| **프론트엔드 패널** | 12개 (Agent, Dashboard, Analysis, Models, RAG, Lab, Guardian, Process Miner, Automation, Settings, Users, Logs) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
 > **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -136,7 +176,7 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 31 Tools) |
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
 | **운영 프로세스** | 프로세스 수동 분석 | AI 프로세스 마이너 (패턴 발견 + 병목 분석 + 자동화 추천) |
-| **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) + 서브에이전트 오케스트레이션 (분석→CS확인→전략→발송 자동화) |
+| **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) |
 | **플랜 업그레이드** | 수동 셀러 분석, 일괄 안내 | 규칙 기반 후보 탐지 (매출/주문수 임계값) → LLM 맞춤 추천 메시지 → 4종 액션 자동 실행 |
 | **CS FAQ** | 수동 FAQ 작성·관리 | TF-IDF + 실루엣 최적 K-Means / LLM 의미 분류 듀얼 클러스터링 → FAQ 자동 생성 → 승인 워크플로우 |
 | **운영 리포트** | 수동 KPI 집계·보고서 작성 | 전체 DF 자동 집계 → LLM 마크다운 리포트 (일간/주간/월간) |
@@ -145,17 +185,17 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 | 특징 | 설명 |
 |------|------|
-| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 서브에이전트: GPT-4o-mini) |
+| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 워커: GPT-4o-mini) |
 | **하이브리드 라우팅** | 명확한 질문: 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문: Supervisor LLM이 판단하여 워커 위임 |
-| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor → 전문 워커(search/analysis/cs) 위임 패턴, 워커 직접 스트리밍 |
-| **RAG 8종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + CRAG(검색 품질 교정) + Cross-Encoder Reranking |
+| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(8워커) 항상 활성 — 전문 워커 8개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, 워커 직접 스트리밍, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침, Supervisor 프롬프트 강화(대화 맥락 유지·형식적 응답 금지·최소 3개 인사이트 필수) |
+| **RAG 7종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
-| **서브에이전트 오케스트레이션** | 복합 요청 자동 분해 → 단계별 순차 실행 (Coordinator → Plan → Dispatch → Agent → 결과 누적) |
 | **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 — 워커 에이전트 직접 스트리밍 (7종 이벤트: delta/tool_start/tool_end/agent_start/agent_end/done/error) |
 | **DB 보안 감시** | 룰엔진(<1ms) + Isolation Forest + SHAP + LangChain Agent + Recovery Agent |
 | **CS 자동화** | 접수(DnD 분류) -> 답변(RAG+LLM) -> 회신(n8n) 워크플로우 |
 | **마케팅 최적화** | P-PSO(Particle Swarm Optimization) 기반 채널별 예산 배분 최적화 |
 | **보안** | 프롬프트 인젝션 방어, CS 콜백 인증, 대화 메모리 TTL/세션 제한, 스택트레이스 비노출 |
+| **인터랙티브 도구 탐색기** | 31개 AI 도구를 6개 카테고리(쇼핑몰/셀러/CS/ML/RAG/시스템)로 분류한 아코디언 UI — 도구명·설명·파라미터 실시간 탐색 |
 | **모듈형 아키텍처** | 라우터 9개 도메인 분리, RAG 서비스 파사드 패턴, 프론트엔드 패널 컴포넌트 분리 |
 
 > **기술 상세**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -170,12 +210,12 @@ v9.2.2 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 flowchart TB
     subgraph Frontend["Frontend (Next.js 14 + Tailwind CSS)"]
         Login[로그인]
-        Panels["12개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab(서브에이전트) · Process Miner<br/>DB 보안 감시 · 자동화 엔진<br/>Settings · Users · Logs"]
+        Panels["12개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab(멀티에이전트) · Process Miner<br/>DB 보안 감시 · 자동화 엔진<br/>Settings · Users · Logs"]
     end
 
     subgraph Backend["Backend (FastAPI + Python 3.10+)"]
-        subgraph API["API 레이어 (8개 도메인 라우터)"]
-            Routes["routes_shop · routes_seller · routes_cs<br/>routes_rag · routes_ml · routes_guardian<br/>routes_agent · routes_admin"]
+        subgraph API["API 레이어 (9개 도메인 라우터)"]
+            Routes["routes_shop · routes_seller · routes_cs<br/>routes_rag · routes_ml · routes_guardian<br/>routes_agent · routes_admin · routes_automation"]
         end
 
         subgraph Router["하이브리드 라우터"]
@@ -188,9 +228,7 @@ flowchart TB
             SearchAgent["search_agent<br/>쇼핑몰/카테고리/RAG"]
             AnalysisAgent["analysis_agent<br/>셀러 분석/ML 예측/KPI"]
             CSAgent["cs_agent<br/>CS 자동응답/품질 평가"]
-            SubAgent["서브에이전트 오케스트레이션<br/>coordinator → dispatcher<br/>→ retention_agent"]
             Tools["31개 도구 함수"]
-            CRAG["crag.py<br/>Corrective RAG"]
         end
 
         subgraph RAGSystem["RAG 시스템 (파사드 + 모듈)"]
@@ -240,7 +278,6 @@ flowchart TB
     SearchAgent --> Tools
     AnalysisAgent --> Tools
     CSAgent --> Tools
-    SubAgent --> Tools
     Backend --> n8n
     Backend --> Resend
     State --> DataLoader
@@ -292,7 +329,7 @@ flowchart LR
     end
 
     subgraph Request["요청 처리"]
-        FE["Frontend<br/>(Next.js 프록시)"] --> routes["api/<br/>8개 도메인 라우터<br/>89개 엔드포인트"]
+        FE["Frontend<br/>(Next.js 프록시)"] --> routes["api/<br/>9개 도메인 라우터<br/>106개 엔드포인트"]
         routes --> agent["agent/<br/>supervisor + workers + tools"]
         routes --> ml["ml/<br/>모델 추론"]
         routes --> rag["rag/<br/>service 파사드<br/>+ search · chunking · kg"]
@@ -311,11 +348,9 @@ flowchart LR
 
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
-| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 (Single/Multi/서브에이전트 모드) | GPT-4o-mini + Tool Calling + 31개 도구 |
-| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트에 작업 위임 + 하이브리드 라우팅 | langgraph-supervisor (Supervisor → search/analysis/cs Agent) |
-| **서브에이전트 오케스트레이션** `🚧 개발중` | 복합 요청을 자동 분해 → 단계별 순차 실행 (Retention 서브에이전트) | sub_agent_coordinator + dispatcher + retention_agent |
-| **RAG 8종 기법** | 8가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + CRAG + Cross-Encoder |
-| **Corrective RAG** | 검색 결과 자동 품질 평가 및 교정 | RetrievalGrader + QueryRewriter (CRAG 패턴) |
+| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(8워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-4o-mini + Tool Calling + 31개 도구 |
+| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 8개에 작업 위임 + 하이브리드 라우팅 (일반 모드 토글 제거, 통합) + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 8워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst, report_writer, platform_searcher) |
+| **RAG 7종 기법** | 7가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + Cross-Encoder |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
 | **이상거래 탐지** | 사기 거래/비정상 패턴 자동 탐지 | Isolation Forest |
 | **매출 예측** | 쇼핑몰 매출 트렌드 예측 | LightGBM |
@@ -347,7 +382,7 @@ flowchart LR
 | 11 | 다음 활동 예측 | RandomForest Classifier | 프로세스 다음 활동 Top-3 예측 |
 | 12 | 이상 프로세스 탐지 | Isolation Forest | 경로 기반 이상 프로세스 케이스 탐지 |
 
-> **모델 상세 (피처, 학습 방법, MLflow 추적 등)**: [백엔드 README](backend%20리팩토링%20시작/README.md)
+> **모델 상세 (피처, 학습 방법 등)**: [백엔드 README](backend%20리팩토링%20시작/README.md)
 
 ### CS 자동화 파이프라인
 
@@ -408,42 +443,6 @@ flowchart LR
     B --> F["다음 활동 예측<br/>RandomForest"]
 ```
 
-### 서브에이전트 오케스트레이션
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant User as 사용자
-    participant FE as Frontend (실험실 탭)
-    participant Coord as Coordinator
-    participant Plan as sub_agent_coordinator
-    participant Disp as dispatcher
-    participant RA as retention_agent
-    participant Tools as 도구 (3개)
-
-    User->>FE: "이탈 위험 셀러 분석하고 리텐션 메시지 보내줘"
-    FE->>Coord: SSE 연결
-
-    Note over Coord: IntentCategory.RETENTION 감지
-    Coord->>Plan: 복합 요청 분해
-
-    Note over Plan: Plan 생성:<br/>1. 이탈 위험 셀러 조회<br/>2. CS 이력 확인<br/>3. 리텐션 메시지 생성<br/>4. 자동 발송
-
-    loop 각 단계 순차 실행
-        Plan->>Disp: 다음 단계 전달
-        FE-->>User: SSE agent_start
-        Disp->>RA: 단계 실행 요청
-        RA->>Tools: get_at_risk_sellers / generate_retention_message / execute_retention_action
-        Tools-->>RA: 결과 반환
-        RA-->>Disp: 단계 결과
-        FE-->>User: SSE agent_end
-    end
-
-    Disp-->>Coord: 전체 결과 누적
-    Coord-->>FE: SSE 최종 응답 스트리밍
-    FE-->>User: 분석 결과 + 발송 완료 표시
-```
-
 ### 셀러 플랜 업그레이드 자동 추천
 
 ```mermaid
@@ -486,7 +485,6 @@ flowchart TD
 | **ML** | scikit-learn, LightGBM, XGBoost | 모델 학습/추론 |
 | **ML 해석** | SHAP 0.44+ | 모델 해석성 (피처 기여도) |
 | **ML 최적화** | mealpy 3.0+ | P-PSO 메타휴리스틱 최적화 |
-| **MLOps** | MLflow 2.10+ | 실험 추적/모델 버전 관리 |
 | **OCR** | EasyOCR 1.7+ | 이미지 텍스트 추출 |
 | **워크플로우** | n8n | CS 회신 자동화 |
 
@@ -532,7 +530,7 @@ flowchart TD
 │   │   ├── routes_rag.py              # RAG 검색/문서 관리 API
 │   │   ├── routes_ml.py               # ML 모델 추론/학습 API
 │   │   ├── routes_guardian.py         # DB 보안 감시 API
-│   │   ├── routes_automation.py       # 자동화 엔진 API (17개 엔드포인트)
+│   │   ├── routes_automation.py       # 자동화 엔진 API (23개 엔드포인트)
 │   │   ├── routes_agent.py            # AI 에이전트 API
 │   │   └── routes_admin.py            # 관리/설정/로그 API
 │   ├── automation/                    # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트)
@@ -548,13 +546,7 @@ flowchart TD
 │   │   ├── router.py                  # 에이전트 라우팅
 │   │   ├── llm.py                     # LLM 클라이언트 설정
 │   │   ├── intent.py                  # 의도 분류 (RETENTION 인텐트 포함)
-│   │   ├── semantic_router.py         # 시맨틱 라우터
-│   │   ├── crag.py                    # Corrective RAG
-│   │   ├── multi_agent.py             # Supervisor 멀티에이전트 (langgraph-supervisor)
-│   │   └── sub_agent/                 # 서브에이전트 오케스트레이션
-│   │       ├── coordinator.py         # 복합 요청 분해 (plan 생성)
-│   │       ├── dispatcher.py          # 서브에이전트 순차 실행
-│   │       └── retention_agent.py     # Retention 서브에이전트 (이탈분석→CS확인→전략→발송)
+│   │   └── multi_agent.py             # Supervisor 멀티에이전트 (langgraph-supervisor)
 │   ├── rag/                           # RAG 시스템 (모듈별 분리)
 │   │   ├── service.py                 # RAG 파사드 (통합 인터페이스)
 │   │   ├── chunking.py                # 문서 청킹 로직
@@ -563,8 +555,8 @@ flowchart TD
 │   │   ├── contextual.py              # Contextual RAG 로직
 │   │   ├── light_rag.py               # LightRAG (GraphRAG) 엔진
 │   │   └── k2rag.py                   # K2RAG (KG+Sub-Q+Hybrid) 엔진
-│   ├── ml/                            # ML 모델 학습/추론 (train_models, helpers, revenue, marketing, mlflow)
-│   ├── core/                          # 유틸리티 (constants, utils, memory, parsers)
+│   ├── ml/                            # ML 모델 학습/추론 (train_models, revenue, marketing)
+│   ├── core/                          # 유틸리티 (constants, utils, memory)
 │   ├── data/                          # 데이터 로더
 │   ├── automation/                    # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트)
 │   │   ├── action_logger.py           # 자동화 조치 로깅 + FAQ/리포트/리텐션 저장소
@@ -573,7 +565,6 @@ flowchart TD
 │   │   ├── faq_engine.py              # CS FAQ 자동 생성 엔진
 │   │   └── report_engine.py           # 운영 리포트 자동 생성 엔진
 │   ├── process_miner/                 # AI 프로세스 마이너 (6개 엔드포인트)
-│   ├── n8n/                           # n8n 워크플로우
 │   ├── Dockerfile                     # Docker 빌드
 │   └── README.md                      # 백엔드 상세 문서
 │
@@ -582,13 +573,17 @@ flowchart TD
     │   └── api/                       # SSE 프록시 핸들러 (agent, cs)
     ├── components/
     │   ├── common/                    # 공통 컴포넌트 (CustomTooltip, StatCard, constants)
+    │   ├── agent/                     # AI 에이전트 컴포넌트
+    │   │   ├── toolRegistry.js      # 31개 도구 메타데이터 (6개 카테고리 분류)
+    │   │   └── ToolExplorer.js      # 인터랙티브 도구 탐색기 (아코디언 UI)
     │   ├── automation/                # 자동화 엔진 공통 컴포넌트
     │   │   ├── PipelineFlow.js      # 인터랙티브 파이프라인 시각화 (5단계 노드 + 애니메이션)
     │   │   ├── UpgradeTab.js        # 셀러 플랜 업그레이드 추천 탭
     │   │   └── constants.js         # 파이프라인 스텝 상수 + CS 카테고리
     │   └── panels/                    # 12개 기능 패널
+    │       ├── AgentPanel.js          # AI 에이전트 (19줄 래퍼, Supervisor 통합)
     │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/업그레이드/FAQ/리포트 4탭)
-    │       ├── lab/                   # CS 자동화 실험실 + 🧬 서브에이전트 탭 (11개+ 파일)
+    │       ├── lab/                   # CS 자동화 실험실 + 멀티에이전트 탭 (11개+ 파일)
     │       ├── analysis/              # 분석 패널 (9개 탭 + 1 컨테이너, 10개 파일)
     │       └── ...                    # 기타 패널
     ├── lib/                           # 유틸리티 (api, storage, cn, sse)
@@ -655,7 +650,6 @@ npm run dev -- -H 0.0.0.0
 |------|------|------|------|
 | `OPENAI_API_KEY` | 백엔드 | 필수 | OpenAI API 키 |
 | `PORT` | 백엔드 | 선택 | 서버 포트 (기본 `8001`) |
-| `MLFLOW_TRACKING_URI` | 백엔드 | 선택 | MLflow 추적 URI |
 | `SKIP_RAG_STARTUP` | 백엔드 | 선택 | `1`로 설정 시 시작 시 RAG 인덱스 빌드 스킵 (나중에 `/api/rag/reload`로 수동 빌드) |
 | `SKIP_LIGHTRAG` | 백엔드 | 선택 | `1`로 설정 시 LightRAG 초기화 스킵 (메모리 절약) |
 | `NEXT_PUBLIC_API_BASE` | 프론트엔드 | 선택 | 백엔드 API 주소 (로컬 개발용) |
@@ -704,6 +698,9 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.3.2 | 2026-03-08 | 멀티에이전트 워커 프롬프트 전면 개편: `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출(5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 역할별 특화 분석 지침 추가, Supervisor 프롬프트 강화(대화 맥락 유지·형식적 응답 금지·최소 3개 인사이트 필수·금액 포맷 규칙). 데드코드 대규모 정리: 백엔드 미사용 파일 12개+프론트 2개 삭제, 미사용 함수 3개 제거, RAG 기법 8→7종 정정, README 3개+포트폴리오 문서 동기화 |
+| 9.3.1 | 2026-03-07 | 멀티에이전트 리네이밍("서브에이전트"→"멀티에이전트" 프론트/백 전면 리네이밍), platform_searcher 8번째 워커 추가(RAG+LightRAG+쇼핑몰/카테고리/용어 조회), 도구 재시도 3회 제한(무한 루프 방지), 워커+Supervisor 이중 스트리밍 버그 수정, 사이드바 독립 스크롤, 답변 말풍선 내 에이전트 뱃지+도구 정보 표시 |
+| 9.3.0 | 2026-03-07 | Supervisor 통합(항상 8워커 모드, 토글 제거), 인터랙티브 도구 탐색기(31개 도구 6개 카테고리 아코디언 UI, toolRegistry.js+ToolExplorer.js), 위험 추천 질문 제거(전체 셀러/전체 데이터 → 개별 엔티티), AgentPanel 638→19줄 래퍼 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
 | 9.2.2 | 2026-03-06 | FAQ 클러스터 선택 기능(체크박스+전체 토글), FAQ 생성 개수 자동 계산(선택 클러스터 수 × 1~3), LLM 모드 카테고리 제한(상위 랜덤 3개만 호출), 카테고리 변경 시 아코디언 자동 펼침, FAQ 생성 크래시 버그 3건 수정(Pydantic 422/toast.error/Recharts Cell+shape), ChartErrorBoundary 도입 |
 | 9.2.1 | 2026-03-06 | CS FAQ 클러스터링 고도화: TF-IDF + 실루엣 최적 K-Means + PCA 2D 시각화 / LLM 의미 분류 듀얼 모드, Recharts 실루엣 바 차트 + 군집 산점도, 클러스터당 FAQ 수 자동 계산, cs_tickets.csv 503건 |
 | 9.2.0 | 2026-03-05 | Supervisor 멀티에이전트 패턴: langgraph-supervisor 기반 Supervisor → 전문 워커(search/analysis/cs) 위임, 하이브리드 라우팅(키워드 사전라우팅 + Supervisor fallback), 워커 직접 스트리밍(supervisor 재요약 제거), 평균 첫 delta 3.9초/총시간 7.6초 |

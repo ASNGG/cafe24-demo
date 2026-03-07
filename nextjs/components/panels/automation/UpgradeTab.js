@@ -3,12 +3,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, MessageSquare, Loader2, CheckCircle2,
   Search, ArrowUpCircle, Headphones, Send,
 } from 'lucide-react';
 import PipelineFlow from '@/components/automation/PipelineFlow';
 import { UPGRADE_STEPS } from '@/components/automation/constants';
+import useAutomationStream from '@/components/panels/hooks/useAutomationStream';
 
 const ACTION_TYPES = [
   { key: 'upgrade_recommend', label: '업그레이드 제안', icon: ArrowUpCircle },
@@ -18,7 +20,7 @@ const ACTION_TYPES = [
 ];
 
 // React.memo로 셀러 카드 리렌더링 방지
-const SellerCard = React.memo(function SellerCard({ s, isSelected, msgLoading, onSelect, onGenerateMessage, scoreColor }) {
+const SellerCard = React.memo(function SellerCard({ s, isSelected, msgLoading, onSelect, onGenerateMessage, scoreColor, useMlScoring }) {
   const score = Number(s.upgrade_score) || 0;
 
   return (
@@ -52,6 +54,13 @@ const SellerCard = React.memo(function SellerCard({ s, isSelected, msgLoading, o
               />
             </div>
           </div>
+          {useMlScoring && s.churn_probability != null && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+              s.churn_probability > 60 ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-green-50 text-green-600 border border-green-200'
+            }`}>
+              이탈위험 {Number(s.churn_probability).toFixed(0)}%
+            </span>
+          )}
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onGenerateMessage(s.seller_id); }}
@@ -100,51 +109,75 @@ export default function UpgradeTab({ auth, apiCall }) {
   const [message, setMessage] = useState(null);
   const [msgLoading, setMsgLoading] = useState(false);
   const [execLoading, setExecLoading] = useState(false);
-  const [pipelineStatus, setPipelineStatus] = useState({});
-  const [currentStep, setCurrentStep] = useState(null);
+  const [useMlScoring, setUseMlScoring] = useState(false);
   const messageRef = useRef(null);
+
+  const {
+    startStream, isStreaming,
+    stepStatuses, currentStep, resetStatuses, setStepStatuses,
+  } = useAutomationStream({ auth });
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
     setCandidates([]);
     setSelectedSeller(null);
     setMessage(null);
-    setPipelineStatus({ detect: { status: 'processing' } });
-    setCurrentStep('detect');
+    resetStatuses();
+
     try {
-      const res = await apiCall({
-        endpoint: '/api/automation/upgrade/candidates?limit=20',
-        auth,
-        timeoutMs: 30000,
+      await startStream({
+        endpoint: '/api/automation/upgrade/stream',
+        data: { use_ml_scoring: useMlScoring },
+        onEvent: (event, data) => {
+          if (event === 'candidate_result') {
+            setCandidates(prev => [...prev, data]);
+          }
+          if (event === 'step_progress') {
+            setStepStatuses(prev => ({ ...prev, detect: { status: 'processing', detail: data.progress } }));
+          }
+        },
+        onDone: (data) => {
+          toast.success(`${data.total_found || 0}명 업그레이드 후보 탐지 완료`);
+          setLoading(false);
+        },
+        onError: (msg) => {
+          toast.error(msg || '업그레이드 후보 조회 실패');
+          setLoading(false);
+        },
       });
-      if (res?.status === 'success') {
-        setCandidates(res.candidates || []);
-        setPipelineStatus({
-          detect: { status: 'complete', detail: `${(res.candidates || []).length}명 탐지` },
-          analyze: { status: 'complete', detail: '성과 분석' },
-        });
-        setCurrentStep(null);
-        if ((res.candidates || []).length === 0) {
-          toast('현재 업그레이드 후보 셀러가 없습니다', { icon: '✅' });
-        }
-      } else {
-        toast.error(res?.detail || '조회 실패');
-        setPipelineStatus({ detect: { status: 'error', detail: '탐지 실패' } });
-      }
     } catch (e) {
-      toast.error('업그레이드 후보 조회 실패');
-      setPipelineStatus({ detect: { status: 'error', detail: '탐지 실패' } });
+      // SSE 실패 시 기존 REST fallback
+      try {
+        const res = await apiCall({
+          endpoint: '/api/automation/upgrade/candidates?limit=20',
+          auth,
+          timeoutMs: 30000,
+        });
+        if (res?.status === 'success') {
+          setCandidates(res.candidates || []);
+          setStepStatuses({
+            detect: { status: 'complete', detail: `${(res.candidates || []).length}명 탐지` },
+            analyze: { status: 'complete', detail: '성과 분석' },
+          });
+          if ((res.candidates || []).length === 0) {
+            toast('현재 업그레이드 후보 셀러가 없습니다', { icon: '✅' });
+          }
+        } else {
+          toast.error(res?.detail || '조회 실패');
+        }
+      } catch (fallbackErr) {
+        toast.error('업그레이드 후보 조회 실패');
+      }
     } finally {
       setLoading(false);
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, useMlScoring, startStream, resetStatuses, setStepStatuses]);
 
   const generateMessage = useCallback(async (sellerId) => {
     setMsgLoading(true);
     setMessage(null);
     setSelectedSeller(sellerId);
-    setPipelineStatus(prev => ({ ...prev, generate: { status: 'processing' } }));
-    setCurrentStep('generate');
+    setStepStatuses(prev => ({ ...prev, generate: { status: 'processing' } }));
     try {
       const res = await apiCall({
         endpoint: '/api/automation/upgrade/message',
@@ -155,8 +188,7 @@ export default function UpgradeTab({ auth, apiCall }) {
       });
       if (res?.status === 'success') {
         setMessage(res);
-        setPipelineStatus(prev => ({ ...prev, generate: { status: 'complete', detail: '메시지 생성됨' } }));
-        setCurrentStep(null);
+        setStepStatuses(prev => ({ ...prev, generate: { status: 'complete', detail: '메시지 생성됨' } }));
         setTimeout(() => messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
       } else {
         toast.error(res?.detail || '메시지 생성 실패');
@@ -166,12 +198,11 @@ export default function UpgradeTab({ auth, apiCall }) {
     } finally {
       setMsgLoading(false);
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, setStepStatuses]);
 
   const executeAction = useCallback(async (sellerId, actionType) => {
     setExecLoading(true);
-    setPipelineStatus(prev => ({ ...prev, execute: { status: 'processing' } }));
-    setCurrentStep('execute');
+    setStepStatuses(prev => ({ ...prev, execute: { status: 'processing' } }));
     try {
       const res = await apiCall({
         endpoint: '/api/automation/upgrade/execute',
@@ -182,12 +213,11 @@ export default function UpgradeTab({ auth, apiCall }) {
       });
       if (res?.status === 'success') {
         toast.success(`조치 실행 완료: ${actionType}`);
-        setPipelineStatus(prev => ({
+        setStepStatuses(prev => ({
           ...prev,
           execute: { status: 'complete', detail: actionType },
           log: { status: 'complete', detail: '기록 완료' },
         }));
-        setCurrentStep(null);
       } else {
         toast.error(res?.detail || '조치 실행 실패');
       }
@@ -196,7 +226,7 @@ export default function UpgradeTab({ auth, apiCall }) {
     } finally {
       setExecLoading(false);
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, setStepStatuses]);
 
   const scoreColor = (score) => {
     if (score >= 80) return 'text-emerald-600';
@@ -214,19 +244,28 @@ export default function UpgradeTab({ auth, apiCall }) {
             <span className="text-xs text-gray-500">규칙 기반 탐지 → LLM 메시지 → 업그레이드 제안</span>
           </div>
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={useMlScoring}
+                onChange={e => setUseMlScoring(e.target.checked)}
+                className="rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+              />
+              <span className="text-gray-600">ML 이탈 위험도 반영</span>
+            </label>
             <button
               onClick={fetchCandidates}
-              disabled={loading}
+              disabled={loading || isStreaming}
               className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
             >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {(loading || isStreaming) ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
               후보 탐지
             </button>
           </div>
         </div>
       </div>
 
-      <PipelineFlow steps={UPGRADE_STEPS} stepStatuses={pipelineStatus} currentStep={currentStep} />
+      <PipelineFlow steps={UPGRADE_STEPS} stepStatuses={stepStatuses} currentStep={currentStep} />
 
       {candidates.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
@@ -234,57 +273,66 @@ export default function UpgradeTab({ auth, apiCall }) {
             업그레이드 후보 셀러 ({candidates.length}명)
           </h4>
           <div className="space-y-2">
-            {candidates.map((s, i) => (
-              <React.Fragment key={s.seller_id || i}>
-                <SellerCard
-                  s={s}
-                  isSelected={selectedSeller === s.seller_id}
-                  msgLoading={msgLoading}
-                  onSelect={setSelectedSeller}
-                  onGenerateMessage={generateMessage}
-                  scoreColor={scoreColor}
-                />
-                {message && selectedSeller === s.seller_id && (
-                  <div ref={messageRef} className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-emerald-50 p-4 ml-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <MessageSquare className="text-blue-500" size={18} />
-                      <h4 className="text-sm font-bold text-gray-800">
-                        {message.seller_id} 업그레이드 추천 메시지
-                      </h4>
-                      {message.recommended_plan && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700">
-                          {message.recommended_plan}
-                        </span>
+            <AnimatePresence>
+              {candidates.map((s, i) => (
+                <React.Fragment key={s.seller_id || i}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <SellerCard
+                      s={s}
+                      isSelected={selectedSeller === s.seller_id}
+                      msgLoading={msgLoading}
+                      onSelect={setSelectedSeller}
+                      onGenerateMessage={generateMessage}
+                      scoreColor={scoreColor}
+                      useMlScoring={useMlScoring}
+                    />
+                  </motion.div>
+                  {message && selectedSeller === s.seller_id && (
+                    <div ref={messageRef} className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-emerald-50 p-4 ml-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare className="text-blue-500" size={18} />
+                        <h4 className="text-sm font-bold text-gray-800">
+                          {message.seller_id} 업그레이드 추천 메시지
+                        </h4>
+                        {message.recommended_plan && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700">
+                            {message.recommended_plan}
+                          </span>
+                        )}
+                      </div>
+                      <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
+                        <ReactMarkdown>{message.message || ''}</ReactMarkdown>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ACTION_TYPES.map(act => {
+                          const ActIcon = act.icon;
+                          return (
+                            <button
+                              key={act.key}
+                              onClick={() => executeAction(message.seller_id, act.key)}
+                              disabled={execLoading}
+                              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 transition-all"
+                            >
+                              {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
+                              {act.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {message.recommended_actions && message.recommended_actions.length > 0 && (
+                        <div className="mt-3 text-[10px] text-gray-500">
+                          AI 추천: {message.recommended_actions.join(', ')}
+                        </div>
                       )}
                     </div>
-                    <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
-                      <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {ACTION_TYPES.map(act => {
-                        const ActIcon = act.icon;
-                        return (
-                          <button
-                            key={act.key}
-                            onClick={() => executeAction(message.seller_id, act.key)}
-                            disabled={execLoading}
-                            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 transition-all"
-                          >
-                            {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
-                            {act.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {message.recommended_actions && message.recommended_actions.length > 0 && (
-                      <div className="mt-3 text-[10px] text-gray-500">
-                        AI 추천: {message.recommended_actions.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+                  )}
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}

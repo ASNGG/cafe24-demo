@@ -98,13 +98,53 @@ def _build_reasons(row, revenue_threshold: int, order_threshold: int) -> List[Di
     return reasons
 
 
-def get_upgrade_candidates(limit: int = 20) -> List[Dict]:
+def _apply_ml_churn_scoring(results: List[Dict]) -> List[Dict]:
+    """
+    ML 이탈 모델(SELLER_CHURN_MODEL)로 이탈 위험도를 스코어에 반영합니다.
+    이탈 위험이 높은 셀러 → 업그레이드 우선순위 높임 (리텐션 효과).
+    """
+    from core.constants import FEATURE_COLS_CHURN
+
+    if st.SELLER_CHURN_MODEL is None or st.SELLER_ANALYTICS_DF is None:
+        return results
+
+    df = st.SELLER_ANALYTICS_DF
+    for item in results:
+        seller_id = item["seller_id"]
+        seller = df[df["seller_id"] == seller_id]
+        if seller.empty:
+            continue
+
+        try:
+            row = seller.iloc[0]
+            feature_cols = FEATURE_COLS_CHURN
+            X = pd.DataFrame([{col: safe_float(row.get(col, 0)) for col in feature_cols}])
+
+            if "plan_tier_encoded" in feature_cols and "plan_tier" in row.index:
+                tier_map = {tier: i for i, tier in enumerate(PLAN_TIERS)}
+                X["plan_tier_encoded"] = tier_map.get(row.get("plan_tier", "Basic"), 0)
+
+            churn_prob = float(st.SELLER_CHURN_MODEL.predict_proba(X)[0][1])
+
+            # 이탈 위험이 높을수록 업그레이드 점수 보너스 (최대 +20점)
+            churn_bonus = round(churn_prob * 20, 1)
+            item["upgrade_score"] = round(min(item["upgrade_score"] + churn_bonus, 100), 1)
+            item["churn_probability"] = round(churn_prob * 100, 1)
+            item["churn_risk_level"] = "high" if churn_prob > 0.7 else "medium" if churn_prob > 0.3 else "low"
+        except (ValueError, TypeError, RuntimeError) as e:
+            st.logger.warning("UPGRADE ML churn scoring error seller=%s: %s", seller_id, str(e))
+
+    return results
+
+
+def get_upgrade_candidates(limit: int = 20, use_ml_scoring: bool = False) -> List[Dict]:
     """
     규칙 기반으로 플랜 업그레이드 후보 셀러를 탐지합니다.
     - Basic → Standard: 매출 >= 5,000,000 or 주문수 >= 100
     - Standard → Premium: 매출 >= 20,000,000 or 주문수 >= 500
     - Premium → Enterprise: 매출 >= 50,000,000 or 주문수 >= 2000
     - Enterprise는 최고 티어이므로 제외
+    - use_ml_scoring=True 시 이탈 위험도를 스코어에 반영 (리텐션 효과)
     """
     run_id = create_pipeline_run("upgrade", ["detect", "analyze"])
     update_pipeline_step(run_id, "detect", "processing")
@@ -162,6 +202,10 @@ def get_upgrade_candidates(limit: int = 20) -> List[Dict]:
                 },
             })
 
+    # ML 이탈 스코어링 적용
+    if use_ml_scoring:
+        results = _apply_ml_churn_scoring(results)
+
     # 점수 높은 순 정렬 + limit
     results.sort(key=lambda x: x["upgrade_score"], reverse=True)
 
@@ -169,8 +213,98 @@ def get_upgrade_candidates(limit: int = 20) -> List[Dict]:
     update_pipeline_step(run_id, "analyze", "complete")
     complete_pipeline_run(run_id)
 
-    st.logger.info("UPGRADE get_upgrade_candidates: %d명 탐지", len(results[:limit]))
+    st.logger.info("UPGRADE get_upgrade_candidates: %d명 탐지 (ml_scoring=%s)", len(results[:limit]), use_ml_scoring)
     return results[:limit]
+
+
+async def get_upgrade_candidates_stream(limit: int = 20, use_ml_scoring: bool = False):
+    """
+    업그레이드 후보 셀러를 SSE 스트리밍으로 반환하는 async generator.
+    개별 셀러 분석 시 yield로 진행 이벤트 방출.
+    """
+    import asyncio
+
+    if st.SELLER_ANALYTICS_DF is None:
+        st.logger.warning("UPGRADE get_upgrade_candidates_stream: SELLER_ANALYTICS_DF is None")
+        yield {"event": "error", "data": {"message": "셀러 분석 데이터가 로드되지 않았습니다."}}
+        return
+
+    df = st.SELLER_ANALYTICS_DF.copy()
+    if df.empty:
+        yield {"event": "done", "data": {"ok": True, "candidates": [], "total": 0, "total_elapsed_ms": 0}}
+        return
+
+    start_time = time.time()
+
+    # step_start: detect
+    yield {"event": "step_start", "data": {"step": "detect", "description": "업그레이드 후보 탐지 시작", "timestamp": time.time()}}
+    await asyncio.sleep(0)
+
+    results = []
+
+    revenue_col = pd.to_numeric(df.get("total_revenue", 0), errors="coerce").fillna(0)
+    orders_col = pd.to_numeric(df.get("total_orders", 0), errors="coerce").fillna(0)
+
+    # 전체 후보 수를 미리 계산 (진행률 표시용)
+    all_qualified = []
+    for current_plan, (next_plan, rev_thresh, ord_thresh) in _UPGRADE_THRESHOLDS.items():
+        plan_mask = df.get("plan_tier", pd.Series(dtype=str)) == current_plan
+        if not plan_mask.any():
+            continue
+        qualify_mask = plan_mask & ((revenue_col >= rev_thresh) | (orders_col >= ord_thresh))
+        qualified_indices = np.where(qualify_mask)[0]
+        for idx in qualified_indices:
+            all_qualified.append((idx, current_plan, next_plan, rev_thresh, ord_thresh))
+
+    total = min(len(all_qualified), limit)
+
+    for i, (idx, current_plan, next_plan, rev_thresh, ord_thresh) in enumerate(all_qualified[:limit]):
+        row = df.iloc[idx]
+        score = _compute_upgrade_score(row, rev_thresh, ord_thresh)
+        reasons = _build_reasons(row, rev_thresh, ord_thresh)
+
+        candidate = {
+            "seller_id": safe_str(row.get("seller_id", "")),
+            "current_plan": current_plan,
+            "recommended_plan": next_plan,
+            "upgrade_score": score,
+            "reasons": reasons,
+            "seller_info": {
+                "total_orders": safe_int(row.get("total_orders", 0)),
+                "total_revenue": safe_int(row.get("total_revenue", 0)),
+                "days_since_last_login": safe_int(row.get("days_since_last_login", 0)),
+                "refund_rate": safe_float(row.get("refund_rate", 0)),
+                "cs_tickets": safe_int(row.get("cs_tickets", 0)),
+                "product_count": safe_int(row.get("product_count", 0)),
+            },
+        }
+        results.append(candidate)
+
+        yield {"event": "seller_result", "data": candidate}
+        yield {"event": "step_progress", "data": {
+            "step": "detect", "current": i + 1, "total": total,
+            "detail": f"{safe_str(row.get('seller_id', ''))} 분석 완료",
+        }}
+        await asyncio.sleep(0)
+
+    # ML 이탈 스코어링 적용
+    if use_ml_scoring and st.SELLER_CHURN_MODEL is not None:
+        yield {"event": "step_start", "data": {"step": "ml_scoring", "description": "ML 이탈 위험도 스코어링", "timestamp": time.time()}}
+        await asyncio.sleep(0)
+
+        results = _apply_ml_churn_scoring(results)
+
+        ml_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "step_end", "data": {"step": "ml_scoring", "elapsed_ms": ml_elapsed, "result_count": len(results)}}
+
+    # 점수 높은 순 정렬
+    results.sort(key=lambda x: x["upgrade_score"], reverse=True)
+
+    detect_elapsed = int((time.time() - start_time) * 1000)
+    yield {"event": "step_end", "data": {"step": "detect", "elapsed_ms": detect_elapsed, "result_count": len(results)}}
+
+    total_elapsed = int((time.time() - start_time) * 1000)
+    yield {"event": "done", "data": {"ok": True, "candidates": results, "total": len(results), "total_elapsed_ms": total_elapsed}}
 
 
 def generate_upgrade_message(seller_id: str, api_key: str = "") -> Dict:

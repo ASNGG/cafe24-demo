@@ -352,6 +352,120 @@ def _analyze_single_seller(row) -> Dict:
     }
 
 
+async def get_at_risk_sellers_stream(threshold: float = 0.6, limit: int = 20):
+    """
+    이탈 위험 셀러 목록을 SSE 스트리밍으로 반환하는 async generator.
+    개별 셀러 ML 예측 + SHAP 분석 시 yield로 진행 이벤트 방출.
+    """
+    import asyncio
+
+    if st.SELLER_ANALYTICS_DF is None:
+        st.logger.warning("RETENTION get_at_risk_sellers_stream: SELLER_ANALYTICS_DF is None")
+        yield {"event": "error", "data": {"message": "셀러 분석 데이터가 로드되지 않았습니다."}}
+        return
+
+    df = st.SELLER_ANALYTICS_DF.copy()
+    if df.empty:
+        yield {"event": "done", "data": {"ok": True, "sellers": [], "total": 0, "total_elapsed_ms": 0}}
+        return
+
+    start_time = time.time()
+
+    # step_start: detect
+    yield {"event": "step_start", "data": {"step": "detect", "description": "ML 이탈 예측 시작", "timestamp": time.time()}}
+    await asyncio.sleep(0)
+
+    results = []
+
+    if st.SELLER_CHURN_MODEL is not None:
+        try:
+            feature_cols = FEATURE_COLS_CHURN
+            X = _build_feature_df(df, feature_cols)
+
+            # 이탈 확률 예측
+            proba = st.SELLER_CHURN_MODEL.predict_proba(X)[:, 1]
+
+            # SHAP 분석
+            shap_values_all = None
+            if st.SHAP_EXPLAINER_CHURN is not None:
+                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
+
+            # threshold 필터링
+            mask = proba >= threshold
+            filtered_indices = np.where(mask)[0]
+            total = min(len(filtered_indices), limit)
+
+            for i, idx in enumerate(filtered_indices[:limit]):
+                prob = float(proba[idx])
+                row = df.iloc[idx]
+
+                top_factors = []
+                if shap_values_all is not None:
+                    top_factors = _shap_top_factors(shap_values_all[idx], feature_cols)
+                if not top_factors:
+                    top_factors = _default_factors(row)
+
+                seller_result = {
+                    "seller_id": safe_str(row.get("seller_id", "")),
+                    "churn_probability": round(prob * 100, 1),
+                    "risk_level": "high" if prob > 0.7 else "medium",
+                    "top_factors": top_factors,
+                    "seller_info": {
+                        "total_orders": safe_int(row.get("total_orders", 0)),
+                        "total_revenue": safe_int(row.get("total_revenue", 0)),
+                        "days_since_last_login": safe_int(row.get("days_since_last_login", 0)),
+                        "refund_rate": safe_float(row.get("refund_rate", 0)),
+                        "product_count": safe_int(row.get("product_count", 0)),
+                    },
+                }
+                results.append(seller_result)
+
+                # 개별 셀러 결과 스트리밍
+                yield {"event": "seller_result", "data": seller_result}
+
+                # 진행률 이벤트
+                yield {"event": "step_progress", "data": {
+                    "step": "detect", "current": i + 1, "total": total,
+                    "detail": f"{safe_str(row.get('seller_id', ''))} 분석 완료",
+                }}
+                await asyncio.sleep(0)
+
+        except (ValueError, TypeError, RuntimeError) as e:
+            st.logger.error("RETENTION ML prediction error (stream): %s", str(e))
+            # 휴리스틱 폴백
+            heuristic_results = _heuristic_at_risk(df, threshold)
+            total = min(len(heuristic_results), limit)
+            for i, seller_result in enumerate(heuristic_results[:limit]):
+                results.append(seller_result)
+                yield {"event": "seller_result", "data": seller_result}
+                yield {"event": "step_progress", "data": {
+                    "step": "detect", "current": i + 1, "total": total,
+                    "detail": f"{seller_result['seller_id']} 분석 완료 (휴리스틱)",
+                }}
+                await asyncio.sleep(0)
+    else:
+        # 모델 없으면 휴리스틱 사용
+        heuristic_results = _heuristic_at_risk(df, threshold)
+        total = min(len(heuristic_results), limit)
+        for i, seller_result in enumerate(heuristic_results[:limit]):
+            results.append(seller_result)
+            yield {"event": "seller_result", "data": seller_result}
+            yield {"event": "step_progress", "data": {
+                "step": "detect", "current": i + 1, "total": total,
+                "detail": f"{seller_result['seller_id']} 분석 완료 (휴리스틱)",
+            }}
+            await asyncio.sleep(0)
+
+    # 확률 높은 순 정렬
+    results.sort(key=lambda x: x["churn_probability"], reverse=True)
+
+    detect_elapsed = int((time.time() - start_time) * 1000)
+    yield {"event": "step_end", "data": {"step": "detect", "elapsed_ms": detect_elapsed, "result_count": len(results)}}
+
+    total_elapsed = int((time.time() - start_time) * 1000)
+    yield {"event": "done", "data": {"ok": True, "sellers": results, "total": len(results), "total_elapsed_ms": total_elapsed}}
+
+
 def execute_retention_action(seller_id: str, action_type: str, api_key: str = "") -> Dict:
     """
     리텐션 조치를 실행합니다 (시뮬레이션).
@@ -403,7 +517,10 @@ def execute_retention_action(seller_id: str, action_type: str, api_key: str = ""
     # 커스텀 메시지인 경우 LLM으로 메시지 생성
     if action_type == "custom_message":
         msg_result = generate_retention_message(seller_id, api_key=api_key)
-        if msg_result.get("message"):
+        if msg_result.get("error"):
+            st.logger.warning("RETENTION custom_message generation failed seller=%s: %s", seller_id, msg_result["error"])
+            detail["message_content"] = f"메시지 생성 실패: {msg_result['error']}"
+        elif msg_result.get("message"):
             detail["message_content"] = msg_result["message"]
             detail["recommended_actions"] = msg_result.get("recommended_actions", [])
 

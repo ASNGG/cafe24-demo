@@ -252,6 +252,126 @@ def generate_report(report_type: str = "daily", api_key: str = "") -> Dict[str, 
         }
 
 
+async def generate_report_stream(report_type: str = "daily", api_key: str = ""):
+    """LLM으로 운영 리포트를 자동 생성하며 섹션별로 SSE 스트리밍합니다."""
+    import asyncio
+    import json
+
+    report_id = str(uuid.uuid4())[:8]
+    type_label = _REPORT_TYPE_LABELS.get(report_type, report_type)
+    start_time = time.time()
+
+    try:
+        # 1단계: 데이터 수집
+        yield {"event": "step_start", "data": {"step": "collect", "description": "플랫폼 데이터 수집 시작", "timestamp": time.time()}}
+        await asyncio.sleep(0)
+
+        data = collect_report_data()
+
+        collect_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "step_end", "data": {"step": "collect", "elapsed_ms": collect_elapsed, "result_count": len(data.get("kpi", {}))}}
+
+        # 2단계: KPI 집계
+        yield {"event": "step_start", "data": {"step": "aggregate", "description": "KPI 집계 및 트렌드 분석", "timestamp": time.time()}}
+        await asyncio.sleep(0)
+
+        aggregate_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "step_end", "data": {"step": "aggregate", "elapsed_ms": aggregate_elapsed, "result_count": len(data.get("trends", {}))}}
+
+        # 3단계: LLM으로 섹션별 리포트 생성
+        yield {"event": "step_start", "data": {"step": "write", "description": "LLM 리포트 섹션 생성 시작", "timestamp": time.time()}}
+        await asyncio.sleep(0)
+
+        resolved_key = pick_api_key(api_key)
+        if not resolved_key:
+            yield {"event": "error", "data": {"message": "API 키가 설정되지 않았습니다."}}
+            return
+
+        settings = st.get_active_llm_settings()
+        model = settings.get("selectedModel", "gpt-4o-mini")
+        max_tokens = settings.get("maxTokens", 4000)
+
+        # 섹션별 프롬프트 정의
+        sections = [
+            ("KPI 현황", "핵심 지표(GMV, 주문수, 활성셀러 등)를 요약하세요."),
+            ("주요 변화 및 트렌드", "전주 대비 주요 변화와 트렌드를 분석하세요."),
+            ("이슈 & 주의사항", "이상거래, 이탈위험 셀러, CS 이슈 등을 정리하세요."),
+            ("권장 조치사항", "운영팀이 즉시 실행해야 할 조치사항을 제안하세요."),
+        ]
+
+        data_text = json.dumps(data, ensure_ascii=False, indent=2, default=str)
+        full_content_parts = []
+
+        for i, (section_title, section_instruction) in enumerate(sections):
+            yield {"event": "step_progress", "data": {
+                "step": "write", "current": i + 1, "total": len(sections),
+                "detail": f"'{section_title}' 섹션 생성 중",
+            }}
+            await asyncio.sleep(0)
+
+            llm = get_llm(
+                model=model,
+                api_key=resolved_key,
+                max_tokens=max_tokens // len(sections),
+                streaming=False,
+                temperature=0.3,
+            )
+
+            system_prompt = (
+                f"당신은 카페24 이커머스 플랫폼 운영 분석가입니다.\n"
+                f"제공된 KPI 데이터를 기반으로 {type_label} 운영 리포트의 '{section_title}' 섹션만 작성합니다.\n"
+                f"지시: {section_instruction}\n"
+                f"마크다운 형식으로 작성하세요. 섹션 제목(##)으로 시작하세요."
+            )
+
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"운영 데이터:\n```json\n{data_text}\n```"),
+            ]
+
+            section_content = invoke_with_retry(llm, messages)
+            full_content_parts.append(section_content)
+
+            # 섹션 완료 이벤트
+            yield {"event": "report_section", "data": {"section": section_title, "content": section_content}}
+            await asyncio.sleep(0)
+
+        write_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "step_end", "data": {"step": "write", "elapsed_ms": write_elapsed, "result_count": len(sections)}}
+
+        # 4단계: 저장
+        yield {"event": "step_start", "data": {"step": "save", "description": "리포트 저장", "timestamp": time.time()}}
+
+        full_content = f"# {type_label} 운영 리포트\n\n" + "\n\n".join(full_content_parts)
+
+        result = {
+            "report_id": report_id,
+            "report_type": report_type,
+            "content": full_content,
+            "data_summary": data,
+            "timestamp": time.time(),
+        }
+
+        save_report(result)
+        log_action("report_generate", report_id, {
+            "report_type": report_type,
+            "model": model,
+            "kpi_keys": list(data.get("kpi", {}).keys()),
+        })
+
+        save_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "step_end", "data": {"step": "save", "elapsed_ms": save_elapsed, "result_count": 1}}
+
+        total_elapsed = int((time.time() - start_time) * 1000)
+        yield {"event": "done", "data": {"ok": True, "report_id": report_id, "total_elapsed_ms": total_elapsed}}
+
+        st.logger.info("REPORT_GENERATED_STREAM id=%s type=%s model=%s", report_id, report_type, model)
+
+    except Exception as e:
+        st.logger.error("REPORT_GENERATE_STREAM_FAIL id=%s err=%s", report_id, safe_str(e))
+        yield {"event": "error", "data": {"message": safe_str(e)}}
+
+
 def get_history(limit: int = 20) -> Dict[str, Any]:
     """리포트 히스토리를 조회합니다."""
     reports = get_report_history(limit)

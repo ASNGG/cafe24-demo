@@ -3,11 +3,13 @@
 import { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Play, Loader2, Clock, Eye,
 } from 'lucide-react';
 import PipelineFlow from '@/components/automation/PipelineFlow';
 import { REPORT_STEPS } from '@/components/automation/constants';
+import useAutomationStream from '@/components/panels/hooks/useAutomationStream';
 
 const REPORT_TYPES = [
   { value: 'daily', label: '일간 리포트' },
@@ -48,46 +50,64 @@ export default function ReportTab({ auth, apiCall }) {
   const [reportType, setReportType] = useState('daily');
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState(null);
+  const [reportSections, setReportSections] = useState([]);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [viewingReport, setViewingReport] = useState(null);
-  const [pipelineStatus, setPipelineStatus] = useState({});
-  const [currentStep, setCurrentStep] = useState(null);
+
+  const {
+    startStream, isStreaming,
+    stepStatuses, currentStep, resetStatuses,
+  } = useAutomationStream({ auth });
 
   const generateReport = useCallback(async () => {
     setGenerating(true);
     setReport(null);
-    setPipelineStatus({ collect: { status: 'processing' } });
-    setCurrentStep('collect');
+    setReportSections([]);
+    resetStatuses();
+
     try {
-      const res = await apiCall({
-        endpoint: '/api/automation/report/generate',
-        auth,
-        method: 'POST',
+      await startStream({
+        endpoint: '/api/automation/report/stream',
         data: { report_type: reportType },
-        timeoutMs: 120000,
+        onEvent: (event, data) => {
+          if (event === 'report_section') {
+            setReportSections(prev => [...prev, { title: data.section, content: data.content }]);
+          }
+        },
+        onDone: (data) => {
+          setReport(data.report || data);
+          toast.success('리포트 생성 완료');
+          setGenerating(false);
+        },
+        onError: (msg) => {
+          toast.error(msg || '리포트 생성 실패');
+          setGenerating(false);
+        },
       });
-      if (res?.status === 'success') {
-        setReport(res);
-        toast.success(`${reportType} 리포트 생성 완료`);
-        setPipelineStatus({
-          collect: { status: 'complete', detail: '수집 완료' },
-          aggregate: { status: 'complete', detail: 'KPI 집계' },
-          write: { status: 'complete', detail: '작성 완료' },
-          save: { status: 'complete', detail: '저장됨' },
-        });
-        setCurrentStep(null);
-      } else {
-        toast.error(res?.detail || '리포트 생성 실패');
-        setPipelineStatus({ collect: { status: 'error' } });
-      }
     } catch (e) {
-      toast.error('리포트 생성 실패');
-      setPipelineStatus({ collect: { status: 'error' } });
+      // SSE 실패 시 기존 REST fallback
+      try {
+        const res = await apiCall({
+          endpoint: '/api/automation/report/generate',
+          auth,
+          method: 'POST',
+          data: { report_type: reportType },
+          timeoutMs: 120000,
+        });
+        if (res?.status === 'success') {
+          setReport(res);
+          toast.success(`${reportType} 리포트 생성 완료`);
+        } else {
+          toast.error(res?.detail || '리포트 생성 실패');
+        }
+      } catch (fallbackErr) {
+        toast.error('리포트 생성 실패');
+      }
     } finally {
       setGenerating(false);
     }
-  }, [apiCall, auth, reportType]);
+  }, [apiCall, auth, reportType, startStream, resetStatuses]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -99,10 +119,6 @@ export default function ReportTab({ auth, apiCall }) {
       if (res?.status === 'success') {
         setHistory(res.reports || []);
         setShowHistory(true);
-        setPipelineStatus(prev => ({
-          ...prev,
-          history: { status: 'complete', detail: `${(res.reports || []).length}건` },
-        }));
       }
     } catch (e) {
       toast.error('리포트 이력 조회 실패');
@@ -148,10 +164,10 @@ export default function ReportTab({ auth, apiCall }) {
             </select>
             <button
               onClick={generateReport}
-              disabled={generating}
+              disabled={generating || isStreaming}
               className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
             >
-              {generating ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+              {(generating || isStreaming) ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
               리포트 생성
             </button>
             <button
@@ -165,7 +181,31 @@ export default function ReportTab({ auth, apiCall }) {
         </div>
       </div>
 
-      <PipelineFlow steps={REPORT_STEPS} stepStatuses={pipelineStatus} currentStep={currentStep} />
+      <PipelineFlow steps={REPORT_STEPS} stepStatuses={stepStatuses} currentStep={currentStep} />
+
+      {/* 스트리밍 중 섹션별 실시간 렌더링 */}
+      {reportSections.length > 0 && !activeReport && (
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="text-emerald-600" size={18} />
+            <h4 className="text-sm font-bold text-gray-800">리포트 생성 중...</h4>
+          </div>
+          <div className="rounded-xl bg-white/90 p-4 prose prose-sm max-w-none space-y-3">
+            <AnimatePresence>
+              {reportSections.map((sec, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ReactMarkdown>{sec.content}</ReactMarkdown>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {activeReport && (
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50 p-4">
@@ -190,13 +230,13 @@ export default function ReportTab({ auth, apiCall }) {
           </div>
           {(() => {
             const reportContent = activeReport.content || '';
-            const reportSections = reportContent.match(/^#{1,3}\s+.+$/gm)?.map((h, i) => ({
+            const rptSections = reportContent.match(/^#{1,3}\s+.+$/gm)?.map((h, i) => ({
               text: h.replace(/^#+\s+/, ''),
               id: `rpt-${i}`,
             })) || [];
-            return reportSections.length > 0 ? (
+            return rptSections.length > 0 ? (
               <div className="flex gap-1.5 flex-wrap mb-3">
-                {reportSections.map(s => (
+                {rptSections.map(s => (
                   <span key={s.id} className="text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
                     {s.text}
                   </span>

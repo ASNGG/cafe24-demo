@@ -1,37 +1,28 @@
 """
-agent/multi_agent.py - LangGraph 기반 멀티 에이전트 시스템
-==========================================================
+agent/multi_agent.py - LangGraph Supervisor 기반 멀티 에이전트 시스템
+====================================================================
 카페24 AI 기반 내부 시스템
 
-구조:
-- Coordinator (라우터): 사용자 질의 분석 및 적절한 에이전트로 라우팅
-- Search Agent: 플랫폼 정보 검색 (쇼핑몰, 카테고리, RAG)
-- Analysis Agent: 셀러 분석, ML 예측, 통계
-- CS Agent: CS 응답 생성, 품질 평가
-- Sub-Agent (서브에이전트): 복합 리텐션 요청 오케스트레이션
+구조 (langgraph-supervisor 패턴):
+- Supervisor: 사용자 질의 분석 → 전문 워커 에이전트에게 위임 → 결과 종합
+- 일반 질문용 Supervisor (3종 워커): search_agent, analysis_agent, cs_agent
+- 멀티에이전트 Supervisor (8종 워커): churn_analyst, retention_strategist,
+  seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst,
+  report_writer, platform_searcher
 
-에이전트 간 협업:
-- 검색 + 분석이 필요한 경우 순차 실행
-- 예: "S0001 쇼핑몰 셀러의 이탈 예측" → Search → Analysis
-- 복합 리텐션 요청 → Sub-Agent Coordinator → Dispatcher → Retention 사이클
+프로덕션 경로:
+- run_multi_agent_stream() → build_multi_agent_supervisor() (SSE 스트리밍)
+- build_supervisor_graph() → 일반 질문용 Supervisor
 """
 import json
-import operator
-from typing import TypedDict, Annotated, Sequence, Literal, Any, List, Optional, Dict
-
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+import time
+from typing import Any, Dict
 
 try:
-    from langgraph.graph import StateGraph, END
-    from langgraph.prebuilt import ToolNode
     from langgraph.prebuilt import create_react_agent
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
-    StateGraph = None
-    END = None
-    ToolNode = None
     create_react_agent = None
 
 try:
@@ -45,66 +36,49 @@ from agent.tools import (
     SEARCH_AGENT_TOOLS,
     ANALYSIS_AGENT_TOOLS,
     TRANSLATION_AGENT_TOOLS,
-    ALL_TOOLS,
+    # 멀티에이전트 워커용 개별 도구 임포트
+    get_at_risk_sellers,
+    predict_seller_churn,
+    get_churn_prediction,
+    generate_retention_message,
+    execute_retention_action,
+    analyze_seller,
+    get_seller_segment,
+    detect_fraud,
+    get_segment_statistics,
+    get_fraud_statistics,
+    get_seller_activity_report,
+    get_shop_info,
+    get_shop_performance,
+    get_trend_analysis,
+    get_cohort_analysis,
+    predict_shop_revenue,
+    get_gmv_prediction,
+    optimize_marketing,
+    get_order_statistics,
+    get_dashboard_summary,
+    get_cs_statistics,
+    auto_reply_cs,
+    check_cs_quality,
+    classify_inquiry,
+    get_ecommerce_glossary,
+    search_platform,
+    search_platform_lightrag,
+    list_shops,
+    get_shop_services,
+    get_category_info,
+    list_categories,
 )
 
-try:
-    from agent.tools import RETENTION_AGENT_TOOLS
-except ImportError:
-    RETENTION_AGENT_TOOLS = []
 from agent.llm import get_llm, pick_api_key
-from agent.router import _keyword_classify, IntentCategory
-from core.constants import DEFAULT_SYSTEM_PROMPT
-from core.utils import safe_str, format_openai_error, normalize_model_name, json_sanitize
+from core.utils import safe_str, format_openai_error, normalize_model_name
 from core.memory import append_memory, memory_messages
 import state as st
-
-
-# 도구 매핑 캐시 (매 호출마다 dict 재생성 방지)
-_all_tool_map: Dict[str, Any] = {}
-
-
-def _get_all_tool_map() -> Dict[str, Any]:
-    """ALL_TOOLS + RETENTION_AGENT_TOOLS의 name→tool 매핑 캐시"""
-    if not _all_tool_map:
-        _all_tool_map.update({t.name: t for t in ALL_TOOLS})
-        if RETENTION_AGENT_TOOLS:
-            _all_tool_map.update({t.name: t for t in RETENTION_AGENT_TOOLS})
-    return _all_tool_map
-
-
-# ============================================================
-# 상태 정의
-# ============================================================
-class AgentState(TypedDict):
-    """멀티 에이전트 그래프의 상태"""
-    messages: Annotated[Sequence[BaseMessage], operator.add]
-    next_agent: str
-    current_agent: str
-    tool_calls_log: List[dict]
-    iteration: int
-    final_response: str
-    # 서브에이전트 오케스트레이션 필드
-    plan: List[str]            # 서브에이전트 실행 순서
-    current_step: int          # 현재 단계 인덱스
-    agent_results: List[dict]  # 단계별 결과 누적
-    pipeline_type: str         # 파이프라인 타입 (retention, seller_diagnosis 등)
 
 
 # ============================================================
 # 에이전트 프롬프트
 # ============================================================
-COORDINATOR_PROMPT = """당신은 카페24 AI 운영 플랫폼의 코디네이터입니다.
-사용자 질의를 분석하여 적절한 전문 에이전트에게 작업을 할당합니다.
-
-## 전문 에이전트:
-1. **Search Agent**: 쇼핑몰/카테고리 정보, 플랫폼 RAG 검색
-2. **Analysis Agent**: 셀러 분석, 이탈 예측, 이상거래 탐지, KPI 분석
-3. **CS Agent**: CS 응답 생성, 품질 평가, 용어집
-
-질의를 분석하고 가장 적합한 에이전트에게 작업을 할당하세요.
-"""
-
 SEARCH_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **검색 전문가**입니다.
 
 ## 담당 업무:
@@ -166,865 +140,220 @@ TRANSLATION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **CS 전
 CS 응답 결과와 품질 평가를 제공하세요.
 """
 
-RETENTION_AGENT_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 리텐션 전문가**입니다.
+# ============================================================
+# 워커 공통 응답 규칙
+# ============================================================
+_WORKER_COMMON_RULES = """
+## 응답 규칙 (반드시 준수)
+- 도구 결과의 핵심 수치(건수, 금액, 비율, 점수 등)를 **구체적으로 언급**하세요
+- **마크다운 표·볼드·리스트**를 활용하여 가독성 높게 정리하세요
+- "성공적으로 조회했습니다", "확인했습니다" 같은 **형식적 응답은 절대 금지**
+- 숫자만 나열하지 말고, **"그래서 뭐가 문제이고, 어떻게 해야 하는가"**를 포함하세요
+- 데이터가 충분하면 **최소 3개 이상의 인사이트**를 제공하세요
+- 금액은 **₩ + 천 단위 콤마** 사용, 큰 금액은 **억/만원 단위**로 환산
 
-## 담당 업무:
-- 이탈 위험 셀러 조회 (get_at_risk_sellers) - ML 이탈 예측 + SHAP 분석
-- CS 통계 확인 (get_cs_statistics) - CS 현황 파악
-
-## 분석 규칙:
-- 도구는 현재 단계에 필요한 것만 **1~2개** 호출하세요
-- 이전 단계 결과가 있으면 도구를 다시 호출하지 말고 그 결과를 활용하세요
-- 셀러별 개별 분석 대신, 전체 현황을 종합하여 한 번에 전략을 제시하세요
-- 이탈 위험 수준(고위험/중위험/저위험)별 맞춤형 전략 제시
-- 구체적 리텐션 조치 포함 (쿠폰 발급, 프리미엄 업그레이드, 전담 매니저 배정)
-
-이전 단계 결과를 종합하여 효과적인 리텐션 전략을 제시하세요.
+## 분석 관점 (필수)
+1. **추세 파악**: 증가/감소/정체 패턴
+2. **이상값 발견**: 평균에서 크게 벗어나는 값
+3. **비교 분석**: 항목 간 차이
+4. **원인 추론**: 왜 이런 패턴이 나타나는지 가설 제시
+5. **실행 제안**: 구체적인 액션 아이템
 """
 
-SELLER_DIAGNOSIS_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **셀러 진단 전문가**입니다.
-
-## 담당 업무:
-- 셀러 상세 분석 (analyze_seller) - 운영 패턴, 매출, 이상 여부
-- 셀러 세그먼트 분류 (get_seller_segment) - K-Means 클러스터링
-- 이탈 예측 (predict_seller_churn) - SHAP 기반 요인 분석
-- 이상거래 탐지 (detect_fraud) - 부정행위 리스크
-- 마케팅 최적화 (optimize_marketing) - P-PSO 알고리즘
-- 세그먼트 통계 (get_segment_statistics)
-
-## 규칙:
-- 이전 단계 결과를 반드시 참고하여 종합 진단
-- 셀러의 강점과 개선점을 구분하여 제시
-- 구체적인 수치와 비교 데이터 포함"""
-
-SHOP_PERFORMANCE_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **쇼핑몰 성과 분석가**입니다.
-
-## 담당 업무:
-- 쇼핑몰 정보 조회 (get_shop_info, list_shops)
-- 성과 분석 (get_shop_performance)
-- 매출 예측 (predict_shop_revenue) - LightGBM
-- 마케팅 최적화 (optimize_marketing) - P-PSO
-- 카테고리 정보 (get_category_info)
-
-## 규칙:
-- 쇼핑몰의 현재 성과와 예측을 비교 분석
-- 마케팅 투자 대비 효과(ROAS) 중심 인사이트
-- 동일 카테고리/티어 대비 포지셔닝 제시"""
-
-DASHBOARD_DEEP_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **KPI 분석 전문가**입니다.
-
-## 담당 업무:
-- 대시보드 요약 (get_dashboard_summary)
-- 이탈 현황 (get_churn_prediction)
-- 코호트 분석 (get_cohort_analysis)
-- KPI 트렌드 (get_trend_analysis) - DAU, ARPU, 전환율
-- GMV 예측 (get_gmv_prediction)
-
-## 규칙:
-- 핵심 KPI 지표를 종합적으로 분석
-- 전월/전분기 대비 변화율 강조
-- 향후 트렌드 예측과 리스크 요인 제시"""
-
-FRAUD_INVESTIGATION_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **이상거래 조사관**입니다.
-
-## 담당 업무:
-- 이상거래 통계 (get_fraud_statistics) - 전체 현황
-- 부정행위 탐지 (detect_fraud) - 개별 셀러 조사
-- 셀러 분석 (analyze_seller) - 상세 행동 패턴
-- 셀러 활동 리포트 (get_seller_activity_report)
-- 세그먼트 통계 (get_segment_statistics)
-
-## 규칙:
-- 의심 패턴(허위주문, 리뷰조작, 비정상환불)을 구체적으로 분류
-- 위험도 수준별 대응 방안 제시
-- 이상 행동 근거 데이터를 명확히 제시"""
-
-CS_QUALITY_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **CS 품질 관리자**입니다.
-
-## 담당 업무:
-- CS 통계 (get_cs_statistics) - 카테고리별, 채널별 현황
-- 문의 분류 (classify_inquiry) - TF-IDF + RandomForest
-- CS 품질 평가 (check_cs_quality)
-- 자동 응답 생성 (auto_reply_cs) - LLM 기반
-- 용어집 (get_ecommerce_glossary)
-
-## 규칙:
-- CS 처리 시간, 만족도, 품질 등급 기준 분석
-- 개선이 필요한 카테고리/채널 우선순위 제시
-- 자동 응답 품질 향상 방안 포함"""
-
-# 스텝별 (도구, 프롬프트) 매핑
-_STEP_CONFIG = {
-    # 리텐션 (기존)
-    "analyze_churn": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
-    "check_cs": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
-    "generate_strategy": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
-    "execute_action": (RETENTION_AGENT_TOOLS or ANALYSIS_AGENT_TOOLS, RETENTION_AGENT_PROMPT),
-    # 셀러 진단 (5단계)
-    "seller_analyze": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    "seller_segment": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    "seller_risk": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    "seller_optimize": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    "seller_report": (ANALYSIS_AGENT_TOOLS, SELLER_DIAGNOSIS_PROMPT),
-    # 쇼핑몰 성과 (5단계)
-    "shop_info": (SEARCH_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    "shop_performance": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    "shop_trend": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    "shop_marketing": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    "shop_report": (ANALYSIS_AGENT_TOOLS, SHOP_PERFORMANCE_PROMPT),
-    # 딥 분석 (5단계)
-    "dashboard_overview": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    "segment_analysis": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    "trend_analysis": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    "gmv_forecast": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    "deep_report": (ANALYSIS_AGENT_TOOLS, DASHBOARD_DEEP_PROMPT),
-    # 이상거래 (5단계)
-    "fraud_overview": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    "fraud_pattern": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    "fraud_detect": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    "fraud_impact": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    "fraud_report": (ANALYSIS_AGENT_TOOLS, FRAUD_INVESTIGATION_PROMPT),
-    # CS 품질 (5단계)
-    "cs_statistics": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
-    "cs_classify": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
-    "cs_sentiment": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
-    "cs_auto_reply": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
-    "cs_report": (TRANSLATION_AGENT_TOOLS, CS_QUALITY_PROMPT),
+# ============================================================
+# 멀티에이전트 Supervisor 워커 정의 (8종)
+# ============================================================
+MULTI_AGENT_WORKERS = {
+    "churn_analyst": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **셀러 이탈 분석 전문가**입니다.\n"
+            "ML 모델(RandomForest)과 SHAP 분석으로 이탈 위험을 예측하고 주요 원인을 파악합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 이탈 확률, 위험 등급(high/medium/low)을 명확히 구분하세요\n"
+            "- SHAP top_factors를 **원인 순위 표**로 정리하세요\n"
+            "- 마지막 접속일, 매출 규모, 환불률 등 핵심 지표를 비교하세요\n"
+            "- 이탈 확률이 높은 셀러의 **공통 패턴**을 찾아 보고하세요\n"
+            "- 즉각적인 리텐션 조치가 필요한 셀러를 **우선순위**로 추천하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [get_at_risk_sellers, predict_seller_churn, get_churn_prediction],
+        "description": "이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석",
+    },
+    "retention_strategist": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **셀러 리텐션 전략 전문가**입니다.\n"
+            "이탈 위험 셀러에게 맞춤 메시지를 생성하고, 리텐션 조치를 제안합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 셀러 상황(매출, 접속일, 환불률)에 맞는 **맞춤 전략**을 제안하세요\n"
+            "- 조치 유형별(쿠폰/업그레이드/매니저 배정) **예상 효과**를 언급하세요\n"
+            "- 리텐션 메시지는 **톤앤매너**를 셀러 등급에 맞게 조절하세요\n"
+            "- 긴급도에 따라 **즉시/단기/중기** 조치로 분류하세요\n\n"
+            "## 조치 실행 규칙 (매우 중요)\n"
+            "- `generate_retention_message`로 추천 조치를 먼저 확인하세요\n"
+            "- 추천 조치 목록과 예상 효과를 **먼저 사용자에게 제시**하세요\n"
+            "- `execute_retention_action`은 사용자가 **명시적으로 '실행해', '적용해', '진행해'**라고 요청한 경우에만 호출하세요\n"
+            "- 사용자가 '전략 실행해줘', '조치 해줘'처럼 실행을 요청한 경우 → **긴급도가 가장 높은 1개만** 자동 실행하고, 나머지는 제안으로 남기세요\n"
+            "- 여러 조치를 한꺼번에 실행하지 마세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [generate_retention_message, execute_retention_action, get_at_risk_sellers],
+        "description": "리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치",
+    },
+    "seller_analyst": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **셀러 종합 분석 전문가**입니다.\n"
+            "셀러의 활동, 세그먼트, 이상거래, 성과를 종합 분석합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 세그먼트 간 **셀러 수, 평균 매출, 주문 수, 환불률**을 비교 표로 정리하세요\n"
+            "- 세그먼트별 특징과 **관리 전략**을 제시하세요 (성장형 vs 휴면 vs 파워)\n"
+            "- 개별 셀러 분석 시 **강점/약점/기회/위협**을 구분하세요\n"
+            "- 동일 세그먼트 내 상위/하위 셀러 간 차이를 분석하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [analyze_seller, get_seller_segment, detect_fraud, get_segment_statistics, get_fraud_statistics, get_seller_activity_report],
+        "description": "셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래",
+    },
+    "performance_analyst": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **쇼핑몰 성과 및 KPI 분석 전문가**입니다.\n"
+            "매출 트렌드, 코호트 분석, GMV 예측, 마케팅 최적화를 수행합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 매출/주문/전환율의 **기간별 추세**(전월 대비, 전년 대비)를 분석하세요\n"
+            "- 코호트 리텐션에서 **이탈 급감 구간**을 찾아 원인을 추론하세요\n"
+            "- 마케팅 채널별 **ROI, CPA, ROAS**를 비교하세요\n"
+            "- GMV 예측 시 **성장률, ARPU, 티어별 분포**를 함께 제시하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [get_shop_info, get_shop_performance, get_trend_analysis, get_cohort_analysis, predict_shop_revenue, get_gmv_prediction, optimize_marketing, get_order_statistics],
+        "description": "성과 분석가 — 매출/KPI/마케팅 분석",
+    },
+    "fraud_investigator": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **이상거래 조사 전문가**입니다.\n"
+            "부정 거래 패턴을 탐지하고 영향도를 분석합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 이상 탐지 건수, **위험 점수 분포**, 영향 금액을 정리하세요\n"
+            "- 이상 유형별(환불 사기, 가짜 주문, 비정상 패턴) **발생 빈도**를 분류하세요\n"
+            "- 고위험 셀러의 **구체적 이상 행동 패턴**을 설명하세요\n"
+            "- **즉시 차단, 모니터링, 경고** 등 대응 방안을 제시하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [detect_fraud, get_fraud_statistics, analyze_seller],
+        "description": "이상거래 조사관 — 부정행위 탐지 + 영향 분석",
+    },
+    "cs_quality_analyst": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **CS 품질 분석 전문가**입니다.\n"
+            "CS 문의 통계, 자동 분류, 감성 분석, 자동 응답 생성을 담당합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- 카테고리별 **티켓 수, 만족도, 평균 해결 시간**을 비교 표로 정리하세요\n"
+            "- 만족도가 낮거나 해결 시간이 긴 **병목 카테고리**를 지적하세요\n"
+            "- 우수 카테고리 vs 취약 카테고리의 **차이 원인**을 분석하세요\n"
+            "- CS 품질 개선을 위한 **구체적 우선순위 액션**을 제안하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [get_cs_statistics, auto_reply_cs, check_cs_quality, classify_inquiry, get_ecommerce_glossary],
+        "description": "CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가",
+    },
+    "report_writer": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **운영 리포트 전문가**입니다.\n"
+            "대시보드 현황, 주문 통계, KPI를 종합하여 보고서를 작성합니다.\n\n"
+            "## 역할별 분석 지침\n"
+            "- **경영진이 바로 의사결정할 수 있는 수준**의 보고서를 작성하세요\n"
+            "- 핵심 KPI를 **요약 표**로 먼저 제시하고, 상세 분석을 이어가세요\n"
+            "- 전월/전주 대비 **변화량과 변화율(%)**을 함께 표기하세요\n"
+            "- 긍정/부정 트렌드를 구분하여 **주의 필요 항목**을 별도 표기하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [get_dashboard_summary, get_order_statistics, get_trend_analysis, get_cohort_analysis],
+        "description": "리포트 작성가 — 대시보드 + KPI 종합 보고서",
+    },
+    "platform_searcher": {
+        "prompt": (
+            "당신은 카페24 AI 운영 플랫폼의 **플랫폼 지식 검색 전문가**입니다.\n"
+            "카페24 플랫폼 정책, 기능, 운영 가이드, FAQ를 RAG(검색증강생성)로 검색합니다.\n"
+            "쇼핑몰/카테고리 정보 조회와 이커머스 용어 설명도 담당합니다.\n\n"
+            "**반드시 search_platform 또는 search_platform_lightrag 도구를 호출하여 검색한 뒤 답변하세요.**\n"
+            "절대 도구 없이 직접 답변하지 마세요.\n\n"
+            "## 역할별 분석 지침\n"
+            "- RAG 결과 전체를 꼼꼼히 읽고, 유사한 표현도 찾으세요\n"
+            "- RAG 결과에 정보가 있는데 '모르겠습니다'라고 답변하지 마세요\n"
+            "- RAG 결과에 **없는 정보를 절대 지어내지 마세요** (할루시네이션 금지)\n"
+            "- 숫자를 묻는 질문에는 RAG 결과에서 실제로 나열된 항목을 세어서 답하세요\n"
+            + _WORKER_COMMON_RULES
+        ),
+        "tools": [search_platform, search_platform_lightrag, get_shop_info, list_shops, get_shop_services, get_category_info, list_categories, get_ecommerce_glossary],
+        "description": "플랫폼 검색가 — RAG 지식 검색 + 쇼핑몰/카테고리 조회",
+    },
 }
 
-# 스텝별 한글 설명 (SSE agent_start에 포함)
-_STEP_DESCRIPTIONS = {
-    "analyze_churn": "이탈 위험 셀러 분석",
-    "check_cs": "CS 현황 확인",
-    "generate_strategy": "맞춤 전략 생성",
-    "execute_action": "리텐션 조치 실행",
-    "seller_analyze": "셀러 상세 분석",
-    "seller_segment": "셀러 세그먼트 분류",
-    "seller_risk": "리스크 평가",
-    "seller_optimize": "최적화 전략 도출",
-    "seller_report": "셀러 종합 리포트",
-    "shop_info": "쇼핑몰 정보 수집",
-    "shop_performance": "성과 분석",
-    "shop_trend": "매출 트렌드 분석",
-    "shop_marketing": "마케팅 최적화",
-    "shop_report": "쇼핑몰 종합 리포트",
-    "dashboard_overview": "대시보드 현황 집계",
-    "segment_analysis": "세그먼트별 분석",
-    "trend_analysis": "KPI 트렌드 분석",
-    "gmv_forecast": "GMV 예측",
-    "deep_report": "딥 분석 종합 리포트",
-    "fraud_overview": "이상거래 현황 조회",
-    "fraud_pattern": "이상 패턴 분석",
-    "fraud_detect": "부정행위 탐지",
-    "fraud_impact": "영향도 평가",
-    "fraud_report": "조사 보고서 생성",
-    "cs_statistics": "CS 통계 분석",
-    "cs_classify": "문의 분류 실행",
-    "cs_sentiment": "고객 감성 분석",
-    "cs_auto_reply": "자동 응답 생성",
-    "cs_report": "CS 품질 종합 리포트",
-}
+# 멀티에이전트 Supervisor 시스템 프롬프트
+MULTI_AGENT_SUPERVISOR_PROMPT = """당신은 카페24 AI 운영 플랫폼의 **멀티에이전트 Supervisor**입니다.
+사용자의 요청을 분석하여 적절한 전문 워커 에이전트에게 작업을 위임하고, 결과를 종합합니다.
 
-# 서브에이전트 복합 요청 감지용 키워드 패턴
-_SUB_AGENT_PATTERNS = [
-    # 리텐션 (기존)
-    ["이탈", "전략"],
-    ["이탈", "CS"],
-    ["리텐션", "분석"],
-    ["이탈", "분석", "발송"],
-    ["위험", "전략"],
-    ["이탈", "확인", "전략"],
-    # 셀러 종합 진단
-    ["셀러", "종합"],
-    ["셀러", "진단"],
-    ["셀러", "분석", "세그먼트"],
-    # 쇼핑몰 성과
-    ["쇼핑몰", "성과", "리포트"],
-    ["쇼핑몰", "종합"],
-    ["쇼핑몰", "마케팅"],
-    # 딥 분석
-    ["전체", "딥"],
-    ["kpi", "종합"],
-    ["현황", "트렌드"],
-    ["대시보드", "분석"],
-    # 이상거래
-    ["이상거래", "조사"],
-    ["부정행위", "분석"],
-    ["이상", "탐지", "보고"],
-    # CS 품질
-    ["cs", "품질"],
-    ["상담", "품질"],
-    ["cs", "분석", "개선"],
-]
+## 전문 워커 에이전트 (8종):
+1. **churn_analyst**: 셀러 이탈 분석 — ML 이탈 예측, SHAP 분석, 위험 셀러 조회
+2. **retention_strategist**: 리텐션 전략 — 맞춤 메시지 생성, 쿠폰/업그레이드/매니저 배정 조치
+3. **seller_analyst**: 셀러 종합 분석 — 활동, 세그먼트, 이상거래, 성과 분석
+4. **performance_analyst**: 쇼핑몰 성과/KPI — 매출 트렌드, 코호트, GMV 예측, 마케팅 최적화
+5. **fraud_investigator**: 이상거래 조사 — 부정 거래 탐지, 영향도 분석
+6. **cs_quality_analyst**: CS 품질 — 문의 통계, 자동 분류, 감성 분석, 자동 응답
+7. **report_writer**: 운영 리포트 — 대시보드, 주문 통계, KPI 종합 보고서
+8. **platform_searcher**: 플랫폼 지식 검색 — RAG 기반 정책/기능/FAQ 검색, 쇼핑몰/카테고리 조회
 
-# IntentCategory → 에이전트 매핑 (모듈 레벨 캐싱)
-_CATEGORY_AGENT_MAP = {
-    IntentCategory.CS: "translation",
-    IntentCategory.ANALYSIS: "analysis",
-    IntentCategory.SELLER: "analysis",
-    IntentCategory.DASHBOARD: "analysis",
-    IntentCategory.PLATFORM: "search",
-    IntentCategory.SHOP: "search",
-    IntentCategory.GENERAL: "search",
-}
+## 라우팅 판단 기준:
+- 이탈/위험 셀러/고위험 → churn_analyst
+- 이탈 방지 전략/메시지/조치 → retention_strategist
+- 셀러 종합 진단/세그먼트 통계 → seller_analyst
+- 쇼핑몰 성과/매출/마케팅/코호트/트렌드/GMV → performance_analyst
+- 이상거래/부정행위/비정상 → fraud_investigator
+- CS 품질/상담/감성/CS 통계 → cs_quality_analyst
+- 대시보드/KPI/리포트/전체 현황 → report_writer
+- 플랫폼 정책/기능/FAQ/설정 방법/용어 → platform_searcher (반드시 RAG 검색 필수)
 
-# 파이프라인 타입별 plan 정의
-_PIPELINE_PLANS = {
-    "retention": ["analyze_churn", "generate_strategy"],
-    "seller_diagnosis": ["seller_analyze", "seller_segment", "seller_risk", "seller_optimize", "seller_report"],
-    "shop_performance": ["shop_info", "shop_performance", "shop_trend", "shop_marketing", "shop_report"],
-    "deep_analysis": ["dashboard_overview", "segment_analysis", "trend_analysis", "gmv_forecast", "deep_report"],
-    "fraud_investigation": ["fraud_overview", "fraud_pattern", "fraud_detect", "fraud_impact", "fraud_report"],
-    "cs_quality": ["cs_statistics", "cs_classify", "cs_sentiment", "cs_auto_reply", "cs_report"],
-}
+## 워크플로우 규칙:
+- 복합 요청("~하고 ~도 해줘")은 여러 워커에게 순차적으로 위임
+- 간단한 후속 질문은 직접 답변 가능 (워커 위임 불필요)
 
-# IntentCategory → 파이프라인 타입 fallback 매핑
-_CATEGORY_PIPELINE_MAP = {
-    IntentCategory.SELLER: "seller_diagnosis",
-    IntentCategory.SHOP: "shop_performance",
-    IntentCategory.ANALYSIS: "deep_analysis",
-    IntentCategory.DASHBOARD: "deep_analysis",
-    IntentCategory.CS: "cs_quality",
-}
+## 대화 맥락 유지 (매우 중요):
+- 이전 대화에서 특정 쇼핑몰/셀러를 언급했으면, 후속 질문도 **그 대상 기준**으로 처리
+- 새로운 대상이 언급될 때까지 이전 대상 유지
 
-
-def _detect_pipeline_type(text: str, category=None) -> str:
-    """텍스트와 카테고리로 파이프라인 타입 결정"""
-    t = text.lower()
-
-    # 키워드 기반 감지
-    if any(kw in t for kw in ["셀러 종합", "셀러 진단", "셀러 전체 분석"]):
-        return "seller_diagnosis"
-    if any(kw in t for kw in ["쇼핑몰 성과", "쇼핑몰 종합", "쇼핑몰 리포트", "쇼핑몰 마케팅"]):
-        return "shop_performance"
-    if any(kw in t for kw in ["딥 분석", "kpi 종합", "현황 트렌드", "대시보드 분석", "전체 현황 딥"]):
-        return "deep_analysis"
-    if any(kw in t for kw in ["이상거래 조사", "부정행위 분석", "이상 탐지", "부정행위 리포트"]):
-        return "fraud_investigation"
-    if any(kw in t for kw in ["cs 품질", "상담 품질", "cs 분석", "cs 개선", "자동 응답 개선"]):
-        return "cs_quality"
-
-    # 카테고리 기반 fallback
-    if category and category in _CATEGORY_PIPELINE_MAP:
-        return _CATEGORY_PIPELINE_MAP[category]
-
-    return "retention"  # 기본값
+## 최종 응답 규칙 (매우 중요 — 반드시 준수!):
+- 워커가 반환한 데이터를 **반드시 구체적으로 분석**하여 사용자에게 전달하세요
+- 핵심 수치(건수, 금액, 비율, 점수, 순위 등)를 **구체적으로 언급**하세요
+- **마크다운 표·볼드·리스트**를 활용하여 가독성 높게 정리하세요
+- "성공적으로 조회했습니다", "확인했습니다" 같은 **형식적 한 줄 응답은 절대 금지**
+- 숫자만 나열하지 말고, **"그래서 뭐가 문제이고, 어떻게 해야 하는가"**를 포함하세요
+- 데이터에서 **인사이트를 도출**하고, 주목할 점이나 개선 방향을 제안하세요
+- 워커가 반환한 데이터를 누락하지 말고 **상세하게 정리**하세요
+- 금액은 **₩ + 천 단위 콤마**, 큰 금액은 **억/만원 단위**로 환산
+- 데이터가 충분하면 **최소 3개 이상의 인사이트**를 제공하세요
+"""
 
 
 # ============================================================
-# 에이전트 프롬프트 템플릿 사전 컴파일 (매 호출마다 재생성 방지)
+# 멀티에이전트 스트림 실행 (routes_agent.py에서 호출)
+# Supervisor 패턴 — 동적 라우팅 + astream_events SSE 스트리밍
 # ============================================================
-_prompt_cache: Dict[str, ChatPromptTemplate] = {}
-
-
-def _get_prompt(system_prompt: str) -> ChatPromptTemplate:
-    """시스템 프롬프트별 ChatPromptTemplate 캐시"""
-    if system_prompt not in _prompt_cache:
-        _prompt_cache[system_prompt] = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="messages"),
-        ])
-    return _prompt_cache[system_prompt]
-
-
-# ============================================================
-# 에이전트 노드 함수
-# ============================================================
-def create_agent_executor(llm, tools, system_prompt: str):
-    """에이전트 실행기 생성 (프롬프트 캐시 활용)"""
-    prompt = _get_prompt(system_prompt)
-    return prompt | llm.bind_tools(tools)
-
-
-def _is_sub_agent_request(text: str) -> bool:
-    """복합 리텐션 요청 여부를 키워드 패턴으로 감지"""
-    t = text.lower()
-    for pattern in _SUB_AGENT_PATTERNS:
-        if all(kw in t for kw in pattern):
-            return True
-    return False
-
-
-def coordinator_node(state: AgentState, llm) -> dict:
-    """코디네이터: 다음 에이전트 결정 (서브에이전트 복합 요청 포함)"""
-    messages = state["messages"]
-
-    user_message = ""
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            user_message = msg.content
-            break
-
-    iteration = state.get("iteration", 0)
-
-    if iteration >= 3:
-        return {"next_agent": "end", "iteration": iteration + 1}
-
-    # 복합 리텐션 요청 → 서브에이전트 오케스트레이션
-    if _is_sub_agent_request(user_message) and RETENTION_AGENT_TOOLS:
-        st.logger.info("COORDINATOR sub_agent detected: %s", user_message[:60])
-        return {"next_agent": "sub_agent", "iteration": iteration + 1}
-
-    category = _keyword_classify(user_message)
-    next_agent = _CATEGORY_AGENT_MAP.get(category, "search")
-    return {"next_agent": next_agent, "iteration": iteration + 1}
-
-
-def search_agent_node(state: AgentState, llm) -> dict:
-    """검색 에이전트"""
-    agent = create_agent_executor(llm, SEARCH_AGENT_TOOLS, SEARCH_AGENT_PROMPT)
-    result = agent.invoke({"messages": state["messages"]})
-
-    return {
-        "messages": [result],
-        "current_agent": "search",
-        "next_agent": "end",
-    }
-
-
-def analysis_agent_node(state: AgentState, llm) -> dict:
-    """분석 에이전트"""
-    agent = create_agent_executor(llm, ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT)
-    result = agent.invoke({"messages": state["messages"]})
-
-    return {
-        "messages": [result],
-        "current_agent": "analysis",
-        "next_agent": "end",
-    }
-
-
-def translation_agent_node(state: AgentState, llm) -> dict:
-    """번역 에이전트"""
-    agent = create_agent_executor(llm, TRANSLATION_AGENT_TOOLS, TRANSLATION_AGENT_PROMPT)
-    result = agent.invoke({"messages": state["messages"]})
-
-    return {
-        "messages": [result],
-        "current_agent": "translation",
-        "next_agent": "end",
-    }
-
-
-# ============================================================
-# 서브에이전트 오케스트레이션 노드
-# ============================================================
-def sub_agent_coordinator_node(state: AgentState, llm) -> dict:
-    """복합 요청을 분석하여 실행 계획(plan)을 생성"""
-    user_message = ""
-    for msg in reversed(state["messages"]):
-        if isinstance(msg, HumanMessage):
-            user_message = msg.content
-            break
-
-    pipeline_type = state.get("pipeline_type", "") or "retention"
-
-    # 파이프라인 타입이 이미 설정되어 있으면 그것 사용, 없으면 감지
-    if not state.get("pipeline_type"):
-        pipeline_type = _detect_pipeline_type(user_message)
-
-    # 기본 plan 가져오기
-    plan = list(_PIPELINE_PLANS.get(pipeline_type, _PIPELINE_PLANS["retention"]))
-
-    # 리텐션: 고정 2단계 (분석 → 전략)
-    if pipeline_type == "retention":
-        plan = ["analyze_churn", "generate_strategy"]
-
-    st.logger.info("SUB_AGENT_PLAN pipeline=%s plan=%s steps=%d", pipeline_type, plan, len(plan))
-
-    return {
-        "plan": plan,
-        "current_step": 0,
-        "agent_results": [],
-        "current_agent": "sub_agent_coordinator",
-        "pipeline_type": pipeline_type,
-    }
-
-
-def dispatcher_node(state: AgentState) -> dict:
-    """plan[current_step]에 따라 다음 서브에이전트 노드로 라우팅"""
-    plan = state.get("plan", [])
-    current_step = state.get("current_step", 0)
-
-    if current_step >= len(plan):
-        # 모든 단계 완료
-        return {"next_agent": "end"}
-
-    step_name = plan[current_step]
-    st.logger.info(
-        "DISPATCHER step=%d/%d action=%s",
-        current_step + 1, len(plan), step_name,
-    )
-
-    return {"next_agent": step_name, "current_agent": "dispatcher"}
-
-
-def _dispatch_route(state: AgentState) -> str:
-    """dispatcher 조건부 엣지: plan의 현재 단계에 따라 라우팅"""
-    plan = state.get("plan", [])
-    step = state.get("current_step", 0)
-    if step >= len(plan):
-        return "end"
-    return plan[step]
-
-
-def retention_agent_node(state: AgentState, llm) -> dict:
-    """리텐션 에이전트: RETENTION_AGENT_TOOLS로 이탈 방지 작업 수행"""
-    # 이전 단계 결과를 컨텍스트로 포함
-    agent_results = state.get("agent_results", [])
-    plan = state.get("plan", [])
-    current_step = state.get("current_step", 0)
-    step_name = plan[current_step] if current_step < len(plan) else "unknown"
-
-    # 도구 실행 후 콜백인지 판별 (ToolMessage가 마지막이면 도구 결과 후속 처리)
-    messages = state["messages"]
-    is_tool_callback = bool(messages) and isinstance(messages[-1], ToolMessage)
-
-    context_parts = []
-    for i, res in enumerate(agent_results):
-        context_parts.append(f"[단계 {i+1} 결과] {res.get('step', '')}: {res.get('summary', '')}")
-    context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
-
-    # 원본 사용자 메시지 추출
-    user_message = ""
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            user_message = msg.content
-            break
-
-    augmented_prompt = (
-        f"{RETENTION_AGENT_PROMPT}\n\n"
-        f"## 현재 단계: {step_name} ({current_step + 1}/{len(plan)})\n"
-        f"## 이전 단계 결과:\n{context_str}\n\n"
-        f"사용자 요청: {user_message}"
-    )
-
-    tools = RETENTION_AGENT_TOOLS if RETENTION_AGENT_TOOLS else ANALYSIS_AGENT_TOOLS
-    agent = create_agent_executor(llm, tools, augmented_prompt)
-    result = agent.invoke({"messages": messages})
-
-    # 도구 콜백이면 current_step/agent_results 변경하지 않음 (오버플로 방지)
-    if is_tool_callback:
-        return {
-            "messages": [result],
-            "current_agent": "retention",
-        }
-
-    # 결과를 agent_results에 누적 (종합 리포트용으로 500자까지 저장)
-    new_results = list(agent_results)
-    result_summary = result.content[:500] if hasattr(result, "content") and result.content else ""
-    new_results.append({"step": step_name, "summary": result_summary})
-
-    return {
-        "messages": [result],
-        "current_agent": "retention",
-        "agent_results": new_results,
-        "current_step": current_step + 1,
-    }
-
-
-def _retention_should_continue(state: AgentState) -> str:
-    """리텐션 에이전트 후 분기: tool_calls가 있으면 tools, 없으면 dispatcher로 복귀"""
-    messages = state["messages"]
-    if not messages:
-        return "dispatcher"
-
-    last_message = messages[-1]
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools"
-
-    return "dispatcher"
-
-
-def sub_step_node(state: AgentState, llm) -> dict:
-    """제네릭 서브에이전트 스텝 노드: _STEP_CONFIG에서 도구/프롬프트 결정"""
-    agent_results = state.get("agent_results", [])
-    plan = state.get("plan", [])
-    current_step = state.get("current_step", 0)
-    step_name = plan[current_step] if current_step < len(plan) else "unknown"
-
-    # 도구 실행 후 콜백인지 판별 (ToolMessage가 마지막이면 도구 결과 후속 처리)
-    messages = state["messages"]
-    is_tool_callback = bool(messages) and isinstance(messages[-1], ToolMessage)
-
-    # 스텝 설정 가져오기
-    tools, base_prompt = _STEP_CONFIG.get(step_name, (ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT))
-
-    # 이전 단계 결과 컨텍스트
-    context_parts = []
-    for i, res in enumerate(agent_results):
-        context_parts.append(f"[단계 {i+1} 결과] {res.get('step', '')}: {res.get('summary', '')}")
-    context_str = "\n".join(context_parts) if context_parts else "첫 번째 단계입니다."
-
-    user_message = ""
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            user_message = msg.content
-            break
-
-    augmented_prompt = (
-        f"{base_prompt}\n\n"
-        f"## 현재 단계: {step_name} ({current_step + 1}/{len(plan)})\n"
-        f"## 이전 단계 결과:\n{context_str}\n\n"
-        f"사용자 요청: {user_message}"
-    )
-
-    agent = create_agent_executor(llm, tools, augmented_prompt)
-    result = agent.invoke({"messages": messages})
-
-    # 도구 콜백이면 current_step/agent_results 변경하지 않음 (오버플로 방지)
-    if is_tool_callback:
-        return {
-            "messages": [result],
-            "current_agent": "sub_step",
-        }
-
-    # 종합 리포트용으로 500자까지 저장
-    new_results = list(agent_results)
-    result_summary = result.content[:500] if hasattr(result, "content") and result.content else ""
-    new_results.append({"step": step_name, "summary": result_summary})
-
-    return {
-        "messages": [result],
-        "current_agent": "sub_step",
-        "agent_results": new_results,
-        "current_step": current_step + 1,
-    }
-
-
-def _sub_step_should_continue(state: AgentState) -> str:
-    """sub_step 노드 후 분기: tool_calls → tools, 없으면 → dispatcher"""
-    messages = state["messages"]
-    if not messages:
-        return "dispatcher"
-    last_message = messages[-1]
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools"
-    return "dispatcher"
-
-
-def tool_executor_node(state: AgentState) -> dict:
-    """도구 실행 노드"""
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
-        return {"messages": [], "next_agent": "end"}
-
-    tool_calls_log = state.get("tool_calls_log", [])
-    new_messages = []
-    tool_map = _get_all_tool_map()
-
-    for tool_call in last_message.tool_calls:
-        tool_name = tool_call["name"]
-        tool_args = tool_call["args"]
-        tool_id = tool_call["id"]
-
-        st.logger.info(
-            "MULTI_AGENT_TOOL_CALL agent=%s tool=%s args=%s",
-            state.get("current_agent", "unknown"),
-            tool_name,
-            json.dumps(tool_args, ensure_ascii=False),
-        )
-
-        if tool_name in tool_map:
-            try:
-                result = tool_map[tool_name].invoke(tool_args)
-            except Exception as e:
-                result = {"status": "error", "message": safe_str(e)}
-                st.logger.exception("TOOL_EXEC_FAIL tool=%s err=%s", tool_name, e)
-        else:
-            result = {"status": "error", "message": f"도구 '{tool_name}'을 찾을 수 없습니다."}
-
-        tool_calls_log.append({
-            "agent": state.get("current_agent", "unknown"),
-            "tool": tool_name,
-            "args": tool_args,
-            "result": result,
-        })
-
-        try:
-            result_str = json.dumps(json_sanitize(result), ensure_ascii=False)
-        except Exception:
-            result_str = safe_str(result)
-
-        new_messages.append(ToolMessage(content=result_str, tool_call_id=tool_id))
-
-    return {"messages": new_messages, "tool_calls_log": tool_calls_log}
-
-
-def should_continue(state: AgentState) -> Literal["tools", "end", "coordinator"]:
-    """조건부 엣지: 다음 단계 결정"""
-    messages = state["messages"]
-    if not messages:
-        return "end"
-
-    last_message = messages[-1]
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools"
-
-    return state.get("next_agent", "end") if state.get("next_agent") != "end" else "end"
-
-
-def route_to_agent(state: AgentState) -> str:
-    """에이전트 라우팅"""
-    return state.get("next_agent", "end")
-
-
-# ============================================================
-# 그래프 빌드
-# ============================================================
-def build_multi_agent_graph(llm):
-    """멀티 에이전트 그래프 생성 (서브에이전트 경로 포함)"""
-    if not LANGGRAPH_AVAILABLE:
-        raise ImportError("langgraph가 설치되지 않았습니다. 'pip install langgraph'")
-
-    workflow = StateGraph(AgentState)
-
-    # 기존 노드
-    workflow.add_node("coordinator", lambda state: coordinator_node(state, llm))
-    workflow.add_node("search", lambda state: search_agent_node(state, llm))
-    workflow.add_node("analysis", lambda state: analysis_agent_node(state, llm))
-    workflow.add_node("translation", lambda state: translation_agent_node(state, llm))
-    workflow.add_node("tools", tool_executor_node)
-
-    # 서브에이전트 노드
-    workflow.add_node("sub_agent_coordinator", lambda state: sub_agent_coordinator_node(state, llm))
-    workflow.add_node("dispatcher", dispatcher_node)
-    workflow.add_node("retention", lambda state: retention_agent_node(state, llm))
-    workflow.add_node("sub_step", lambda state: sub_step_node(state, llm))
-
-    workflow.set_entry_point("coordinator")
-
-    # coordinator → 에이전트 라우팅 (sub_agent 경로 추가)
-    workflow.add_conditional_edges(
-        "coordinator",
-        route_to_agent,
-        {
-            "search": "search",
-            "analysis": "analysis",
-            "translation": "translation",
-            "sub_agent": "sub_agent_coordinator",
-            "end": END,
-        }
-    )
-
-    # 기존 에이전트 → tools / end / coordinator
-    for agent in ["search", "analysis", "translation"]:
-        workflow.add_conditional_edges(
-            agent,
-            should_continue,
-            {"tools": "tools", "end": END, "coordinator": "coordinator"}
-        )
-
-    # tools → 호출한 에이전트로 복귀 (retention, sub_step 포함)
-    workflow.add_conditional_edges(
-        "tools",
-        lambda state: state.get("current_agent", "coordinator"),
-        {
-            "search": "search",
-            "analysis": "analysis",
-            "translation": "translation",
-            "retention": "retention",
-            "sub_step": "sub_step",
-            "coordinator": "coordinator",
-        }
-    )
-
-    # 서브에이전트 경로: coordinator → sub_agent_coordinator → dispatcher → retention → tools → retention → dispatcher → END
-    workflow.add_edge("sub_agent_coordinator", "dispatcher")
-
-    # dispatcher → 각 단계별 에이전트 or END
-    _dispatch_targets = {
-        # 리텐션 (기존 → retention 노드)
-        "analyze_churn": "retention",
-        "check_cs": "retention",
-        "generate_strategy": "retention",
-        "execute_action": "retention",
-        # 신규 → sub_step 노드
-        "seller_analyze": "sub_step",
-        "seller_segment": "sub_step",
-        "seller_risk": "sub_step",
-        "seller_optimize": "sub_step",
-        "seller_report": "sub_step",
-        "shop_info": "sub_step",
-        "shop_performance": "sub_step",
-        "shop_trend": "sub_step",
-        "shop_marketing": "sub_step",
-        "shop_report": "sub_step",
-        "dashboard_overview": "sub_step",
-        "segment_analysis": "sub_step",
-        "trend_analysis": "sub_step",
-        "gmv_forecast": "sub_step",
-        "deep_report": "sub_step",
-        "fraud_overview": "sub_step",
-        "fraud_pattern": "sub_step",
-        "fraud_detect": "sub_step",
-        "fraud_impact": "sub_step",
-        "fraud_report": "sub_step",
-        "cs_statistics": "sub_step",
-        "cs_classify": "sub_step",
-        "cs_sentiment": "sub_step",
-        "cs_auto_reply": "sub_step",
-        "cs_report": "sub_step",
-        "end": END,
-    }
-    workflow.add_conditional_edges("dispatcher", _dispatch_route, _dispatch_targets)
-
-    # retention → tools(도구 호출) or dispatcher(다음 단계)
-    workflow.add_conditional_edges(
-        "retention",
-        _retention_should_continue,
-        {"tools": "tools", "dispatcher": "dispatcher"}
-    )
-
-    # sub_step → tools(도구 호출) or dispatcher(다음 단계)
-    workflow.add_conditional_edges(
-        "sub_step",
-        _sub_step_should_continue,
-        {"tools": "tools", "dispatcher": "dispatcher"}
-    )
-
-    return workflow.compile()
-
-
-# ============================================================
-# H15: 모델별 그래프 캐시 (매 요청마다 재빌드 방지)
-# ============================================================
-_graph_cache: Dict[str, Any] = {}
-
-
-def _get_cached_graph(llm, model_key: str):
-    """모델별로 컴파일된 LangGraph를 캐시하여 반환"""
-    if model_key not in _graph_cache:
-        _graph_cache[model_key] = build_multi_agent_graph(llm)
-        st.logger.info("MULTI_AGENT_GRAPH_BUILD model=%s (cached)", model_key)
-    return _graph_cache[model_key]
-
-
-# ============================================================
-# 멀티 에이전트 실행
-# ============================================================
-def run_multi_agent(req, username: str) -> dict:
-    """LangGraph 기반 멀티 에이전트 실행"""
-    if not LANGGRAPH_AVAILABLE:
-        return {
-            "status": "error",
-            "message": "langgraph를 설치하세요: pip install langgraph",
-            "tool_calls": [],
-            "log_file": st.LOG_FILE,
-        }
-
-    user_text = safe_str(req.user_input)
-
-    st.logger.info(
-        "MULTI_AGENT_START user=%s model=%s input_len=%s",
-        username, normalize_model_name(req.model), len(user_text),
-    )
-
-    api_key = pick_api_key(req.api_key)
-    if not api_key:
-        msg = "OpenAI API Key가 없습니다."
-        append_memory(username, user_text, msg)
-        return {"status": "error", "message": msg, "tool_calls": [], "log_file": st.LOG_FILE}
-
-    try:
-        user_temperature = req.temperature if req.temperature is not None else 0.3
-        llm = get_llm(
-            req.model, api_key, req.max_tokens, streaming=False,
-            temperature=user_temperature, top_p=req.top_p,
-            presence_penalty=req.presence_penalty, frequency_penalty=req.frequency_penalty,
-            seed=req.seed, timeout_ms=req.timeout_ms, max_retries=req.retries,
-        )
-
-        # H15: 모델별로 컴파일된 그래프 캐시
-        graph = _get_cached_graph(llm, normalize_model_name(req.model))
-
-        prev_messages = memory_messages(username)
-        messages = []
-        for msg in prev_messages:
-            role, content = msg.get("role", ""), msg.get("content", "")
-            if role == "user":
-                messages.append(HumanMessage(content=content))
-            elif role == "assistant":
-                messages.append(AIMessage(content=content))
-
-        messages.append(HumanMessage(content=user_text))
-
-        initial_state = {
-            "messages": messages,
-            "next_agent": "",
-            "current_agent": "",
-            "tool_calls_log": [],
-            "iteration": 0,
-            "final_response": "",
-            "plan": [],
-            "current_step": 0,
-            "agent_results": [],
-            "pipeline_type": "",
-        }
-
-        final_state = graph.invoke(initial_state)
-
-        final_response = ""
-        for msg in reversed(final_state.get("messages", [])):
-            if isinstance(msg, AIMessage) and msg.content:
-                final_response = msg.content
-                break
-
-        if not final_response:
-            final_response = "요청을 처리했습니다."
-
-        append_memory(username, user_text, final_response)
-        tool_calls_log = final_state.get("tool_calls_log", [])
-
-        agents_used = list(set(tc.get("agent", "") for tc in tool_calls_log))
-
-        st.logger.info(
-            "MULTI_AGENT_COMPLETE user=%s agents=%s tools=%s",
-            username, agents_used, len(tool_calls_log),
-        )
-
-        return {
-            "status": "success",
-            "response": final_response,
-            "tool_calls": tool_calls_log,
-            "log_file": st.LOG_FILE,
-            "mode": "multi_agent",
-            "agents_used": agents_used,
-        }
-
-    except Exception as e:
-        err = format_openai_error(e)
-        st.logger.exception("MULTI_AGENT_FAIL err=%s", err)
-
-        msg = f"처리 오류: {err.get('type', 'Unknown')} - {err.get('message', str(e))}"
-        append_memory(username, user_text, msg)
-
-        return {
-            "status": "error",
-            "message": msg if req.debug else "처리 오류가 발생했습니다.",
-            "tool_calls": [],
-            "log_file": st.LOG_FILE,
-            "debug_error": err if req.debug else None,
-        }
-
-
-# ============================================================
-# 서브에이전트 스트림 실행 (routes_agent.py에서 호출)
-# ============================================================
-async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
-    """서브에이전트 스트리밍 실행 - 각 단계마다 SSE 이벤트 전송
+async def run_multi_agent_stream(req, username: str, sse_callback, category=None):
+    """Supervisor 기반 멀티에이전트 SSE 스트리밍
 
     Args:
         req: AgentRequest (user_input, model, api_key 등)
         username: 사용자명
         sse_callback: async callable(event_type: str, data: dict) -> None
-            event_type: "agent_start" | "agent_end" | "tool_start" | "tool_end" | "delta" | "done"
-        category: IntentCategory (파이프라인 타입 결정용 fallback)
+            event_type: "agent_start" | "agent_end" | "tool_start" | "tool_end" |
+                        "delta" | "done" | "error"
+        category: IntentCategory (참고용, Supervisor가 자체 라우팅)
     """
-    if not LANGGRAPH_AVAILABLE:
-        await sse_callback("done", {"ok": False, "final": "langgraph를 설치하세요.", "tool_calls": []})
+    if not LANGGRAPH_AVAILABLE or not SUPERVISOR_AVAILABLE:
+        await sse_callback("done", {
+            "ok": False,
+            "final": "langgraph / langgraph-supervisor를 설치하세요.",
+            "tool_calls": [],
+        })
         return
 
     user_text = safe_str(req.user_input)
@@ -1033,140 +362,230 @@ async def run_sub_agent_stream(req, username: str, sse_callback, category=None):
         await sse_callback("done", {"ok": False, "final": "OpenAI API Key가 없습니다.", "tool_calls": []})
         return
 
-    st.logger.info("SUB_AGENT_STREAM_START user=%s input=%s", username, user_text[:80])
+    st.logger.info("MULTI_AGENT_STREAM_START user=%s input=%s", username, user_text[:80])
 
     try:
         llm = get_llm(
-            req.model, api_key, req.max_tokens, streaming=False,
+            req.model, api_key, req.max_tokens, streaming=True,
             temperature=req.temperature if req.temperature is not None else 0.3,
             top_p=req.top_p,
             presence_penalty=req.presence_penalty, frequency_penalty=req.frequency_penalty,
             seed=req.seed, timeout_ms=req.timeout_ms, max_retries=req.retries,
         )
 
-        graph = _get_cached_graph(llm, normalize_model_name(req.model))
+        model_key = normalize_model_name(req.model)
+        supervisor = get_cached_multi_supervisor(llm, model_key)
 
+        # 메시지 히스토리 구성 (멀티턴 지원)
         prev_messages = memory_messages(username)
-        messages = []
+        input_messages = []
         for msg in prev_messages:
             role, content = msg.get("role", ""), msg.get("content", "")
             if role == "user":
-                messages.append(HumanMessage(content=content))
+                input_messages.append({"role": "user", "content": content})
             elif role == "assistant":
-                messages.append(AIMessage(content=content))
-        messages.append(HumanMessage(content=user_text))
+                input_messages.append({"role": "assistant", "content": content})
+        input_messages.append({"role": "user", "content": user_text})
 
-        pipeline_type = _detect_pipeline_type(user_text, category)
+        # SSE 스트리밍 상태 추적
+        tool_calls_log = []
+        agent_results = []
+        final_buf = []
+        current_agent = None
+        step_start_time = None
+        current_tool = None
+        agents_used_set = set()
+        tool_fail_counts: Dict[str, int] = {}  # 도구별 실패 횟수 추적
+        MAX_TOOL_RETRIES = 3  # 동일 도구 최대 재시도 횟수
 
-        initial_state = {
-            "messages": messages,
-            "next_agent": "",
-            "current_agent": "",
-            "tool_calls_log": [],
-            "iteration": 0,
-            "final_response": "",
-            "plan": [],
-            "current_step": 0,
-            "agent_results": [],
-            "pipeline_type": pipeline_type,
-        }
+        # 워커 이름 집합 (handoff 이벤트 감지용)
+        worker_names = set(MULTI_AGENT_WORKERS.keys())
 
-        # 동기 실행 후 단계별 결과 전송
-        final_state = graph.invoke(initial_state)
+        async for event in supervisor.astream_events(
+            {"messages": input_messages},
+            version="v2",
+            config={"recursion_limit": 40},
+        ):
+            kind = event.get("event", "")
+            data = event.get("data", {})
+            metadata = event.get("metadata", {})
 
-        plan = final_state.get("plan", [])
-        agent_results = final_state.get("agent_results", [])
-        tool_calls_log = final_state.get("tool_calls_log", [])
+            # langgraph_checkpoint_ns 에서 현재 노드 추출
+            checkpoint_ns = metadata.get("langgraph_checkpoint_ns", "")
+            outer_node = checkpoint_ns.split(":")[0] if checkpoint_ns else ""
 
-        # 각 단계 결과를 SSE로 전송 (description 포함)
-        # plan에 속하는 유효한 step만 전송 ("unknown" 등 범위 초과 스텝 제외)
-        plan_set = set(plan)
-        valid_results = [r for r in agent_results if r.get("step") in plan_set]
-        for i, result in enumerate(valid_results):
-            step_name = result.get("step", "")
-            description = _STEP_DESCRIPTIONS.get(step_name, step_name)
-            await sse_callback("agent_start", {
-                "agent": step_name,
-                "step": i + 1,
-                "total_steps": len(plan),
-                "description": description,
+            # --- handoff 감지: transfer_to_<worker> 도구 호출 ---
+            if kind == "on_tool_start":
+                tool_name = event.get("name", "")
+                tool_input = data.get("input", {})
+
+                if tool_name.startswith("transfer_to_"):
+                    # handoff → agent_start
+                    agent_name = tool_name.replace("transfer_to_", "")
+                    if agent_name in worker_names:
+                        # 이전 워커가 있으면 먼저 종료
+                        if current_agent and current_agent != agent_name:
+                            elapsed_ms = int((time.time() - step_start_time) * 1000) if step_start_time else 0
+                            await sse_callback("agent_end", {
+                                "agent": current_agent,
+                                "elapsed_ms": elapsed_ms,
+                                "description": AGENT_DESCRIPTIONS.get(current_agent, current_agent),
+                            })
+                        current_agent = agent_name
+                        step_start_time = time.time()
+                        agents_used_set.add(agent_name)
+                        await sse_callback("agent_start", {
+                            "agent": agent_name,
+                            "description": AGENT_DESCRIPTIONS.get(agent_name, agent_name),
+                            "step_detail": MULTI_AGENT_WORKERS.get(agent_name, {}).get("prompt", "")[:100],
+                        })
+                else:
+                    # 일반 도구 호출
+                    current_tool = tool_name
+                    # 핵심 파라미터만 추출
+                    key_params = {}
+                    for k in ("seller_id", "shop_id", "threshold", "top_n", "period",
+                               "segment", "category", "query", "limit", "mode",
+                               "risk_level", "action_type", "days"):
+                        if k in tool_input:
+                            key_params[k] = tool_input[k]
+                    await sse_callback("tool_start", {
+                        "tool": tool_name,
+                        "agent": current_agent or "",
+                        "args": key_params,
+                    })
+
+            elif kind == "on_tool_end":
+                end_tool_name = event.get("name") or current_tool or "unknown"
+                if end_tool_name.startswith("transfer_to_"):
+                    pass  # handoff 종료는 스킵
+                else:
+                    tool_output = data.get("output", {})
+                    # ToolMessage content 추출
+                    if hasattr(tool_output, "content"):
+                        content = tool_output.content
+                        if isinstance(content, str):
+                            try:
+                                tool_output = json.loads(content)
+                            except (json.JSONDecodeError, TypeError):
+                                tool_output = {"status": "success", "data": content}
+                        elif isinstance(content, (dict, list)):
+                            tool_output = content
+                        else:
+                            tool_output = {"status": "success", "data": safe_str(content)}
+                    elif not isinstance(tool_output, (str, dict, list, int, float, bool, type(None))):
+                        tool_output = {"status": "success", "data": safe_str(tool_output)}
+
+                    # 결과 미리보기 생성
+                    if isinstance(tool_output, dict):
+                        result_preview = json.dumps(tool_output, ensure_ascii=False, default=str)[:200]
+                    elif isinstance(tool_output, str):
+                        result_preview = tool_output[:200]
+                    else:
+                        result_preview = str(tool_output)[:200]
+
+                    # 도구 실패 횟수 추적
+                    is_error = (isinstance(tool_output, dict) and tool_output.get("status") == "error")
+                    if is_error:
+                        tool_fail_counts[end_tool_name] = tool_fail_counts.get(end_tool_name, 0) + 1
+
+                    tool_calls_log.append({
+                        "tool": end_tool_name,
+                        "agent": current_agent or "",
+                        "result": tool_output,
+                    })
+
+                    await sse_callback("tool_end", {
+                        "tool": end_tool_name,
+                        "agent": current_agent or "",
+                        "status": "error" if is_error else "success",
+                        "result_preview": result_preview,
+                    })
+                    current_tool = None
+
+                    # 동일 도구 3회 실패 시 스트림 강제 종료
+                    if tool_fail_counts.get(end_tool_name, 0) >= MAX_TOOL_RETRIES:
+                        st.logger.warning(
+                            "TOOL_RETRY_LIMIT tool=%s fails=%d — aborting stream",
+                            end_tool_name, tool_fail_counts[end_tool_name],
+                        )
+                        error_msg = f"도구 '{end_tool_name}'이(가) {MAX_TOOL_RETRIES}회 연속 실패하여 분석을 중단합니다."
+                        final_buf.append(error_msg)
+                        await sse_callback("delta", {"delta": "\n\n" + error_msg})
+                        break  # astream_events 루프 탈출
+
+            elif kind == "on_chat_model_stream":
+                chunk = data.get("chunk")
+                if not chunk or getattr(chunk, "tool_call_chunks", None):
+                    continue
+                content = getattr(chunk, "content", "")
+                if isinstance(content, str) and content:
+                    # 워커 응답은 스킵 — supervisor 최종 종합 응답만 스트리밍
+                    # (워커 진행 상황은 agent_start/end, tool_start/end로 표시)
+                    if outer_node and outer_node != "sub_supervisor":
+                        continue
+                    final_buf.append(content)
+                    await sse_callback("delta", {"delta": content})
+
+            # --- 워커 → supervisor 복귀 감지 ---
+            if (current_agent
+                and outer_node == "sub_supervisor"
+                and kind == "on_chat_model_start"):
+                elapsed_ms = int((time.time() - step_start_time) * 1000) if step_start_time else 0
+                summary = "".join(final_buf[-20:]) if final_buf else ""
+                agent_results.append({
+                    "agent": current_agent,
+                    "summary": summary[:500],
+                    "elapsed_ms": elapsed_ms,
+                })
+                await sse_callback("agent_end", {
+                    "agent": current_agent,
+                    "elapsed_ms": elapsed_ms,
+                    "description": AGENT_DESCRIPTIONS.get(current_agent, current_agent),
+                })
+                current_agent = None
+                step_start_time = None
+
+        # 루프 종료 후: 마지막 워커가 agent_end 없이 끝난 경우
+        if current_agent:
+            elapsed_ms = int((time.time() - step_start_time) * 1000) if step_start_time else 0
+            agent_results.append({
+                "agent": current_agent,
+                "summary": "".join(final_buf[-20:])[:500] if final_buf else "",
+                "elapsed_ms": elapsed_ms,
             })
             await sse_callback("agent_end", {
-                "agent": step_name,
-                "step": i + 1,
-                "total_steps": len(plan),
-                "summary": result.get("summary", ""),
-                "description": description,
+                "agent": current_agent,
+                "elapsed_ms": elapsed_ms,
+                "description": AGENT_DESCRIPTIONS.get(current_agent, current_agent),
             })
 
-        # 도구 호출 로그 전송
-        for tc in tool_calls_log:
-            await sse_callback("tool_end", {
-                "tool": tc.get("tool", ""),
-                "agent": tc.get("agent", ""),
-                "status": "success",
-            })
-
-        # 최종 응답 추출: agent_results 전체를 종합하여 리포트 생성
-        final_response = final_state.get("final_response", "")
-        if not final_response and len(agent_results) > 1:
-            # 다단계 파이프라인: 각 단계 결과를 종합 리포트로 구성
-            pipeline_type = final_state.get("pipeline_type", "")
-            report_parts = []
-            for i, result in enumerate(agent_results):
-                step_name = result.get("step", f"step_{i}")
-                description = _STEP_DESCRIPTIONS.get(step_name, step_name)
-                summary = result.get("summary", "")
-                report_parts.append(f"### {i+1}단계: {description}\n{summary}")
-            # 마지막 AIMessage에서 최종 단계의 전체 응답도 포함
-            last_ai_content = ""
-            for msg in reversed(final_state.get("messages", [])):
-                if isinstance(msg, AIMessage) and msg.content:
-                    last_ai_content = msg.content
-                    break
-            total_steps = len(agent_results)
-            final_response = f"## 서브에이전트 {total_steps}단계 종합 리포트\n\n"
-            final_response += "\n\n".join(report_parts)
-            if last_ai_content:
-                final_response += f"\n\n---\n### 최종 분석 결과\n{last_ai_content}"
-        elif not final_response:
-            # 단일 단계이거나 agent_results가 비어있으면 마지막 AIMessage 사용
-            for msg in reversed(final_state.get("messages", [])):
-                if isinstance(msg, AIMessage) and msg.content:
-                    final_response = msg.content
-                    break
-
-        if not final_response:
-            final_response = "서브에이전트 처리를 완료했습니다."
-
-        # 최종 응답을 delta로 전송
-        await sse_callback("delta", {"delta": final_response})
-
+        # 최종 응답
+        final_response = "".join(final_buf).strip() or "멀티에이전트 처리를 완료했습니다."
         append_memory(username, user_text, final_response)
-        agents_used = list(set(tc.get("agent", "") for tc in tool_calls_log))
 
+        agents_used = list(agents_used_set)
         await sse_callback("done", {
             "ok": True,
             "final": final_response,
             "tool_calls": tool_calls_log,
             "agents_used": agents_used,
-            "plan": plan,
             "agent_results": agent_results,
         })
 
         st.logger.info(
-            "SUB_AGENT_STREAM_COMPLETE user=%s steps=%d tools=%d",
-            username, len(agent_results), len(tool_calls_log),
+            "MULTI_AGENT_STREAM_COMPLETE user=%s agents=%s tools=%d",
+            username, agents_used, len(tool_calls_log),
         )
 
     except Exception as e:
         err = format_openai_error(e)
-        st.logger.exception("SUB_AGENT_STREAM_FAIL err=%s", err)
-        msg = f"서브에이전트 오류: {err.get('type', 'Unknown')} - {err.get('message', str(e))}"
+        st.logger.exception("MULTI_AGENT_STREAM_FAIL err=%s", err)
+        msg = f"멀티에이전트 오류: {err.get('type', 'Unknown')} - {err.get('message', str(e))}"
         append_memory(username, user_text, msg)
         await sse_callback("done", {
             "ok": False,
-            "final": msg if req.debug else "서브에이전트 처리 오류가 발생했습니다.",
+            "final": msg if req.debug else "멀티에이전트 처리 오류가 발생했습니다.",
             "tool_calls": [],
         })
 
@@ -1290,3 +709,47 @@ AGENT_DESCRIPTIONS = {
     "analysis_agent": "분석 에이전트 — 셀러 분석, ML 예측, KPI 분석",
     "cs_agent": "CS 에이전트 — CS 응답 생성, 품질 평가",
 }
+# 멀티에이전트 워커 설명도 추가
+for _wname, _wcfg in MULTI_AGENT_WORKERS.items():
+    AGENT_DESCRIPTIONS[_wname] = _wcfg["description"]
+
+
+# ============================================================
+# 멀티에이전트 Supervisor 빌드 + 캐시
+# ============================================================
+_multi_supervisor_cache: Dict[str, Any] = {}
+
+
+def build_multi_agent_supervisor(llm):
+    """멀티에이전트용 Supervisor 생성 — 8종 워커 동적 라우팅"""
+    if not SUPERVISOR_AVAILABLE:
+        raise ImportError("langgraph-supervisor가 설치되지 않았습니다. 'pip install langgraph-supervisor'")
+
+    workers = []
+    for name, config in MULTI_AGENT_WORKERS.items():
+        agent = create_react_agent(
+            model=llm,
+            tools=config["tools"],
+            name=name,
+            prompt=config["prompt"],
+        )
+        workers.append(agent)
+
+    workflow = create_supervisor(
+        agents=workers,
+        model=llm,
+        prompt=MULTI_AGENT_SUPERVISOR_PROMPT,
+        output_mode="full_history",
+        supervisor_name="sub_supervisor",
+        add_handoff_messages=True,
+    )
+
+    return workflow.compile()
+
+
+def get_cached_multi_supervisor(llm, model_key: str):
+    """모델별 멀티에이전트 Supervisor 그래프 캐시"""
+    if model_key not in _multi_supervisor_cache:
+        _multi_supervisor_cache[model_key] = build_multi_agent_supervisor(llm)
+        st.logger.info("MULTI_SUPERVISOR_GRAPH_BUILD model=%s (cached)", model_key)
+    return _multi_supervisor_cache[model_key]

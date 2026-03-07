@@ -14,7 +14,7 @@ from core.utils import safe_str
 from core.memory import clear_memory, append_memory
 from agent.llm import pick_api_key
 from agent.runner import run_agent
-from agent.multi_agent import run_sub_agent_stream, get_cached_supervisor, get_cached_worker, AGENT_DESCRIPTIONS, INTENT_AGENT_MAP
+from agent.multi_agent import run_multi_agent_stream, get_cached_supervisor, get_cached_worker, AGENT_DESCRIPTIONS, INTENT_AGENT_MAP
 from rag.service import tool_rag_search
 from rag.light_rag import lightrag_search_sync, LIGHTRAG_AVAILABLE
 from rag.k2rag import k2rag_search_sync
@@ -61,9 +61,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
             st.logger.info("STREAM_ROUTER category=%s allowed_tools=%s", category.value, allowed_tool_names)
 
-            # sub_agent 플래그 또는 RETENTION 카테고리면 서브에이전트 모드
-            if req.sub_agent or category == IntentCategory.RETENTION:
-                st.logger.info("STREAM_SUB_AGENT_MODE category=%s sub_agent=%s user=%s", category.value, req.sub_agent, username)
+            # multi_agent 플래그 또는 RETENTION 카테고리면 멀티에이전트 모드
+            if req.multi_agent or category == IntentCategory.RETENTION:
+                st.logger.info("STREAM_MULTI_AGENT_MODE category=%s multi_agent=%s user=%s", category.value, req.multi_agent, username)
                 queue = asyncio.Queue()
 
                 async def sse_callback(event_type: str, data: dict):
@@ -71,7 +71,7 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
                 async def run_task():
                     try:
-                        await run_sub_agent_stream(req, username, sse_callback, category=category)
+                        await run_multi_agent_stream(req, username, sse_callback, category=category)
                     finally:
                         await queue.put(None)  # sentinel
 
@@ -298,6 +298,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                 })
 
                 current_tool = None
+                tool_fail_counts_w = {}  # 워커 도구 실패 횟수
+                MAX_TOOL_RETRIES = 3
+                worker_aborted = False
                 async for event in worker_graph.astream_events(
                     {"messages": input_messages},
                     version="v2",
@@ -339,9 +342,20 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                 "results_count": len(results_list),
                                 "sources": [r.get("source", "") for r in results_list[:5]],
                             }
+                        is_error = (isinstance(tool_output, dict) and tool_output.get("status") == "error")
+                        if is_error:
+                            tool_fail_counts_w[end_tool_name] = tool_fail_counts_w.get(end_tool_name, 0) + 1
                         tool_calls_log.append({"tool": end_tool_name, "result": tool_output})
-                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "success"})
+                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "error" if is_error else "success"})
                         current_tool = None
+                        # 동일 도구 3회 실패 시 루프 탈출
+                        if tool_fail_counts_w.get(end_tool_name, 0) >= MAX_TOOL_RETRIES:
+                            st.logger.warning("TOOL_RETRY_LIMIT tool=%s fails=%d", end_tool_name, tool_fail_counts_w[end_tool_name])
+                            error_msg = f"도구 '{end_tool_name}'이(가) {MAX_TOOL_RETRIES}회 연속 실패하여 분석을 중단합니다."
+                            final_buf.append(error_msg)
+                            yield sse_pack("delta", {"delta": "\n\n" + error_msg})
+                            worker_aborted = True
+                            break
 
                     elif kind == "on_chat_model_stream":
                         chunk = data.get("chunk")
@@ -369,6 +383,8 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
             current_tool = None
             active_worker = None
             worker_responded = False
+            tool_fail_counts_s = {}  # supervisor 도구 실패 횟수
+            supervisor_aborted = False
             async for event in supervisor_graph.astream_events(
                 {"messages": input_messages},
                 version="v2",
@@ -439,9 +455,19 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                                 "results_count": len(results_list),
                                 "sources": [r.get("source", "") for r in results_list[:5]],
                             }
+                        is_error = (isinstance(tool_output, dict) and tool_output.get("status") == "error")
+                        if is_error:
+                            tool_fail_counts_s[end_tool_name] = tool_fail_counts_s.get(end_tool_name, 0) + 1
                         tool_calls_log.append({"tool": end_tool_name, "result": tool_output})
-                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "success"})
+                        yield sse_pack("tool_end", {"tool": end_tool_name, "status": "error" if is_error else "success"})
                         current_tool = None
+                        if tool_fail_counts_s.get(end_tool_name, 0) >= 3:
+                            st.logger.warning("TOOL_RETRY_LIMIT tool=%s fails=%d", end_tool_name, tool_fail_counts_s[end_tool_name])
+                            error_msg = f"도구 '{end_tool_name}'이(가) 3회 연속 실패하여 분석을 중단합니다."
+                            final_buf.append(error_msg)
+                            yield sse_pack("delta", {"delta": "\n\n" + error_msg})
+                            supervisor_aborted = True
+                            break
 
                 elif kind == "on_chat_model_stream":
                     chunk = data.get("chunk")

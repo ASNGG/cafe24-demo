@@ -1,5 +1,5 @@
 // hooks/useBaseStream.js — SSE 스트리밍 공통 훅
-// useAgentStream + useSubAgentStream 70% 중복 로직 통합
+// useAgentStream + useMultiAgentStream 70% 중복 로직 통합
 
 import { useCallback, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';

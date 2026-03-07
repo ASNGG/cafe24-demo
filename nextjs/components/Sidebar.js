@@ -277,7 +277,7 @@ export default function Sidebar({
       </AnimatePresence>
 
       {/* 데스크탑 사이드바 */}
-      <aside className="hidden xl:block sticky top-20 h-fit rounded-[32px] border-2 border-cafe24-orange/10 bg-white/80 backdrop-blur-sm shadow-lg overflow-hidden">
+      <aside className="hidden xl:block sticky top-20 max-h-[calc(100vh-6rem)] rounded-[32px] border-2 border-cafe24-orange/10 bg-white/80 backdrop-blur-sm shadow-lg overflow-y-auto overscroll-contain">
         <SidebarContent
           auth={auth}
           exampleQuestions={exampleQuestions}

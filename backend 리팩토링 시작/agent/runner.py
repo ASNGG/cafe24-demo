@@ -2,10 +2,6 @@
 agent/runner.py - CAFE24 AI 운영 플랫폼 에이전트 실행 (Tool Calling 방식)
 LLM이 직접 도구를 선택하고 호출합니다.
 Rule-based 전처리로 필수 도구를 강제 호출합니다.
-
-멀티 에이전트 모드 지원:
-- agent_mode="single": 기존 단일 에이전트 + 다중 도구 (기본값)
-- agent_mode="multi": LangGraph 기반 멀티 에이전트 시스템
 """
 import json
 import re
@@ -23,12 +19,6 @@ from agent.router import classify_and_get_tools, IntentCategory
 from agent.intent import KEYWORD_TOOL_MAPPING
 import state as st
 
-# 멀티 에이전트 지원 확인
-try:
-    from agent.multi_agent import run_multi_agent, LANGGRAPH_AVAILABLE
-except ImportError:
-    LANGGRAPH_AVAILABLE = False
-    run_multi_agent = None
 
 
 # RAG 도구 이름 (분석 질문에서 제외)
@@ -156,30 +146,12 @@ def execute_tool_by_name(tool_name: str, args: dict) -> dict:
 
 def run_agent(req, username: str) -> dict:
     """
-    에이전트 실행 (모드 선택 가능).
+    에이전트 실행 (단일 에이전트 + 다중 도구).
 
     Args:
-        req: 요청 객체 (user_input, model, agent_mode 등)
+        req: 요청 객체 (user_input, model 등)
         username: 사용자 이름
-
-    agent_mode:
-        - "single" (기본값): 단일 에이전트 + 다중 도구
-        - "multi": LangGraph 기반 멀티 에이전트 (Coordinator → 전문 에이전트)
     """
-    # 멀티 에이전트 모드 체크
-    agent_mode = getattr(req, "agent_mode", "single")
-
-    if agent_mode == "multi":
-        if not LANGGRAPH_AVAILABLE or run_multi_agent is None:
-            return {
-                "status": "error",
-                "message": "멀티 에이전트 모드를 사용하려면 langgraph를 설치하세요: pip install langgraph",
-                "tool_calls": [],
-                "log_file": st.LOG_FILE,
-            }
-        return run_multi_agent(req, username)
-
-    # 기존 단일 에이전트 모드
     user_text = safe_str(req.user_input)
 
     st.logger.info(

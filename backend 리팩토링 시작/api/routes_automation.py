@@ -9,9 +9,10 @@ api/routes_automation.py - 자동화 엔진 API 라우터
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.common import verify_credentials
+from api.common import verify_credentials, sse_pack
 from core.constants import CS_TICKET_CATEGORIES
 from core.utils import safe_str
 import state as st
@@ -84,6 +85,30 @@ class UpgradeExecuteRequest(BaseModel):
 
 class ReportGenerateRequest(BaseModel):
     report_type: str = Field("daily", description="daily | weekly | monthly")
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
+
+# ── SSE 스트리밍 요청 모델 ──
+class RetentionStreamRequest(BaseModel):
+    threshold: float = Field(0.6, ge=0.0, le=1.0)
+    limit: int = Field(20, ge=1, le=100)
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
+
+class ReportStreamRequest(BaseModel):
+    report_type: str = Field("daily", description="daily | weekly | monthly")
+    api_key: str = Field("", alias="apiKey")
+    class Config:
+        populate_by_name = True
+
+
+class UpgradeStreamRequest(BaseModel):
+    limit: int = Field(20, ge=1, le=100)
+    use_ml_scoring: bool = Field(False, alias="useMlScoring", description="ML 이탈 위험도 스코어 반영 여부")
     api_key: str = Field("", alias="apiKey")
     class Config:
         populate_by_name = True
@@ -430,3 +455,71 @@ def execute_upgrade_action_route(
     except Exception as e:
         st.logger.error("UPGRADE_EXECUTE_ERROR: %s", safe_str(e))
         raise HTTPException(status_code=500, detail=safe_str(e))
+
+
+# ============================================================
+# 7. SSE 스트리밍 엔드포인트
+# ============================================================
+@router.post("/retention/stream")
+async def retention_stream(
+    req: RetentionStreamRequest,
+    user=Depends(verify_credentials),
+):
+    """이탈 방지 파이프라인 SSE 스트리밍"""
+    async def event_generator():
+        try:
+            async for event in retention_engine.get_at_risk_sellers_stream(
+                threshold=req.threshold,
+                limit=req.limit,
+            ):
+                yield sse_pack(event["event"], event["data"])
+        except Exception as e:
+            st.logger.error("RETENTION_STREAM_ERROR: %s", safe_str(e))
+            yield sse_pack("error", {"message": safe_str(e)})
+
+    headers = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
+
+
+@router.post("/report/stream")
+async def report_stream(
+    req: ReportStreamRequest,
+    user=Depends(verify_credentials),
+):
+    """운영 리포트 SSE 스트리밍"""
+    async def event_generator():
+        try:
+            async for event in report_engine.generate_report_stream(
+                report_type=req.report_type,
+                api_key=req.api_key,
+            ):
+                yield sse_pack(event["event"], event["data"])
+        except Exception as e:
+            st.logger.error("REPORT_STREAM_ERROR: %s", safe_str(e))
+            yield sse_pack("error", {"message": safe_str(e)})
+
+    headers = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
+
+
+@router.post("/upgrade/stream")
+async def upgrade_stream(
+    req: UpgradeStreamRequest,
+    user=Depends(verify_credentials),
+):
+    """업그레이드 후보 SSE 스트리밍"""
+    from automation.upgrade_engine import get_upgrade_candidates_stream
+
+    async def event_generator():
+        try:
+            async for event in get_upgrade_candidates_stream(
+                limit=req.limit,
+                use_ml_scoring=req.use_ml_scoring,
+            ):
+                yield sse_pack(event["event"], event["data"])
+        except Exception as e:
+            st.logger.error("UPGRADE_STREAM_ERROR: %s", safe_str(e))
+            yield sse_pack("error", {"message": safe_str(e)})
+
+    headers = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)

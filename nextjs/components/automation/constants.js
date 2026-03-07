@@ -1,6 +1,7 @@
 import {
   Search, BarChart3, Sparkles, Play, FileText,
-  CheckCircle2, ClipboardList, HelpCircle
+  CheckCircle2, ClipboardList, HelpCircle,
+  Users, AlertTriangle, TrendingUp, ShieldAlert, MessageSquare, BookOpen
 } from 'lucide-react';
 
 export const RETENTION_STEPS = [
@@ -44,3 +45,16 @@ export const UPGRADE_STEPS = [
 ];
 
 export const CS_CATEGORIES = ["배송", "환불", "결제", "상품", "계정", "정산", "기술지원", "마케팅", "기타"];
+
+// 멀티에이전트 Supervisor 워커 레지스트리
+// key: 백엔드 MULTI_AGENT_WORKERS의 agent 이름 (transfer_to_<key>로 handoff)
+export const MULTI_AGENT_WORKERS = {
+  churn_analyst:        { label: '이탈 분석가',     icon: AlertTriangle,  desc: 'ML 이탈 예측 + SHAP 분석' },
+  retention_strategist: { label: '리텐션 전략가',   icon: Sparkles,       desc: '맞춤 메시지 + 조치 실행' },
+  seller_analyst:       { label: '셀러 분석가',     icon: Users,          desc: '활동 + 세그먼트 + 이상거래' },
+  performance_analyst:  { label: '성과 분석가',     icon: TrendingUp,     desc: '매출 트렌드 + GMV + 마케팅' },
+  fraud_investigator:   { label: '이상거래 조사관', icon: ShieldAlert,    desc: '부정 거래 탐지 + 영향도' },
+  cs_quality_analyst:   { label: 'CS 품질 분석가',  icon: MessageSquare,  desc: 'CS 통계 + 자동 응답 + 품질' },
+  report_writer:        { label: '리포트 작성가',   icon: FileText,       desc: '대시보드 + KPI 종합 보고서' },
+  platform_searcher:    { label: '플랫폼 검색가',   icon: BookOpen,       desc: 'RAG 지식 검색 + 쇼핑몰/카테고리 조회' },
+};

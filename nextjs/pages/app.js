@@ -29,7 +29,6 @@ const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: fa
 const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false, loading: PanelLoader });
 const ProcessMinerPanel = dynamic(() => import('@/components/panels/ProcessMinerPanel'), { ssr: false, loading: PanelLoader });
 const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false, loading: PanelLoader });
-const SubAgentPanel = dynamic(() => import('@/components/panels/SubAgentPanel'), { ssr: false, loading: PanelLoader });
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {
@@ -40,81 +39,48 @@ import {
   STORAGE_KEYS,
 } from '@/lib/storage';
 
-// CAFE24 AI 운영 플랫폼 예시 질문 (agent/tools.py AVAILABLE_TOOLS 기반)
+// CAFE24 AI 운영 플랫폼 예시 질문 (agent/tools.py 31개 도구 기반, 도구당 1개)
 const EXAMPLE_QUESTIONS = {
   '🛒 쇼핑몰 & 플랫폼': [
-    'S0001 쇼핑몰 정보 알려줘',
-    'S0010 쇼핑몰 서비스 구성 알려줘',
-    'Premium 등급 쇼핑몰 목록 보여줘',
-    '패션 카테고리 쇼핑몰 현황',
-    '쇼핑몰 플랜별 분포 보여줘',
-    '카테고리 정보 전체 목록',
-    '뷰티 카테고리 상세 정보',
-    '이커머스 용어 GMV 설명해줘',
-    '이커머스 용어집 보여줘',
-    '플랫폼 전체 쇼핑몰 수 알려줘',
+    'S0001 쇼핑몰 상세 정보 알려줘',          // get_shop_info
+    'S0001 이용 중인 서비스 목록 보여줘',       // get_shop_services
+    '패션 카테고리 쇼핑몰 목록 보여줘',         // list_shops
+    '카테고리 전체 목록 보여줘',               // list_categories
+    '뷰티 카테고리 상세 정보 알려줘',           // get_category_info
+    '이커머스 용어 GMV 설명해줘',              // get_ecommerce_glossary
   ],
   '📦 CS & 운영': [
-    'CS 문의 통계 보여줘',
-    '"배송이 너무 늦어요 환불해주세요" CS 자동 분류해줘',
-    '"결제가 안 돼요 카드 오류 떠요" 카테고리 분류',
-    'CS 문의 카테고리별 현황 알려줘',
-    '최근 30일 주문 이벤트 통계 보여줘',
-    '환불 관련 CS 현황',
+    'CS 문의 카테고리별 통계 보여줘',           // get_cs_statistics
+    '"배송 늦어요 환불해주세요" 문의 분류해줘',   // classify_inquiry
+    '"결제 오류 해결해주세요" 자동 답변 생성해줘', // auto_reply_cs
+    '최근 30일 주문 이벤트 통계 보여줘',         // get_order_statistics
   ],
-  '🔮 AI 예측 분석': [
-    'SEL0001 셀러 이탈 확률 예측해줘',
-    'SEL0100 이탈 위험도 분석해줘',
-    'SEL0050 셀러 이탈할 것 같아?',
-    '전체 이탈 예측 분석 결과 보여줘',
-    '고위험 이탈 셀러 5명 보여줘',
-    '이탈 요인 상위 5개 뭐야?',
-    'S0001 쇼핑몰 다음달 매출 예측해줘',
-    'S0010 쇼핑몰 성과 분석',
-    'SEL0001 마케팅 예산 최적화 추천해줘',
-    'SEL0100 ROI 최대화 전략 알려줘',
-    '이상거래 전체 통계 보여줘',
-    '이상거래 탐지 현황 알려줘',
+  '🔮 AI 예측': [
+    'SEL0001 이탈 확률 예측해줘',              // predict_seller_churn
+    '고위험 이탈 셀러 목록 보여줘',             // get_churn_prediction + get_at_risk_sellers
+    'S0001 다음 달 매출 예측해줘',             // predict_shop_revenue
+    'S0001 쇼핑몰 성과 분석해줘',              // get_shop_performance
+    'SEL0001 마케팅 예산 최적화 추천해줘',       // optimize_marketing
+    'SEL0001 이상거래 조사해줘',               // detect_fraud
+    '이상거래 전체 통계 보여줘',               // get_fraud_statistics
   ],
   '📈 비즈니스 KPI': [
-    '최근 7일 KPI 트렌드 분석해줘',
-    '최근 14일 GMV 변화율 알려줘',
-    '최근 7일 활성 셀러 변화 분석해줘',
-    '최근 7일 신규 가입 추이 알려줘',
-    '최근 7일 주문 수 변화 분석해줘',
-    '코호트 리텐션 분석 보여줘',
-    '2024-11 코호트 리텐션 어때?',
-    '전체 코호트 Week 4 평균 리텐션 얼마야?',
-    '이번 달 GMV 예측해줘',
-    '최근 30일 매출 분석해줘',
-    'AOV랑 ARPU 알려줘',
-    '대시보드 전체 현황 요약해줘',
+    '최근 7일 KPI 트렌드 분석해줘',            // get_trend_analysis
+    '코호트 리텐션 분석 보여줘',               // get_cohort_analysis
+    '이번 달 GMV 예측해줘',                   // get_gmv_prediction
+    '대시보드 전체 현황 요약해줘',              // get_dashboard_summary
   ],
   '👤 셀러 분석': [
-    'SEL0001 셀러 분석해줘',
-    'SEL0050 셀러 프로필 알려줘',
-    'SEL0100 행동 패턴 분석해줘',
-    '셀러 세그먼트별 통계 보여줘',
-    '파워 셀러 세그먼트 몇 명이야?',
-    '우수 셀러 세그먼트 통계 알려줘',
-    '휴면 셀러 세그먼트 현황 알려줘',
-    '이상 셀러 전체 통계 보여줘',
-    'SEL0001 최근 30일 활동 리포트',
-    'SEL0100 최근 7일 활동 보여줘',
-    '최근 30일 운영 이벤트 통계 보여줘',
-    '최근 30일 정산 이벤트 통계 보여줘',
+    'SEL0001 셀러 종합 분석해줘',              // analyze_seller
+    'SEL0001 셀러 세그먼트 분류해줘',           // get_seller_segment
+    '셀러 세그먼트별 통계 보여줘',              // get_segment_statistics
+    'SEL0001 최근 30일 활동 리포트',           // get_seller_activity_report
   ],
   '❓ 카페24 FAQ': [
-    '카페24 결제수단 설정 방법 알려줘',
-    '배송 설정은 어떻게 하나요?',
-    '상품 등록 방법 알려줘',
-    '무통장입금 계좌 설정 방법은?',
-    '취소/교환/반품/환불 처리 방법',
-    '쿠폰 생성하고 관리하는 방법',
-    '적립금 설정 방법 알려줘',
-    '디컬렉션이 뭐야?',
-    '마켓플러스 사용 방법 알려줘',
-    '게시판 설정 방법은?',
+    '카페24 결제수단 설정 방법 알려줘',          // search_platform (RAG)
+    '취소/교환/반품 처리 방법 알려줘',           // search_platform (RAG)
+    '쿠폰 생성하고 관리하는 방법',              // search_platform_lightrag
+    '디컬렉션이 뭐야?',                       // search_platform_lightrag
   ],
 };
 
@@ -145,9 +111,7 @@ export default function AppPage() {
   const [settings, setSettings] = useState(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  const [agentMessages, setAgentMessages] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
-  const [totalQueries, setTotalQueries] = useState(0);
 
   const [activeTab, setActiveTab] = useState('agent');
 
@@ -164,7 +128,6 @@ export default function AppPage() {
         { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
         { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
         { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
-        { key: 'sub-agent', label: '🧬 개발중 - 서브에이전트' },
         { key: 'automation', label: '⚡ 자동화 엔진' },
         { key: 'settings', label: '⚙️ LLM 설정' },
         { key: 'users', label: '👥 셀러 관리' },
@@ -178,7 +141,6 @@ export default function AppPage() {
       { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
       { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
       { key: 'process-miner', label: '⛏️ 실험실 - 프로세스 마이너' },
-      { key: 'sub-agent', label: '🧬 개발중 - 서브에이전트' },
       { key: 'automation', label: '⚡ 자동화 엔진' },
     ];
   }, [isAdmin]);
@@ -249,9 +211,7 @@ export default function AppPage() {
     setSettings(mergedSettings);
     setSettingsLoaded(true);
 
-    setAgentMessages(loadFromStorage(STORAGE_KEYS.AGENT_MESSAGES, []));
     setActivityLog(loadFromStorage(STORAGE_KEYS.ACTIVITY_LOG, []));
-    setTotalQueries(loadFromStorage(STORAGE_KEYS.TOTAL_QUERIES, 0));
   }, [router.isReady, safeReplace]);
 
   const systemPromptLoadedRef = useRef(false);
@@ -366,12 +326,10 @@ export default function AppPage() {
       if (settingsLoaded && settings) {
         saveToStorage(STORAGE_KEYS.SETTINGS, settings);
       }
-      saveToStorage(STORAGE_KEYS.AGENT_MESSAGES, agentMessages);
       saveToStorage(STORAGE_KEYS.ACTIVITY_LOG, activityLog);
-      saveToStorage(STORAGE_KEYS.TOTAL_QUERIES, totalQueries);
     }, 300);
     return () => clearTimeout(timer);
-  }, [settings, settingsLoaded, agentMessages, activityLog, totalQueries]);
+  }, [settings, settingsLoaded, activityLog]);
 
   const onExampleQuestion = useCallback((q) => {
     setActiveTab('agent');
@@ -441,11 +399,6 @@ export default function AppPage() {
             selectedShop={selectedShop}
             addLog={addLog}
             settings={settings}
-            setSettings={setSettings}
-            agentMessages={agentMessages}
-            setAgentMessages={setAgentMessages}
-            totalQueries={totalQueries}
-            setTotalQueries={setTotalQueries}
             apiCall={apiCall}
           />
       ) : null}
@@ -482,9 +435,6 @@ export default function AppPage() {
         <ProcessMinerPanel auth={auth} apiCall={apiCall} />
       ) : null}
 
-      {activeTab === 'sub-agent' ? (
-        <SubAgentPanel auth={auth} selectedShop={selectedShop} addLog={addLog} settings={settings} apiCall={apiCall} />
-      ) : null}
 
       {activeTab === 'automation' ? (
         <AutomationPanel auth={auth} apiCall={apiCall} />

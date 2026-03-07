@@ -549,15 +549,15 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
 
 def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Optional[dict] = None) -> dict:
     """이상거래를 탐지합니다. 셀러 ID 또는 거래 피처를 기반으로 분석합니다."""
-    if st.FRAUD_DETECTION_MODEL is None:
-        return {"status": "error", "message": "이상거래 탐지 모델이 로드되지 않았습니다."}
-
     try:
-        # 셀러 ID로 기존 이상거래 데이터 조회
-        # CSV 컬럼: seller_id, anomaly_score, anomaly_type, detected_date, details
-        if seller_id and st.FRAUD_DETAILS_DF is not None:
+        # 셀러 ID로 기존 이상거래 데이터 조회 (ML 모델 불필요)
+        if seller_id:
+            if st.FRAUD_DETAILS_DF is None:
+                return {"status": "error", "message": f"이상거래 탐지 데이터(FRAUD_DETAILS_DF)가 로드되지 않았습니다. 셀러 {seller_id}의 이상거래 조사를 수행할 수 없습니다. 다른 도구를 사용하세요."}
             fraud_records = st.FRAUD_DETAILS_DF[st.FRAUD_DETAILS_DF["seller_id"] == seller_id]
-            if not fraud_records.empty:
+            if fraud_records.empty:
+                return {"status": "success", "seller_id": seller_id, "fraud_records": [], "total_flags": 0, "risk_level": "NONE", "message": f"셀러 {seller_id}에 대한 이상거래 기록이 없습니다. 정상 셀러입니다."}
+            else:
                 fraud_cols = ["seller_id", "anomaly_score", "anomaly_type", "detected_date", "details"]
                 fraud_cols = [c for c in fraud_cols if c in fraud_records.columns]
                 records = []
@@ -579,8 +579,10 @@ def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Opt
                     "risk_level": "HIGH" if max_score >= 0.9 else "MEDIUM" if max_score >= 0.7 else "LOW",
                 }
 
-        # 거래 피처로 실시간 탐지
+        # 거래 피처로 실시간 탐지 (ML 모델 필요)
         if transaction_features:
+            if st.FRAUD_DETECTION_MODEL is None:
+                return {"status": "error", "message": "이상거래 탐지 ML 모델이 로드되지 않았습니다. seller_id로 기록 조회는 가능합니다."}
             feature_cols = ["order_amount", "order_frequency", "refund_rate",
                             "review_anomaly_score", "payment_failure_rate"]
             X = pd.DataFrame([transaction_features])[feature_cols].fillna(0)
@@ -2312,10 +2314,10 @@ def search_platform_lightrag(query: str, mode: str = "hybrid", top_k: int = 5) -
     if not status.get("ready"):
         return {
             "status": "error",
-            "message": "LightRAG가 준비되지 않았습니다. 먼저 인덱스를 빌드해주세요.",
+            "message": "LightRAG가 준비되지 않았습니다. 다른 검색 도구(search_platform)를 사용하세요.",
             "lightrag_status": status,
         }
-    return lightrag_search_sync(query, mode=mode)
+    return lightrag_search_sync(query, mode=mode, top_k=top_k)
 
 
 # -- 대시보드 도구 --

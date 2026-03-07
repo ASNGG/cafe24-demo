@@ -3,12 +3,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, MessageSquare, Loader2, CheckCircle2,
   Users, TrendingDown, Send, Search, Clock, Tag,
 } from 'lucide-react';
 import PipelineFlow from '@/components/automation/PipelineFlow';
 import { RETENTION_STEPS } from '@/components/automation/constants';
+import useAutomationStream from '@/components/panels/hooks/useAutomationStream';
 
 const ACTION_TYPES = [
   { key: 'coupon', label: '할인 쿠폰 발급', icon: Tag },
@@ -106,54 +108,77 @@ export default function RetentionTab({ auth, apiCall }) {
   const [execLoading, setExecLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [pipelineStatus, setPipelineStatus] = useState({});
-  const [currentStep, setCurrentStep] = useState(null);
   const [selectedSellers, setSelectedSellers] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const messageRef = useRef(null);
   const historyRef = useRef(null);
+
+  const {
+    startStream, stopStream: stopAutoStream, isStreaming,
+    stepStatuses, currentStep, resetStatuses, setStepStatuses,
+  } = useAutomationStream({ auth });
 
   const fetchAtRisk = useCallback(async () => {
     setLoading(true);
     setSellers([]);
     setSelectedSeller(null);
     setMessage(null);
-    setPipelineStatus({ detect: { status: 'processing' } });
-    setCurrentStep('detect');
+    resetStatuses();
+
     try {
-      const res = await apiCall({
-        endpoint: `/api/automation/retention/at-risk?threshold=${threshold}&limit=20`,
-        auth,
-        timeoutMs: 30000,
+      await startStream({
+        endpoint: '/api/automation/retention/stream',
+        data: { threshold: Number(threshold) },
+        onEvent: (event, data) => {
+          if (event === 'seller_result') {
+            setSellers(prev => [...prev, data]);
+          }
+          if (event === 'step_progress') {
+            setStepStatuses(prev => ({ ...prev, detect: { status: 'processing', detail: data.progress } }));
+          }
+        },
+        onDone: (data) => {
+          toast.success(`${data.total_found || 0}명 위험 셀러 탐지 완료`);
+          setLoading(false);
+        },
+        onError: (msg) => {
+          toast.error(msg || '이탈 위험 셀러 조회 실패');
+          setLoading(false);
+        },
       });
-      if (res?.status === 'success') {
-        setSellers(res.sellers || []);
-        setPipelineStatus({
-          detect: { status: 'complete', detail: `${(res.sellers || []).length}명 탐지` },
-          analyze: { status: 'complete', detail: 'SHAP 분석' },
-        });
-        setCurrentStep(null);
-        if ((res.sellers || []).length === 0) {
-          toast('현재 이탈 위험 셀러가 없습니다', { icon: '✅' });
-        }
-      } else {
-        toast.error(res?.detail || '조회 실패');
-        setPipelineStatus({ detect: { status: 'error', detail: '탐지 실패' } });
-      }
     } catch (e) {
-      toast.error('이탈 위험 셀러 조회 실패');
-      setPipelineStatus({ detect: { status: 'error', detail: '탐지 실패' } });
+      // SSE 실패 시 기존 REST fallback
+      try {
+        const res = await apiCall({
+          endpoint: `/api/automation/retention/at-risk?threshold=${threshold}&limit=20`,
+          auth,
+          timeoutMs: 30000,
+        });
+        if (res?.status === 'success') {
+          setSellers(res.sellers || []);
+          setStepStatuses({
+            detect: { status: 'complete', detail: `${(res.sellers || []).length}명 탐지` },
+            analyze: { status: 'complete', detail: 'SHAP 분석' },
+          });
+          if ((res.sellers || []).length === 0) {
+            toast('현재 이탈 위험 셀러가 없습니다', { icon: '✅' });
+          }
+        } else {
+          toast.error(res?.detail || '조회 실패');
+        }
+      } catch (fallbackErr) {
+        toast.error('이탈 위험 셀러 조회 실패');
+      }
     } finally {
       setLoading(false);
     }
-  }, [apiCall, auth, threshold]);
+  }, [apiCall, auth, threshold, startStream, resetStatuses, setStepStatuses]);
 
   const generateMessage = useCallback(async (sellerId) => {
     setMsgLoading(true);
     setMessage(null);
     setSelectedSeller(sellerId);
-    setPipelineStatus(prev => ({ ...prev, generate: { status: 'processing' } }));
-    setCurrentStep('generate');
+    setStepStatuses(prev => ({ ...prev, generate: { status: 'processing' } }));
     try {
       const res = await apiCall({
         endpoint: '/api/automation/retention/message',
@@ -164,8 +189,7 @@ export default function RetentionTab({ auth, apiCall }) {
       });
       if (res?.status === 'success') {
         setMessage(res);
-        setPipelineStatus(prev => ({ ...prev, generate: { status: 'complete', detail: '메시지 생성됨' } }));
-        setCurrentStep(null);
+        setStepStatuses(prev => ({ ...prev, generate: { status: 'complete', detail: '메시지 생성됨' } }));
         setTimeout(() => messageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
       } else {
         toast.error(res?.detail || '메시지 생성 실패');
@@ -175,12 +199,11 @@ export default function RetentionTab({ auth, apiCall }) {
     } finally {
       setMsgLoading(false);
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, setStepStatuses]);
 
   const executeAction = useCallback(async (sellerId, actionType) => {
     setExecLoading(true);
-    setPipelineStatus(prev => ({ ...prev, execute: { status: 'processing' } }));
-    setCurrentStep('execute');
+    setStepStatuses(prev => ({ ...prev, execute: { status: 'processing' } }));
     try {
       const res = await apiCall({
         endpoint: '/api/automation/retention/execute',
@@ -191,12 +214,11 @@ export default function RetentionTab({ auth, apiCall }) {
       });
       if (res?.status === 'success') {
         toast.success(`조치 실행 완료: ${actionType}`);
-        setPipelineStatus(prev => ({
+        setStepStatuses(prev => ({
           ...prev,
           execute: { status: 'complete', detail: actionType },
           log: { status: 'complete', detail: '기록 완료' },
         }));
-        setCurrentStep(null);
       } else {
         toast.error(res?.detail || '조치 실행 실패');
       }
@@ -205,7 +227,7 @@ export default function RetentionTab({ auth, apiCall }) {
     } finally {
       setExecLoading(false);
     }
-  }, [apiCall, auth]);
+  }, [apiCall, auth, setStepStatuses]);
 
   const executeBulk = useCallback(async (actionType) => {
     setBulkLoading(true);
@@ -275,10 +297,10 @@ export default function RetentionTab({ auth, apiCall }) {
             </select>
             <button
               onClick={fetchAtRisk}
-              disabled={loading}
+              disabled={loading || isStreaming}
               className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
             >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              {(loading || isStreaming) ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
               위험 셀러 탐지
             </button>
             <button
@@ -311,7 +333,7 @@ export default function RetentionTab({ auth, apiCall }) {
         </div>
       )}
 
-      <PipelineFlow steps={RETENTION_STEPS} stepStatuses={pipelineStatus} currentStep={currentStep} />
+      <PipelineFlow steps={RETENTION_STEPS} stepStatuses={stepStatuses} currentStep={currentStep} />
 
       {sellers.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 backdrop-blur">
@@ -341,69 +363,77 @@ export default function RetentionTab({ auth, apiCall }) {
             </div>
           )}
           <div className="space-y-2">
-            {sellers.map((s, i) => (
-              <React.Fragment key={s.seller_id || i}>
-                <SellerCard
-                  s={s}
-                  i={i}
-                  isSelected={selectedSeller === s.seller_id}
-                  isChecked={selectedSellers.has(s.seller_id)}
-                  msgLoading={msgLoading}
-                  onSelect={setSelectedSeller}
-                  onToggleCheck={(sellerId) => {
-                    setSelectedSellers(prev => {
-                      const next = new Set(prev);
-                      if (next.has(sellerId)) next.delete(sellerId);
-                      else next.add(sellerId);
-                      return next;
-                    });
-                  }}
-                  onGenerateMessage={generateMessage}
-                  riskColor={riskColor}
-                />
-                {message && selectedSeller === s.seller_id && (
-                  <div ref={messageRef} className="rounded-xl border border-cafe24-yellow/50 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 ml-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <MessageSquare className="text-cafe24-orange" size={18} />
-                      <h4 className="text-sm font-bold text-gray-800">
-                        {message.seller_id} 리텐션 메시지
-                      </h4>
-                      {message.urgency && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                          message.urgency === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {message.urgency === 'high' ? '긴급' : '보통'}
-                        </span>
+            <AnimatePresence>
+              {sellers.map((s, i) => (
+                <React.Fragment key={s.seller_id || i}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <SellerCard
+                      s={s}
+                      i={i}
+                      isSelected={selectedSeller === s.seller_id}
+                      isChecked={selectedSellers.has(s.seller_id)}
+                      msgLoading={msgLoading}
+                      onSelect={setSelectedSeller}
+                      onToggleCheck={(sellerId) => {
+                        setSelectedSellers(prev => {
+                          const next = new Set(prev);
+                          if (next.has(sellerId)) next.delete(sellerId);
+                          else next.add(sellerId);
+                          return next;
+                        });
+                      }}
+                      onGenerateMessage={generateMessage}
+                      riskColor={riskColor}
+                    />
+                  </motion.div>
+                  {message && selectedSeller === s.seller_id && (
+                    <div ref={messageRef} className="rounded-xl border border-cafe24-yellow/50 bg-gradient-to-r from-yellow-50 to-orange-50 p-4 ml-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare className="text-cafe24-orange" size={18} />
+                        <h4 className="text-sm font-bold text-gray-800">
+                          {message.seller_id} 리텐션 메시지
+                        </h4>
+                        {message.urgency && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            message.urgency === 'high' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {message.urgency === 'high' ? '긴급' : '보통'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
+                        <ReactMarkdown>{message.message || ''}</ReactMarkdown>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ACTION_TYPES.map(act => {
+                          const ActIcon = act.icon;
+                          return (
+                            <button
+                              key={act.key}
+                              onClick={() => executeAction(message.seller_id, act.key)}
+                              disabled={execLoading}
+                              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-cafe24-yellow hover:bg-cafe24-yellow/10 disabled:opacity-50 transition-all"
+                            >
+                              {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
+                              {act.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {message.recommended_actions && message.recommended_actions.length > 0 && (
+                        <div className="mt-3 text-[10px] text-gray-500">
+                          AI 추천: {message.recommended_actions.join(', ')}
+                        </div>
                       )}
                     </div>
-                    <div className="rounded-xl bg-white/80 p-3 text-xs text-gray-700 leading-relaxed mb-3">
-                      <ReactMarkdown>{message.message || ''}</ReactMarkdown>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {ACTION_TYPES.map(act => {
-                        const ActIcon = act.icon;
-                        return (
-                          <button
-                            key={act.key}
-                            onClick={() => executeAction(message.seller_id, act.key)}
-                            disabled={execLoading}
-                            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-cafe24-yellow hover:bg-cafe24-yellow/10 disabled:opacity-50 transition-all"
-                          >
-                            {execLoading ? <Loader2 size={12} className="animate-spin" /> : <ActIcon size={12} />}
-                            {act.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {message.recommended_actions && message.recommended_actions.length > 0 && (
-                      <div className="mt-3 text-[10px] text-gray-500">
-                        AI 추천: {message.recommended_actions.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+                  )}
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}

@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,18 +18,57 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.2.0** (2026-03-06) — Supervisor 멀티에이전트 + 하이브리드 라우팅 + FAQ 생성 개선
+> **v9.3.2** (2026-03-08) — 멀티에이전트 프롬프트 전면 개편 + 데드코드 대규모 정리
 
-#### Supervisor 멀티에이전트 패턴 (agent/multi_agent.py)
+| 영역 | 주요 변경 |
+|------|-----------|
+| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 각각 역할별 특화 분석 지침 추가 |
+| **Supervisor 프롬프트 강화** | 대화 맥락 유지, 형식적 응답 금지, 최소 3개 인사이트 필수, 금액 포맷 규칙(₩+콤마, 억/만원 환산) |
+| **데드코드 12파일 삭제** | crag.py, semantic_router.py, parsers.py, n8n/_writer.py, ml/helpers.py, ml/mlflow_tracker.py, 크롤러 2개, 테스트 스크립트 3개, CS 티켓 생성 스크립트 |
+| **미사용 함수 제거** | marketing_optimizer.py 2개, revenue_model.py 1개 (`__main__` 전용 함수) |
+| **RAG 기법 정정** | 8종 → 7종 (CRAG는 실제 연동되지 않아 제거) |
+
+<details>
+<summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 8개 전문 워커 + SSE 프로토콜 확립</summary>
+
+#### Supervisor 통합 — 기본 에이전트 경로 (agent/multi_agent.py)
 
 | 변경 | 상세 |
 |------|------|
-| **langgraph-supervisor** | `langgraph-supervisor>=0.0.31` 의존성 추가, `create_supervisor()` 기반 그래프 빌드 |
-| **`build_supervisor_graph(llm)`** | search_agent, analysis_agent, cs_agent 3개 워커 생성 → Supervisor로 통합 |
-| **모델별 캐시** | `get_cached_supervisor(llm, model_key)` — Supervisor 그래프 캐시 |
-| **워커 직접 호출** | `get_cached_worker(llm, model_key, agent_name)` — 개별 워커 캐시 (supervisor 우회) |
-| **INTENT_AGENT_MAP** | intent → agent 직접 매핑 (SHOP→search, SELLER→analysis, CS→cs 등) |
-| **AGENT_DESCRIPTIONS** | 에이전트별 한국어 설명 (SSE `agent_start`/`agent_end` 이벤트용) |
+| **Supervisor 기본 경로화** | 프론트엔드에서 항상 `multi_agent: true`로 요청 → Supervisor가 기본 에이전트 경로 |
+| **8개 전문 워커** | 기존 3개(search/analysis/cs) → 8개 전문 워커로 확장 (`MULTI_AGENT_WORKERS`) |
+| **`build_multi_agent_supervisor(llm)`** | 8종 워커 동적 라우팅 Supervisor 그래프 빌드 (`create_supervisor()`) |
+| **`get_cached_multi_supervisor(llm, model_key)`** | 모델별 멀티에이전트 Supervisor 그래프 캐시 |
+| **AGENT_DESCRIPTIONS 확장** | 기존 3개 + 멀티에이전트 워커 8개 = 11개 에이전트 설명 등록 |
+| **워커별 도구 분리** | 각 워커가 전문 도구만 보유 (churn_analyst 3개, seller_analyst 6개 등) |
+| **`_WORKER_COMMON_RULES` 공통 규칙** | 모든 워커가 공유하는 응답 규칙(수치 언급, 형식적 응답 금지, 최소 3개 인사이트, 금액 포맷) + 분석 관점 5가지(추세 파악, 이상값 발견, 비교 분석, 원인 추론, 실행 제안) |
+| **워커별 특화 분석 지침** | 8개 워커 각각 역할별 전문 분석 지침 추가 (SHAP 순위 표, 맞춤 전략, 세그먼트 비교, KPI 추세, 위험 점수, CS 병목, 경영진 보고서, RAG 할루시네이션 금지 등) |
+| **Supervisor 프롬프트 강화** | 대화 맥락 유지, 형식적 응답 금지, 최소 3개 인사이트, 금액 포맷(₩+콤마, 억/만원 환산) |
+
+#### 8개 전문 워커 에이전트
+
+| 워커 | 설명 | 도구 수 |
+|------|------|---------|
+| **churn_analyst** | 이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석 | 3 |
+| **retention_strategist** | 리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 | 3 |
+| **seller_analyst** | 셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 | 6 |
+| **performance_analyst** | 성과 분석가 — 매출/KPI/마케팅 분석 | 8 |
+| **fraud_investigator** | 이상거래 조사관 — 부정행위 탐지 + 영향 분석 | 3 |
+| **cs_quality_analyst** | CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가 | 5 |
+| **report_writer** | 리포트 작성가 — 대시보드 + KPI 종합 보고서 | 4 |
+| **platform_searcher** | RAG 지식 검색 — 쇼핑몰/카테고리/용어 조회 | 2 |
+
+#### SSE 이벤트 프로토콜 (7종)
+
+| 이벤트 | 방향 | 설명 |
+|--------|------|------|
+| `agent_start` | 백엔드→프론트 | 워커 에이전트 시작 (agent명 + description) |
+| `agent_end` | 백엔드→프론트 | 워커 에이전트 완료 |
+| `tool_start` | 백엔드→프론트 | 도구 호출 시작 (tool명 + args) |
+| `tool_end` | 백엔드→프론트 | 도구 호출 완료 (status) |
+| `delta` | 백엔드→프론트 | LLM 응답 토큰 스트리밍 |
+| `done` | 백엔드→프론트 | 전체 응답 완료 (final + tool_calls) |
+| `error` | 백엔드→프론트 | 에러 발생 |
 
 #### 하이브리드 라우팅 (api/routes_agent.py)
 
@@ -37,17 +76,9 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 |------|------|
 | **키워드 사전라우팅** | 명확한 intent (SHOP, SELLER, CS, ANALYSIS 등) → `get_cached_worker()`로 워커 직접 호출 |
 | **Supervisor 경유** | 애매한 intent (PLATFORM, GENERAL) → `get_cached_supervisor()`로 Supervisor 판단 |
+| **멀티에이전트 모드** | `multi_agent: true` → `run_multi_agent_stream()` 경유 |
 | **재요약 방지** | `worker_responded` 플래그로 supervisor 재요약 제거 |
 | **데이터 질문 RAG 스킵** | SHOP, SELLER 등 데이터 조회 카테고리는 RAG 사전검색 건너뜀 |
-
-#### SSE 스트리밍 최적화
-
-| 변경 | 상세 |
-|------|------|
-| **외부 노드 식별** | `langgraph_checkpoint_ns` 파싱 ("supervisor:UUID\|agent:UUID" → 첫 세그먼트 추출) |
-| **워커 직접 스트리밍** | 워커 에이전트 응답을 delta로 직접 전달 (supervisor 재요약 제거) |
-| **agent_end 감지** | `on_chat_model_start` + `outer_node == "supervisor"` 조건으로 워커 완료 판단 |
-| **handoff 이벤트 변환** | `transfer_to_*` 도구 호출 → `agent_start` SSE 이벤트로 자동 변환 |
 
 #### FAQ 자동 생성 개선 (automation/faq_engine.py, api/routes_automation.py)
 
@@ -56,6 +87,8 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | **`selected_clusters` 파라미터** | `generate_faq_items(selected_clusters=...)` — 프론트에서 선택된 클러스터를 직접 전달하면 재분석 없이 바로 LLM FAQ 생성 |
 | **LLM 모드 카테고리 제한** | 전체 카테고리 분석 시 건수 상위 6개 중 최대 3개만 랜덤 선택 (`random.sample`) — 속도 최적화 |
 | **`FaqGenerateRequest` 확장** | `selected_clusters` 필드 추가 (alias: `selectedClusters`), `count` 상한 `le=20` → `le=100`으로 변경 |
+
+</details>
 
 <details>
 <summary><b>v9.1.0</b> (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)</summary>
@@ -166,7 +199,6 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | `rag/kg.py` | bare except 정리 |
 | `rag/k2rag.py` | bare except 정리 |
 | `rag/chunking.py` | bare except 정리 |
-| `ml/mlflow_tracker.py` | bare except 정리 |
 | `automation/action_logger.py` | 5개 저장소 크기 제한 (ACTION_LOG 5000, FAQ 1000, REPORT 500, RETENTION 1000, PIPELINE 500) |
 | `automation/retention_engine.py` | 중복 코드 5개 공통 함수 통합 (`_extract_shap_values`, `_shap_top_factors`, `_heuristic_score`, `_build_feature_df`) |
 
@@ -207,11 +239,11 @@ v9.2.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **8종 RAG 기법** + **9개 도메인별 라우터(106개 REST API)**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **9개 도메인별 라우터(112개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유) + 서브에이전트 오케스트레이션(6종 파이프라인, 최대 5단계, 29개 스텝 설정) 포함 (🚧 개발중)
-- **RAG 시스템 (8종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), CRAG([논문](https://arxiv.org/abs/2401.15884) 기반 검색 품질 자동 교정), Cross-Encoder Reranking
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 8개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
+- **RAG 시스템 (7종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
 - **CS 자동화**: ML 문의 분류(TF-IDF + RF, 9개 카테고리) -> RAG+LLM 답변 생성(SSE 스트리밍) -> n8n Cloud 워크플로우 -> Resend 이메일 발송. 신뢰도 >= 0.75 자동 처리, 미만 시 담당자 검토 분기
@@ -233,7 +265,7 @@ flowchart TB
     end
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
-        ROUTES["api/ 도메인별 라우터 9개<br/>(106개 엔드포인트)"]
+        ROUTES["api/ 도메인별 라우터 9개<br/>(112개 엔드포인트)"]
         PM_ROUTES["process_miner/routes.py<br/>(6개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
@@ -241,7 +273,6 @@ flowchart TB
             TOOLS["31개 도구<br/>(tool_schemas.py)"]
             SUPERVISOR["Supervisor 멀티에이전트<br/>(langgraph-supervisor)"]
             HYBRID["하이브리드 라우팅<br/>(워커 직접 / Supervisor 경유)"]
-            SUBAGENT["서브에이전트 오케스트레이션<br/>(6종 파이프라인, 최대 5단계) 🚧"]
         end
 
         subgraph RAG["RAG 시스템"]
@@ -355,7 +386,7 @@ backend 리팩토링 시작/
 │   ├── routes_ml.py                 # ML/MLflow/마케팅 API
 │   ├── routes_guardian.py           # Guardian/보안감시 API
 │   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/업그레이드/FAQ/리포트, 17개 엔드포인트)
-│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 하이브리드 라우팅: 워커 직접/Supervisor 경유, 서브에이전트 모드 분기)
+│   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 하이브리드 라우팅: 워커 직접/Supervisor 경유, 멀티에이전트 모드 분기)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
 ├── agent/                           # AI 에이전트 시스템
@@ -364,9 +395,7 @@ backend 리팩토링 시작/
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
-│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 서브에이전트 오케스트레이션 (6종 파이프라인, 29개 스텝) 🚧
-│   ├── crag.py                      # Corrective RAG (검색 품질 평가 + 쿼리 재작성)
-│   ├── semantic_router.py           # Semantic Router (레거시 카테고리 정리됨, 현재 비활성)
+│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 8개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
@@ -381,15 +410,12 @@ backend 리팩토링 시작/
 ├── ml/
 │   ├── train_models.py              # 합성 데이터 생성 (18개 CSV) + 12개 ML 모델 학습 + if __name__ 가드
 │   ├── revenue_model.py             # 매출 예측 (LightGBM 회귀)
-│   ├── marketing_optimizer.py       # 마케팅 최적화 (P-PSO 알고리즘, mealpy)
-│   ├── mlflow_tracker.py            # MLflow 실험 추적 유틸리티
-│   └── helpers.py                   # ML 유틸리티 함수
+│   └── marketing_optimizer.py       # 마케팅 최적화 (P-PSO 알고리즘, mealpy)
 │
 ├── core/                            # 핵심 유틸리티
 │   ├── constants.py                 # 상수 (플랜, 카테고리, 피처, 프롬프트, 용어)
 │   ├── utils.py                     # 유틸 함수 (extract_seller_id 등 중복 통합)
-│   ├── memory.py                    # 대화 메모리 관리 (세션별 최대 10턴)
-│   └── parsers.py                   # 텍스트 파서 (레거시 함수 정리됨)
+│   └── memory.py                    # 대화 메모리 관리 (세션별 최대 10턴)
 │
 ├── automation/                      # 자동화 엔진 (탐지→자동실행) + 파이프라인 추적
 │   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
@@ -410,11 +436,6 @@ backend 리팩토링 시작/
 │
 ├── data/
 │   └── loader.py                    # 데이터 로더 (CSV 16개 -> DataFrame + ML 모델 12개 + 스케일러/인코더)
-│
-├── n8n/                             # n8n 워크플로우 정의
-│   ├── cs_reply_workflow.json       # CS 회신 자동화 워크플로우
-│   ├── test.json                    # 워크플로우 테스트용 페이로드
-│   └── _writer.py                   # Python 실행환경 확인 유틸리티
 │
 ├── rag_docs/                        # RAG 소스 문서 (카페24 가이드 PDF)
 ├── rag_faiss/                       # FAISS 인덱스 파일
@@ -680,7 +701,6 @@ flowchart TB
 | **analysis_agent** | 셀러/쇼핑몰 데이터 분석 (ML, KPI) | 워커 직접 (SELLER, ANALYSIS, DASHBOARD) | 분석, 통계, 세그먼트, 이탈, 이상거래, 매출 |
 | **cs_agent** | 셀러 문의 분류/응답 관리 | 워커 직접 (CS) | CS, 셀러 문의, 기술지원, 용어 |
 | **Supervisor** | 워커 에이전트 오케스트레이션 | PLATFORM, GENERAL 카테고리 전담 | 기타 일반 질문, 복합 질문 |
-| **Sub-Agent** | 서브에이전트 오케스트레이션 (6종 파이프라인, 최대 5단계) 🚧 | RETENTION 카테고리 전용 | 이탈 위험, 셀러 종합, 쇼핑몰 성과, 딥 분석, 이상거래, CS 품질 |
 
 ### 6.3 RAG 모드 선택
 
@@ -751,16 +771,12 @@ class IntentCategory(str, Enum):
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출
     SELLER = "seller"           # 셀러 분석, 세그먼트, 부정행위 탐지
     CS = "cs"                   # CS 자동응답, 품질 검사, 문의 분류
-    RETENTION = "retention"     # 이탈 방지, 리텐션, churn, at-risk (서브에이전트 오케스트레이션 트리거)
+    RETENTION = "retention"     # 이탈 방지, 리텐션, churn, at-risk
     DASHBOARD = "dashboard"     # 대시보드, 전체 현황
     GENERAL = "general"         # 일반 대화, 인사
 ```
 
-#### 6.4.2 Semantic Router (비활성)
-
-`agent/semantic_router.py`의 `SemanticRouterCache` 클래스는 OpenAI `text-embedding-3-small` 임베딩으로 카테고리별 예시 쿼리를 사전 계산하고, 코사인 유사도로 분류하는 구조입니다. 키워드 분류의 높은 커버리지와 LLM fallback의 정확도로 인해 Semantic Router 단계를 제거하고 2단계 구조로 단순화했습니다.
-
-#### 6.4.3 KEYWORD_TOOL_MAPPING (강제 도구 실행)
+#### 6.4.2 KEYWORD_TOOL_MAPPING (강제 도구 실행)
 
 `agent/runner.py`에서 키워드 기반 **강제 도구 실행** (LLM 호출 전 선처리):
 
@@ -791,7 +807,7 @@ KEYWORD_TOOL_MAPPING = {
 
 **동작 방식**: 사용자 질문에 키워드 매칭 -> 매칭된 도구를 LLM 호출 전에 강제 실행 -> 결과를 LLM 컨텍스트에 전달
 
-#### 6.4.4 파라미터 자동 추출
+#### 6.4.3 파라미터 자동 추출
 
 `agent/runner.py`에서 사용자 텍스트로부터 도구 파라미터를 자동 추출합니다:
 
@@ -806,7 +822,7 @@ KEYWORD_TOOL_MAPPING = {
 | `extract_risk_level()` | 위험 등급 | "고위험", "중위험", "저위험" |
 | `extract_cohort()` | 코호트명 | `2024-11 W1` |
 
-#### 6.4.5 카테고리별 도구 매핑
+#### 6.4.4 카테고리별 도구 매핑
 
 | 카테고리 | 키워드 | 도구 | 비고 |
 |----------|--------|------|------|
@@ -815,11 +831,11 @@ KEYWORD_TOOL_MAPPING = {
 | `shop` | 쇼핑몰, 매출, 성과, 카테고리 | `get_shop_info`, `list_shops`, `get_shop_services`, `get_shop_performance`, `predict_shop_revenue`, `optimize_marketing`, `get_category_info`, `list_categories`, `get_dashboard_summary`, `search_platform`, `search_platform_lightrag` | |
 | `seller` | 셀러, SEL0001, 세그먼트, 이상 | `analyze_seller`, `predict_seller_churn`, `get_seller_segment`, `detect_fraud`, `get_fraud_statistics`, `get_segment_statistics`, `optimize_marketing`, `get_shop_performance`, `predict_shop_revenue` | |
 | `cs` | CS, 문의, 상담, 용어집 | `auto_reply_cs`, `check_cs_quality`, `get_ecommerce_glossary`, `get_cs_statistics`, `classify_inquiry` | |
-| `retention` | 이탈 위험, 리텐션, churn, at-risk | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics` | **서브에이전트 오케스트레이션** (6종 파이프라인, 최대 5단계) 🚧 |
+| `retention` | 이탈 위험, 리텐션, churn, at-risk | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics` | |
 | `dashboard` | 대시보드, 전체 현황 | `get_dashboard_summary`, `get_segment_statistics`, `get_cs_statistics`, `get_order_statistics` | |
 | `general` | 안녕, 고마워 | (도구 없음 - 직접 대화) | |
 
-#### 6.4.6 분류 우선순위
+#### 6.4.5 분류 우선순위
 
 ```python
 # agent/router.py - _keyword_classify()
@@ -839,7 +855,7 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     # 불확실 -> None -> LLM Router (2단계 fallback)
 ```
 
-#### 6.4.7 PLATFORM 강제 RAG (tool_choice="required")
+#### 6.4.6 PLATFORM 강제 RAG (tool_choice="required")
 
 > **문제**: 플랫폼 정책 질문에서 LLM이 자체 지식으로 답변 -> 부정확/할루시네이션
 
@@ -862,7 +878,7 @@ flowchart LR
     Q --> Router --> Force --> Result["RAG 기반 정확한 답변"]
 ```
 
-#### 6.4.8 성능 최적화
+#### 6.4.7 성능 최적화
 
 | 최적화 | 설명 |
 |--------|------|
@@ -912,9 +928,11 @@ flowchart LR
 
 ### 6.6 멀티 에이전트 시스템 (Supervisor 패턴)
 
-`agent/multi_agent.py`에서 `langgraph-supervisor` 기반 Supervisor 멀티에이전트를 구현합니다.
+`agent/multi_agent.py`에서 `langgraph-supervisor` 기반 Supervisor 멀티에이전트를 구현합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 **Supervisor가 기본 에이전트 경로**입니다.
 
 #### Supervisor 그래프 구조
+
+**기본 Supervisor (3개 워커 — 일반 에이전트 경로):**
 
 ```mermaid
 flowchart TD
@@ -935,6 +953,66 @@ flowchart TD
     SA & AA & CA --> TOOLS["Tool Calling"]
     TOOLS --> SSE["SSE 스트리밍 응답"]
 ```
+
+**멀티에이전트 Supervisor (8개 전문 워커 — `multi_agent: true` 경로):**
+
+```mermaid
+flowchart TD
+    INPUT["사용자 질의<br/>(multi_agent: true)"] --> SUB_SUP["multi_supervisor<br/>(create_supervisor)"]
+
+    SUB_SUP -->|"transfer_to_churn_analyst"| W1["churn_analyst<br/>이탈 분석"]
+    SUB_SUP -->|"transfer_to_retention_strategist"| W2["retention_strategist<br/>리텐션 전략"]
+    SUB_SUP -->|"transfer_to_seller_analyst"| W3["seller_analyst<br/>셀러 종합 분석"]
+    SUB_SUP -->|"transfer_to_performance_analyst"| W4["performance_analyst<br/>성과/KPI 분석"]
+    SUB_SUP -->|"transfer_to_fraud_investigator"| W5["fraud_investigator<br/>이상거래 조사"]
+    SUB_SUP -->|"transfer_to_cs_quality_analyst"| W6["cs_quality_analyst<br/>CS 품질 분석"]
+    SUB_SUP -->|"transfer_to_report_writer"| W7["report_writer<br/>운영 리포트"]
+    SUB_SUP -->|"transfer_to_platform_searcher"| W8["platform_searcher<br/>RAG 지식 검색"]
+
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 -->|"handoff back"| SUB_SUP
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 --> TOOLS["Tool Calling (31개)"]
+    TOOLS --> SSE["SSE 스트리밍 응답"]
+```
+
+#### 8개 전문 워커 에이전트 (`MULTI_AGENT_WORKERS`)
+
+| # | 워커명 | 설명 | 도구 | 라우팅 키워드 |
+|---|--------|------|------|---------------|
+| 1 | **churn_analyst** | 이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석 | `get_at_risk_sellers`, `predict_seller_churn`, `get_churn_prediction` | 이탈/위험 셀러 분석 |
+| 2 | **retention_strategist** | 리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 | `generate_retention_message`, `execute_retention_action`, `get_at_risk_sellers` | 이탈 방지 전략/메시지/조치 |
+| 3 | **seller_analyst** | 셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 | `analyze_seller`, `get_seller_segment`, `detect_fraud`, `get_segment_statistics`, `get_fraud_statistics`, `get_seller_activity_report` | 셀러 종합 진단 |
+| 4 | **performance_analyst** | 성과 분석가 — 매출/KPI/마케팅 분석 | `get_shop_info`, `get_shop_performance`, `get_trend_analysis`, `get_cohort_analysis`, `predict_shop_revenue`, `get_gmv_prediction`, `optimize_marketing`, `get_order_statistics` | 쇼핑몰 성과/매출/마케팅 |
+| 5 | **fraud_investigator** | 이상거래 조사관 — 부정행위 탐지 + 영향 분석 | `detect_fraud`, `get_fraud_statistics`, `analyze_seller` | 이상거래/부정행위 |
+| 6 | **cs_quality_analyst** | CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가 | `get_cs_statistics`, `auto_reply_cs`, `check_cs_quality`, `classify_inquiry`, `get_ecommerce_glossary` | CS 품질/상담/감성 |
+| 7 | **report_writer** | 리포트 작성가 — 대시보드 + KPI 종합 보고서 | `get_dashboard_summary`, `get_order_statistics`, `get_trend_analysis`, `get_cohort_analysis` | 대시보드/KPI/리포트 |
+| 8 | **platform_searcher** | RAG 지식 검색 — 플랫폼 문서/쇼핑몰/카테고리/용어 조회 | `search_platform`, `search_platform_lightrag` | 플랫폼/정책/가이드/용어 |
+
+#### 워커 프롬프트 구조 (공통 규칙 + 역할별 특화)
+
+각 워커의 시스템 프롬프트는 **역할별 특화 지침 + `_WORKER_COMMON_RULES` 공통 규칙**으로 구성됩니다.
+
+**`_WORKER_COMMON_RULES` (공통 상수):**
+- 응답 규칙: 핵심 수치 구체적 언급, 마크다운 표/볼드/리스트 활용, 형식적 응답 금지, 최소 3개 인사이트, 금액 포맷(₩+콤마, 억/만원 환산)
+- 분석 관점 5가지: 추세 파악, 이상값 발견, 비교 분석, 원인 추론, 실행 제안
+
+**워커별 특화 분석 지침:**
+
+| 워커 | 특화 지침 |
+|------|-----------|
+| **churn_analyst** | SHAP 원인 순위 표, 이탈 확률 높은 셀러의 공통 패턴, 리텐션 우선순위 추천 |
+| **retention_strategist** | 셀러 상황별 맞춤 전략, 조치 유형별 예상 효과, 긴급도별(즉시/단기/중기) 분류 |
+| **seller_analyst** | 세그먼트 간 비교 표(매출/주문/환불률), 세그먼트별 관리 전략, 강점/약점/기회/위협 |
+| **performance_analyst** | 기간별 추세(전월/전년 대비), 코호트 리텐션 이탈 급감 구간, ROI/CPA/ROAS 비교 |
+| **fraud_investigator** | 이상 유형 분류(환불 사기/가짜 주문/비정상 패턴), 위험 점수 분포, 대응 방안(차단/모니터링/경고) |
+| **cs_quality_analyst** | 카테고리별 비교 표(티켓 수/만족도/해결 시간), 병목 카테고리 지적, 개선 우선순위 액션 |
+| **report_writer** | 경영진 의사결정 수준 보고서, KPI 요약 표 선행, 변화량+변화율(%) 표기 |
+| **platform_searcher** | RAG 결과 꼼꼼히 읽기, 할루시네이션 금지, 항목 수 세기, 도구 호출 필수 |
+
+**Supervisor 프롬프트 (`MULTI_AGENT_SUPERVISOR_PROMPT`) 강화:**
+- 대화 맥락 유지: 이전 대화에서 언급된 쇼핑몰/셀러를 후속 질문에서도 유지
+- 형식적 응답 금지: "확인했습니다" 같은 한 줄 응답 절대 금지
+- 최소 3개 이상 인사이트 제공, 워커 반환 데이터 상세 정리
+- 금액 포맷: ₩ + 천 단위 콤마, 큰 금액은 억/만원 단위 환산
 
 #### 하이브리드 라우팅 (키워드 사전라우팅 + Supervisor)
 
@@ -975,8 +1053,20 @@ INTENT_AGENT_MAP = {
 | `build_supervisor_graph(llm)` | 3개 워커(search/analysis/cs) + Supervisor 그래프 빌드 | - |
 | `get_cached_supervisor(llm, model_key)` | 모델별 Supervisor 그래프 캐시 반환 | `_supervisor_cache` |
 | `get_cached_worker(llm, model_key, agent_name)` | 개별 워커 에이전트 캐시 반환 (supervisor 우회) | `_worker_cache` |
+| `build_multi_agent_supervisor(llm)` | 8종 워커 동적 라우팅 멀티에이전트 Supervisor 빌드 | - |
+| `get_cached_multi_supervisor(llm, model_key)` | 모델별 멀티에이전트 Supervisor 그래프 캐시 반환 | `_multi_supervisor_cache` |
 
-#### SSE 스트리밍 처리 (`routes_agent.py`)
+#### SSE 이벤트 프로토콜 (7종)
+
+| 이벤트 | 데이터 | 설명 |
+|--------|--------|------|
+| `agent_start` | `{agent, description}` | 워커 에이전트 시작 |
+| `agent_end` | `{agent, description}` | 워커 에이전트 완료 |
+| `tool_start` | `{tool, args}` | 도구 호출 시작 |
+| `tool_end` | `{tool, status}` | 도구 호출 완료 |
+| `delta` | `{delta}` | LLM 응답 토큰 스트리밍 |
+| `done` | `{ok, final, tool_calls}` | 전체 응답 완료 |
+| `error` | `{error}` | 에러 발생 |
 
 **워커 직접 호출 시:**
 ```
@@ -998,18 +1088,33 @@ on_tool_start(transfer_to_*) → agent_start
 #### 에이전트 설명 (`AGENT_DESCRIPTIONS`)
 
 ```python
+# 기본 에이전트 (3개)
 AGENT_DESCRIPTIONS = {
     "search_agent": "검색 에이전트 — 쇼핑몰/카테고리/플랫폼 정보 검색",
     "analysis_agent": "분석 에이전트 — 셀러 분석, ML 예측, KPI 분석",
     "cs_agent": "CS 에이전트 — CS 응답 생성, 품질 평가",
 }
+# + 멀티에이전트 워커 8개 자동 등록 (MULTI_AGENT_WORKERS에서 description 추출)
+# churn_analyst, retention_strategist, seller_analyst, performance_analyst,
+# fraud_investigator, cs_quality_analyst, report_writer, platform_searcher
 ```
 
-**에이전트별 도구 분류:**
+**에이전트별 도구 분류 (기본 에이전트):**
 - `SEARCH_AGENT_TOOLS`: 7개 (쇼핑몰/카테고리/RAG 검색)
 - `ANALYSIS_AGENT_TOOLS`: 16개 (셀러 분석, ML 예측, 통계)
 - `CS_AGENT_TOOLS`: 5개 (CS 응답, 품질, 용어, 분류)
-- `RETENTION_AGENT_TOOLS`: 5개 (`get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `analyze_seller`, `get_cs_statistics`)
+- `RETENTION_AGENT_TOOLS`: 4개 (`get_at_risk_sellers`, `get_cs_statistics`, `generate_retention_message`, `execute_retention_action`)
+
+**도구 6개 카테고리 (31개):**
+
+| 카테고리 | 도구 수 | 주요 도구 |
+|----------|---------|-----------|
+| 쇼핑몰 | 5 | `get_shop_info`, `list_shops`, `get_shop_services`, `get_category_info`, `list_categories` |
+| 셀러 | 6 | `analyze_seller`, `get_seller_segment`, `detect_fraud`, `get_segment_statistics`, `get_fraud_statistics`, `get_seller_activity_report` |
+| ML 예측 | 8 | `predict_seller_churn`, `predict_shop_revenue`, `get_shop_performance`, `optimize_marketing`, `get_churn_prediction`, `get_cohort_analysis`, `get_trend_analysis`, `get_gmv_prediction` |
+| CS | 5 | `auto_reply_cs`, `check_cs_quality`, `get_ecommerce_glossary`, `get_cs_statistics`, `classify_inquiry` |
+| 대시보드 | 2 | `get_dashboard_summary`, `get_order_statistics` |
+| 리텐션/RAG | 5 | `get_at_risk_sellers`, `generate_retention_message`, `execute_retention_action`, `search_platform`, `search_platform_lightrag` |
 
 #### 데이터 질문 RAG 스킵
 
@@ -1019,190 +1124,18 @@ PLATFORM, GENERAL 외 모든 데이터 카테고리(SHOP, SELLER, ANALYSIS, CS, 
 skip_rag = category not in [IntentCategory.PLATFORM, IntentCategory.GENERAL]
 ```
 
-> **참고**: 기존 `StateGraph` 기반 Coordinator→Agent 패턴은 레거시로 유지되며, 실제 `/api/agent/stream`은 Supervisor 패턴 + 하이브리드 라우팅으로 동작합니다. 서브에이전트 트리거(키워드 패턴 또는 IntentCategory) 감지 시 서브에이전트 오케스트레이션 모드가 자동 활성화됩니다.
-
-### 6.6.1 서브에이전트 오케스트레이션 시스템 (🚧 개발중)
-
-복합 분석 요청을 감지하면 기존 single/multi 모드 대신 **서브에이전트 전용 그래프**가 활성화됩니다. `_detect_pipeline_type()`이 키워드 + `IntentCategory` fallback으로 6종 파이프라인 중 적합한 타입을 결정하고, 최대 5단계 plan을 순차 실행합니다.
-
-#### 파이프라인 설정 구조
-
-**`_STEP_CONFIG` (29개 스텝 — 도구 + 프롬프트 매핑):**
-
-| 파이프라인 | 스텝 | 도구 세트 | 프롬프트 |
-|-----------|------|----------|---------|
-| retention | `analyze_churn`, `check_cs`, `generate_strategy`, `execute_action` | RETENTION_AGENT_TOOLS | RETENTION_AGENT_PROMPT |
-| seller_diagnosis | `seller_analyze`, `seller_segment`, `seller_risk`, `seller_optimize`, `seller_report` | ANALYSIS_AGENT_TOOLS | SELLER_DIAGNOSIS_PROMPT |
-| shop_performance | `shop_info`, `shop_performance`, `shop_trend`, `shop_marketing`, `shop_report` | SEARCH/ANALYSIS_AGENT_TOOLS | SHOP_PERFORMANCE_PROMPT |
-| deep_analysis | `dashboard_overview`, `segment_analysis`, `trend_analysis`, `gmv_forecast`, `deep_report` | ANALYSIS_AGENT_TOOLS | DASHBOARD_DEEP_PROMPT |
-| fraud_investigation | `fraud_overview`, `fraud_pattern`, `fraud_detect`, `fraud_impact`, `fraud_report` | ANALYSIS_AGENT_TOOLS | FRAUD_INVESTIGATION_PROMPT |
-| cs_quality | `cs_statistics`, `cs_classify`, `cs_sentiment`, `cs_auto_reply`, `cs_report` | CS_AGENT_TOOLS | CS_QUALITY_PROMPT |
-
-**`_PIPELINE_PLANS` (6종 파이프라인, 최대 5단계):**
-
-| 파이프라인 타입 | 단계 수 | 스텝 순서 | 비고 |
-|---------------|--------|----------|------|
-| `retention` | 2단계 (기본) | analyze_churn → generate_strategy | 키워드로 최대 4단계 확장 |
-| `seller_diagnosis` | 5단계 | seller_analyze → seller_segment → seller_risk → seller_optimize → seller_report | 셀러 종합 진단 |
-| `shop_performance` | 5단계 | shop_info → shop_performance → shop_trend → shop_marketing → shop_report | 쇼핑몰 성과 분석 |
-| `deep_analysis` | 5단계 | dashboard_overview → segment_analysis → trend_analysis → gmv_forecast → deep_report | KPI 딥 분석 |
-| `fraud_investigation` | 5단계 | fraud_overview → fraud_pattern → fraud_detect → fraud_impact → fraud_report | 이상거래 조사 |
-| `cs_quality` | 5단계 | cs_statistics → cs_classify → cs_sentiment → cs_auto_reply → cs_report | CS 품질 분석 |
-
-**`_STEP_DESCRIPTIONS` (29개 한글 설명):**
-
-각 스텝에 대응하는 한글 설명이 SSE `agent_start` 이벤트에 포함됩니다 (예: `"이탈 위험 셀러 분석"`, `"셀러 세그먼트 분류"`, `"GMV 예측"` 등).
-
-#### 5개 전문 프롬프트
-
-| 프롬프트 상수 | 역할 | 사용 파이프라인 |
-|-------------|------|--------------|
-| `SELLER_DIAGNOSIS_PROMPT` | 셀러 진단 전문가 | seller_diagnosis |
-| `SHOP_PERFORMANCE_PROMPT` | 쇼핑몰 성과 분석가 | shop_performance |
-| `DASHBOARD_DEEP_PROMPT` | KPI 분석 전문가 | deep_analysis |
-| `FRAUD_INVESTIGATION_PROMPT` | 이상거래 조사관 | fraud_investigation |
-| `CS_QUALITY_PROMPT` | CS 품질 관리자 | cs_quality |
-
-#### 파이프라인 타입 결정 (`_detect_pipeline_type`)
-
-```python
-def _detect_pipeline_type(text: str, category=None) -> str:
-    # 1단계: 키워드 기반 감지
-    #   "셀러 종합/진단" → seller_diagnosis
-    #   "쇼핑몰 성과/종합/마케팅" → shop_performance
-    #   "딥 분석/kpi 종합/대시보드 분석" → deep_analysis
-    #   "이상거래 조사/부정행위 분석" → fraud_investigation
-    #   "cs 품질/상담 품질" → cs_quality
-    # 2단계: IntentCategory fallback
-    #   SELLER → seller_diagnosis, SHOP → shop_performance
-    #   ANALYSIS/DASHBOARD → deep_analysis, CS → cs_quality
-    # 기본값: retention
-```
-
-#### 제네릭 서브에이전트 스텝 노드 (`sub_step_node`)
-
-`sub_step_node`는 모든 파이프라인에서 공유하는 제네릭 실행 노드입니다. `_STEP_CONFIG`에서 현재 스텝에 해당하는 도구/프롬프트를 동적으로 결정하고, 이전 단계 결과를 컨텍스트로 주입합니다.
-
-```python
-def sub_step_node(state: AgentState, llm) -> dict:
-    step_name = plan[current_step]
-    tools, base_prompt = _STEP_CONFIG.get(step_name, (ANALYSIS_AGENT_TOOLS, ANALYSIS_AGENT_PROMPT))
-    # 이전 단계 결과를 컨텍스트로 전달
-    # augmented_prompt = base_prompt + 현재 단계 정보 + 이전 결과
-    agent = create_agent_executor(llm, tools, augmented_prompt)
-    result = agent.invoke({"messages": state["messages"]})
-```
-
-#### 아키텍처 다이어그램
-
-```mermaid
-flowchart TD
-    USER["사용자 요청"] --> ROUTER["router<br/>(키워드 + IntentCategory 감지)"]
-    ROUTER --> DETECT["_detect_pipeline_type()<br/>(키워드 + IntentCategory fallback)"]
-    DETECT --> ROUTE_AGENT["routes_agent.py<br/>(서브에이전트 모드 분기)"]
-    ROUTE_AGENT --> STREAM["run_sub_agent_stream()"]
-
-    subgraph SubAgent["서브에이전트 그래프 (LangGraph)"]
-        COORD["coordinator_node"]
-        SUBCOORD["sub_agent_coordinator_node<br/>(_PIPELINE_PLANS에서 plan 선택)"]
-        DISP["dispatcher_node<br/>(plan 순차 실행)"]
-        STEP["sub_step_node<br/>(_STEP_CONFIG에서 도구/프롬프트 결정)"]
-        TOOL["tools_node"]
-
-        COORD --> SUBCOORD
-        SUBCOORD --> DISP
-        DISP --> STEP
-        STEP --> TOOL
-        TOOL --> STEP
-        STEP -->|"다음 단계"| DISP
-        DISP -->|"plan 완료"| FIN["END"]
-    end
-
-    STREAM --> SubAgent
-
-    subgraph SSE["SSE 이벤트"]
-        E1["agent_start (단계 시작 + _STEP_DESCRIPTIONS)"]
-        E2["tool_end (도구 결과)"]
-        E3["agent_end (단계 완료)"]
-        E4["delta (최종 응답)"]
-        E5["done"]
-    end
-
-    SubAgent --> SSE
-```
-
-**서브에이전트 핵심 컴포넌트:**
-
-| 노드 | 역할 | 상세 |
-|------|------|------|
-| `sub_agent_coordinator_node` | 복합 요청을 plan으로 분해 | `_PIPELINE_PLANS`에서 파이프라인 타입별 plan 선택 |
-| `dispatcher_node` | plan 순차 실행 | `current_step` 기반 라우팅, 단계별 `sub_step_node` 호출 |
-| `sub_step_node` | 제네릭 스텝 실행 | `_STEP_CONFIG`에서 도구/프롬프트 동적 결정, 이전 단계 결과 컨텍스트 전달 |
-| `_retention_should_continue` | 분기 판단 | tools(추가 도구 호출) / dispatcher(다음 단계) 분기 |
-
-**SSE 콜백 브릿지 (`routes_agent.py`):**
-```python
-# asyncio.Queue + create_task로 SSE 콜백 연결
-queue = asyncio.Queue()
-
-async def sse_callback(event_type, data):
-    await queue.put((event_type, data))
-
-task = asyncio.create_task(run_sub_agent_stream(req, username, sse_callback))
-
-# SSE 이벤트: agent_start/agent_end x N → tool_end x M → delta → done
-```
+> **참고**: 기존 `StateGraph` 기반 Coordinator→Agent 패턴은 레거시로 유지되며, 실제 `/api/agent/stream`은 Supervisor 패턴 + 하이브리드 라우팅으로 동작합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 멀티에이전트 Supervisor(8개 전문 워커)가 기본 경로입니다.
 
 **전체 라우팅 데이터 흐름:**
 ```
 사용자 → router(키워드/IntentCategory 감지)
-  → RETENTION 카테고리: 서브에이전트 오케스트레이션 (run_sub_agent_stream)
-  → 명확 intent (SHOP,SELLER 등): 워커 직접 호출 (get_cached_worker, supervisor 우회)
+  → 명확 intent (SHOP,SELLER,CS 등): 워커 직접 호출 (get_cached_worker, supervisor 우회)
   → 애매 intent (PLATFORM,GENERAL): Supervisor 경유 (get_cached_supervisor)
+  → multi_agent: true → 멀티에이전트 Supervisor (8개 전문 워커, run_multi_agent_stream)
   → SSE 스트리밍 응답
-
-서브에이전트 흐름:
-  → run_sub_agent_stream → graph.invoke
-    → coordinator → sub_agent_coordinator(_PIPELINE_PLANS에서 plan 선택)
-    → dispatcher → sub_step_node(_STEP_CONFIG에서 도구/프롬프트 결정) → tools → sub_step_node
-    → dispatcher → ... (plan 순차 반복, 최대 5단계)
-    → END
-  → SSE: agent_start/end x N → tool_end x M → delta → done
 ```
 
-### 6.7 Corrective RAG (CRAG)
-
-`agent/crag.py`에서 검색 품질을 자동 평가하고 교정하는 CRAG 패턴을 구현합니다.
-
-> **현재 상태**: 모듈 구현 완료, 메인 파이프라인 미통합. 향후 RAG 검색 품질 개선 시 연결 예정.
-
-> **출처**: [CRAG Paper](https://arxiv.org/abs/2401.15884)
-
-```mermaid
-flowchart TD
-    Q["쿼리"] --> S1["검색 실행"]
-    S1 --> G["Retrieval Grader<br/>(gpt-4o-mini)"]
-    G -->|"correct"| USE["바로 사용"]
-    G -->|"incorrect"| RW["Query Rewriter<br/>(gpt-4o-mini)"]
-    G -->|"ambiguous"| RW
-    RW --> S2["재검색 (최대 2회)"]
-    S2 --> G
-```
-
-**핵심 컴포넌트:**
-
-| 클래스 | 역할 | 모델 |
-|--------|------|------|
-| `RetrievalGrader` | 검색 결과 관련성 평가 (yes/no) | gpt-4o-mini (temperature=0, max_tokens=10) |
-| `QueryRewriter` | 검색 실패 시 쿼리 재작성 | gpt-4o-mini (temperature=0.3, max_tokens=100) |
-| `CRAGWorkflow` | 전체 워크플로우 오케스트레이션 | max_retries=2 |
-
-**RetrievalDecision:**
-- `CORRECT`: 관련성 높음 -> 바로 사용
-- `INCORRECT`: 관련성 없음 -> 쿼리 재작성 후 재검색
-- `AMBIGUOUS`: 애매함 -> 재검색 결과 병합
-
-### 6.8 대화 메모리
+### 6.7 대화 메모리
 
 | 설정 | 값 | 설명 |
 |------|-----|------|
@@ -1221,7 +1154,7 @@ CONVERSATION_MEMORY = {
 }
 ```
 
-### 6.9 LLM 호출 모듈 (`agent/llm.py`)
+### 6.8 LLM 호출 모듈 (`agent/llm.py`)
 
 LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하는 래퍼 모듈입니다.
 
@@ -1261,7 +1194,7 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 
 ## 7. RAG 시스템
 
-### 7.1 적용 기법 요약 (8종)
+### 7.1 적용 기법 요약 (7종)
 
 단일 RAG 기법만으로는 이커머스 도메인의 다양한 질문 유형(정책 조회, 개념 설명, 절차 안내 등)을 커버하기 어렵습니다. 키워드 매칭이 강한 BM25, 의미 검색이 강한 FAISS, 관계 추론이 강한 Knowledge Graph 등 각 기법의 강점을 조합하여 검색 품질을 극대화합니다.
 
@@ -1273,8 +1206,7 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 | 4 | **Contextual Retrieval** | 검색 정확도 +20~35% | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) | 인덱싱 시 | 미적용 |
 | 5 | **LightRAG** | 경량 지식그래프, 99% 토큰 절감 | [arXiv:2410.05779](https://arxiv.org/abs/2410.05779) | ~100ms | 시험용 |
 | 6 | **K2RAG** | KG + Hybrid + Corpus Summarization | [arXiv:2507.07695](https://arxiv.org/abs/2507.07695) | 가변 | 시험중 |
-| 7 | **CRAG** | 검색 품질 자동 교정 (Retrieval Grader + Query Rewriter) | [arXiv:2401.15884](https://arxiv.org/abs/2401.15884) | ~200ms (LLM) | 모듈 구현 완료 (미통합) |
-| 8 | **Cross-Encoder Reranking** | 정밀 재순위 정확도 향상 | - | ~80ms | 비활성 |
+| 7 | **Cross-Encoder Reranking** | 정밀 재순위 정확도 향상 | - | ~80ms | 비활성 |
 
 ### 7.1.1 모듈 아키텍처 (리팩토링)
 
@@ -1694,19 +1626,6 @@ flowchart LR
 - **실험명**: `cafe24-ops-ai` (단일 실험에 모든 모델 Run 집중)
 - **선택적 의존성**: MLflow 미설치 시 실험 추적을 건너뛰고 joblib 직렬화만 수행
 
-**`ml/mlflow_tracker.py` 주요 API:**
-
-| 함수/클래스 | 설명 |
-|------------|------|
-| `init_mlflow()` | MLflow 초기화 + 실험 생성/조회 + `MlflowClient` 반환 |
-| `start_run(run_name, tags)` | 새 실험 Run 시작 (model_type, domain 등 태그 기록) |
-| `log_params(params)` | 하이퍼파라미터 로깅 (n_estimators, max_depth 등) |
-| `log_metrics(metrics)` | 성능 메트릭 로깅 (accuracy, f1_score, r2_score 등) |
-| `log_model_sklearn(model, path, model_name)` | sklearn 모델 아티팩트 로깅 + 레지스트리 등록 |
-| `load_model_from_registry(name, version)` | 레지스트리에서 특정 버전 모델 로드 |
-| `get_latest_model_version(name)` | 등록된 모델의 최신 버전 번호 조회 |
-| `MLflowExperiment` | 컨텍스트 매니저 (`with` 구문으로 Run 자동 시작/종료) |
-
 **프론트엔드 연동 (실시간 모델 교체):**
 
 ```mermaid
@@ -1777,7 +1696,6 @@ noise ~ Uniform(-0.1, +0.1)
 **모델 사양:**
 - **알고리즘**: LightGBM Regressor (`n_estimators=100`, `max_depth=4`, `learning_rate=0.1`)
 - **검증**: 5-Fold Cross-Validation (R2 score)
-- **배치 예측**: `predict_batch(df)` 메서드로 전체 쇼핑몰 일괄 예측 지원
 
 ### 8.7 에이전트 도구 레지스트리 (31개 Tool)
 
@@ -2099,7 +2017,8 @@ sequenceDiagram
 {
   "message": "이탈 예측 분석해줘",
   "username": "admin",
-  "rag_mode": "auto"
+  "rag_mode": "auto",
+  "multi_agent": true
 }
 ```
 
@@ -2153,34 +2072,15 @@ event: done
 data: {"ok": true, "final": "...", "tool_calls": [...]}
 ```
 
-**이벤트 흐름 (서브에이전트 오케스트레이션 - 예: seller_diagnosis 5단계):**
-```
-event: agent_start
-data: {"agent": "sub_agent", "step": 1, "task": "셀러 상세 분석", "pipeline": "seller_diagnosis"}
-
-event: tool_end
-data: {"tool": "analyze_seller", "result": {...}}
-
-event: agent_end
-data: {"agent": "sub_agent", "step": 1, "status": "completed"}
-
-... (step 2~5: seller_segment → seller_risk → seller_optimize → seller_report)
-
-event: delta
-data: {"content": "..."}
-
-event: done
-data: {"full_response": "...", "tool_calls": [...]}
-```
-
 **구현 메커니즘:**
 - LangGraph `astream_events` (v2) 사용
+- `multi_agent: true` → 멀티에이전트 Supervisor(8개 전문 워커) 경로, 프론트엔드 기본값
 - 하이브리드 라우팅: `INTENT_AGENT_MAP` → 워커 직접 / Supervisor 경유 분기
 - `langgraph_checkpoint_ns` 파싱으로 외부 노드 식별 (워커 vs supervisor)
 - `worker_responded` 플래그로 supervisor 재요약 방지
 - 클라이언트 연결 단절 감지: `request.is_disconnected()`
 - RAG 모드에 따른 도구 필터링 (데이터 카테고리는 RAG 스킵)
-- 서브에이전트: `_detect_pipeline_type()` 키워드 + IntentCategory fallback, `sub_step_node` 제네릭 실행 (🚧 개발중)
+- SSE 이벤트 7종: `agent_start`, `agent_end`, `tool_start`, `tool_end`, `delta`, `done`, `error`
 
 ### MLflow
 
@@ -2417,7 +2317,7 @@ event: done  ->  { total: 2, channels: ["email"] }
 
 ### 11.5 n8n 워크플로우 설정
 
-1. `n8n/cs_reply_workflow.json`을 n8n Cloud에 Import
+1. `cs_reply_workflow.json`을 n8n Cloud에 Import
 2. "Resend 이메일 발송" 노드에 Header Auth credential 연결
    - Name: `Authorization`
    - Value: `Bearer {RESEND_API_KEY}`
@@ -2576,17 +2476,6 @@ flowchart LR
 | `append_memory(username, user_text, response)` | 메모리에 대화 추가 |
 | `clear_memory(username)` | 특정 유저 메모리 초기화 |
 | `memory_messages(username)` | 메모리 조회 (LangChain 메시지 형식) |
-
-### 13.4 parsers.py
-
-텍스트 파싱 유틸리티:
-
-| 함수 | 설명 |
-|------|------|
-| `extract_top_k_from_text(text)` | "상위 10개", "top 5" 등에서 k 추출 (최대 MAX_TOPN) |
-| `parse_date_range_from_text(text)` | "2024-01-01부터 2024-03-31까지" 날짜 범위 파싱 |
-| `extract_user_id(text)` | `U0001` 패턴 유저 ID 추출 |
-| `_norm_key(s)` | 문자열 정규화 (공백 제거, 소문자) |
 
 ---
 

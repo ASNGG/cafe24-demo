@@ -48,9 +48,9 @@ function Slider({ value, onChange, min, max, step, label, disabled, showValue = 
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-1">
-        <label className="text-sm text-cafe24-brown/70">{label}</label>
+        <label className="text-sm text-cafe24-brown/70 transition-colors duration-200">{label}</label>
         {showValue && (
-          <span className="text-sm font-mono text-cafe24-brown/80">{value.toFixed(step < 1 ? 2 : 0)}</span>
+          <span className="text-sm font-mono tabular-nums font-medium text-cafe24-brown/80">{value.toFixed(step < 1 ? 2 : 0)}</span>
         )}
       </div>
       <div className="relative h-2 bg-cafe24-cream rounded-full overflow-hidden">
@@ -77,14 +77,14 @@ function Slider({ value, onChange, min, max, step, label, disabled, showValue = 
 // 아코디언 항목 컴포넌트
 function AccordionItem({ label, itemKey, content, expanded, onToggle }) {
   return (
-    <div className="border border-cafe24-cream rounded-lg overflow-hidden">
+    <div className="border border-cafe24-cream rounded-xl overflow-hidden">
       <button
-        className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-cafe24-cream/30 transition-colors text-left"
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-cafe24-blue/5 rounded-xl cursor-pointer transition-colors text-left"
         onClick={() => onToggle(itemKey)}
       >
         <span className="text-sm text-cafe24-brown font-medium">{label}</span>
         <svg
-          className={`w-4 h-4 text-cafe24-brown/50 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-cafe24-brown/50 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -92,13 +92,21 @@ function AccordionItem({ label, itemKey, content, expanded, onToggle }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {expanded && (
-        <div className="px-3 pb-3 bg-gray-50 border-t border-cafe24-cream">
-          <pre className="text-xs text-cafe24-brown/80 whitespace-pre-wrap break-words font-sans leading-relaxed mt-2 max-h-80 overflow-y-auto">
-            {content || "(내용 없음)"}
-          </pre>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: expanded ? '1fr' : '0fr',
+          transition: 'grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        <div style={{ overflow: 'hidden' }}>
+          <div className="px-3 pb-3 bg-gradient-to-br from-gray-50 to-cafe24-cream/30 border-t border-cafe24-cream rounded-b-xl">
+            <pre className="text-xs text-cafe24-brown/80 whitespace-pre-wrap break-words font-sans leading-relaxed mt-2 max-h-80 overflow-y-auto">
+              {content || "(내용 없음)"}
+            </pre>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -240,7 +248,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
       </div>
 
       <div>
-        <div className="card">
+        <div className="card transition-all duration-300 hover:shadow-lg">
           <div className="card-header flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>모델 파라미터</span>
@@ -289,7 +297,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
                 {Object.entries(LLM_PRESETS).map(([key, preset]) => (
                   <button
                     key={key}
-                    className="p-2 rounded-lg border-2 border-cafe24-cream hover:border-cafe24-orange/50 bg-white hover:bg-cafe24-cream/30 transition-all text-left group"
+                    className="p-2 rounded-lg border-2 border-cafe24-cream hover:border-cafe24-orange/50 bg-white hover:bg-cafe24-cream/30 hover:scale-[1.03] hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] transition-all duration-200 text-left group"
                     onClick={() => {
                       setDraftLLM((d) => ({
                         ...d,
@@ -442,7 +450,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
             <div className="flex gap-2">
               <button
-                className={`flex-1 ${llmSaved ? 'btn-secondary' : 'btn-primary'}`}
+                className={`flex-1 ${llmSaved ? 'btn-secondary' : 'btn-primary'} transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm`}
                 onClick={saveLLMSettings}
                 disabled={llmSaved}
               >
@@ -460,7 +468,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
       {/* 멀티에이전트 프롬프트 섹션 */}
       <div className="mt-4">
-        <div className="card">
+        <div className="card transition-all duration-300 hover:shadow-lg">
           <div className="card-header flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>멀티에이전트 프롬프트</span>

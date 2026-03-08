@@ -30,6 +30,39 @@ module.exports = {
         'cafe24-sm': '0 4px 12px rgba(91, 155, 245, 0.15)',
         'soft': '0 2px 8px rgba(26, 26, 46, 0.05)',
         'soft-lg': '0 8px 24px rgba(26, 26, 46, 0.08)',
+        'lift': '0 12px 32px -8px rgba(91, 155, 245, 0.22), 0 4px 8px -2px rgba(0, 0, 0, 0.06)',
+        'lift-lg': '0 20px 40px -12px rgba(91, 155, 245, 0.28), 0 8px 16px -4px rgba(0, 0, 0, 0.08)',
+        'glow': '0 0 20px rgba(91, 155, 245, 0.15)',
+        'inner-glow': 'inset 0 1px 2px rgba(255, 255, 255, 0.6)',
+      },
+      keyframes: {
+        'slide-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'slide-down': {
+          '0%': { opacity: '0', transform: 'translateY(-12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+        'slide-down': 'slide-down 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+        'scale-in': 'scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+        'fade-in': 'fade-in 0.3s ease-out',
+        'shimmer': 'shimmer 2s infinite linear',
       },
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',

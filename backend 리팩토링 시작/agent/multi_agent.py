@@ -26,9 +26,11 @@ except ImportError:
 
 try:
     from langgraph_supervisor import create_supervisor
+    from langgraph_supervisor.handoff import create_forward_message_tool
     SUPERVISOR_AVAILABLE = True
 except ImportError:
     create_supervisor = None
+    create_forward_message_tool = None
     SUPERVISOR_AVAILABLE = False
 
 from agent.tools import (
@@ -222,11 +224,14 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                 tool_name = event.get("name", "")
                 tool_input = data.get("input", {})
 
-                if tool_name.startswith("transfer_to_"):
+                if tool_name == "forward_message":
+                    # forward_message는 내부 메커니즘 — UI에 표시하지 않음
+                    pass
+                elif tool_name.startswith("transfer_to_"):
                     # handoff → agent_start
                     agent_name = tool_name.replace("transfer_to_", "")
                     if agent_name in worker_names:
-                        # 이전 워커가 있으면 먼저 종료
+                        # 이전 워커가 있으면 먼저 종료 + 구분 줄바꿈 삽입
                         if current_agent and current_agent != agent_name:
                             elapsed_ms = int((time.time() - step_start_time) * 1000) if step_start_time else 0
                             await sse_callback("agent_end", {
@@ -234,6 +239,12 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                                 "elapsed_ms": elapsed_ms,
                                 "description": AGENT_DESCRIPTIONS.get(current_agent, current_agent),
                             })
+                        # 이전 워커가 이미 실행된 적 있으면 구분 줄바꿈 삽입
+                        # (current_agent이 supervisor 복귀 시 None으로 리셋되므로 agents_used_set으로 판단)
+                        if agents_used_set and agent_name not in agents_used_set:
+                            separator = "\n\n---\n\n"
+                            final_buf.append(separator)
+                            await sse_callback("delta", {"delta": separator})
                         current_agent = agent_name
                         step_start_time = time.time()
                         agents_used_set.add(agent_name)
@@ -260,8 +271,8 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
 
             elif kind == "on_tool_end":
                 end_tool_name = event.get("name") or current_tool or "unknown"
-                if end_tool_name.startswith("transfer_to_"):
-                    pass  # handoff 종료는 스킵
+                if end_tool_name in ("forward_message",) or end_tool_name.startswith("transfer_to_"):
+                    pass  # handoff / forward_message 종료는 스킵
                 else:
                     tool_output = data.get("output", {})
                     # ToolMessage content 추출
@@ -323,9 +334,9 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                     continue
                 content = getattr(chunk, "content", "")
                 if isinstance(content, str) and content:
-                    # 워커 응답은 스킵 — supervisor 최종 종합 응답만 스트리밍
-                    # (워커 진행 상황은 agent_start/end, tool_start/end로 표시)
-                    if outer_node and outer_node != "sub_supervisor":
+                    # 워커 응답만 스트리밍 — Supervisor 텍스트는 스킵 (중복 방지)
+                    # Supervisor는 라우팅 + forward_message만 담당
+                    if not outer_node or outer_node == "sub_supervisor":
                         continue
                     final_buf.append(content)
                     await sse_callback("delta", {"delta": content})
@@ -418,6 +429,11 @@ def build_multi_agent_supervisor(llm):
         )
         workers.append(agent)
 
+    # forward_message: 워커 응답을 Supervisor 재해석 없이 직접 전달 (공식 패턴)
+    supervisor_tools = []
+    if create_forward_message_tool:
+        supervisor_tools.append(create_forward_message_tool("sub_supervisor"))
+
     workflow = create_supervisor(
         agents=workers,
         model=llm,
@@ -425,6 +441,7 @@ def build_multi_agent_supervisor(llm):
         output_mode="full_history",
         supervisor_name="sub_supervisor",
         add_handoff_messages=True,
+        tools=supervisor_tools,
     )
 
     return workflow.compile()

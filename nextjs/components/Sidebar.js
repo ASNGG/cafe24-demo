@@ -146,7 +146,7 @@ function SidebarContent({
             <div key={cat} className="rounded-xl overflow-hidden">
               <button
                 onClick={() => toggleCat(cat)}
-                className={`w-full px-3 py-2.5 flex items-center justify-between bg-gradient-to-r ${style.card} border border-l-4 rounded-xl transition-all hover:shadow-sm`}
+                className={`w-full px-3 py-2.5 flex items-center justify-between bg-gradient-to-r ${style.card} border border-l-4 rounded-xl transition-all duration-200 hover:shadow-sm hover:translate-x-1 hover:bg-cafe24-blue/5`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-cafe24-brown">{cat}</span>
@@ -172,7 +172,7 @@ function SidebarContent({
                           key={idx}
                           variants={itemVariants}
                           onClick={() => clickExample(q)}
-                          className="w-full text-left px-3 py-2 rounded-lg text-sm text-cafe24-brown/80 hover:bg-cafe24-yellow/20 hover:text-cafe24-brown transition-colors border border-transparent hover:border-cafe24-orange/20"
+                          className="w-full text-left px-3 py-2 rounded-xl text-sm text-cafe24-brown/80 hover:bg-cafe24-yellow/20 hover:text-cafe24-brown hover:translate-x-1 transition-all duration-200 border border-transparent hover:border-cafe24-orange/20"
                         >
                           {q}
                         </motion.button>

@@ -1214,7 +1214,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <div class="hero-section">
 <h1 id="cafe24-ai-운영-플랫폼" class="hero-title">CAFE24 AI 운영 플랫폼</h1>
 <p id="이커머스-saas-플랫폼을-위한-llm--ml-하이브리드-ai-운영-시스템" class="hero-subtitle">이커머스 SaaS 플랫폼을 위한 LLM + ML 하이브리드 AI 운영 시스템</p>
-<p class="hero-desc"><strong>"이 셀러 이탈할까?"</strong> 한 마디면, 31개 AI 도구가 예측하고 원인까지 분석합니다</p>
+<p class="hero-desc"><strong>자연어 한 마디면, AI Agent가 분석하고 판단하고 실행합니다</strong></p>
 <div class="hero-divider"></div>
 <p class="badge-container"><a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python"></a> <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&amp;logo=next.js&amp;logoColor=white" alt="Next.js"></a> <a href="https://langchain.com"><img src="https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square" alt="LangChain"></a> <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square" alt="LangGraph"></a> <a href="https://openai.com"><img src="https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&amp;logo=openai&amp;logoColor=white" alt="OpenAI"></a> <a href="https://mlflow.org"><img src="https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&amp;logo=mlflow&amp;logoColor=white" alt="MLflow"></a> <a href="https://github.com/facebookresearch/faiss"><img src="https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square" alt="FAISS"></a> <a href="https://shap.readthedocs.io"><img src="https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square" alt="SHAP"></a></p>
 <div class="hero-links"><a href="https://cafe24-frontend.vercel.app/">웹앱 (Vercel)</a> &nbsp;·&nbsp; <a href="https://cafe24-backend-production.up.railway.app/docs">API 문서 (Swagger)</a> &nbsp;·&nbsp; <span class="hero-period">개발 기간: 2026.02.06 ~ 진행 중</span></div>
@@ -1252,7 +1252,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <div class="stat-card">
   <div class="stat-icon">⚡</div>
   <div class="stat-label">API 엔드포인트</div>
-  <div class="stat-value">106개</div>
+  <div class="stat-value">107개</div>
   <div class="stat-desc">REST + SSE 스트리밍</div>
 </div>
 <div class="stat-card">
@@ -1445,9 +1445,9 @@ sequenceDiagram
 <hr>
 <section class="portfolio-section">
 <h2 id="2-ai-에이전트">2. AI 에이전트</h2>
-<p class="section-summary">3개 일반 워커 + 8개 전문 워커로 구성된 2중 Supervisor 멀티에이전트 시스템. 명확한 질문은 키워드 매칭으로 즉시 처리하고, 모호한 질문만 LLM이 판단합니다.</p>
-<h3 id="하이브리드-라우팅">하이브리드 라우팅 (키워드 + Supervisor)</h3>
-<p>명확한 intent는 키워드 매칭으로 워커를 즉시 호출(~1~3초 절감)하고, 모호한 질문만 Supervisor LLM이 판단합니다.</p>
+<p class="section-summary">langgraph-supervisor 기반 Supervisor가 8종 전문 워커에게 위임하는 멀티에이전트 시스템. 키워드 분류로 단순 인사를 필터링하고, 나머지 모든 요청은 Supervisor LLM이 적절한 워커를 선택합니다.</p>
+<h3 id="2단계-라우터">2단계 라우터 (키워드 → LLM fallback)</h3>
+<p>키워드 분류(0ms)로 IntentCategory를 결정하고, 매칭 실패 시 LLM Router가 판단합니다. 단순 인사(GENERAL)는 직접 LLM 응답, 그 외 모든 요청은 Supervisor에게 전달됩니다.</p>
 <h3 id="intentcategory">IntentCategory (8개)</h3>
 <div class="table-wrapper"><table aria-label="카테고리">
 <thead>
@@ -1469,7 +1469,7 @@ sequenceDiagram
 <td><code>PLATFORM</code></td>
 <td>플랫폼, 정책, 정산, 가이드</td>
 <td style="text-align:center">3</td>
-<td><code>tool_choice="required"</code> (RAG 강제)</td>
+<td></td>
 </tr>
 <tr>
 <td><code>SHOP</code></td>
@@ -1509,24 +1509,21 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="supervisor-멀티에이전트">2중 Supervisor 멀티에이전트</h3>
+<h3 id="supervisor-멀티에이전트">Supervisor 멀티에이전트 (8종 워커)</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TB
     Q["사용자 질문"]
 
-    subgraph Routing["하이브리드 라우팅"]
-        KW["키워드 사전라우팅 · 0ms"]
-        SUP["Supervisor LLM · fallback"]
+    subgraph Router["2단계 라우터"]
+        KW["키워드 분류 · 0ms"]
+        LLM["LLM Router · fallback"]
     end
 
-    subgraph GeneralWorkers["일반 워커 (1차 Supervisor)"]
-        direction LR
-        S["search_agent&lt;br/&gt;쇼핑몰·카테고리 조회&lt;br/&gt;플랫폼 RAG 검색"]
-        A["analysis_agent&lt;br/&gt;셀러 분석·ML 예측&lt;br/&gt;KPI 분석"]
-        C["cs_agent&lt;br/&gt;CS 자동응답&lt;br/&gt;품질 평가"]
+    subgraph Supervisor["Supervisor · langgraph-supervisor"]
+        SUP["Supervisor LLM&lt;br/&gt;질의 분석 → 워커 위임&lt;br/&gt;forward_message 포워딩"]
     end
 
-    subgraph SpecialWorkers["전문 워커 (2차 Supervisor · 8종)"]
+    subgraph Workers["8종 전문 워커"]
         direction LR
         SW1["churn_analyst&lt;br/&gt;이탈 분석"]
         SW2["retention_strategist&lt;br/&gt;이탈 방지 전략"]
@@ -1538,16 +1535,14 @@ flowchart TB
         SW8["platform_searcher&lt;br/&gt;플랫폼 검색"]
     end
 
-    Q -->|"명확한 intent"| KW
-    Q -->|"모호한 질문"| SUP
-    KW -->|"워커 직접 호출 · ~1~3초 절감"| GeneralWorkers
-    KW -->|"전문 분석 요청"| SpecialWorkers
-    SUP -->|"LLM 판단"| GeneralWorkers
-    SUP -->|"LLM 판단"| SpecialWorkers
-    GeneralWorkers <-->|"Tool Calling"| Tools["31개 도구 함수"]
-    SpecialWorkers <-->|"Tool Calling"| Tools
-    GeneralWorkers -->|"직접 SSE 스트리밍&lt;br/&gt;재요약 없음"| E(["사용자 응답"])
-    SpecialWorkers -->|"직접 SSE 스트리밍&lt;br/&gt;재요약 없음"| E
+    Q --> Router
+    KW -->|"매칭 실패"| LLM
+    Router -->|"GENERAL"| Direct(["직접 LLM 응답"])
+    Router -->|"그 외 모든 요청"| SUP
+    SUP -->|"transfer_to_워커"| Workers
+    SUP -.->|"분석 결과 기반 판단&lt;br/&gt;LOW → 후속 워커 생략"| SUP
+    Workers <-->|"Tool Calling"| Tools["31개 도구 함수"]
+    Workers -->|"워커 응답만 SSE 스트리밍&lt;br/&gt;Supervisor 텍스트 스킵"| E(["사용자 응답"])
 </div></div>
 <h3 id="전문-워커-프롬프트-엔지니어링">전문 워커 프롬프트 엔지니어링</h3>
 <p>8개 전문 워커는 <code>_WORKER_COMMON_RULES</code> 공통 프롬프트와 워커별 특화 지침으로 응답 품질을 제어합니다.</p>
@@ -1574,6 +1569,21 @@ flowchart TB
 <td><strong>Supervisor 규칙</strong></td>
 <td>형식적 한 줄 응답 금지, 최소 3개 인사이트, 금액 포맷(만/억 단위)</td>
 <td>최종 응답의 비즈니스 가치 보장</td>
+</tr>
+<tr>
+<td><strong>분석 기반 판단</strong></td>
+<td>앞선 워커 결과를 보고 후속 워커 실행 여부 판단 (예: 이탈 위험 LOW → 리텐션 워커 생략)</td>
+<td>불필요한 워커 호출 방지, 논리적 일관성</td>
+</tr>
+<tr>
+<td><strong>복합 요청 강제</strong></td>
+<td>"~하고 ~해줘" 패턴 시 반드시 2개 이상 워커 순차 호출</td>
+<td>멀티에이전트 협업 보장</td>
+</tr>
+<tr>
+<td><strong>워커 간 결과 참조</strong></td>
+<td>full_history 모드 — 후속 워커가 이전 워커의 분석 결과·수치를 직접 인용</td>
+<td>워커 간 맥락 단절 방지</td>
 </tr>
 </tbody>
 </table></div>
@@ -2065,8 +2075,8 @@ flowchart TD
 </tr>
 <tr>
 <td style="text-align:center">2. 메시지</td>
-<td>SHAP 이탈 요인 + 셀러 프로필 기반 맞춤 메시지</td>
-<td>GPT-4o-mini (JSON 응답: message + recommended_actions + urgency)</td>
+<td>위험 등급 분기: LOW → LLM 스킵, "리텐션 불필요" 즉시 반환 · MEDIUM/HIGH → 셀러 데이터 기반 개인화 메시지 생성</td>
+<td>GPT-4o-mini (JSON 응답: message + recommended_actions + urgency + judgment)</td>
 </tr>
 <tr>
 <td style="text-align:center">3. 조치</td>
@@ -2533,7 +2543,7 @@ flowchart TD
 <tr>
 <td><strong>에이전트</strong></td>
 <td>LangChain + LangGraph + langgraph-supervisor</td>
-<td>Supervisor 멀티에이전트 · 3개 일반 워커 + 8개 전문 워커 (2중 Supervisor 구조) · 하이브리드 라우팅</td>
+<td>Supervisor 멀티에이전트 · 8종 전문 워커 · 2단계 라우터 (키워드 → LLM fallback)</td>
 </tr>
 <tr>
 <td><strong>벡터 검색</strong></td>

@@ -21,7 +21,7 @@
 | **Supervisor 통합** | AgentPanel → MultiAgentPanel 직접 렌더하는 19줄 래퍼로 변경, 모드 토글 제거. 모든 채팅이 Supervisor 멀티에이전트 경유 |
 | **인터랙티브 도구 탐색기** | `common/toolRegistry.js` (31개 도구 데이터) + `common/ToolExplorer.js` (아코디언 UI) 신규 추가, MultiAgentPanel 사이드바에 통합 |
 | **Dead Code 정리** | `useAgentStream.js` 삭제 (useMultiAgentStream만 사용), app.js에서 `agentMessages`/`totalQueries` state 제거, sub-agent 탭 제거 (13탭 → 12탭) |
-| **추천 칩 개선** | "전체 셀러" 대상 무거운 ML 분석 칩 제거 → 개별 셀러/쇼핑몰 대상 경량 질문 7개로 교체 |
+| **추천 칩 개선** | 단일 워커 칩 제거 → 멀티 워커 연계 질문 6개로 교체 (모든 칩이 2개 이상의 워커를 순차 호출) |
 
 ---
 
@@ -274,19 +274,18 @@ flowchart TB
 | 셀러 분석 | 12 | "우수 셀러 세그먼트 통계 알려줘" |
 | 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
 
-**추천 질문 chips** (MultiAgentPanel 하단, 7개 — `selectedShop` 동적 바인딩):
+**추천 질문 chips** (MultiAgentPanel 하단, 6개 — 멀티 워커 연계 질문):
 
-| # | 질문 | 유형 |
-|---|------|------|
-| 1 | `{shopId} 쇼핑몰 성과 분석하고 종합 리포트 만들어줘` | 쇼핑몰 파이프라인 |
-| 2 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | 리텐션 파이프라인 |
-| 3 | `SEL0001 셀러 종합 진단 리포트 작성해줘` | 셀러 진단 |
-| 4 | `SEL0001 이상거래 조사해줘` | 이상거래 파이프라인 |
-| 5 | `CS 품질 통계 조회해줘` | CS 품질 |
-| 6 | `카페24 반품 처리 절차 알려줘` | RAG 검색 |
-| 7 | `세그먼트별 셀러 통계 요약해줘` | 데이터 조회 |
+| # | 질문 | 워커 연계 |
+|---|------|-----------|
+| 1 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | churn_analyst → retention_strategist |
+| 2 | `SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘` | seller_analyst → churn_analyst |
+| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | fraud_investigator → cs_quality_analyst |
+| 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
+| 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
+| 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
 
-> 개별 셀러/쇼핑몰 대상 경량 질문 중심 — "전체 셀러" 대상 무거운 ML 분석 칩 제거
+> 모든 칩이 2개 이상의 워커를 순차적으로 호출하도록 설계 — 멀티에이전트 파이프라인 시연용
 
 **빠른 분석 버튼 (AgentPanel 하단):**
 
@@ -825,7 +824,7 @@ flowchart LR
 | **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 |
 | **StepResultCard** | 단계별 결과 접기/펼치기 -- 마크다운 렌더링 (`react-markdown` + `remark-gfm`) |
 | **채팅 UI** | messages 기반 대화 인터페이스 -- 마크다운 + KaTeX 수학 렌더링 |
-| **추천 칩** | 7개 추천 칩 -- 개별 셀러/쇼핑몰 대상 경량 질문 |
+| **추천 칩** | 6개 추천 칩 -- 멀티 워커 연계 질문 (모든 칩이 2+ 워커 순차 호출) |
 | **사이드바** | 도구 탐색기 (`ToolExplorer` 아코디언), 파이프라인 정보 요약, LLM 설정 요약 |
 
 **파이프라인 (6개):** 🚧
@@ -858,17 +857,16 @@ flowchart LR
 | `cs_sentiment` | CS 감성 분석 |
 | `cs_report` | CS 품질 리포트 |
 
-**추천 칩 (7개 -- 개별 셀러/쇼핑몰 대상):**
+**추천 칩 (6개 -- 멀티 워커 연계 질문):**
 
-| # | 추천 칩 | 유형 |
-|---|--------|------|
-| 1 | `{shopId} 쇼핑몰 성과 분석하고 종합 리포트 만들어줘` | 쇼핑몰 파이프라인 |
-| 2 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | 리텐션 파이프라인 |
-| 3 | `SEL0001 셀러 종합 진단 리포트 작성해줘` | 셀러 진단 |
-| 4 | `SEL0001 이상거래 조사해줘` | 이상거래 파이프라인 |
-| 5 | `CS 품질 통계 조회해줘` | CS 품질 |
-| 6 | `카페24 반품 처리 절차 알려줘` | RAG 검색 |
-| 7 | `세그먼트별 셀러 통계 요약해줘` | 데이터 조회 |
+| # | 추천 칩 | 워커 연계 |
+|---|--------|-----------|
+| 1 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | churn_analyst → retention_strategist |
+| 2 | `SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘` | seller_analyst → churn_analyst |
+| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | fraud_investigator → cs_quality_analyst |
+| 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
+| 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
+| 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
 
 **SSE 이벤트 스펙 (7종):**
 
@@ -1666,7 +1664,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 개별 셀러/쇼핑몰 대상으로 교체 |
+| 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 멀티 워커 연계 질문 6개로 교체(모든 칩 2+ 워커 순차 호출) |
 | 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |
 | 9.1.0 | 2026-03-05 | AgentPanel 추천 질문 경량화(10개→7개), Supervisor 멀티에이전트 연동(agent_start/agent_end에 워커 에이전트명 표시) |
 | 9.0.0 | 2026-03-04 | 프론트엔드 속도 최적화: useBaseStream SSE O(1) 인덱스 캐싱, AgentPanel/MultiAgentPanel prevLengthRef 메모리 최적화, next.config optimizePackageImports, GET API 인메모리 캐시(TTL 60s), Tailwind 미사용 색상 정리, 13개 패널 PanelLoader 스켈레톤 |

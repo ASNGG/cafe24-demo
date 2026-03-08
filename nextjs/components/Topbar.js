@@ -18,7 +18,7 @@ export default React.memo(function Topbar({ username, onOpenSidebar, onLogout })
                 <Menu size={18} />
               </button>
 
-              <div className="flex items-center gap-2 group cursor-pointer">
+              <div className="flex items-center gap-2 group cursor-pointer hover:opacity-80 transition-opacity duration-200">
                 <div className="h-9 w-9 rounded-2xl bg-white border border-cafe24-orange/20 shadow-sm flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-110">
                   <img src="https://img.echosting.cafe24.com/imgcafe24com/images/common/cafe24.svg" alt="CAFE24" className="w-6 h-6 object-contain" />
                 </div>
@@ -36,7 +36,7 @@ export default React.memo(function Topbar({ username, onOpenSidebar, onLogout })
             <button
               type="button"
               onClick={onLogout}
-              className="inline-flex items-center gap-2 rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 px-3 py-2 text-xs font-extrabold text-cafe24-brown shadow-sm hover:bg-cafe24-yellow/20 active:translate-y-[1px]"
+              className="inline-flex items-center gap-2 rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 px-3 py-2 text-xs font-extrabold text-cafe24-brown shadow-sm hover:bg-cafe24-yellow/20 hover:scale-105 active:translate-y-[1px] transition-all duration-200"
               data-tooltip="로그아웃"
             >
               <LogOut size={16} />

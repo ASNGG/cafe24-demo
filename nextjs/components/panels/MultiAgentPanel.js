@@ -40,11 +40,11 @@ const AgentBadgeBar = React.memo(function AgentBadgeBar({ agentHistory, activeAg
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.85 }}
                 transition={{ duration: 0.2 }}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold transition-all ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-bold transition-all duration-200 hover:scale-105 ${
                   isActive
                     ? 'bg-gradient-to-r from-cafe24-yellow to-cafe24-orange text-white shadow-md shadow-cafe24-orange/25 animate-pulse'
                     : isDone
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                     : 'bg-gray-100 text-gray-500 border border-gray-200'
                 }`}
               >
@@ -69,7 +69,7 @@ function StepResultCard({ stepNum, result, agentName }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 shadow-sm backdrop-blur">
+    <div className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 shadow-sm backdrop-blur hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
       <button
         type="button"
         className="w-full flex items-center justify-between p-3 text-left"
@@ -82,18 +82,28 @@ function StepResultCard({ stepNum, result, agentName }) {
           </span>
         </div>
         {open ? (
-          <ChevronUp size={14} className="text-cafe24-brown/50" />
+          <ChevronUp size={14} className="text-cafe24-brown/50 transition-transform duration-300" />
         ) : (
-          <ChevronDown size={14} className="text-cafe24-brown/50" />
+          <ChevronDown size={14} className="text-cafe24-brown/50 transition-transform duration-300" />
         )}
       </button>
-      {open && (
-        <div className="px-3 pb-3">
-          <div className="prose prose-sm max-w-none text-cafe24-brown text-xs">
-            <ReactMarkdown remarkPlugins={MULTI_REMARK_PLUGINS}>{result || ''}</ReactMarkdown>
-          </div>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3">
+              <div className="prose prose-sm max-w-none text-cafe24-brown text-xs">
+                <ReactMarkdown remarkPlugins={MULTI_REMARK_PLUGINS}>{result || ''}</ReactMarkdown>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -200,7 +210,7 @@ const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
 function Chip({ label, onClick, disabled }) {
   return (
     <button
-      className={`inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-extrabold transition whitespace-nowrap ${disabled ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : 'border-cafe24-orange/20 bg-white/80 text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-sm active:translate-y-[1px]'}`}
+      className={`inline-flex items-center gap-2 rounded-full border-2 px-3 py-1.5 text-xs font-extrabold transition-all duration-200 whitespace-nowrap ${disabled ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : 'border-cafe24-orange/20 bg-white/80 text-cafe24-brown hover:bg-cafe24-yellow/20 hover:border-cafe24-orange/40 hover:shadow-md hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]'}`}
       onClick={disabled ? undefined : onClick}
       data-tooltip={disabled ? '개발중 (비활성화)' : '클릭하면 질문이 바로 전송됩니다'}
       type="button"
@@ -278,13 +288,12 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
     () => {
       const shopId = selectedShop || 'S0001';
       return [
-        { label: `${shopId} 쇼핑몰 성과 분석하고 종합 리포트 만들어줘` },
         { label: 'SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘' },
-        { label: 'SEL0001 셀러 종합 진단 리포트 작성해줘' },
-        { label: 'SEL0001 이상거래 조사해줘' },
-        { label: 'CS 품질 통계 조회해줘' },
-        { label: '카페24 반품 처리 절차 알려줘' },
-        { label: '세그먼트별 셀러 통계 요약해줘' },
+        { label: 'SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘' },
+        { label: 'SEL0001 이상거래 조사하고 CS 품질 점검해줘' },
+        { label: 'CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘' },
+        { label: '고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘' },
+        { label: 'SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘' },
       ];
     },
     [selectedShop]
@@ -390,16 +399,16 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
                     <AgentTransitionMarker agent={transitionAgent} />
                   )}
                   <motion.div
-                    initial={isNew ? { opacity: 0, y: 6 } : false}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.18 }}
+                    initial={isNew ? { opacity: 0, x: isUser ? 20 : -20 } : false}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 300 }}
                     className={`group relative ${isUser ? 'flex justify-end mb-3' : 'flex justify-start mb-3'}`}
                   >
                     <div
                       className={
                         isUser
-                          ? 'chat-bubble chat-bubble-user w-full md:max-w-[78%]'
-                          : 'chat-bubble chat-bubble-ai w-full md:max-w-[78%]'
+                          ? 'chat-bubble chat-bubble-user w-full md:max-w-[78%] rounded-[20px] shadow-sm hover:shadow-md transition-shadow duration-200'
+                          : 'chat-bubble chat-bubble-ai w-full md:max-w-[78%] rounded-[20px] shadow-sm hover:shadow-md transition-shadow duration-200'
                       }
                     >
                       <div className="text-[11px] font-extrabold text-cafe24-brown/60 mb-2 flex items-center justify-between">
@@ -548,9 +557,9 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
           </div>
 
           {/* 입력 영역 */}
-          <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex flex-col md:flex-row gap-2 hover:shadow-md transition-shadow duration-300 rounded-xl p-1">
             <input
-              className="input"
+              className="input focus:shadow-lg focus:-translate-y-0.5 transition-all duration-200"
               placeholder="AI 에이전트에게 질문 입력 (Enter로 전송)"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -562,7 +571,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
             />
 
             <button
-              className={`${cafe24BtnInline} w-[140px]`}
+              className={`${cafe24BtnInline} w-[140px] hover:scale-105 active:scale-95 transition-transform duration-150`}
               onClick={() => handleSend()}
               disabled={!canSend}
               type="button"
@@ -572,7 +581,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
             </button>
 
             <button
-              className={`${cafe24BtnSecondaryInline} w-[140px]`}
+              className={`${cafe24BtnSecondaryInline} w-[140px] hover:scale-105 active:scale-95 transition-transform duration-150`}
               onClick={() => {
                 stopStream();
                 toast('중단됨');

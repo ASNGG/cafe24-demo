@@ -242,10 +242,28 @@ def generate_retention_message(seller_id: str, api_key: str = "") -> Dict:
     # 이탈 요인 분석
     churn_info = _analyze_single_seller(row)
 
-    # LLM 프롬프트 구성
+    # 위험 등급에 따라 분기
+    risk = churn_info["risk_level"]
+
+    # LOW 위험: LLM 호출 없이 즉시 "리텐션 불필요" 판단 반환
+    if risk == "LOW":
+        return {
+            "seller_id": seller_id,
+            "message": "",
+            "recommended_actions": [],
+            "urgency": "none",
+            "risk_level": "LOW",
+            "churn_probability": churn_info["churn_probability"],
+            "judgment": "리텐션 조치 불필요 — 이탈 위험이 LOW입니다. 현재 상태를 유지하면서 정기 모니터링만 권장합니다.",
+        }
+
+    # MEDIUM/HIGH: LLM으로 맞춤 리텐션 메시지 생성
     system_prompt = (
         "당신은 카페24 플랫폼의 셀러 리텐션 전문가입니다. "
         "이탈 위험이 있는 셀러에게 보낼 맞춤 메시지와 추천 조치를 생성하세요.\n"
+        "셀러의 구체적인 상황(매출 규모, 환불률, 접속 빈도 등)에 맞춰 개인화된 내용을 작성하세요.\n"
+        "일반적인 내용(플랜 업그레이드, 교차 판매 등)만 나열하지 말고, "
+        "이 셀러의 데이터에서 드러나는 구체적 문제점과 그에 대한 맞춤 해결책을 제시하세요.\n"
         "반드시 JSON 형식으로만 응답하세요:\n"
         '{"message": "셀러에게 보낼 메시지", '
         '"recommended_actions": ["조치1", "조치2", "조치3"], '
@@ -256,14 +274,14 @@ def generate_retention_message(seller_id: str, api_key: str = "") -> Dict:
         f"셀러 정보:\n"
         f"- 셀러 ID: {seller_id}\n"
         f"- 이탈 확률: {churn_info['churn_probability']}%\n"
-        f"- 위험 등급: {churn_info['risk_level']}\n"
+        f"- 위험 등급: {risk}\n"
         f"- 총 주문: {safe_int(row.get('total_orders', 0))}건\n"
         f"- 총 매출: {safe_int(row.get('total_revenue', 0)):,}원\n"
         f"- 마지막 접속: {safe_int(row.get('days_since_last_login', 0))}일 전\n"
         f"- 환불률: {safe_float(row.get('refund_rate', 0))}%\n"
         f"- 등록 상품: {safe_int(row.get('product_count', 0))}개\n"
         f"- CS 문의: {safe_int(row.get('cs_tickets', 0))}건\n"
-        f"- 주요 이탈 요인: {', '.join(f['factor'] for f in churn_info['top_factors'][:3])}\n\n"
+        f"- 주요 예측 영향 변수: {', '.join(f['factor'] for f in churn_info['top_factors'][:3])}\n\n"
         f"위 정보를 바탕으로 이 셀러의 이탈을 방지하기 위한 맞춤 메시지와 "
         f"구체적인 추천 조치(할인 쿠폰, 프리미엄 업그레이드, 전담 매니저 배정 등)를 생성하세요."
     )

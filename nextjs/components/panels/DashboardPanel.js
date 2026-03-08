@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import KpiCard from '@/components/KpiCard';
 import EmptyState from '@/components/EmptyState';
 import { SkeletonCard } from '@/components/Skeleton';
@@ -17,6 +18,19 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadialBarChart, RadialBar
 } from 'recharts';
+
+// 섹션 fade-in 애니메이션 래퍼
+const FadeInSection = ({ children, className = '', delay = 0 }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: '-50px' }}
+    transition={{ duration: 0.5, delay, ease: 'easeOut' }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
 
 // 파이 차트용 커스텀 툴팁
 const PieTooltip = ({ active, payload }) => {
@@ -275,7 +289,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
       {dashboard ? (
         <>
           {/* KPI 카드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <FadeInSection className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <KpiCard
               title="쇼핑몰"
               value={`${dashboard.shop_stats?.total || 0}개`}
@@ -304,10 +318,10 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
               icon={<BarChart3 size={18} className="text-cafe24-brown" />}
               tone="green"
             />
-          </div>
+          </FadeInSection>
 
           {/* 일별 GMV 추이 차트 */}
-          <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+          <FadeInSection delay={0.1} className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp size={18} className="text-cafe24-orange" />
               <span className="text-sm font-black text-cafe24-brown">일별 GMV 추이</span>
@@ -353,15 +367,15 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                 GMV 데이터 없음
               </div>
             )}
-          </div>
+          </FadeInSection>
 
           {/* 메인 차트 그리드 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <FadeInSection delay={0.15} className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* 셀러 세그먼트 분포 - 파이 차트 (클릭 가능) */}
-            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-sm font-black text-cafe24-brown">셀러 세그먼트 분포</span>
-                <span className="text-[10px] text-cafe24-brown/50 bg-cafe24-cream px-2 py-0.5 rounded-full">클릭하여 상세보기</span>
+                <span className="text-[10px] text-cafe24-brown/50 bg-cafe24-cream px-2 py-0.5 rounded-full hover:scale-105 transition-transform">클릭하여 상세보기</span>
               </div>
               {segmentData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -407,7 +421,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
             </div>
 
             {/* 운영 이벤트 통계 - 바 차트 */}
-            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="mb-4 text-sm font-black text-cafe24-brown">운영 이벤트 통계</div>
               {eventData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
@@ -447,11 +461,11 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                 </div>
               )}
             </div>
-          </div>
+          </FadeInSection>
 
           {/* 쇼핑몰 플랜별 분포 - Radial Bar Chart */}
           {tierData.length > 0 && (
-            <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <FadeInSection delay={0.1} className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="mb-4 text-sm font-black text-cafe24-brown">쇼핑몰 플랜별 분포</div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Radial 차트 */}
@@ -501,12 +515,12 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                   ))}
                 </div>
               </div>
-            </div>
+            </FadeInSection>
           )}
 
           {/* CS 문의 카테고리별 통계 */}
           {categoryData.length > 0 && (
-            <div className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <FadeInSection delay={0.1} className="mb-6 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-5 shadow-sm backdrop-blur transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="mb-4 text-sm font-black text-cafe24-brown">CS 문의 카테고리별 통계</div>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={categoryData} layout="vertical" margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
@@ -538,17 +552,17 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
+            </FadeInSection>
           )}
 
           {/* AI 인사이트 & 빠른 액션 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <FadeInSection delay={0.15} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* AI 인사이트 */}
-            <div className="rounded-3xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white p-5 shadow-sm">
+            <div className="rounded-3xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="flex items-center gap-2 mb-4">
                 <Brain size={18} className="text-purple-600" />
                 <span className="text-sm font-black text-purple-900">AI 인사이트</span>
-                <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-bold">
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-bold hover:scale-105 transition-transform">
                   LIVE
                 </span>
               </div>
@@ -581,11 +595,11 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
             </div>
 
             {/* 실시간 알림 */}
-            <div className="rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm">
+            <div className="rounded-3xl border-2 border-red-200 bg-gradient-to-br from-red-50 to-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
               <div className="flex items-center gap-2 mb-4">
                 <AlertTriangle size={18} className="text-red-600" />
                 <span className="text-sm font-black text-red-900">실시간 알림</span>
-                <span className="ml-auto px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                <span className="ml-auto px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold hover:scale-105 transition-transform">
                   {alerts.length || dashboard?.seller_stats?.anomaly_count || 0}
                 </span>
               </div>
@@ -615,19 +629,24 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                 )}
               </div>
             </div>
-          </div>
+          </FadeInSection>
         </>
       ) : (
         !loading && <EmptyState title="데이터가 없습니다" desc="백엔드 API 연결을 확인하세요." />
       )}
 
       {/* 세그먼트 드릴다운 모달 */}
+      <AnimatePresence>
       {drilldownSegment && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={closeDrilldown}
         >
-          <div
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="relative w-full max-w-md mx-4 rounded-3xl border-2 border-cafe24-orange/30 bg-white shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -697,7 +716,7 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                         {drilldownData.top_activities.map((activity, idx) => (
                           <span
                             key={idx}
-                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            className="px-3 py-1 rounded-full text-xs font-bold hover:scale-105 transition-transform cursor-default"
                             style={{ background: `${drilldownSegment.fill}20`, color: drilldownSegment.fill }}
                           >
                             {activity}
@@ -719,9 +738,10 @@ export default function DashboardPanel({ auth, selectedShop, apiCall }) {
                 닫기
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
+      </AnimatePresence>
     </div>
   );
 }

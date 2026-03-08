@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,16 @@ v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.3.2** (2026-03-08) — 멀티에이전트 프롬프트 전면 개편 + 데드코드 대규모 정리
+> **v9.3.3** (2026-03-09) — 멀티에이전트 프롬프트 판단 규칙 강화 + 리텐션 엔진 스마트 분기 + 도구 정밀도 개선
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **retention_engine.py** | `generate_retention_message()` LOW 위험 셀러는 LLM 호출 없이 "리텐션 조치 불필요" 즉시 반환, MEDIUM/HIGH만 LLM 메시지 생성. 시스템 프롬프트에 셀러 데이터 기반 개인화 지시 추가 |
+| **multi_agent_prompts.json** | Supervisor: "분석 결과 기반 판단" 규칙 (LOW→retention_strategist 위임 안 함), 복합 요청 시 2개 이상 워커 호출 강제. churn_analyst: "주요 예측 영향 변수" 용어 규칙 + feature importance ≠ 이탈 원인 해석 가이드. retention_strategist: 이전 워커 결과 참조 및 판단 규칙 (LOW→불필요, judgment 필드 존중). performance_analyst/report_writer: 플랫폼 전체 vs 개별 쇼핑몰 데이터 범위 구분 규칙 |
+| **tools.py 도구 정밀도** | `churn_probability` 정밀도 `round(...,1)` → `round(...,2)`. `get_cohort_analysis` 요청 월 없으면 에러 대신 전체 코호트 폴백 반환. `get_shop_performance` 총 주문 0건이면 `avg_order_value`도 0 보정. `get_trend_analysis` docstring에 "플랫폼 전체 데이터" 명시 |
+
+<details>
+<summary><b>v9.3.2</b> (2026-03-08) — 멀티에이전트 프롬프트 전면 개편 + 데드코드 대규모 정리</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -27,6 +36,8 @@ v9.3.2 | 개발 기간: 2026.02.06 ~ 진행 중
 | **데드코드 12파일 삭제** | crag.py, semantic_router.py, parsers.py, n8n/_writer.py, ml/helpers.py, ml/mlflow_tracker.py, 크롤러 2개, 테스트 스크립트 3개, CS 티켓 생성 스크립트 |
 | **미사용 함수 제거** | marketing_optimizer.py 2개, revenue_model.py 1개 (`__main__` 전용 함수) |
 | **RAG 기법 정정** | 8종 → 7종 (CRAG는 실제 연동되지 않아 제거) |
+
+</details>
 
 <details>
 <summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 8개 전문 워커 + SSE 프로토콜 확립</summary>
@@ -381,6 +392,7 @@ backend 리팩토링 시작/
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
 │   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 8개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
+│   ├── multi_agent_prompts.json     # 멀티에이전트 프롬프트 외부화 (Supervisor 판단 규칙 + 8개 워커 역할별 지침, 용어 규칙, 데이터 범위 구분)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
@@ -404,7 +416,7 @@ backend 리팩토링 시작/
 │
 ├── automation/                      # 자동화 엔진 (탐지→자동실행) + 파이프라인 추적
 │   ├── action_logger.py             # 조치 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적
-│   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→LLM→자동조치)
+│   ├── retention_engine.py          # 셀러 이탈 방지 (ML+SHAP→위험등급 분기: LOW→즉시반환 / MEDIUM·HIGH→LLM 개인화 메시지→자동조치)
 │   ├── upgrade_engine.py            # 셀러 플랜 업그레이드 추천 (규칙 기반 후보 탐지→LLM 메시지→액션 실행)
 │   ├── faq_engine.py                # CS FAQ 자동 생성 (TF-IDF+K-Means+PCA / LLM 듀얼 클러스터링 → FAQ 생성, 선택 클러스터 직접 전달 지원)
 │   └── report_engine.py             # 운영 리포트 자동 생성 (KPI→LLM)
@@ -885,11 +897,11 @@ flowchart LR
 | 14 | `get_fraud_statistics` | 이상거래 전체 통계 | Analyst |
 | 15 | `predict_seller_churn` | 개별 셀러 이탈 예측 + SHAP 해석 | Analyst |
 | 16 | `get_churn_prediction` | 이탈 예측 전체 (고/중/저위험 분포) | Analyst |
-| 17 | `get_cohort_analysis` | 코호트 리텐션 분석 (Week1~Week12) | Analyst |
-| 18 | `get_trend_analysis` | KPI 트렌드 분석 (활성셀러, ARPU, 변화율) | Analyst |
+| 17 | `get_cohort_analysis` | 코호트 리텐션 분석 (Week1~Week12, 요청 월 없으면 전체 코호트 폴백) | Analyst |
+| 18 | `get_trend_analysis` | **플랫폼 전체** KPI 트렌드 분석 (활성셀러, ARPU, 변화율) | Analyst |
 | 19 | `get_gmv_prediction` | GMV 예측 (ARPU/ARPPU, 티어별 분포) | Analyst |
 | 20 | `predict_shop_revenue` | 쇼핑몰 매출 예측 (LightGBM) | Analyst |
-| 21 | `get_shop_performance` | 쇼핑몰 성과 조회 (실제 + 예측) | Analyst |
+| 21 | `get_shop_performance` | 쇼핑몰 개별 성과 조회 (총 주문 0건→avg_order_value=0 보정) | Analyst |
 | 22 | `optimize_marketing` | P-PSO 마케팅 최적화 (최대 10개 추천) | Analyst |
 | 23 | `get_seller_activity_report` | 셀러 활동 리포트 (N일간) | Analyst |
 | 24 | `get_order_statistics` | 운영 이벤트 통계 (8종 이벤트 타입) | Analyst |
@@ -898,7 +910,7 @@ flowchart LR
 | 27 | `get_cs_statistics` | CS 통계 (카테고리별/채널별) | CS Agent |
 | 28 | `get_dashboard_summary` | 대시보드 요약 (쇼핑몰/셀러/CS/주문) | Coordinator |
 | 29 | `get_at_risk_sellers` | ML 이탈 예측 + SHAP 분석 (threshold, limit) | Retention |
-| 30 | `generate_retention_message` | LLM 맞춤 리텐션 메시지 생성 (셀러별) | Retention |
+| 30 | `generate_retention_message` | LLM 맞춤 리텐션 메시지 생성 (LOW→LLM 스킵, MEDIUM/HIGH→LLM 생성) | Retention |
 | 31 | `execute_retention_action` | 리텐션 조치 실행 (coupon/upgrade_offer/manager_assign/custom_message) | Retention |
 
 ### 6.6 멀티 에이전트 시스템 (Supervisor 패턴)
@@ -974,16 +986,18 @@ flowchart TD
 
 | 워커 | 특화 지침 |
 |------|-----------|
-| **churn_analyst** | SHAP 원인 순위 표, 이탈 확률 높은 셀러의 공통 패턴, 리텐션 우선순위 추천 |
-| **retention_strategist** | 셀러 상황별 맞춤 전략, 조치 유형별 예상 효과, 긴급도별(즉시/단기/중기) 분류 |
+| **churn_analyst** | "주요 예측 영향 변수" 용어 규칙 (feature importance ≠ 이탈 원인), SHAP 영향 변수 순위 표, 이탈 확률 높은 셀러의 공통 패턴, 리텐션 우선순위 추천 |
+| **retention_strategist** | 이전 워커 결과 참조 필수 (수치/등급 인용), LOW 위험 → 리텐션 불필요 판단, judgment 필드 존중, 셀러 상황별 맞춤 전략, 조치 유형별 예상 효과, 긴급도별(즉시/단기/중기) 분류 |
 | **seller_analyst** | 세그먼트 간 비교 표(매출/주문/환불률), 세그먼트별 관리 전략, 강점/약점/기회/위협 |
-| **performance_analyst** | 기간별 추세(전월/전년 대비), 코호트 리텐션 이탈 급감 구간, ROI/CPA/ROAS 비교 |
+| **performance_analyst** | 플랫폼 전체 vs 개별 쇼핑몰 데이터 범위 구분 (`get_trend_analysis`=전체, `get_shop_performance`=개별), 코호트 월 미지정 시 전체 조회 후 선택, 기간별 추세(전월/전년 대비), ROI/CPA/ROAS 비교 |
 | **fraud_investigator** | 이상 유형 분류(환불 사기/가짜 주문/비정상 패턴), 위험 점수 분포, 대응 방안(차단/모니터링/경고) |
 | **cs_quality_analyst** | 카테고리별 비교 표(티켓 수/만족도/해결 시간), 병목 카테고리 지적, 개선 우선순위 액션 |
-| **report_writer** | 경영진 의사결정 수준 보고서, KPI 요약 표 선행, 변화량+변화율(%) 표기 |
+| **report_writer** | 플랫폼 전체 vs 개별 쇼핑몰 데이터 구분 (혼동 금지), 경영진 의사결정 수준 보고서, KPI 요약 표 선행, 변화량+변화율(%) 표기 |
 | **platform_searcher** | RAG 결과 꼼꼼히 읽기, 할루시네이션 금지, 항목 수 세기, 도구 호출 필수 |
 
 **Supervisor 프롬프트 (`MULTI_AGENT_SUPERVISOR_PROMPT`) 강화:**
+- 분석 결과 기반 판단: 앞선 워커(예: churn_analyst)의 분석 결과에 따라 후속 워커 실행 여부를 판단 (LOW 위험 → retention_strategist 위임 안 함, 맹목적 순차 실행 금지)
+- 복합 요청 강제: "~하고 ~해줘" 패턴 시 반드시 2개 이상 서로 다른 워커에게 순차 위임
 - 대화 맥락 유지: 이전 대화에서 언급된 쇼핑몰/셀러를 후속 질문에서도 유지
 - 형식적 응답 금지: "확인했습니다" 같은 한 줄 응답 절대 금지
 - 최소 3개 이상 인사이트 제공, 워커 반환 데이터 상세 정리
@@ -1681,7 +1695,7 @@ noise ~ Uniform(-0.1, +0.1)
 | **쇼핑몰** | `get_shop_info` | - | 쇼핑몰 정보 + 성과 KPI 조인 조회 |
 | | `list_shops` | - | 카테고리/플랜/지역 필터링 목록 |
 | | `get_shop_services` | - | 쇼핑몰별 이용 서비스 조회 |
-| | `get_shop_performance` | - | 쇼핑몰 성과 KPI 상세 |
+| | `get_shop_performance` | - | 쇼핑몰 성과 KPI 상세 (총 주문 0건이면 avg_order_value=0 보정) |
 | **카테고리** | `get_category_info` | - | 상품 카테고리 정보 (ID/이름 검색) |
 | | `list_categories` | - | 전체 카테고리 목록 |
 | **CS** | `auto_reply_cs` | - | CS 자동 응답 초안 생성 (LLM 연계) |
@@ -1701,16 +1715,16 @@ noise ~ Uniform(-0.1, +0.1)
 | **대시보드** | `get_dashboard_summary` | - | 플랫폼 전체 운영 현황 종합 |
 | **예측 분석** | `get_churn_prediction` | RandomForest+SHAP | 이탈 위험 셀러 목록 + SHAP 요인 분석 |
 | | `get_gmv_prediction` | - | 월간 GMV 예측 + 플랜별 매출 분포 |
-| | `get_cohort_analysis` | - | 코호트 리텐션 분석 (와이드 포맷) |
-| | `get_trend_analysis` | - | KPI 트렌드 + 상관관계 분석 |
-| **ML 예측** | `predict_seller_churn` | RandomForest+SHAP | 개별 셀러 이탈 확률 + SHAP 해석 |
+| | `get_cohort_analysis` | - | 코호트 리텐션 분석 (와이드 포맷, 요청 월 없으면 전체 코호트 폴백 반환) |
+| | `get_trend_analysis` | - | **플랫폼 전체** KPI 트렌드 + 상관관계 분석 |
+| **ML 예측** | `predict_seller_churn` | RandomForest+SHAP | 개별 셀러 이탈 확률 (소수점 2자리 정밀도) + SHAP 해석 |
 | | `predict_shop_revenue` | LightGBM | 쇼핑몰 다음달 매출 예측 + 성과 분석 |
 | | `optimize_marketing` | P-PSO | 마케팅 예산 최적 배분 (6채널) |
 | **리텐션** | `get_at_risk_sellers` | RandomForest+SHAP | ML 이탈 예측 + SHAP 분석 (threshold/limit) |
-| | `generate_retention_message` | LLM | 셀러별 맞춤 리텐션 메시지 생성 |
+| | `generate_retention_message` | LLM | 셀러별 맞춤 리텐션 메시지 생성 (LOW 위험은 LLM 스킵, 즉시 "불필요" 판단 반환) |
 | | `execute_retention_action` | - | 리텐션 조치 실행 (coupon/upgrade_offer/manager_assign/custom_message) |
 
-**Heuristic Fallback 패턴**: `predict_seller_churn`은 ML 모델 미로드 시 규칙 기반 스코어링(접속 경과일, 주문수, 매출, 환불률, CS 건수 가중합)으로 대체 작동합니다.
+**Heuristic Fallback 패턴**: `predict_seller_churn`은 ML 모델 미로드 시 규칙 기반 스코어링(접속 경과일, 주문수, 매출, 환불률, CS 건수 가중합)으로 대체 작동합니다. `churn_probability`는 소수점 2자리(`round(...,2)`)로 반환됩니다.
 
 ---
 
@@ -2755,7 +2769,7 @@ flowchart LR
 | 모듈 | 역할 | 주요 함수 |
 |------|------|----------|
 | `action_logger.py` | 모든 자동 조치의 로깅 + FAQ/리포트/리텐션 저장소 + 파이프라인 추적 | `log_action()`, `save_faq()`, `save_report()`, `save_retention_action()`, `create_pipeline_run()`, `update_pipeline_step()`, `get_pipeline_run()` |
-| `retention_engine.py` | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
+| `retention_engine.py` | ML 이탈 예측 → 위험 등급 분기 (LOW: LLM 스킵 즉시 반환 / MEDIUM·HIGH: LLM 맞춤 메시지 생성) → 자동 조치. 시스템 프롬프트에 셀러 데이터 기반 개인화 지시 포함 | `get_at_risk_sellers()`, `generate_retention_message()`, `execute_retention_action()` |
 | `upgrade_engine.py` | 규칙 기반 후보 탐지 → LLM 추천 메시지 → 업그레이드 실행 | `get_upgrade_candidates()`, `generate_upgrade_message()`, `execute_upgrade()` |
 | `faq_engine.py` | TF-IDF+K-Means+PCA 2D / LLM 듀얼 클러스터링 → FAQ 생성 → 승인 관리. LLM 모드 전체 분석 시 건수 상위 6개 중 3개 카테고리 랜덤 선택 (속도 최적화) | `analyze_cs_patterns(mode='kmeans'/'llm')`, `generate_faq_items(selected_clusters=...)`, `approve_faq()`, `list_faqs()` |
 | `report_engine.py` | KPI 집계 → LLM 마크다운 리포트 | `collect_report_data()`, `generate_report()`, `get_history()` |
@@ -2822,6 +2836,6 @@ Basic → Standard → Premium → Enterprise
 
 <div align="center">
 
-**Version 9.2.0** | 2026-03-06
+**Version 9.3.3** | 2026-03-09
 
 </div>

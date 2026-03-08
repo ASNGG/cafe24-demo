@@ -1092,10 +1092,13 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
             m = re.search(r'(\d{4}-\d{2})', filter_month)
             if m:
                 filter_month = m.group(1)
-            df = df[df['cohort_month'].astype(str).str.contains(filter_month, case=False, na=False)]
-            if len(df) == 0:
+            filtered = df[df['cohort_month'].astype(str).str.contains(filter_month, case=False, na=False)]
+            if len(filtered) == 0:
+                # 요청한 월이 없으면 전체 코호트 반환 (폴백)
                 available = st.COHORT_RETENTION_DF['cohort_month'].tolist()
-                return {"status": "error", "message": f"'{filter_month}' 코호트를 찾을 수 없습니다. 사용 가능: {available}"}
+                st.logger.warning("코호트 '%s' 없음 → 전체 반환. 사용 가능: %s", filter_month, available)
+            else:
+                df = filtered
 
         # 와이드 포맷(week1,week2,week4,...) 컬럼 감지
         week_cols = [c for c in df.columns if c.startswith("week")]
@@ -1593,7 +1596,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         return {
             "status": "success",
             "seller_id": seller_id,
-            "churn_probability": round(churn_score * 100, 1),
+            "churn_probability": round(churn_score * 100, 2),
             "risk_level": risk_level,
             "model_used": "heuristic",
             "top_factors": [
@@ -1654,7 +1657,7 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         return {
             "status": "success",
             "seller_id": seller_id,
-            "churn_probability": round(churn_prob * 100, 1),
+            "churn_probability": round(churn_prob * 100, 2),
             "risk_level": risk_level,
             "will_churn": bool(churn_pred),
             "model_used": "random_forest",
@@ -1837,6 +1840,9 @@ def tool_get_shop_performance(shop_id: str) -> dict:
         else:
             return f"₩{val:,}"
 
+    total_orders = safe_int(row.get("total_orders"))
+    avg_order_value = safe_int(row.get("avg_order_value")) if total_orders > 0 else 0
+
     return {
         "status": "success",
         "shop_id": safe_str(row.get("shop_id")),
@@ -1846,9 +1852,9 @@ def tool_get_shop_performance(shop_id: str) -> dict:
         "performance": {
             "total_revenue": format_revenue(total_revenue),
             "total_revenue_raw": total_revenue,
-            "total_orders": safe_int(row.get("total_orders")),
+            "total_orders": total_orders,
             "unique_customers": safe_int(row.get("unique_customers")),
-            "avg_order_value": safe_int(row.get("avg_order_value")),
+            "avg_order_value": avg_order_value,
             "revenue_growth": safe_float(row.get("revenue_growth")),
             "conversion_rate": safe_float(row.get("conversion_rate")),
             "review_score": safe_float(row.get("review_score")),
@@ -2436,7 +2442,7 @@ def get_cohort_analysis(month: str = None) -> dict:
 @tool
 def get_trend_analysis(start_date: str = None, end_date: str = None, days: int = None) -> dict:
     """
-    트렌드 KPI 분석을 조회합니다.
+    **플랫폼 전체** 트렌드 KPI 분석을 조회합니다. (특정 쇼핑몰이 아닌 카페24 플랫폼 전체 데이터)
     주요 지표(활성 셀러 수, ARPU, 신규 가입, 주문 수 등)의 변화율과 상관관계를 반환합니다.
 
     Args:

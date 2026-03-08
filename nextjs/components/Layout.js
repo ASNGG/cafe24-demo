@@ -53,7 +53,7 @@ export default function Layout({
           </div>
 
           <main className="col-span-12 xl:col-span-9">
-            <div className="rounded-[32px] border-2 border-cafe24-orange/10 bg-white/80 p-4 shadow-xl backdrop-blur-sm md:p-5">
+            <div className="rounded-[32px] border-2 border-cafe24-orange/10 bg-white/80 p-4 shadow-lift-lg backdrop-blur-sm md:p-5 animate-fade-in">
               {children}
             </div>
           </main>

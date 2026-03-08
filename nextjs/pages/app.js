@@ -363,7 +363,7 @@ export default function AppPage() {
       onExampleQuestion={onExampleQuestion}
       onLogout={onLogout}
     >
-      <div className="mb-4">
+      <div className="mb-4 animate-slide-up">
         <div className="flex items-center gap-3">
           <span className="text-3xl font-black text-cafe24-yellow">C24</span>
           <div>
@@ -390,6 +390,7 @@ export default function AppPage() {
 
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
+      <div key={activeTab} className="animate-fade-in">
       {activeTab === 'agent' ? (
           <AgentPanel
             auth={auth}
@@ -433,6 +434,7 @@ export default function AppPage() {
       {activeTab === 'automation' ? (
         <AutomationPanel auth={auth} apiCall={apiCall} />
       ) : null}
+      </div>
     </Layout>
   );
 }

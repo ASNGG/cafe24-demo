@@ -1,4 +1,5 @@
 import React, { useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/cn';
 
 export default React.memo(function Tabs({ tabs = [], active, onChange }) {
@@ -35,7 +36,7 @@ export default React.memo(function Tabs({ tabs = [], active, onChange }) {
         ref={tabListRef}
         role="tablist"
         aria-label="탭 목록"
-        className="flex flex-wrap gap-2 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-2 shadow-sm backdrop-blur"
+        className="flex flex-wrap gap-2 rounded-3xl border-2 border-cafe24-orange/20 bg-white/80 p-2 shadow-md backdrop-blur"
       >
         {tabs.map((t) => {
           const isActive = t.key === active;
@@ -49,13 +50,20 @@ export default React.memo(function Tabs({ tabs = [], active, onChange }) {
               onClick={() => onChange(t.key)}
               onKeyDown={handleKeyDown}
               className={cn(
-                'rounded-2xl px-4 py-2 text-sm font-black transition active:translate-y-[1px]',
+                'relative rounded-2xl px-4 py-2 text-sm font-black transition-all duration-200 active:scale-[0.97] hover:scale-[1.03] hover:-translate-y-0.5',
                 isActive
-                  ? 'bg-gradient-to-br from-cafe24-yellow via-cafe24-orange to-cafe24-yellow text-cafe24-brown shadow-cafe24-sm'
+                  ? 'text-cafe24-brown shadow-cafe24-sm'
                   : 'bg-white/70 text-cafe24-brown/60 hover:bg-cafe24-yellow/20'
               )}
             >
-              {t.label}
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cafe24-yellow via-cafe24-orange to-cafe24-yellow shadow-cafe24-sm"
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                />
+              )}
+              <span className="relative z-10">{t.label}</span>
             </button>
           );
         })}

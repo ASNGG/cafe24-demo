@@ -22,7 +22,8 @@ export default React.memo(function KpiCard({
   return (
     <div
       className={cn(
-        'rounded-3xl border-2 bg-gradient-to-br p-4 shadow-[0_10px_30px_-18px_rgba(110,76,30,0.25)] backdrop-blur',
+        'group rounded-3xl border-2 bg-gradient-to-br p-4 shadow-[0_10px_30px_-18px_rgba(110,76,30,0.25)] backdrop-blur',
+        'transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:-translate-y-1',
         toneMap[tone] || toneMap.yellow,
         className
       )}
@@ -30,12 +31,12 @@ export default React.memo(function KpiCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-extrabold tracking-wide text-cafe24-brown/70">{title}</div>
-          <div className="mt-1 text-2xl font-black text-cafe24-brown">{value}</div>
+          <div className="mt-1 text-2xl font-black tabular-nums text-cafe24-brown">{value}</div>
           {subtitle ? <div className="mt-1 text-xs font-semibold text-cafe24-brown/60">{subtitle}</div> : null}
         </div>
 
         {icon ? (
-          <div className="shrink-0 rounded-2xl border-2 border-cafe24-orange/20 bg-white/70 p-2 shadow-sm">
+          <div className="shrink-0 rounded-2xl border-2 border-cafe24-orange/20 bg-white/70 p-2 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
             {icon}
           </div>
         ) : null}

@@ -256,3 +256,14 @@ def get_available_tools(user: dict = Depends(verify_credentials)):
             "description": t.description or "",
         })
     return {"status": "success", "tools": tools}
+
+
+# ============================================================
+# 멀티에이전트 프롬프트 조회
+# ============================================================
+@router.get("/settings/multi-agent-prompts")
+def get_multi_agent_prompts(user: dict = Depends(verify_credentials)):
+    """멀티에이전트 프롬프트 조회 (읽기 전용)"""
+    from agent.multi_agent import _load_prompts
+    prompts = _load_prompts()
+    return {"status": "success", "data": prompts}

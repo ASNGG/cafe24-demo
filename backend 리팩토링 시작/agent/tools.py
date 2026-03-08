@@ -2517,49 +2517,8 @@ def execute_retention_action(seller_id: str, action_type: str, api_key: str = ""
 
 
 # ============================================================
-# 에이전트별 도구 분류 (Multi-Agent용)
+# 에이전트별 도구 분류
 # ============================================================
-
-# 검색 에이전트 도구: 플랫폼 정보 검색 (쇼핑몰, 카테고리, RAG)
-SEARCH_AGENT_TOOLS = [
-    get_shop_info,
-    list_shops,
-    get_shop_services,
-    get_category_info,
-    list_categories,
-    search_platform,
-    search_platform_lightrag,
-]
-
-# 분석 에이전트 도구: 셀러 분석, ML 예측, 통계
-ANALYSIS_AGENT_TOOLS = [
-    analyze_seller,
-    get_seller_segment,
-    detect_fraud,
-    predict_seller_churn,
-    predict_shop_revenue,
-    get_shop_performance,
-    optimize_marketing,
-    get_churn_prediction,
-    get_cohort_analysis,
-    get_trend_analysis,
-    get_gmv_prediction,
-    get_dashboard_summary,
-    get_segment_statistics,
-    get_fraud_statistics,
-    get_order_statistics,
-    get_seller_activity_report,
-]
-
-# CS 에이전트 도구: CS 응답, 품질 평가, 문의 분류
-CS_AGENT_TOOLS = [
-    auto_reply_cs,
-    check_cs_quality,
-    get_ecommerce_glossary,
-    get_cs_statistics,
-    classify_inquiry,
-]
-TRANSLATION_AGENT_TOOLS = CS_AGENT_TOOLS  # multi_agent.py 호환 alias
 
 # 리텐션 에이전트 도구: 이탈 방지, 맞춤 메시지, 자동 조치
 RETENTION_AGENT_TOOLS = [

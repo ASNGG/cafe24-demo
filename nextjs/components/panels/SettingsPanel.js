@@ -74,6 +74,35 @@ function Slider({ value, onChange, min, max, step, label, disabled, showValue = 
   );
 }
 
+// 아코디언 항목 컴포넌트
+function AccordionItem({ label, itemKey, content, expanded, onToggle }) {
+  return (
+    <div className="border border-cafe24-cream rounded-lg overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-white hover:bg-cafe24-cream/30 transition-colors text-left"
+        onClick={() => onToggle(itemKey)}
+      >
+        <span className="text-sm text-cafe24-brown font-medium">{label}</span>
+        <svg
+          className={`w-4 h-4 text-cafe24-brown/50 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 bg-gray-50 border-t border-cafe24-cream">
+          <pre className="text-xs text-cafe24-brown/80 whitespace-pre-wrap break-words font-sans leading-relaxed mt-2 max-h-80 overflow-y-auto">
+            {content || "(내용 없음)"}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPanel({ settings, setSettings, addLog, apiCall, auth }) {
   // ✅ GPT-4 계열 중심 + 필요시 확장
   const models = useMemo(
@@ -87,9 +116,10 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
     []
   );
 
-  // 프롬프트 관련 상태
-  const [loadingDefault, setLoadingDefault] = useState(false);
-  const [draftPrompt, setDraftPrompt] = useState(settings?.systemPrompt || "");
+  // 멀티에이전트 프롬프트 상태
+  const [multiAgentPrompts, setMultiAgentPrompts] = useState(null);
+  const [loadingMAPrompts, setLoadingMAPrompts] = useState(false);
+  const [expandedWorkers, setExpandedWorkers] = useState(new Set());
 
 
 
@@ -119,37 +149,38 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   const isMiniModel = selectedModel.toLowerCase().includes("mini");
   const maxTokensLimit = 16000;
 
-  // settings.systemPrompt가 외부에서 변경되면 draftPrompt 동기화
-  useEffect(() => {
-    setDraftPrompt(settings?.systemPrompt || "");
-  }, [settings?.systemPrompt]);
-
-  // 백엔드에서 시스템 프롬프트 로드
-  const loadPromptFromBackend = useCallback(async () => {
+  // 멀티에이전트 프롬프트 로드
+  const loadMultiAgentPrompts = useCallback(async () => {
     if (typeof apiCall !== "function") return;
-
-    setLoadingDefault(true);
+    setLoadingMAPrompts(true);
     try {
       const res = await apiCall({
-        endpoint: "/api/settings/prompt",
+        endpoint: "/api/settings/multi-agent-prompts",
         method: "GET",
         auth,
         timeoutMs: 30000,
       });
-
       const data = res?.data || res || {};
-      const prompt = String(data?.systemPrompt || data?.system_prompt || "").trim();
-
-      if (prompt.length > 0) {
-        setSettings((s) => ({ ...s, systemPrompt: prompt }));
-        setDraftPrompt(prompt);
-      }
+      setMultiAgentPrompts(data);
     } catch (e) {
-      console.error("프롬프트 로드 실패:", e);
+      console.error("멀티에이전트 프롬프트 로드 실패:", e);
     } finally {
-      setLoadingDefault(false);
+      setLoadingMAPrompts(false);
     }
-  }, [apiCall, auth, setSettings]);
+  }, [apiCall, auth]);
+
+  // 아코디언 토글 (여러 개 동시 열기 지원)
+  const toggleWorker = useCallback((key) => {
+    setExpandedWorkers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
 
   // M49: 빈 의존성 useEffect 2개 통합 → 단일 초기화
   useEffect(() => {
@@ -168,7 +199,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
       apiKey: settings?.apiKey ?? "",
     });
     setLlmSaved(true);
-    loadPromptFromBackend();
+    loadMultiAgentPrompts();
   }, []);
 
   // LLM 설정 변경 감지 - draft에만 저장 (저장 버튼 누르기 전)
@@ -208,7 +239,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
         <span className="badge">Admin</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
         <div className="card">
           <div className="card-header flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -425,25 +456,97 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
           </div>
         </div>
 
+      </div>
+
+      {/* 멀티에이전트 프롬프트 섹션 */}
+      <div className="mt-4">
         <div className="card">
           <div className="card-header flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span>시스템 프롬프트</span>
+              <span>멀티에이전트 프롬프트</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">백엔드 관리</span>
-              {loadingDefault && (
+              {loadingMAPrompts && (
                 <span className="text-xs text-cafe24-orange">로딩 중...</span>
               )}
             </div>
+            <button
+              className="btn-secondary text-xs px-3 py-1"
+              onClick={loadMultiAgentPrompts}
+              disabled={loadingMAPrompts}
+            >
+              새로고침
+            </button>
           </div>
-          <textarea
-            className="input cursor-not-allowed opacity-80"
-            style={{ height: 280 }}
-            value={draftPrompt}
-            placeholder="백엔드에서 시스템 프롬프트를 로드합니다..."
-            disabled
-          />
-          <p className="text-xs text-cafe24-brown/50 mt-2">
-            * 시스템 프롬프트는 백엔드에서 중앙 관리됩니다. 읽기 전용으로 표시됩니다.
+
+          {loadingMAPrompts && !multiAgentPrompts ? (
+            <div className="py-8 text-center text-cafe24-brown/50 text-sm">
+              프롬프트를 불러오는 중...
+            </div>
+          ) : !multiAgentPrompts ? (
+            <div className="py-8 text-center text-cafe24-brown/50 text-sm">
+              프롬프트 데이터를 불러올 수 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* 공통 응답 규칙 */}
+              {multiAgentPrompts.common_rules && (
+                <div>
+                  <h4 className="text-sm font-semibold text-cafe24-brown mb-2">공통 응답 규칙</h4>
+                  <AccordionItem
+                    label="공통 응답 규칙 (common_rules)"
+                    itemKey="common_rules"
+                    content={multiAgentPrompts.common_rules}
+                    expanded={expandedWorkers.has("common_rules")}
+                    onToggle={toggleWorker}
+                  />
+                </div>
+              )}
+
+              {/* Supervisor 프롬프트 */}
+              {multiAgentPrompts.supervisors && Object.keys(multiAgentPrompts.supervisors).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-cafe24-brown mb-2">Supervisor 프롬프트</h4>
+                  <div className="space-y-1">
+                    {Object.entries(multiAgentPrompts.supervisors).map(([key, prompt]) => (
+                      <AccordionItem
+                        key={key}
+                        label={key === "multi_agent" ? "Supervisor" : key}
+                        itemKey={`sup_${key}`}
+                        content={prompt}
+                        expanded={expandedWorkers.has(`sup_${key}`)}
+                        onToggle={toggleWorker}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 멀티에이전트 워커 */}
+              {multiAgentPrompts.multi_agent_workers && Object.keys(multiAgentPrompts.multi_agent_workers).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-cafe24-brown mb-2">
+                    워커 에이전트 ({Object.keys(multiAgentPrompts.multi_agent_workers).length}종)
+                  </h4>
+                  <div className="space-y-1">
+                    {Object.entries(multiAgentPrompts.multi_agent_workers).map(([key, worker]) => (
+                      <AccordionItem
+                        key={key}
+                        label={`${worker.name || key} (${key})`}
+                        itemKey={`maw_${key}`}
+                        content={worker.prompt}
+                        expanded={expandedWorkers.has(`maw_${key}`)}
+                        onToggle={toggleWorker}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          <p className="text-xs text-cafe24-brown/50 mt-3">
+            * 모든 프롬프트는 백엔드에서 중앙 관리됩니다. 읽기 전용으로 표시됩니다.
           </p>
         </div>
       </div>

@@ -1,8 +1,15 @@
-<!DOCTYPE html><html><head>
+<!DOCTYPE html><html lang="ko"><head>
       <title>CAFE24 AI 운영 플랫폼 - 포트폴리오</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta name="description" content="CAFE24 AI 운영 플랫폼 - 이커머스 SaaS를 위한 LLM+ML 하이브리드 AI 시스템">
+      <meta property="og:title" content="CAFE24 AI 운영 플랫폼 - 포트폴리오">
+      <meta property="og:description" content="31개 AI 도구, 10개 ML 모델, 7종 RAG 기법을 하나의 에이전트로 통합한 이커머스 AI 운영 시스템">
+      <meta property="og:type" content="website">
+      <meta property="og:url" content="https://asngg.github.io/cafe24-demo/">
+      <meta name="twitter:card" content="summary">
+      <meta name="twitter:title" content="CAFE24 AI 운영 플랫폼">
+      <meta name="twitter:description" content="LLM+ML 하이브리드 AI 이커머스 운영 시스템 포트폴리오">
 
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -16,8 +23,6 @@
    Inter + Noto Sans KR | Professional Design
    ======================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap');
-
 /* === Base / Reset === */
 html {
   scroll-behavior: smooth;
@@ -26,9 +31,9 @@ html {
 html body,
 html body[for=html-export] {
   font-family: 'Inter', 'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 400;
-  line-height: 1.85;
+  line-height: 1.65;
   color: #2D3748;
   background-color: #FFFFFF !important;
   overflow: initial;
@@ -49,8 +54,8 @@ html body h5,
 html body h6 {
   font-family: 'Inter', 'Noto Sans KR', sans-serif;
   line-height: 1.3;
-  margin-top: 1.6em;
-  margin-bottom: 0.6em;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
   letter-spacing: -0.01em;
 }
 
@@ -63,15 +68,15 @@ html body h1 {
 }
 
 html body h2 {
-  font-size: 1.8em;
+  font-size: 1.65em;
   font-weight: 700;
   color: #1B365D;
   border-bottom: none;
   border-left: 5px solid #00875A;
   padding-left: 16px;
   padding-bottom: 0;
-  margin-top: 2.8em;
-  margin-bottom: 1em;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
 }
 
 html body h3 {
@@ -79,8 +84,8 @@ html body h3 {
   font-weight: 600;
   color: #1A202C;
   border-top: 1px dashed #E2E8F0;
-  padding-top: 1em;
-  margin-top: 1.8em;
+  padding-top: 0.7em;
+  margin-top: 1.2em;
 }
 
 html body h4 {
@@ -113,7 +118,7 @@ html body del {
 
 html body > p {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   word-wrap: break-word;
 }
 
@@ -124,15 +129,15 @@ html body a:not([href]) {
 }
 
 html body a {
-  color: #1B365D;
-  text-decoration: none;
+  color: #2B6CB0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   transition: color 0.2s ease;
   font-weight: 500;
 }
 
 html body a:hover {
   color: #00875A;
-  text-decoration: underline;
 }
 
 /* === Images === */
@@ -152,12 +157,6 @@ html body ul {
   padding-left: 2em;
 }
 
-html body ol.no-list,
-html body ul.no-list {
-  padding: 0;
-  list-style-type: none;
-}
-
 html body ol ol,
 html body ol ul,
 html body ul ol,
@@ -167,7 +166,7 @@ html body ul ul {
 }
 
 html body li {
-  margin-bottom: 0.5em;
+  margin-bottom: 0.25em;
 }
 
 html body li.task-list-item {
@@ -190,9 +189,9 @@ html body .task-list-item-checkbox:hover {
 
 /* === Blockquote === */
 html body blockquote {
-  margin: 16px 0;
-  font-size: 1.02em;
-  padding: 1.5em 2em;
+  margin: 12px 0;
+  font-size: 0.97em;
+  padding: 1em 1.4em;
   color: #2D3748;
   background-color: #F0FFF4;
   border-left: 5px solid #00875A;
@@ -210,8 +209,7 @@ html body blockquote > :last-child {
 /* === Horizontal Rule === */
 html body hr {
   height: 1px;
-  margin: 48px 0;
-  background-color: #E2E8F0;
+  margin: 28px 0;
   border: 0 none;
   opacity: 0.5;
   border-top: 1px dashed #CBD5E0;
@@ -224,10 +222,8 @@ html body table {
   border-spacing: 0;
   display: table;
   width: 100%;
-  overflow: auto;
-  word-break: normal;
   word-break: keep-all;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -235,9 +231,9 @@ html body table th {
   font-weight: 600;
   color: #FFFFFF;
   background-color: #1B365D;
-  padding: 14px 20px;
+  padding: 10px 14px;
   border: 1px solid #1B365D;
-  font-size: 0.85em;
+  font-size: 0.83em;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -245,9 +241,9 @@ html body table th {
 html body table td {
   background-color: #FFFFFF;
   border: 1px solid #E2E8F0;
-  padding: 13px 20px;
-  font-size: 0.95em;
-  line-height: 1.6;
+  padding: 9px 14px;
+  font-size: 0.92em;
+  line-height: 1.5;
 }
 
 html body table tr:nth-child(even) td {
@@ -263,36 +259,21 @@ html body table td:first-child {
 html body table tr:hover td {
   background-color: #E8EDF5;
   transition: background-color 0.2s ease;
+}
+
+html body table tr:hover td:first-child {
   box-shadow: inset 3px 0 0 #00875A;
-}
-
-/* === Definition List === */
-html body dl {
-  padding: 0;
-}
-
-html body dl dt {
-  padding: 0;
-  margin-top: 16px;
-  font-size: 1em;
-  font-style: italic;
-  font-weight: 700;
-}
-
-html body dl dd {
-  padding: 0 16px;
-  margin-bottom: 16px;
 }
 
 /* === Inline Code === */
 html body code {
   font-family: 'JetBrains Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
   font-size: 0.88em;
-  color: #C53030;
-  background-color: #FFF5F5;
+  color: #1B365D;
+  background-color: #EDF2F7;
   border-radius: 4px;
   padding: 2px 6px;
-  border: 1px solid #FED7D7;
+  border: 1px solid #E2E8F0;
 }
 
 html body code::after,
@@ -318,10 +299,10 @@ html body .highlight {
 
 html body .highlight pre,
 html body pre {
-  padding: 1.5em;
+  padding: 1em;
   overflow: auto;
-  font-size: 0.92em;
-  line-height: 1.65;
+  font-size: 0.9em;
+  line-height: 1.5;
   background: #F7FAFC;
   border: 1px solid #E2E8F0;
   border-left: 3px solid #00875A;
@@ -362,7 +343,7 @@ html body p,
 html body pre,
 html body ul {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 /* === Keyboard === */
@@ -374,227 +355,6 @@ html body kbd {
   background-color: #F7FAFC;
   border-radius: 3px;
   font-size: 0.85em;
-}
-
-/* === Syntax Highlighting (Prism tokens) === */
-code[class*=language-],
-pre[class*=language-] {
-  color: #2D3748;
-  background: 0 0;
-  font-family: 'JetBrains Mono', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-  text-align: left;
-  white-space: pre;
-  word-spacing: normal;
-  word-break: normal;
-  word-wrap: normal;
-  line-height: 1.4;
-  tab-size: 8;
-  hyphens: none;
-}
-
-pre[class*=language-] {
-  padding: 1em;
-  overflow: auto;
-  border-radius: 8px;
-  background: #F7FAFC;
-  border: 1px solid #E2E8F0;
-}
-
-:not(pre) > code[class*=language-] {
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: normal;
-  background: #FFF5F5;
-}
-
-.token.blockquote,
-.token.comment {
-  color: #A0AEC0;
-}
-
-.token.cdata {
-  color: #1B365D;
-}
-
-.token.doctype,
-.token.macro.property,
-.token.punctuation,
-.token.variable {
-  color: #4A5568;
-}
-
-.token.builtin,
-.token.important,
-.token.keyword,
-.token.operator,
-.token.rule {
-  color: #805AD5;
-}
-
-.token.attr-value,
-.token.regex,
-.token.string,
-.token.url {
-  color: #00875A;
-}
-
-.token.atrule,
-.token.boolean,
-.token.code,
-.token.command,
-.token.constant,
-.token.entity,
-.token.number,
-.token.property,
-.token.symbol {
-  color: #D69E2E;
-}
-
-.token.prolog,
-.token.selector,
-.token.tag {
-  color: #C53030;
-}
-
-.token.attr-name,
-.token.class,
-.token.class-name,
-.token.function,
-.token.id,
-.token.namespace,
-.token.pseudo-class,
-.token.pseudo-element,
-.token.url-reference .token.variable {
-  color: #1B365D;
-}
-
-.token.entity {
-  cursor: help;
-}
-
-.token.title,
-.token.title .token.punctuation {
-  font-weight: 700;
-  color: #1B365D;
-}
-
-.token.list {
-  color: #C53030;
-}
-
-.token.inserted {
-  background-color: #F0FFF4;
-  color: #00875A;
-}
-
-.token.deleted {
-  background-color: #FFF5F5;
-  color: #C53030;
-}
-
-.token.bold {
-  font-weight: 700;
-}
-
-.token.italic {
-  font-style: italic;
-}
-
-.language-json .token.property {
-  color: #1B365D;
-}
-
-.language-markup .token.tag .token.punctuation {
-  color: #4A5568;
-}
-
-.language-css .token.function,
-code.language-css {
-  color: #D69E2E;
-}
-
-.language-yaml .token.atrule {
-  color: #00875A;
-}
-
-code.language-yaml {
-  color: #1B365D;
-}
-
-.language-ruby .token.function {
-  color: #4A5568;
-}
-
-.language-markdown .token.url {
-  color: #1B365D;
-}
-
-.language-makefile .token.symbol {
-  color: #1B365D;
-}
-
-.language-makefile .token.variable {
-  color: #00875A;
-}
-
-.language-makefile .token.builtin {
-  color: #D69E2E;
-}
-
-.language-bash .token.keyword {
-  color: #805AD5;
-}
-
-/* === Line Highlight === */
-pre[data-line] {
-  position: relative;
-  padding: 1em 0 1em 3em;
-}
-
-pre[data-line] .line-highlight-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  background-color: transparent;
-  display: block;
-  width: 100%;
-}
-
-pre[data-line] .line-highlight {
-  position: absolute;
-  left: 0;
-  right: 0;
-  padding: inherit 0;
-  margin-top: 1em;
-  background: hsla(210, 40%, 50%, 0.08);
-  background: linear-gradient(to right, hsla(210, 40%, 50%, 0.1) 70%, hsla(210, 40%, 50%, 0));
-  pointer-events: none;
-  line-height: inherit;
-  white-space: pre;
-}
-
-pre[data-line] .line-highlight:before,
-pre[data-line] .line-highlight[data-end]:after {
-  content: attr(data-start);
-  position: absolute;
-  top: 0.4em;
-  left: 0.6em;
-  min-width: 1em;
-  padding: 0 0.5em;
-  background-color: hsla(210, 40%, 50%, 0.4);
-  color: #FFFFFF;
-  font: bold 65%/1.5 sans-serif;
-  text-align: center;
-  vertical-align: 0.3em;
-  border-radius: 999px;
-  text-shadow: none;
-  box-shadow: 0 1px #fff;
-}
-
-pre[data-line] .line-highlight[data-end]:after {
-  content: attr(data-end);
-  top: auto;
-  bottom: 0.4em;
 }
 
 /* === Markdown Preview Wrapper === */
@@ -710,11 +470,11 @@ pre[data-line] .line-highlight[data-end]:after {
 /* === Mermaid Diagrams === */
 .mermaid-container {
   overflow-x: auto;
-  margin: 1.5em 0;
+  margin: 1em 0;
   background: #FAFBFC;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 14px;
   text-align: center;
 }
 
@@ -727,7 +487,7 @@ pre[data-line] .line-highlight[data-end]:after {
 .table-wrapper {
   overflow-x: auto;
   margin: 10px 0 15px 0;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -761,23 +521,6 @@ div[align="center"] {
   text-align: center;
 }
 
-/* === Scrollbar === */
-.scrollbar-style::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollbar-style::-webkit-scrollbar-track {
-  border-radius: 10px;
-  background-color: transparent;
-}
-
-.scrollbar-style::-webkit-scrollbar-thumb {
-  border-radius: 5px;
-  background-color: rgba(27, 54, 93, 0.3);
-  border: 4px solid rgba(27, 54, 93, 0.3);
-  background-clip: content-box;
-}
-
 /* === HTML Export Layout === */
 html body[for=html-export]:not([data-presentation-mode]) {
   position: relative;
@@ -794,9 +537,9 @@ html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
   position: relative;
   top: 0;
   min-height: 100vh;
-  max-width: 1100px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 3em 4em;
+  padding: 2em 3.5em;
 }
 
 @media screen and (min-width: 1164px) {
@@ -811,7 +554,7 @@ html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
   }
 }
 
-@media screen and (max-width: 450px) {
+@media screen and (max-width: 480px) {
   html body[for=html-export]:not([data-presentation-mode]) .markdown-preview {
     font-size: 14px !important;
     padding: 1em;
@@ -903,7 +646,7 @@ html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] 
   }
 }
 
-@media screen and (max-width: 450px) {
+@media screen and (max-width: 480px) {
   html body[for=html-export]:not([data-presentation-mode])[html-show-sidebar-toc] .markdown-preview {
     width: 100%;
   }
@@ -944,12 +687,26 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   .stat-value {
     font-size: 1.8em;
   }
+
+  .toc-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 @media (max-width: 480px) {
   html body,
   html body[for=html-export] {
     font-size: 14px;
+  }
+  .hero-title {
+    font-size: 1.6em;
+  }
+  .hero-subtitle {
+    font-size: 1em;
+  }
+  .hero-desc {
+    font-size: 0.9em;
   }
 }
 
@@ -1001,21 +758,19 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   }
 }
 
-/* === Hero Section — see Hero Section Details below === */
-
 /* === Stats Grid (At a Glance) === */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 20px;
-  margin: 1.2em 0 1.8em 0;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 0.8em 0 1.2em 0;
 }
 
 .stat-card {
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 28px 20px;
+  border-radius: 10px;
+  padding: 18px 14px;
   text-align: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -1036,7 +791,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 }
 
 .stat-value {
-  font-size: 2.4em;
+  font-size: 2em;
   font-weight: 800;
   color: #00875A;
 }
@@ -1053,7 +808,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 }
 
 .portfolio-section {
-  margin-bottom: 2.5em;
+  margin-bottom: 1.5em;
 }
 
 .portfolio-footer {
@@ -1064,19 +819,96 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   color: #718096;
 }
 
+/* === Back to Top === */
+#back-to-top {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #00875A;
+  color: #FFFFFF;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#back-to-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* === Navigation Bar === */
+#portfolio-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(27, 54, 93, 0.97);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #2D4A7A;
+  padding: 0 20px;
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.nav-logo {
+  font-weight: 700;
+  color: #FFFFFF;
+  text-decoration: none;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+#nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #FFFFFF;
+  padding: 4px 8px;
+}
+
+#nav-links {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.nav-link {
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
 .nav-link:hover,
 .nav-link.active {
-  background: #00875A !important;
-  color: #FFFFFF !important;
+  background: #00875A;
+  color: #FFFFFF;
 }
 
 @media screen and (max-width: 768px) {
   #nav-hamburger {
-    display: block !important;
+    display: block;
   }
   #nav-links {
-    display: none !important;
+    display: none;
     position: absolute;
     top: 48px;
     left: 0;
@@ -1110,8 +942,6 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   color: #718096;
 }
 
-/* === Stat Icon — see override below === */
-
 /* === Footer === */
 .footer-content {
   max-width: 900px;
@@ -1120,15 +950,15 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 
 .footer-tech-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 18px;
   text-align: left;
   margin: 1.2em auto;
   max-width: 900px;
 }
 
 .footer-tech-item {
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-left: 3px solid #00875A;
   background: #F7FAFC;
   border-radius: 0 6px 6px 0;
@@ -1137,18 +967,18 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 /* === Hero Section Details === */
 .hero-section {
   text-align: center;
-  padding: 2.5em 0 1em 0;
+  padding: 1.8em 0 0.8em 0;
 }
 
 .hero-title {
-  font-size: 2.8em;
+  font-size: 2.4em;
   margin-bottom: 0.2em;
   border-bottom: none;
   text-align: center;
 }
 
 .hero-subtitle {
-  font-size: 1.3em;
+  font-size: 1.15em;
   color: #1B365D;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -1157,11 +987,11 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 }
 
 .hero-desc {
-  font-size: 1.05em;
+  font-size: 0.98em;
   color: #2D3748;
   max-width: 720px;
-  margin: 0 auto 1.5em auto;
-  line-height: 1.7;
+  margin: 0 auto 1em auto;
+  line-height: 1.6;
   text-align: center;
 }
 
@@ -1170,11 +1000,11 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 }
 
 .hero-divider {
-  width: 80px;
-  height: 4px;
+  width: 60px;
+  height: 3px;
   background: linear-gradient(90deg, #00875A, #1B365D);
   border-radius: 2px;
-  margin: 0 auto 1.5em auto;
+  margin: 0 auto 1em auto;
 }
 
 .qr-container .qr-caption {
@@ -1185,22 +1015,22 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 
 /* === Stat Icon Override === */
 .stat-icon {
-  font-size: 2.4em;
-  margin-bottom: 10px;
+  font-size: 1.8em;
+  margin-bottom: 6px;
 }
 
 /* === TOC Grid === */
 .toc-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 32px;
+  gap: 4px 24px;
   max-width: 800px;
 }
 
 .toc-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   color: #2D3748;
   font-weight: 500;
@@ -1224,14 +1054,14 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 
 /* === Section Summary Box === */
 .section-summary {
-  font-size: 1.05em;
+  font-size: 0.97em;
   color: #1B365D;
   font-weight: 500;
   background: #F0F4F8;
-  padding: 14px 20px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
   border-left: 4px solid #00875A;
-  margin-bottom: 1.5em;
+  margin-bottom: 1em;
 }
 
 /* === Footer Details === */
@@ -1259,7 +1089,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   height: 3px;
   background: #00875A;
   border-radius: 2px;
-  margin: 2em auto 1.5em auto;
+  margin: 1.5em auto 1em auto;
 }
 
 .footer-title {
@@ -1314,7 +1144,6 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
       </style>
       <!-- The content below will be included at the end of the <head> element. --><script type="text/javascript">
   document.addEventListener("DOMContentLoaded", function () {
-    // 맨 위로 버튼 + 네비게이션 스크롤 처리
     var backToTopBtn = document.getElementById('back-to-top');
     var navLinks = document.querySelectorAll('.nav-link');
     var sectionIds = [];
@@ -1324,18 +1153,14 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
     });
 
     window.addEventListener('scroll', function () {
-      // 맨 위로 버튼
       if (backToTopBtn) {
         if (window.scrollY > 300) {
-          backToTopBtn.style.opacity = '1';
-          backToTopBtn.style.pointerEvents = 'auto';
+          backToTopBtn.classList.add('visible');
         } else {
-          backToTopBtn.style.opacity = '0';
-          backToTopBtn.style.pointerEvents = 'none';
+          backToTopBtn.classList.remove('visible');
         }
       }
 
-      // 네비게이션 현재 섹션 하이라이트
       var scrollPos = window.scrollY + 80;
       var currentSection = '';
       for (var i = sectionIds.length - 1; i >= 0; i--) {
@@ -1355,7 +1180,6 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
       });
     });
 
-    // 모바일 메뉴: 링크 클릭 시 메뉴 닫기
     navLinks.forEach(function(link) {
       link.addEventListener('click', function() {
         var navLinksDiv = document.getElementById('nav-links');
@@ -1363,7 +1187,6 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
       });
     });
 
-    // Mermaid 초기화
     if (typeof mermaid !== 'undefined') {
       mermaid.initialize({startOnLoad: true, theme: 'neutral', themeVariables: {fontSize: '14px'}});
     }
@@ -1371,32 +1194,27 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 </script></head><body for="html-export">
 
     <!-- Sticky Navigation Bar -->
-    <nav id="portfolio-nav" style="position:sticky;top:0;z-index:1000;background:rgba(27,54,93,0.97);backdrop-filter:blur(10px);border-bottom:1px solid #2D4A7A;padding:0 20px;font-family:'Noto Sans KR',sans-serif;font-size:13px;display:flex;align-items:center;justify-content:space-between;height:48px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-      <a href="#cafe24-ai-운영-플랫폼" style="font-weight:700;color:#FFFFFF;text-decoration:none;font-size:15px;white-space:nowrap">CAFE24 AI</a>
-      <button id="nav-hamburger" onclick="document.getElementById('nav-links').classList.toggle('nav-open')" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;color:#FFFFFF;padding:4px 8px">&#9776;</button>
-      <div id="nav-links" style="display:flex;gap:4px;align-items:center;overflow-x:auto;flex-wrap:nowrap">
-        <a href="#1-프로젝트-개요" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">1.개요</a>
-        <a href="#2-시스템-아키텍처" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">2.아키텍처</a>
-        <a href="#3-ai-에이전트-시스템" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">3.에이전트</a>
-        <a href="#4-rag-시스템-7종-기법" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">4.RAG</a>
-        <a href="#5-ml-파이프라인-12개-모델" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">5.ML</a>
-        <a href="#6-cs-자동화-파이프라인" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">6.CS</a>
-        <a href="#7-db-보안-감시-data-guardian" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">7.보안</a>
-        <a href="#8-자동화-엔진-이탈방지--faq--리포트" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">8.자동화</a>
-        <a href="#9-프론트엔드-12개-패널" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">9.프론트</a>
-        <a href="#10-기술-스택-및-아키텍처-결정" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">10.스택</a>
-        <a href="#11-프로젝트-구조" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">11.구조</a>
-        <a href="#12-설치-및-배포" class="nav-link" style="padding:4px 8px;color:rgba(255,255,255,0.8);text-decoration:none;white-space:nowrap;border-radius:4px;transition:all 0.2s">12.배포</a>
+    <nav id="portfolio-nav">
+      <a href="#cafe24-ai-운영-플랫폼" class="nav-logo">CAFE24 AI</a>
+      <button id="nav-hamburger" onclick="document.getElementById('nav-links').classList.toggle('nav-open')">&#9776;</button>
+      <div id="nav-links">
+        <a href="#1-시스템-아키텍처" class="nav-link">1.아키텍처</a>
+        <a href="#2-ai-에이전트" class="nav-link">2.에이전트</a>
+        <a href="#3-rag-시스템-7종-기법" class="nav-link">3.RAG</a>
+        <a href="#4-ml-파이프라인-10개-모델" class="nav-link">4.ML</a>
+        <a href="#5-자동화-시스템" class="nav-link">5.자동화</a>
+        <a href="#6-독립-서브시스템" class="nav-link">6.서브시스템</a>
+        <a href="#7-프론트엔드-기술-스택-배포" class="nav-link">7.프론트/배포</a>
       </div>
     </nav>
 
       <div class="crossnote markdown-preview  ">
-      
+
 <header class="portfolio-header">
 <div class="hero-section">
 <h1 id="cafe24-ai-운영-플랫폼" class="hero-title">CAFE24 AI 운영 플랫폼</h1>
 <p id="이커머스-saas-플랫폼을-위한-llm--ml-하이브리드-ai-운영-시스템" class="hero-subtitle">이커머스 SaaS 플랫폼을 위한 LLM + ML 하이브리드 AI 운영 시스템</p>
-<p class="hero-desc"><strong>자연어 한 마디</strong>로 셀러 이탈 예측, 이상거래 탐지, CS 자동화, 매출 예측을 수행하는 AI 에이전트 플랫폼</p>
+<p class="hero-desc"><strong>"이 셀러 이탈할까?"</strong> 한 마디면, 31개 AI 도구가 예측하고 원인까지 분석합니다</p>
 <div class="hero-divider"></div>
 <p class="badge-container"><a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python"></a> <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI"></a> <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14-000000?style=flat-square&amp;logo=next.js&amp;logoColor=white" alt="Next.js"></a> <a href="https://langchain.com"><img src="https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square" alt="LangChain"></a> <a href="https://langchain-ai.github.io/langgraph/"><img src="https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square" alt="LangGraph"></a> <a href="https://openai.com"><img src="https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&amp;logo=openai&amp;logoColor=white" alt="OpenAI"></a> <a href="https://mlflow.org"><img src="https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&amp;logo=mlflow&amp;logoColor=white" alt="MLflow"></a> <a href="https://github.com/facebookresearch/faiss"><img src="https://img.shields.io/badge/FAISS-Vector_Search-blue?style=flat-square" alt="FAISS"></a> <a href="https://shap.readthedocs.io"><img src="https://img.shields.io/badge/SHAP-Explainability-orange?style=flat-square" alt="SHAP"></a></p>
 <div class="hero-links"><a href="https://cafe24-frontend.vercel.app/">웹앱 (Vercel)</a> &nbsp;·&nbsp; <a href="https://cafe24-backend-production.up.railway.app/docs">API 문서 (Swagger)</a> &nbsp;·&nbsp; <span class="hero-period">개발 기간: 2026.02.06 ~ 진행 중</span></div>
@@ -1404,7 +1222,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <p class="qr-caption"><strong>웹앱 바로가기 QR</strong></p></div>
 </div>
 <blockquote>
-<p><strong>아래 모든 기능은 웹앱에서 직접 사용해볼 수 있습니다.</strong><br>
+<p><strong>위 모든 기능을 웹앱에서 직접 실행해볼 수 있습니다.</strong> 본 프로젝트는 합성(시뮬레이션) 데이터 기반 데모입니다.<br>
 더 자세한 기술 문서는 <a href="https://github.com/ASNGG/cafe24-demo">GitHub 리포지토리</a>에서 확인할 수 있습니다.</p>
 </blockquote>
 </header>
@@ -1417,71 +1235,56 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   <div class="stat-icon">🛠️</div>
   <div class="stat-label">AI 도구</div>
   <div class="stat-value">31개</div>
-  <div class="stat-desc">Tool Calling</div>
+  <div class="stat-desc">자연어로 도구 호출</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">🤖</div>
   <div class="stat-label">ML 모델</div>
-  <div class="stat-value">12개</div>
-  <div class="stat-desc">6종 알고리즘</div>
+  <div class="stat-value">10개</div>
+  <div class="stat-desc">8종 알고리즘</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">🔍</div>
   <div class="stat-label">RAG 엔진</div>
   <div class="stat-value">7종</div>
-  <div class="stat-desc">기법 적용</div>
+  <div class="stat-desc">하이브리드 검색 + 지식 그래프</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">⚡</div>
   <div class="stat-label">API 엔드포인트</div>
-  <div class="stat-value">112개</div>
-  <div class="stat-desc">REST API</div>
+  <div class="stat-value">106개</div>
+  <div class="stat-desc">REST + SSE 스트리밍</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">🖥️</div>
   <div class="stat-label">프론트엔드 패널</div>
-  <div class="stat-value">13개</div>
-  <div class="stat-desc">기능 패널</div>
+  <div class="stat-value">11개</div>
+  <div class="stat-desc">분석 · CS · 자동화 · 보안</div>
 </div>
 <div class="stat-card">
   <div class="stat-icon">⚙️</div>
   <div class="stat-label">자동화 엔진</div>
-  <div class="stat-value">3종</div>
-  <div class="stat-desc">이탈방지 · FAQ · 리포트</div>
-</div>
-<div class="stat-card">
-  <div class="stat-icon">📊</div>
-  <div class="stat-label">합성 데이터</div>
-  <div class="stat-value">18개 CSV</div>
-  <div class="stat-desc">~100K 행</div>
+  <div class="stat-value">4종</div>
+  <div class="stat-desc">이탈방지 · 업그레이드 · FAQ · 리포트</div>
 </div>
 </div>
 <hr>
 <nav aria-label="목차">
 <h2 id="목차">목차</h2>
 <div class="toc-grid">
-  <a href="#1-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B0%9C%EC%9A%94" class="toc-item"><span class="toc-num">01</span> 프로젝트 개요</a>
-  <a href="#2-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98" class="toc-item"><span class="toc-num">02</span> 시스템 아키텍처</a>
-  <a href="#3-ai-%EC%97%90%EC%9D%B4%EC%A0%84%ED%8A%B8-%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">03</span> AI 에이전트 시스템</a>
-  <a href="#4-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-7%EC%A2%85-%EA%B8%B0%EB%B2%95" class="toc-item"><span class="toc-num">04</span> RAG 시스템 (7종 기법)</a>
-  <a href="#5-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-12%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">05</span> ML 파이프라인 (12개 모델)</a>
-  <a href="#6-cs-%EC%9E%90%EB%8F%99%ED%99%94-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8" class="toc-item"><span class="toc-num">06</span> CS 자동화 파이프라인</a>
-  <a href="#7-db-%EB%B3%B4%EC%95%88-%EA%B0%90%EC%8B%9C-data-guardian" class="toc-item"><span class="toc-num">07</span> DB 보안 감시 (Data Guardian)</a>
-  <a href="#8-%EC%9E%90%EB%8F%99%ED%99%94-%EC%97%94%EC%A7%84-%EC%9D%B4%ED%83%88%EB%B0%A9%EC%A7%80--faq--%EB%A6%AC%ED%8F%AC%ED%8A%B8" class="toc-item"><span class="toc-num">08</span> 자동화 엔진</a>
-  <a href="#9-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-12%EA%B0%9C-%ED%8C%A8%EB%84%90" class="toc-item"><span class="toc-num">09</span> 프론트엔드 (12개 패널)</a>
-  <a href="#10-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%8F-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EA%B2%B0%EC%A0%95" class="toc-item"><span class="toc-num">10</span> 기술 스택 및 아키텍처 결정</a>
-  <a href="#11-%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8-%EA%B5%AC%EC%A1%B0" class="toc-item"><span class="toc-num">11</span> 프로젝트 구조</a>
-  <a href="#12-%EC%84%A4%EC%B9%98-%EB%B0%8F-%EB%B0%B0%ED%8F%AC" class="toc-item"><span class="toc-num">12</span> 설치 및 배포</a>
+  <a href="#1-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98" class="toc-item"><span class="toc-num">01</span> 시스템 아키텍처</a>
+  <a href="#2-ai-%EC%97%90%EC%9D%B4%EC%A0%84%ED%8A%B8" class="toc-item"><span class="toc-num">02</span> AI 에이전트</a>
+  <a href="#3-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-7%EC%A2%85-%EA%B8%B0%EB%B2%95" class="toc-item"><span class="toc-num">03</span> RAG 시스템 (7종 기법)</a>
+  <a href="#4-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-10%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">04</span> ML 파이프라인 (10개 모델)</a>
+  <a href="#5-%EC%9E%90%EB%8F%99%ED%99%94-%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">05</span> 자동화 시스템 (CS 파이프라인 · 이탈방지 · 업그레이드 · FAQ · 리포트)</a>
+  <a href="#6-%EB%8F%85%EB%A6%BD-%EC%84%9C%EB%B8%8C%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">06</span> 독립 서브시스템 (Data Guardian)</a>
+  <a href="#7-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%B0%ED%8F%AC" class="toc-item"><span class="toc-num">07</span> 프론트엔드 · 기술 스택 · 배포</a>
 </div>
 </nav>
 </section>
-<hr>
 <section class="portfolio-section">
-<h2 id="1-프로젝트-개요">1. 프로젝트 개요</h2>
-<p class="section-summary">이커머스 플랫폼 운영의 실제 문제를 AI로 해결하는 풀스택 데모 프로젝트. 31개 AI 도구, 12개 ML 모델, 7종 RAG 기법을 하나의 에이전트로 통합합니다.</p>
-<h3 id="배경-및-목표">배경 및 목표</h3>
-<p>카페24 같은 이커머스 플랫폼을 운영한다면 어떤 문제가 발생할지 직접 고민하고, 그 문제들을 AI로 해결하는 데모 프로젝트를 풀스택으로 개발했습니다. "셀러가 이탈하기 전에 미리 알 수 있다면?", "이상거래를 사람 대신 자동으로 잡아낼 수 있다면?", "CS 문의를 AI가 분류하고 답변 초안까지 만들어준다면?", "운영 프로세스의 병목을 데이터로 발견할 수 있다면?" — 이런 질문들에서 출발했습니다.</p>
-<p>백엔드(FastAPI + LangChain + 12개 ML 모델)부터 프론트엔드(Next.js 14, 12개 패널)까지 전 과정을 직접 설계·구현했으며, 자연어 한 마디로 31개 AI 도구를 호출하여 이커머스 운영 전반을 하나의 에이전트로 통합하는 것을 목표로 했습니다. 시스템은 실시간 데이터 연동을 가정하고 설계했으나, 현재 데모에서는 도메인별 통계적 분포로 생성한 합성 데이터(18개 CSV, ~100K행)를 사용합니다.</p>
+<h2 id="1-시스템-아키텍처">1. 시스템 아키텍처</h2>
+<p class="section-summary">이커머스 운영의 실제 문제 8가지를 AI로 해결하는 풀스택 데모 프로젝트. 빠른 규칙을 먼저 적용하고, 규칙으로 판단이 안 되면 AI가 넘겨받는 하이브리드 구조입니다.</p>
 <h3 id="해결하는-문제">해결하는 문제</h3>
 <div class="table-wrapper"><table aria-label="문제">
 <thead>
@@ -1529,7 +1332,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 </tr>
 </tbody>
 </table></div>
-<h3 id="핵심-설계-원칙">핵심 설계 원칙 </h3>
+<h3 id="핵심-설계-원칙">핵심 설계 원칙</h3>
 <p>프로젝트 전반에 일관되게 적용한 <strong>"빠른 규칙 우선 + AI fallback"</strong> 원칙:</p>
 <div class="table-wrapper"><table aria-label="적용 영역">
 <thead>
@@ -1542,8 +1345,8 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <tbody>
 <tr>
 <td><strong>에이전트 라우터</strong></td>
-<td>키워드 분류 (0ms)</td>
-<td>LLM Router (gpt-4o-mini)</td>
+<td>키워드 사전라우팅 → 워커 직접 호출 (0ms)</td>
+<td>Supervisor LLM 판단 (gpt-4o-mini)</td>
 </tr>
 <tr>
 <td><strong>DB 보안 감시</strong></td>
@@ -1565,113 +1368,87 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <blockquote>
 <p><strong>설계 기반</strong>: Anthropic <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> — "빠른 규칙 우선 + AI fallback" 패턴을 이커머스 운영에 적용</p>
 </blockquote>
-</section>
-<hr>
-<section class="portfolio-section">
-<h2 id="2-시스템-아키텍처">2. 시스템 아키텍처</h2>
-<p class="section-summary">Browser → Next.js → FastAPI 프록시 구조에서 2단계 라우터가 의도를 분류하고, AI 에이전트가 RAG/ML 도구를 호출하여 SSE로 스트리밍 응답합니다.</p>
 <h3 id="전체-아키텍처">전체 아키텍처</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
-flowchart TB
-    subgraph Frontend["Frontend · Next.js 14"]
-        Login[로그인]
-        Panels["12개 기능 패널"]
+flowchart TD
+    FE["Frontend · Next.js 14&lt;br/&gt;11개 패널 · SSE 스트리밍"]
+
+    FE -->|"REST / SSE"| Router
+
+    Router["하이브리드 라우터&lt;br/&gt;키워드 0ms + Supervisor LLM fallback"]
+
+    Router --> Workers
+
+    subgraph Workers["전문 워커 에이전트 · 31개 도구"]
+        direction LR
+        W1["search_agent&lt;br/&gt;검색 · RAG"]
+        W2["analysis_agent&lt;br/&gt;분석 · ML"]
+        W3["cs_agent&lt;br/&gt;CS · 자동응답"]
     end
 
-    subgraph Backend["Backend · FastAPI"]
-        subgraph Router["2단계 라우터"]
-            R1["키워드 분류 · 0ms"]
-            R2["LLM Router · fallback"]
-        end
+    Workers --> DataLayer
 
-        subgraph Agent["AI 에이전트"]
-            Supervisor["Supervisor · GPT-4o"]
-            Workers["8개 워커 에이전트"]
-            Tools["31개 도구 함수"]
-        end
-
-        subgraph RAGSystem["RAG 시스템"]
-            HybridRAG["Hybrid Search"]
-            LightRAG["LightRAG"]
-            K2RAG["K2RAG"]
-        end
-
-        subgraph MLModels["ML 12개 모델"]
-            Churn["이탈 예측 · RF+SHAP"]
-            Fraud["이상거래 · IsolationForest"]
-            Revenue["매출 예측 · LightGBM"]
-            Others["+ 9개 모델"]
-        end
-
-        State["전역 상태 관리"]
+    subgraph DataLayer["데이터 · 모델 레이어"]
+        direction LR
+        RAG["RAG 시스템&lt;br/&gt;FAISS+BM25&lt;br/&gt;LightRAG · K2RAG"]
+        ML["ML 10개 모델&lt;br/&gt;RF+SHAP&lt;br/&gt;IsolationForest&lt;br/&gt;LightGBM"]
+        State["state.py&lt;br/&gt;전역 상태 관리"]
     end
 
-    subgraph External["외부 서비스"]
-        OpenAI["OpenAI API"]
-        n8n["n8n Cloud"]
-        Resend["Resend Email"]
+    subgraph SubSys["독립 서브시스템"]
+        direction LR
+        G["DB 보안 감시&lt;br/&gt;룰+ML+Agent"]
+        Auto["자동화 엔진&lt;br/&gt;이탈방지·FAQ·리포트·업그레이드"]
     end
 
-    Frontend --&gt;|"REST / SSE"| Backend
-    Router --&gt; Agent
-    Agent --&gt; RAGSystem &amp; MLModels &amp; OpenAI
-    Backend --&gt; n8n &amp; Resend
-</div></div><h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름 </h3>
+    SubSys --> State
+
+    Workers --> OpenAI["OpenAI API&lt;br/&gt;GPT-4o / 4o-mini"]
+    SubSys --> OpenAI
+    Auto --> N8N["n8n Cloud → Resend Email"]
+</div></div>
+<h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름</h3>
 <p>사용자가 "SEL0001 셀러가 이탈할 확률은?"이라고 질문하면:</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 sequenceDiagram
     autonumber
     participant User as 사용자
     participant FE as Next.js
-    participant Router as 2단계 라우터
-    participant Agent as AI Agent
+    participant Router as 키워드 사전라우팅
+    participant Sup as Supervisor
+    participant Worker as analysis_agent
     participant Tool as Tool Executor
     participant ML as ML Model (.pkl)
     participant LLM as GPT-4o-mini
 
-    User-&gt;&gt;FE: "SEL0001 셀러가 이탈할 확률은?"
-    FE-&gt;&gt;Router: SSE 연결 (/api/agent/stream)
+    User->>FE: "SEL0001 셀러가 이탈할 확률은?"
+    FE->>Router: SSE 연결 (/api/agent/stream)
 
-    Note over Router: 1단계: 키워드 "이탈" + "SEL" ID 감지&lt;br/&gt;→ IntentCategory.SELLER&lt;br/&gt;→ predict_seller_churn 강제 실행
-    Router-&gt;&gt;Agent: 셀러 도구 9개만 전달
+    Note over Router: 키워드 "이탈" + "SEL" ID 감지&lt;br/&gt;→ IntentCategory.SELLER&lt;br/&gt;→ analysis_agent 직접 호출 (~1~3초 절감)
+    Router->>Worker: 워커 직접 호출 (Supervisor 우회)
 
-    Agent-&gt;&gt;LLM: Tool Calling 요청
-    LLM--&gt;&gt;Agent: predict_seller_churn("SEL0001")
+    Worker->>LLM: Tool Calling 요청
+    LLM-->>Worker: predict_seller_churn("SEL0001")
 
-    Agent-&gt;&gt;Tool: predict_seller_churn("SEL0001")
-    Tool-&gt;&gt;ML: RandomForest.predict_proba() + SHAP
-    ML--&gt;&gt;Tool: 이탈 확률 73% + SHAP 피처 기여도
-    Tool--&gt;&gt;Agent: 예측 결과 JSON
+    Worker->>Tool: predict_seller_churn("SEL0001")
+    Tool->>ML: RandomForest.predict_proba() + SHAP
+    ML-->>Tool: 이탈 확률 73% + SHAP 피처 기여도
+    Tool-->>Worker: 예측 결과 JSON
 
-    Agent-&gt;&gt;LLM: 도구 결과 + 시스템 프롬프트
-    LLM--&gt;&gt;FE: SSE 스트리밍 (토큰 단위)
-    FE--&gt;&gt;User: "이탈 확률 73%, 주요 원인: 매출 감소..."
-</div></div></section>
+    Worker->>LLM: 도구 결과 + 시스템 프롬프트
+    LLM-->>FE: SSE 직접 스트리밍 (재요약 없음)
+    FE-->>User: "이탈 확률 73%, 주요 원인: 매출 감소..."
+
+    Note over Router,Sup: 모호한 질문 → Supervisor LLM이 워커 선택
+</div></div>
+</section>
 <hr>
 <section class="portfolio-section">
-<h2 id="3-ai-에이전트-시스템">3. AI 에이전트 시스템</h2>
-<p class="section-summary">키워드 기반 즉시 분류(0ms) + LLM fallback 2단계 라우터로 31개 도구를 8개 카테고리로 축소하여 Tool Calling 정확도를 극대화합니다.</p>
-<h3 id="31-2단계-인텐트-라우터">3.1 2단계 인텐트 라우터</h3>
-<p><strong>문제</strong>: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구를 선택합니다 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계입니다.</p>
-<p><strong>해결</strong>: 2단계 Router 패턴으로 도구 선택 공간을 8개 카테고리로 축소합니다.</p>
-<div class="mermaid-container"><div class="mermaid">flowchart TB
-    Q["사용자 질문"]
-
-    subgraph Stage1["1단계: 키워드 Router"]
-        K1["매출 · 이탈 · GMV → ANALYSIS"]
-        K2["플랫폼 · 정책 → PLATFORM"]
-        K3["SEL0001 패턴 → SELLER"]
-    end
-
-    subgraph Stage2["2단계: LLM Router"]
-        L1["GPT-4o-mini 분류"]
-        L2["JSON 응답 파싱"]
-    end
-
-    Q --&gt;|"0ms, 비용 0"| Stage1
-    Stage1 --&gt;|"매칭 실패 → fallback"| Stage2
-    Stage1 &amp; Stage2 --&gt; Tools["카테고리별 도구 4~19개만 노출"]
-</div></div><p><strong>IntentCategory (8개)</strong>:</p>
+<h2 id="2-ai-에이전트">2. AI 에이전트</h2>
+<p class="section-summary">3개 일반 워커 + 8개 전문 워커로 구성된 2중 Supervisor 멀티에이전트 시스템. 명확한 질문은 키워드 매칭으로 즉시 처리하고, 모호한 질문만 LLM이 판단합니다.</p>
+<h3 id="하이브리드-라우팅">하이브리드 라우팅 (키워드 + Supervisor)</h3>
+<p>명확한 intent는 키워드 매칭으로 워커를 즉시 호출(~1~3초 절감)하고, 모호한 질문만 Supervisor LLM이 판단합니다.</p>
+<h3 id="intentcategory">IntentCategory (8개)</h3>
 <div class="table-wrapper"><table aria-label="카테고리">
 <thead>
 <tr>
@@ -1691,7 +1468,7 @@ sequenceDiagram
 <tr>
 <td><code>PLATFORM</code></td>
 <td>플랫폼, 정책, 정산, 가이드</td>
-<td style="text-align:center">2</td>
+<td style="text-align:center">3</td>
 <td><code>tool_choice="required"</code> (RAG 강제)</td>
 </tr>
 <tr>
@@ -1703,20 +1480,20 @@ sequenceDiagram
 <tr>
 <td><code>SELLER</code></td>
 <td>셀러, SEL0001, 세그먼트</td>
-<td style="text-align:center">9</td>
+<td style="text-align:center">10</td>
 <td></td>
 </tr>
 <tr>
 <td><code>CS</code></td>
 <td>CS, 문의, 상담, 용어집</td>
-<td style="text-align:center">5</td>
+<td style="text-align:center">7</td>
 <td></td>
 </tr>
 <tr>
 <td><code>RETENTION</code></td>
 <td>이탈 방지, 리텐션, 위험 셀러</td>
-<td style="text-align:center">2</td>
-<td>Sub-Agent 전용</td>
+<td style="text-align:center">6</td>
+<td>이탈 방지 전용 (analyze_seller, get_cs_statistics 포함)</td>
 </tr>
 <tr>
 <td><code>DASHBOARD</code></td>
@@ -1732,72 +1509,81 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="32-keyword_tool_mapping-강제-도구-실행">3.2 KEYWORD_TOOL_MAPPING (강제 도구 실행) </h3>
-<p>LLM 호출 <strong>전에</strong> 키워드 매칭으로 필수 도구를 강제 실행합니다. LLM이 도구를 놓칠 수 있는 상황을 방지하는 안전장치입니다.</p>
-<pre data-role="codeBlock" data-info="" class="language-text"><code>사용자: "이탈 예측 분석해줘"
-  ↓ 키워드 "이탈" 매칭
-  ↓ predict_seller_churn 강제 실행 (LLM 호출 전)
-  ↓ 실행 결과를 LLM 컨텍스트에 전달
-  ↓ LLM이 결과를 자연어로 설명
-</code></pre><h3 id="33-파라미터-자동-추출-8종">3.3 파라미터 자동 추출 (8종) </h3>
-<p>사용자 텍스트에서 도구 파라미터를 정규식으로 자동 추출합니다:</p>
-<div class="table-wrapper"><table aria-label="추출 대상">
+<h3 id="supervisor-멀티에이전트">2중 Supervisor 멀티에이전트</h3>
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+flowchart TB
+    Q["사용자 질문"]
+
+    subgraph Routing["하이브리드 라우팅"]
+        KW["키워드 사전라우팅 · 0ms"]
+        SUP["Supervisor LLM · fallback"]
+    end
+
+    subgraph GeneralWorkers["일반 워커 (1차 Supervisor)"]
+        direction LR
+        S["search_agent&lt;br/&gt;쇼핑몰·카테고리 조회&lt;br/&gt;플랫폼 RAG 검색"]
+        A["analysis_agent&lt;br/&gt;셀러 분석·ML 예측&lt;br/&gt;KPI 분석"]
+        C["cs_agent&lt;br/&gt;CS 자동응답&lt;br/&gt;품질 평가"]
+    end
+
+    subgraph SpecialWorkers["전문 워커 (2차 Supervisor · 8종)"]
+        direction LR
+        SW1["churn_analyst&lt;br/&gt;이탈 분석"]
+        SW2["retention_strategist&lt;br/&gt;이탈 방지 전략"]
+        SW3["seller_analyst&lt;br/&gt;셀러 종합 분석"]
+        SW4["performance_analyst&lt;br/&gt;성과 분석"]
+        SW5["fraud_investigator&lt;br/&gt;이상거래 조사"]
+        SW6["cs_quality_analyst&lt;br/&gt;CS 품질 분석"]
+        SW7["report_writer&lt;br/&gt;리포트 작성"]
+        SW8["platform_searcher&lt;br/&gt;플랫폼 검색"]
+    end
+
+    Q -->|"명확한 intent"| KW
+    Q -->|"모호한 질문"| SUP
+    KW -->|"워커 직접 호출 · ~1~3초 절감"| GeneralWorkers
+    KW -->|"전문 분석 요청"| SpecialWorkers
+    SUP -->|"LLM 판단"| GeneralWorkers
+    SUP -->|"LLM 판단"| SpecialWorkers
+    GeneralWorkers <-->|"Tool Calling"| Tools["31개 도구 함수"]
+    SpecialWorkers <-->|"Tool Calling"| Tools
+    GeneralWorkers -->|"직접 SSE 스트리밍&lt;br/&gt;재요약 없음"| E(["사용자 응답"])
+    SpecialWorkers -->|"직접 SSE 스트리밍&lt;br/&gt;재요약 없음"| E
+</div></div>
+<h3 id="전문-워커-프롬프트-엔지니어링">전문 워커 프롬프트 엔지니어링</h3>
+<p>8개 전문 워커는 <code>_WORKER_COMMON_RULES</code> 공통 프롬프트와 워커별 특화 지침으로 응답 품질을 제어합니다.</p>
+<div class="table-wrapper"><table aria-label="프롬프트 규칙">
 <thead>
 <tr>
-<th>추출 대상</th>
-<th>패턴 예시</th>
-<th>정규식</th>
+<th>구분</th>
+<th>규칙</th>
+<th>목적</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>셀러 ID</td>
-<td><code>SEL0001</code></td>
-<td><code>SEL\d{1,6}</code></td>
+<td><strong>공통 규칙</strong></td>
+<td>구체적 수치 필수, 형식적 응답 금지, 5가지 분석 관점 적용</td>
+<td>모든 워커의 응답 품질 하한선 보장</td>
 </tr>
 <tr>
-<td>쇼핑몰 ID</td>
-<td><code>S0001</code></td>
-<td><code>S\d{4,6}</code></td>
+<td><strong>워커별 특화</strong></td>
+<td>각 워커 도메인에 맞는 분석 프레임워크 + 도구 사용 가이드</td>
+<td>전문 영역별 깊이 있는 분석 유도</td>
 </tr>
 <tr>
-<td>주문 ID</td>
-<td><code>O0001</code></td>
-<td><code>O\d{4,8}</code></td>
-</tr>
-<tr>
-<td>일수</td>
-<td>"최근 7일"</td>
-<td><code>(\d+)\s*일</code></td>
-</tr>
-<tr>
-<td>날짜 범위</td>
-<td><code>2024-01-01 ~ 2024-12-31</code></td>
-<td><code>\d{4}-\d{2}-\d{2}</code></td>
-</tr>
-<tr>
-<td>월</td>
-<td>"3월", "2024-03"</td>
-<td><code>(\d{1,2})월</code>, <code>\d{4}-\d{2}</code></td>
-</tr>
-<tr>
-<td>위험 등급</td>
-<td>"고위험"</td>
-<td><code>고위험|중위험|저위험</code></td>
-</tr>
-<tr>
-<td>코호트</td>
-<td><code>2024-01 W1</code></td>
-<td><code>\d{4}-\d{2}\s*W\d</code></td>
+<td><strong>Supervisor 규칙</strong></td>
+<td>형식적 한 줄 응답 금지, 최소 3개 인사이트, 금액 포맷(만/억 단위)</td>
+<td>최종 응답의 비즈니스 가치 보장</td>
 </tr>
 </tbody>
 </table></div>
-<h3 id="34-도구-함수-31개">3.4 도구 함수 (31개) </h3>
+<h3 id="도구-함수-31개">도구 함수 (31개)</h3>
 <div class="table-wrapper"><table aria-label="카테고리">
 <thead>
 <tr>
 <th>카테고리</th>
 <th>도구</th>
+<th>워커</th>
 <th style="text-align:center">ML 모델</th>
 <th>설명</th>
 </tr>
@@ -1806,71 +1592,61 @@ sequenceDiagram
 <tr>
 <td><strong>쇼핑몰</strong></td>
 <td><code>get_shop_info</code>, <code>list_shops</code>, <code>get_shop_services</code>, <code>get_shop_performance</code>, <code>get_category_info</code>, <code>list_categories</code></td>
+<td>search</td>
 <td style="text-align:center">-</td>
 <td>쇼핑몰/카테고리 조회</td>
 </tr>
 <tr>
 <td><strong>RAG</strong></td>
 <td><code>search_platform</code>, <code>search_platform_lightrag</code></td>
+<td>search</td>
 <td style="text-align:center">-</td>
 <td>FAISS Hybrid / LightRAG 검색</td>
 </tr>
 <tr>
 <td><strong>셀러 분석</strong></td>
 <td><code>analyze_seller</code>, <code>get_seller_segment</code>, <code>detect_fraud</code>, <code>get_segment_statistics</code>, <code>get_fraud_statistics</code>, <code>get_seller_activity_report</code></td>
+<td>analysis</td>
 <td style="text-align:center">K-Means, IsolationForest</td>
 <td>셀러 종합 분석</td>
 </tr>
 <tr>
 <td><strong>예측</strong></td>
 <td><code>predict_seller_churn</code>, <code>get_churn_prediction</code>, <code>predict_shop_revenue</code>, <code>get_gmv_prediction</code>, <code>optimize_marketing</code></td>
+<td>analysis</td>
 <td style="text-align:center">RF+SHAP, LightGBM, P-PSO</td>
 <td>ML 예측 + 최적화</td>
 </tr>
 <tr>
 <td><strong>분석</strong></td>
 <td><code>get_cohort_analysis</code>, <code>get_trend_analysis</code>, <code>get_order_statistics</code>, <code>get_dashboard_summary</code></td>
+<td>analysis</td>
 <td style="text-align:center">-</td>
 <td>KPI/코호트/트렌드</td>
 </tr>
 <tr>
 <td><strong>CS</strong></td>
 <td><code>auto_reply_cs</code>, <code>check_cs_quality</code>, <code>classify_inquiry</code>, <code>get_cs_statistics</code>, <code>get_ecommerce_glossary</code></td>
+<td>cs</td>
 <td style="text-align:center">TF-IDF+RF, RF</td>
 <td>CS 자동화</td>
 </tr>
 <tr>
 <td><strong>리텐션</strong></td>
 <td><code>get_at_risk_sellers</code>, <code>generate_retention_message</code>, <code>execute_retention_action</code></td>
+<td>analysis</td>
 <td style="text-align:center">RF+SHAP, GPT-4o-mini</td>
 <td>이탈 위험 셀러 탐지 + 맞춤 메시지 + 자동 조치</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>인터랙티브 도구 탐색기</strong>: 프론트엔드에서 31개 도구를 6개 카테고리(쇼핑몰 정보 · 셀러 분석 · ML 예측 · CS 상담 · 대시보드/통계 · 리텐션/RAG)로 재분류한 아코디언 UI를 제공합니다. 각 도구의 파라미터, 설명, 담당 워커 에이전트를 확인할 수 있습니다.</p>
-<h3 id="35-supervisor-멀티에이전트-langgraph">3.5 Supervisor 멀티에이전트 (LangGraph) </h3>
-<p>LangGraph <code>StateGraph</code> 기반 Supervisor 패턴으로 동작합니다. Supervisor(GPT-4o)가 질의를 분석하여 8개 전문 워커 에이전트에게 작업을 위임하고, 결과를 종합하여 응답합니다. AI 에이전트 탭은 항상 이 Supervisor 모드로 동작합니다. 각 워커는 <code>_WORKER_COMMON_RULES</code> 공통 응답 규칙(5가지 분석 관점: 추세 파악 · 이상값 발견 · 비교 분석 · 원인 추론 · 실행 제안)을 공유하면서, 역할별 특화 분석 지침을 개별 프롬프트로 보유합니다.</p>
-<div class="mermaid-container"><div class="mermaid">flowchart TD
-    S["Supervisor · GPT-4o"] --&gt;|"이탈"| W1["이탈 분석가"]
-    S --&gt;|"리텐션"| W2["리텐션 전략가"]
-    S --&gt;|"셀러"| W3["셀러 분석가"]
-    S --&gt;|"매출"| W4["성과 분석가"]
-    S --&gt;|"이상거래"| W5["이상거래 조사관"]
-    S --&gt;|"CS"| W6["CS 품질 분석가"]
-    S --&gt;|"리포트"| W7["리포트 작성가"]
-    S --&gt;|"RAG 검색"| W8["플랫폼 검색가"]
-    W1 &amp; W2 &amp; W3 &amp; W4 &amp; W5 &amp; W6 &amp; W7 &amp; W8 --&gt; Tools["Tool Executor · 31개 도구"]
-    Tools --&gt; W1 &amp; W2 &amp; W3 &amp; W4 &amp; W5 &amp; W6 &amp; W7 &amp; W8 --&gt;|"결과 종합"| S
-</div></div><p><strong>프롬프트 엔지니어링</strong>: 공통 규칙 상수(<code>_WORKER_COMMON_RULES</code>)를 분리하여 8개 워커가 일관된 응답 품질을 유지하면서, 각 워커에 역할별 특화 지침(예: 이탈 분석가는 SHAP 원인 순위 표 필수, 리포트 작성가는 경영진 의사결정 수준 보고서 작성)을 추가했습니다. Supervisor 프롬프트에는 대화 맥락 유지, 형식적 응답 금지, 인사이트 도출 필수 규칙을 강화하여 구체적 수치와 액션 아이템을 포함한 응답을 보장합니다.</p>
-<p><strong>코드 최적화</strong>: AgentPanel(기존 638줄)을 MultiAgentPanel의 19줄 래퍼로 통합하여, 일반/Supervisor 모드 토글 없이 항상 Supervisor 모드로 동작합니다.</p>
 </section>
 <hr>
 <section class="portfolio-section">
-<h2 id="4-rag-시스템-7종-기법">4. RAG 시스템 (7종 기법)</h2>
-<p class="section-summary">FAISS + BM25 Hybrid 검색을 중심으로 RAG-Fusion, Parent-Child Chunking, LightRAG, K2RAG 등 7종 기법을 조합하여 검색 품질을 극대화합니다.</p>
-<p>단일 RAG 기법만으로는 이커머스 도메인의 다양한 질문 유형(정책 조회, 개념 설명, 절차 안내)을 커버하기 어렵습니다. 각 기법의 강점을 조합하여 검색 품질을 극대화합니다.</p>
-<h3 id="적용-기법-요약">적용 기법 요약 </h3>
-<div class="table-wrapper"><table aria-label="#">
+<h2 id="3-rag-시스템-7종-기법">3. RAG 시스템 (7종 기법)</h2>
+<p class="section-summary">FAISS + BM25 Hybrid 검색을 중심으로 7종 기법(Hybrid Search, RAG-Fusion, Parent-Child Chunking, Contextual Retrieval, LightRAG, K2RAG, Cross-Encoder Reranking)을 모듈화했습니다. Knowledge Graph 기반 LightRAG로 엔티티 관계까지 검색합니다.</p>
+<h3 id="적용-기법-요약">적용 기법 요약</h3>
+<div class="table-wrapper"><table aria-label="RAG 기법 요약">
 <thead>
 <tr>
 <th style="text-align:center">#</th>
@@ -1905,21 +1681,21 @@ sequenceDiagram
 <tr>
 <td style="text-align:center">4</td>
 <td><strong>Contextual Retrieval</strong></td>
-<td>검색 정확도 +20~35%</td>
+<td>검색 정확도 +20~35% (Anthropic 벤치마크)</td>
 <td><a href="https://www.anthropic.com/news/contextual-retrieval">Anthropic</a></td>
-<td style="text-align:center">활성</td>
+<td style="text-align:center">비활성</td>
 </tr>
 <tr>
 <td style="text-align:center">5</td>
 <td><strong>LightRAG</strong> (GraphRAG)</td>
-<td>경량 지식 그래프, 99% 토큰 절감</td>
+<td>경량 지식 그래프, 99% 토큰 절감 (논문 기준, vs GraphRAG)</td>
 <td><a href="https://arxiv.org/abs/2410.05779">arXiv:2410.05779</a></td>
 <td style="text-align:center">시험용</td>
 </tr>
 <tr>
 <td style="text-align:center">6</td>
 <td><strong>K2RAG</strong></td>
-<td>KG + Hybrid + Corpus Summarization</td>
+<td>KG + Hybrid (Dense 80%+Sparse 20%) + Corpus 요약 93% 시간 절감</td>
 <td><a href="https://arxiv.org/abs/2507.07695">arXiv:2507.07695</a></td>
 <td style="text-align:center">시험중</td>
 </tr>
@@ -1932,18 +1708,9 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="41-hybrid-search-faiss--bm25--rrf">4.1 Hybrid Search (FAISS + BM25 + RRF) </h3>
-<div class="mermaid-container"><div class="mermaid">flowchart LR
-    Q["쿼리"] --&gt; FAISS["FAISS · 의미적 유사도"]
-    Q --&gt; BM25["BM25 · 키워드 매칭"]
-    FAISS &amp; BM25 --&gt; RRF["RRF 병합"] --&gt; Result["최종 결과"]
-</div></div><h3 id="42-rag-fusion-multi-query">4.2 RAG-Fusion (Multi-Query) </h3>
-<p>단일 쿼리를 GPT-4o-mini로 2개 쿼리(원본 + 1개 변형)로 확장 후 병렬 검색:</p>
-<pre data-role="codeBlock" data-info="" class="language-text"><code>원본: "카페24 정산 정책 알려줘"
-  → 변형 1: "카페24 정산 주기와 정책 안내"
-  → 변형 4: "카페24 수수료 정산 방식"
-  → 각각 Hybrid Search → RRF 병합 → 최종 결과
-</code></pre><h3 id="43-parent-child-chunking">4.3 Parent-Child Chunking </h3>
+<h3 id="hybrid-search">Hybrid Search (FAISS + BM25 + RRF)</h3>
+<p>쿼리 → FAISS(의미적 유사도) + BM25(키워드 매칭) → RRF 병합 → 최종 결과</p>
+<h3 id="parent-child-chunking">Parent-Child Chunking</h3>
 <div class="table-wrapper"><table aria-label="레벨">
 <thead>
 <tr>
@@ -1965,29 +1732,22 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="44-lightrag-지식-그래프">4.4 LightRAG (지식 그래프) </h3>
-<div class="mermaid-container"><div class="mermaid">flowchart LR
-    Q["쿼리"] --&gt; LOCAL["Local · 엔티티 중심"]
-    Q --&gt; GLOBAL["Global · 테마 중심"]
-    LOCAL &amp; GLOBAL --&gt; HYBRID["Hybrid 병합"] --&gt; Result
-</div></div><ul>
-<li><strong>Local</strong>: 구체적 엔티티 ("카페24 정산 주기는?")</li>
-<li><strong>Global</strong>: 추상적 테마 ("카페24 플랫폼 전체 운영 정책은?")</li>
-<li><strong>Hybrid</strong>: Local + Global 결합 (기본값)</li>
-</ul>
+<h3 id="lightrag-지식-그래프">LightRAG (지식 그래프)</h3>
+<p>쿼리 → Local(엔티티 중심) + Global(테마 중심) → Hybrid 병합 → 결과</p>
 </section>
 <hr>
+<!-- ===== 섹션 4: ML 파이프라인 ===== -->
 <section class="portfolio-section">
-<h2 id="5-ml-파이프라인-12개-모델">5. ML 파이프라인 (12개 모델)</h2>
-<p class="section-summary">RandomForest, LightGBM, XGBoost 등 6종 알고리즘으로 12개 ML 모델을 구축. 에이전트 Tool Calling을 통해 자연어로 호출됩니다.</p>
+<h2 id="4-ml-파이프라인-10개-모델">4. ML 파이프라인 (10개 모델)</h2>
+<p class="section-summary">8종 알고리즘으로 10개 ML 모델을 구축. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 골라 실행하고, MLflow가 모든 실험을 추적합니다.</p>
 <h3 id="설계-원칙">설계 원칙</h3>
 <ul>
-<li><strong>AI 에이전트 통합</strong>: 모든 ML 모델은 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 선택하여 결과를 자연어로 설명합니다.</li>
-<li><strong>Graceful Degradation</strong>: LightGBM/XGBoost 미설치 시 scikit-learn 기본 알고리즘으로 자동 대체됩니다.</li>
-<li><strong>합성 데이터</strong>: <code>np.random.default_rng(42)</code> 시드 고정. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사합니다.</li>
+<li><strong>AI 에이전트 통합</strong>: 에이전트가 Tool Calling으로 ML 모델을 호출합니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 골라 결과를 자연어로 설명합니다.</li>
+<li><strong>MLflow 추적</strong>: MLflow가 모든 학습 실험을 기록하고, 프론트엔드에서 모델 버전을 선택하면 실시간으로 교체합니다.</li>
+<li><strong>Graceful Degradation</strong>: LightGBM/XGBoost가 없으면 scikit-learn 기본 알고리즘으로 자동 대체합니다.</li>
 </ul>
 <h3 id="모델-개요">모델 개요 </h3>
-<div class="table-wrapper"><table aria-label="#">
+<div class="table-wrapper"><table aria-label="ML 모델 개요">
 <thead>
 <tr>
 <th style="text-align:center">#</th>
@@ -2068,27 +1828,9 @@ sequenceDiagram
 <td>정산 이상 패턴 탐지</td>
 <td>정상/이상 클러스터</td>
 </tr>
-<tr>
-<td style="text-align:center">11</td>
-<td><strong>다음 활동 예측</strong></td>
-<td>RandomForest Classifier</td>
-<td>프로세스 다음 활동 Top-3</td>
-<td>활동명 + 확률</td>
-</tr>
-<tr>
-<td style="text-align:center">12</td>
-<td><strong>이상 프로세스</strong></td>
-<td>Isolation Forest</td>
-<td>경로 기반 이상 케이스 탐지</td>
-<td>정상/이상 + 점수</td>
-</tr>
 </tbody>
 </table></div>
-<h3 id="51-셀러-이탈-예측--shap-해석-대표-모델">5.1 셀러 이탈 예측 + SHAP 해석 (대표 모델) </h3>
-<blockquote>
-<p>합성 데이터 Baseline — 실 데이터 적용 시 피처 분포 변화에 따른 재학습 + 드리프트 모니터링 필요</p>
-</blockquote>
-<p><strong>9개 입력 피처</strong>:</p>
+<h3 id="41-셀러-이탈-예측--shap-해석-대표-모델">4.1 셀러 이탈 예측 + SHAP 해석 (대표 모델) </h3>
 <div class="table-wrapper"><table aria-label="피처">
 <thead>
 <tr>
@@ -2130,22 +1872,14 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<p><strong>SHAP 출력 예시</strong>:</p>
-<pre data-role="codeBlock" data-info="" class="language-text"><code>SEL0123 이탈 확률: 73% (high)
-
-피처                              SHAP     영향
-──────────────────────────────────────────────
-days_since_last_login (14일)      +0.35   이탈 증가 ← 가장 큰 기여
-total_orders (감소)               +0.22   이탈 증가
-total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
-</code></pre><h3 id="52-마케팅-최적화-p-pso">5.2 마케팅 최적화 (P-PSO) </h3>
-<p>6개 마케팅 채널에 예산을 최적 배분하는 메타휴리스틱 최적화:</p>
+<h3 id="42-마케팅-최적화-p-pso">4.2 마케팅 최적화 (P-PSO) </h3>
+<p>6개 마케팅 채널에 예산을 최적 배분하는 메타휴리스틱 최적화 (mealpy 라이브러리 기반):</p>
 <div class="mermaid-container"><div class="mermaid">flowchart LR
-    A["셀러 ID + 총 예산"] --&gt; B["LightGBM 매출 예측"]
-    B --&gt; C["P-PSO 최적화 · 6채널"]
-    C --&gt; D["채널별 예산 배분 + ROAS"]
-    C --&gt;|"실패 시"| F["Heuristic Fallback"]
-    F --&gt; D
+    A["셀러 ID + 총 예산"] --> B["LightGBM 매출 예측"]
+    B --> C["P-PSO 최적화 · 6채널"]
+    C --> D["채널별 예산 배분 + ROAS"]
+    C -->|"실패 시"| F["Heuristic Fallback"]
+    F --> D
 </div></div><div class="table-wrapper"><table aria-label="채널">
 <thead>
 <tr>
@@ -2157,60 +1891,83 @@ total_revenue (높음)              -0.12   이탈 감소 (방어 요인)
 </thead>
 <tbody>
 <tr>
-<td>검색 광고</td>
-<td style="text-align:center">4.5x</td>
-<td style="text-align:center">300만</td>
-<td>포화점 이후 log-scale</td>
-</tr>
-<tr>
 <td>이메일 마케팅</td>
-<td style="text-align:center">6.0x</td>
-<td style="text-align:center">100만</td>
+<td style="text-align:center">8.0x</td>
+<td style="text-align:center">예산의 10%</td>
 <td>선형 → 로그 전환</td>
 </tr>
 <tr>
-<td>소셜 미디어</td>
-<td style="text-align:center">3.2x</td>
-<td style="text-align:center">200만</td>
-<td></td>
-</tr>
-<tr>
 <td>콘텐츠 마케팅</td>
-<td style="text-align:center">3.8x</td>
-<td style="text-align:center">150만</td>
-<td></td>
+<td style="text-align:center">5.0x</td>
+<td style="text-align:center">예산의 15%</td>
+<td>포화점 이후 log-scale</td>
 </tr>
 <tr>
-<td>디스플레이</td>
-<td style="text-align:center">2.8x</td>
-<td style="text-align:center">500만</td>
-<td></td>
+<td>소셜 미디어</td>
+<td style="text-align:center">4.0x</td>
+<td style="text-align:center">예산의 28%</td>
+<td>포화점 이후 log-scale</td>
+</tr>
+<tr>
+<td>검색 광고</td>
+<td style="text-align:center">3.5x</td>
+<td style="text-align:center">예산의 30%</td>
+<td>포화점 이후 log-scale</td>
 </tr>
 <tr>
 <td>인플루언서</td>
 <td style="text-align:center">2.5x</td>
-<td style="text-align:center">400만</td>
-<td></td>
+<td style="text-align:center">예산의 25%</td>
+<td>포화점 이후 log-scale</td>
+</tr>
+<tr>
+<td>디스플레이</td>
+<td style="text-align:center">2.0x</td>
+<td style="text-align:center">예산의 25%</td>
+<td>포화점 이후 log-scale</td>
 </tr>
 </tbody>
 </table></div>
-</section>
+<h3 id="43-mlflow-실험-추적">4.3 MLflow 실험 추적 </h3>
+<div class="mermaid-container"><div class="mermaid">sequenceDiagram
+    participant FE as 프론트엔드
+    participant BE as FastAPI
+    participant ML as MLflow Registry
+    participant ST as state.py
+
+    FE->>BE: GET /api/mlflow/models
+    BE-->>FE: 등록 모델 + 버전 목록
+
+    FE->>BE: POST /api/mlflow/models/select
+    Note over BE: {model_key: "churn", version: "2"}
+    BE->>ML: load_model_from_registry()
+    ML-->>BE: 모델 객체
+    BE->>ST: SELLER_CHURN_MODEL = 새 모델
+    BE-->>FE: 교체 완료 (즉시 적용)
+</div></div></section>
 <hr>
+
+<!-- ===== 섹션 5: 자동화 시스템 ===== -->
 <section class="portfolio-section">
-<h2 id="6-cs-자동화-파이프라인">6. CS 자동화 파이프라인</h2>
-<p class="section-summary">ML 분류 → DnD 자동/수동 분기 → RAG+LLM 답변 생성 → n8n 워크플로우 회신까지, 5단계 CS 파이프라인으로 반복 문의를 자동 처리합니다.</p>
-<h3 id="5단계-파이프라인">5단계 파이프라인</h3>
-<p>단순/반복 문의는 자동 처리하고, 복잡한 문의만 담당자가 검토하는 구조입니다.</p>
+<h2 id="5-자동화-시스템">5. 자동화 시스템</h2>
+<p class="section-summary">CS 5단계 파이프라인과 4종 자동화 엔진(이탈방지 · 업그레이드 · FAQ · 리포트)을 통합하여 "탐지 → 판단 → 실행"을 자동화합니다.</p>
+
+<blockquote>
+<p><strong>공통 설계 원칙</strong>: 4종 자동화 엔진은 모두 <strong>"탐지 → AI 판단 → 자동 실행 → 이력 추적"</strong> 패턴을 따릅니다. 모든 조치는 Action Logger가 파이프라인 단계별로 추적하며, API 23개(이탈방지 6 + 업그레이드 4 + FAQ 6 + 리포트 3 + 공통 4)로 프론트엔드와 연동합니다.</p>
+</blockquote>
+
+<h3 id="cs-5단계-파이프라인">CS 5단계 파이프라인</h3>
+<p>단순/반복 문의는 AI가 즉시 처리하고, 복잡한 문의만 담당자에게 넘깁니다.</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
-    A["접수 · TF-IDF+RF 분류"] --&gt; B{"DnD 분기"}
-    B --&gt;|"신뢰도 &gt;= 0.75"| C["자동 처리"]
-    B --&gt;|"신뢰도 &lt; 0.75"| D["담당자 검토"]
-    C --&gt; E["RAG+LLM 답변 생성"]
-    D --&gt; F["상세 검토 · 우선순위 예측"]
-    F --&gt; E
-    E --&gt; G["React Flow + n8n 회신"]
-    G --&gt; H["개선 대시보드 · KPI"]
+    A["접수 · TF-IDF+RF 분류"] --> B{"DnD 분기"}
+    B -->|"신뢰도 >= 0.75"| C["자동 처리"]
+    B -->|"신뢰도 < 0.75"| D["담당자 검토"]
+    C --> E["RAG+LLM 답변 생성"]
+    D --> F["상세 검토 · 우선순위 예측"]
+    F --> E
+    E --> G["React Flow + n8n 회신"]
+    G --> H["개선 대시보드 · KPI"]
 </div></div><div class="table-wrapper"><table aria-label="단계">
 <thead>
 <tr>
@@ -2247,44 +2004,336 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
+
 <h3 id="n8n-워크플로우-10개-노드">n8n 워크플로우 (10개 노드) </h3>
 <div class="mermaid-container"><div class="mermaid">flowchart LR
-    W1["Webhook 수신"] --&gt; W2["답변 검증"]
-    W2 --&gt; W3["채널 분기"]
-    W3 --&gt; W4["채널별 발송"]
-    W4 --&gt; W5{"이메일?"}
-    W5 --&gt;|Yes| W6["이메일 분리"]
-    W6 --&gt; W7["Resend API 발송"]
-    W7 --&gt; W8["결과 병합"]
-    W5 --&gt;|No| W9["결과 기록"]
-    W8 --&gt; W9
-    W9 --&gt; W10["Respond"]
-</div></div><p>프론트엔드에서 전송 클릭 시 <code>job_id</code> 기반 SSE 스트리밍으로 React Flow 노드 상태가 순차 업데이트됩니다: <code>idle</code> → <code>running</code> (pulse 애니메이션) → <code>completed</code> (녹색)</p>
-</section>
-<hr>
-<section class="portfolio-section">
-<h2 id="7-db-보안-감시-data-guardian">7. DB 보안 감시 (Data Guardian)</h2>
-<p class="section-summary">룰엔진(&lt;1ms) + ML 이상탐지 + AI Agent 3단계 위험 분석으로 치명적 SQL 쿼리를 실시간 차단하고, Recovery Agent가 복구 SQL을 제안합니다.</p>
-<h3 id="개발-배경">개발 배경</h3>
-<p>실수로 인한 대량 데이터 삭제/수정은 치명적 비즈니스 손실로 이어집니다.</p>
-<ul>
-<li>신입 개발자가 <code>WHERE</code> 없이 <code>DELETE FROM orders</code> 실행 → 주문 전체 소실</li>
-<li>야간 배치에서 정산 테이블 <code>UPDATE</code> 조건 오류 → 금액 일괄 0원</li>
-</ul>
-<h3 id="3단계--recovery-agent">3단계 + Recovery Agent </h3>
+    W1["Webhook 수신"] --> W2["답변 검증"]
+    W2 --> W3["채널 분기"]
+    W3 --> W4["채널별 발송"]
+    W4 --> W5{"이메일?"}
+    W5 -->|Yes| W6["이메일 분리"]
+    W6 --> W7["Resend API 발송"]
+    W7 --> W8["결과 병합"]
+    W5 -->|No| W9["결과 기록"]
+    W8 --> W9
+    W9 --> W10["Respond"]
+</div></div>
+
+<h3 id="4종-자동화-엔진">4종 자동화 엔진</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
 flowchart TD
-    A["SQL 쿼리 입력"] --&gt; M{"감시 모드 선택"}
-    M --&gt; B["룰엔진 · 패턴 매칭 · 1ms 미만"]
-    M --&gt; ML["ML 이상탐지 · IsolationForest"]
-    B &amp; ML --&gt;|"고위험"| D["AI Agent · 위험 분석"]
-    B &amp; ML --&gt;|"저위험"| SAFE["즉시 실행"]
-    D --&gt; E{"판정"}
-    E --&gt; SAFE
-    E --&gt; WARN["WARNING"]
-    E --&gt; BLOCK["BLOCKED · DBA 알림"]
-    BLOCK -.-&gt;|"복구 요청"| R["Recovery Agent · 복구 SQL 제안"]
-</div></div><p><strong>설계 결정 — 멀티 에이전트를 채택하지 않은 이유</strong>:</p>
+    subgraph Retention["이탈 방지 엔진"]
+        R1["ML 이탈 예측 · RF+SHAP"] --> R2["위험 셀러 탐지"]
+        R2 --> R3["LLM 맞춤 메시지 생성"]
+        R3 --> R4["자동 조치 실행<br/>(쿠폰·업그레이드·매니저 배정)"]
+    end
+
+    subgraph FAQ["FAQ 자동 생성 엔진"]
+        F1["TF-IDF · K-Means + PCA<br/>or LLM 의미 분류"] --> F1b["클러스터 선택<br/>(체크박스 · 전체 토글)"]
+        F1b --> F2["선택 클러스터 ×<br/>클러스터당(1~3) FAQ 생성"]
+        F2 --> F3["관리자 승인/편집"]
+    end
+
+    subgraph Report["운영 리포트 엔진"]
+        P1["플랫폼 KPI 집계"] --> P2["LLM 리포트 작성"]
+        P2 --> P3["일간/주간/월간 리포트"]
+    end
+
+    subgraph Upgrade["플랜 업그레이드 엔진"]
+        U1["규칙 기반 후보 탐지<br/>매출·주문수 임계값"] --> U2["LLM 맞춤 추천 메시지"]
+        U2 --> U3["업그레이드 제안 실행<br/>(추천·혜택안내·상담·메시지)"]
+    end
+
+    ActionLog["Action Logger · 전 조치 이력 추적"]
+    Retention & Upgrade & FAQ & Report --> ActionLog
+</div></div>
+
+<h3 id="이탈-방지-자동-조치">이탈 방지 자동 조치 </h3>
+<div class="table-wrapper"><table aria-label="단계">
+<thead>
+<tr>
+<th style="text-align:center">단계</th>
+<th>기능</th>
+<th>기술</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1. 탐지</td>
+<td>이탈 확률 ≥ 임계값(기본 60%) 셀러 배치 탐지</td>
+<td>RF predict_proba + SHAP Top-5 요인 추출 (ML 없으면 휴리스틱 폴백)</td>
+</tr>
+<tr>
+<td style="text-align:center">2. 메시지</td>
+<td>SHAP 이탈 요인 + 셀러 프로필 기반 맞춤 메시지</td>
+<td>GPT-4o-mini (JSON 응답: message + recommended_actions + urgency)</td>
+</tr>
+<tr>
+<td style="text-align:center">3. 조치</td>
+<td>coupon(수수료 30% 할인 30일) · upgrade_offer(Premium 3개월 무료) · manager_assign(24h 내 연락) · custom_message(LLM 생성)</td>
+<td>4종 action_type · 벌크 실행 지원 (/retention/execute-bulk)</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 추적</td>
+<td>pipeline_id로 단계별 상태 추적 (pending → processing → complete)</td>
+<td>Action Logger (thread-safe, 최대 5,000건)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>위험 등급</strong>: 이탈 확률 > 70% → <code>high</code>, 30~70% → <code>medium</code>, &lt; 30% → <code>low</code>. 모델 미설치 시 접속 경과일·주문수·매출·환불률·CS 문의 건수 5개 지표로 휴리스틱 점수를 산출합니다.</p>
+
+<h3 id="플랜-업그레이드-자동-추천">플랜 업그레이드 자동 추천</h3>
+<p>셀러의 매출과 주문수가 현재 플랜 임계값을 초과하면 상위 플랜을 추천합니다. 업그레이드 점수는 매출 비율 60% + 주문 비율 40%로 0~100점 산출합니다. <code>use_ml_scoring</code> 옵션 활성화 시 ML 이탈 스코어링을 결합하여, 이탈 위험이 높은 셀러에게 업그레이드 혜택을 선제적으로 제안할 수 있습니다.</p>
+<div class="table-wrapper"><table aria-label="플랜 임계값">
+<thead>
+<tr>
+<th>현재 플랜</th>
+<th>추천 플랜</th>
+<th style="text-align:right">매출 기준</th>
+<th style="text-align:right">주문수 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Basic</td>
+<td>Standard</td>
+<td style="text-align:right">≥ 500만원</td>
+<td style="text-align:right">≥ 100건</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>Premium</td>
+<td style="text-align:right">≥ 2,000만원</td>
+<td style="text-align:right">≥ 500건</td>
+</tr>
+<tr>
+<td>Premium</td>
+<td>Enterprise</td>
+<td style="text-align:right">≥ 5,000만원</td>
+<td style="text-align:right">≥ 2,000건</td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-wrapper"><table aria-label="업그레이드 파이프라인">
+<thead>
+<tr>
+<th style="text-align:center">단계</th>
+<th>기능</th>
+<th>기술</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1. 탐지</td>
+<td>매출/주문수 임계값 기반 업그레이드 후보 탐지</td>
+<td>매출 ≥ 임계값 or 주문수 ≥ 임계값 → 후보 필터링</td>
+</tr>
+<tr>
+<td style="text-align:center">2. 분석</td>
+<td>셀러 성과 데이터 종합 분석</td>
+<td>매출 60% + 주문수 40% 가중 점수 (0~100) + 성장 지표(상품수, 환불률, 접속빈도)</td>
+</tr>
+<tr>
+<td style="text-align:center">3. 메시지</td>
+<td>상위 플랜 혜택 기반 맞춤 업그레이드 추천 메시지</td>
+<td>GPT-4o-mini (JSON: message + benefits + urgency)</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 실행</td>
+<td>업그레이드 추천 / 혜택 안내 / 상담 예약 / 맞춤 메시지 발송</td>
+<td>upgrade_recommend · benefit_info · consultation_request(48h 내) · custom_message</td>
+</tr>
+</tbody>
+</table></div>
+
+<h3 id="cs-faq-자동-생성">CS FAQ 자동 생성 </h3>
+<div class="table-wrapper"><table aria-label="FAQ 파이프라인">
+<thead>
+<tr>
+<th style="text-align:center">단계</th>
+<th>기능</th>
+<th>기술</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1. 분석</td>
+<td>카테고리별 CS 문의 TF-IDF 벡터화 + 실루엣 최적 K 탐색</td>
+<td>TF-IDF(max_features=500) + 실루엣 최적 K 탐색(k=2~min(n÷8, 10)) / LLM: GPT-4o-mini(최대 50건, temp 0.3)</td>
+</tr>
+<tr>
+<td style="text-align:center">2. 클러스터링</td>
+<td>K-Means or LLM 의미 그룹핑 (듀얼 모드)</td>
+<td>K-Means(n_init=10, random_state=42) + PCA 2D 좌표 → 산점도 시각화 / LLM 의미 그룹핑</td>
+</tr>
+<tr>
+<td style="text-align:center">3. 선택</td>
+<td>클러스터별 체크박스로 원하는 클러스터만 선택</td>
+<td>프론트엔드 체크박스 → selectedClusters 배열 전달 → 재분석 생략</td>
+</tr>
+<tr>
+<td style="text-align:center">4. 생성</td>
+<td>선택된 클러스터 x 클러스터당(1~3) FAQ 자동 생성</td>
+<td>GPT-4o-mini(temp 0.7) → JSON [{question, answer, category, tags}] · 9개 카테고리</td>
+</tr>
+<tr>
+<td style="text-align:center">5. 검토/승인</td>
+<td>관리자가 FAQ 확인 · 편집 후 승인/삭제</td>
+<td>draft 상태 저장 → 편집/삭제 → approved 전환 · FAQ CRUD API 4개</td>
+</tr>
+</tbody>
+</table></div>
+
+<h3 id="운영-리포트-자동-생성">운영 리포트 자동 생성 </h3>
+<div class="table-wrapper"><table aria-label="리포트 유형">
+<thead>
+<tr>
+<th style="text-align:center">리포트 유형</th>
+<th style="text-align:center">주기</th>
+<th>포함 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">일간</td>
+<td style="text-align:center">매일</td>
+<td>GMV · 활성셀러 · 주문수 · 신규가입 (DAILY_METRICS_DF) + CS 현황 (CS_STATS_DF) + 이상거래 (FRAUD_DETAILS_DF)</td>
+</tr>
+<tr>
+<td style="text-align:center">주간</td>
+<td style="text-align:center">매주</td>
+<td>7일 평균 vs 이전 7일 평균 WoW 변화율 (%) + 트렌드 분석</td>
+</tr>
+<tr>
+<td style="text-align:center">월간</td>
+<td style="text-align:center">매월</td>
+<td>월간 종합 + 셀러 세그먼트 분포 (SELLER_ANALYTICS_DF) + 코호트 리텐션 (COHORT_RETENTION_DF) + 권장 조치</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>리포트 생성 구조</strong>: <code>collect_report_data()</code>가 6개 DataFrame에서 KPI를 집계 → JSON으로 LLM에 전달 → 마크다운 리포트 자동 작성 (temp 0.3). 리포트 구성: 핵심 지표 요약 → 주요 변화/트렌드 → 이슈·주의사항 → 권장 조치.</p>
+
+<h3 id="자동화-api-엔드포인트">자동화 API 엔드포인트 (23개)</h3>
+<div class="table-wrapper"><table aria-label="자동화 API">
+<thead>
+<tr>
+<th>엔진</th>
+<th>메서드</th>
+<th>경로</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr><td rowspan="6"><strong>이탈 방지</strong></td><td>GET</td><td><code>/api/automation/retention/at-risk</code></td><td>위험 셀러 목록 조회</td></tr>
+<tr><td>POST</td><td><code>/api/automation/retention/message</code></td><td>맞춤 리텐션 메시지 생성</td></tr>
+<tr><td>POST</td><td><code>/api/automation/retention/execute</code></td><td>단일 조치 실행</td></tr>
+<tr><td>POST</td><td><code>/api/automation/retention/execute-bulk</code></td><td>벌크 조치 실행</td></tr>
+<tr><td>GET</td><td><code>/api/automation/retention/history</code></td><td>조치 이력 조회</td></tr>
+<tr><td>POST</td><td><code>/api/automation/retention/stream</code></td><td>SSE 실시간 스트리밍</td></tr>
+<tr><td rowspan="4"><strong>업그레이드</strong></td><td>GET</td><td><code>/api/automation/upgrade/candidates</code></td><td>후보 셀러 목록</td></tr>
+<tr><td>POST</td><td><code>/api/automation/upgrade/message</code></td><td>추천 메시지 생성</td></tr>
+<tr><td>POST</td><td><code>/api/automation/upgrade/execute</code></td><td>업그레이드 조치 실행</td></tr>
+<tr><td>POST</td><td><code>/api/automation/upgrade/stream</code></td><td>SSE 실시간 스트리밍</td></tr>
+<tr><td rowspan="6"><strong>FAQ</strong></td><td>POST</td><td><code>/api/automation/faq/analyze</code></td><td>CS 패턴 분석</td></tr>
+<tr><td>POST</td><td><code>/api/automation/faq/generate</code></td><td>FAQ 자동 생성</td></tr>
+<tr><td>GET</td><td><code>/api/automation/faq/list</code></td><td>FAQ 목록 조회</td></tr>
+<tr><td>PUT</td><td><code>/api/automation/faq/{id}/approve</code></td><td>FAQ 승인</td></tr>
+<tr><td>PUT</td><td><code>/api/automation/faq/{id}</code></td><td>FAQ 수정</td></tr>
+<tr><td>DELETE</td><td><code>/api/automation/faq/{id}</code></td><td>FAQ 삭제</td></tr>
+<tr><td rowspan="3"><strong>리포트</strong></td><td>POST</td><td><code>/api/automation/report/generate</code></td><td>리포트 생성 (daily/weekly/monthly)</td></tr>
+<tr><td>GET</td><td><code>/api/automation/report/history</code></td><td>리포트 이력 조회</td></tr>
+<tr><td>POST</td><td><code>/api/automation/report/stream</code></td><td>SSE 실시간 스트리밍</td></tr>
+<tr><td rowspan="4"><strong>공통</strong></td><td>GET</td><td><code>/api/automation/actions/log</code></td><td>전체 액션 로그 조회</td></tr>
+<tr><td>GET</td><td><code>/api/automation/actions/stats</code></td><td>액션 통계</td></tr>
+<tr><td>GET</td><td><code>/api/automation/categories</code></td><td>CS 카테고리 목록 (9종)</td></tr>
+<tr><td>GET</td><td><code>/api/automation/pipeline/{run_id}</code></td><td>파이프라인 실행 상태</td></tr>
+</tbody>
+</table></div>
+</section>
+<hr>
+
+<!-- ===== 섹션 6: 독립 서브시스템 ===== -->
+<section class="portfolio-section">
+<h2 id="6-독립-서브시스템">6. 독립 서브시스템</h2>
+<p class="section-summary">메인 에이전트 밖에서 독립적으로 작동하는 서브시스템 — Data Guardian이 치명적 SQL 쿼리를 1ms 안에 차단합니다.</p>
+
+<h3 id="data-guardian">Data Guardian</h3>
+<p>룰엔진(&lt;1ms) + IsolationForest ML 이상탐지 + AI Agent 3단계 위험 분석으로 치명적 SQL 쿼리를 실시간 차단하고, Recovery Agent가 복구 SQL을 제안합니다.</p>
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+flowchart TD
+    A["SQL 쿼리 입력"] --> M{"감시 모드 선택"}
+    M --> B["룰엔진 · 패턴 매칭 · 1ms 미만"]
+    M --> ML["ML 이상탐지 · IsolationForest"]
+    B & ML -->|"고위험"| D["AI Agent · 위험 분석"]
+    B & ML -->|"저위험"| SAFE["즉시 실행"]
+    D --> E{"판정"}
+    E --> SAFE
+    E --> WARN["WARNING"]
+    E --> BLOCK["BLOCKED · DBA 알림"]
+    BLOCK -.-|"복구 요청"| R["Recovery Agent · 복구 SQL 제안"]
+</div></div>
+<h4>Guardian Agent 도구 (4개) + Recovery Agent 도구 (2개)</h4>
+<div class="table-wrapper"><table aria-label="Guardian 도구">
+<thead>
+<tr>
+<th>에이전트</th>
+<th>도구</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td rowspan="4"><strong>Guardian Agent</strong></td>
+<td><code>analyze_impact</code></td>
+<td>비즈니스 영향도 · 연쇄 테이블 · 복구 난이도 분석</td>
+</tr>
+<tr>
+<td><code>get_user_pattern</code></td>
+<td>최근 30일 행동 패턴 · 이탈도 계산</td>
+</tr>
+<tr>
+<td><code>search_similar</code></td>
+<td>과거 유사 사건 · 실수 비율 통계</td>
+</tr>
+<tr>
+<td><code>execute_decision</code></td>
+<td>차단/승인 최종 판정</td>
+</tr>
+<tr>
+<td rowspan="2"><strong>Recovery Agent</strong></td>
+<td><code>search_audit_log</code></td>
+<td>감사 로그에서 원본 데이터 검색 · 복구 대상 식별</td>
+</tr>
+<tr>
+<td><code>generate_restore_sql</code></td>
+<td>복구 SQL 생성 (DBA 승인 필수, 자동 실행 불가)</td>
+</tr>
+</tbody>
+</table></div>
+
+<h4>Guardian API 엔드포인트 (5개)</h4>
+<div class="table-wrapper"><table aria-label="Guardian API">
+<thead>
+<tr>
+<th>메서드</th>
+<th>경로</th>
+<th>기능</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/api/guardian/analyze</code></td><td>SQL 쿼리 위험도 분석 (룰+ML+AI)</td></tr>
+<tr><td>POST</td><td><code>/api/guardian/recover</code></td><td>Recovery Agent 복구 SQL 제안</td></tr>
+<tr><td>GET</td><td><code>/api/guardian/logs</code></td><td>감시 로그 이력 조회</td></tr>
+<tr><td>GET</td><td><code>/api/guardian/stats</code></td><td>Guardian 통계 대시보드 데이터</td></tr>
+<tr><td>POST</td><td><code>/api/guardian/notify-dba</code></td><td>DBA에게 Resend 이메일 알림 발송</td></tr>
+</tbody>
+</table></div>
+
+<h4>Guardian ML 이상탐지 상세</h4>
+<p>IsolationForest가 7개 피처(쿼리 길이, 테이블 수, WHERE 절 유무, JOIN 수, 서브쿼리 깊이, 위험 키워드 수, 실행 시간대)를 분석합니다. 최종 위험도는 <strong>combined_score = rule_score &times; 0.4 + ml_score &times; 0.3 + pattern_score &times; 0.3</strong> 가중 합산으로 산출하며, 임계값(기본 0.7) 초과 시 AI Agent 분석 단계로 에스컬레이션합니다.</p>
+<p><strong>Resend 이메일 알림</strong>: BLOCKED 판정 시 <code>/api/guardian/notify-dba</code>를 통해 DBA에게 즉시 이메일 알림을 발송합니다. n8n 워크플로우와 동일한 Resend API를 사용하며, 쿼리 내용·위험도·차단 사유를 포함합니다.</p>
+
+<h4>설계 결정 — 멀티 에이전트를 채택하지 않은 이유</h4>
 <div class="table-wrapper"><table aria-label="초기 설계 (멀티 에이전트)">
 <thead>
 <tr>
@@ -2311,202 +2360,95 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<p><strong>Guardian Agent 도구</strong>: <code>analyze_impact</code> (비즈니스 영향도) · <code>get_user_pattern</code> (사용자 행동 패턴) · <code>search_similar</code> (과거 유사 사건) · <code>execute_decision</code> (차단/승인)</p>
+
 </section>
 <hr>
+
+<!-- ===== 섹션 7: 프론트엔드 · 기술 스택 · 배포 ===== -->
 <section class="portfolio-section">
-<h2 id="8-자동화-엔진-이탈방지--faq--리포트">8. 자동화 엔진 (이탈방지 · FAQ · 리포트)</h2>
-<p class="section-summary">"탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결하는 3종 자동화 엔진. 이탈방지 자동 조치, FAQ 자동 생성, 운영 리포트를 제공합니다.</p>
-<p>ML 예측 결과를 기반으로 자동 조치까지 수행하는 3종 자동화 엔진입니다. "탐지 → 판단 → 실행"을 하나의 파이프라인으로 연결합니다.</p>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
-flowchart TD
-    subgraph Retention["이탈 방지 엔진"]
-        R1["ML 이탈 예측 · RF+SHAP"] --&gt; R2["위험 셀러 탐지"]
-        R2 --&gt; R3["LLM 맞춤 메시지 생성"]
-        R3 --&gt; R4["자동 조치 실행&lt;br/&gt;(쿠폰·업그레이드·매니저 배정)"]
-    end
+<h2 id="7-프론트엔드-기술-스택-배포">7. 프론트엔드 · 기술 스택 · 배포</h2>
+<p class="section-summary">Next.js 14 기반 11개 패널 SPA로, 에이전트 대화부터 ML 모델 교체까지 하나의 화면에서 제어합니다.</p>
 
-    subgraph FAQ["FAQ 자동 생성 엔진"]
-        F1["CS 문의 패턴 분석"] --&gt; F2["LLM FAQ 자동 생성"]
-        F2 --&gt; F3["관리자 승인/편집"]
-    end
-
-    subgraph Report["운영 리포트 엔진"]
-        P1["플랫폼 KPI 집계"] --&gt; P2["LLM 리포트 작성"]
-        P2 --&gt; P3["일간/주간/월간 리포트"]
-    end
-
-    ActionLog["Action Logger · 전 조치 이력 추적"]
-    Retention &amp; FAQ &amp; Report --&gt; ActionLog
-</div></div><h3 id="81-이탈-방지-자동-조치">8.1 이탈 방지 자동 조치 </h3>
-<div class="table-wrapper"><table aria-label="단계">
+<h3 id="패널-구성">패널 구성 (11개)</h3>
+<div class="table-wrapper"><table aria-label="프론트엔드 패널 구성">
 <thead>
 <tr>
-<th style="text-align:center">단계</th>
-<th>기능</th>
-<th>기술</th>
+<th style="text-align:center">#</th>
+<th>패널</th>
+<th>핵심 기능</th>
+<th>주요 기술</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:center">1. 탐지</td>
-<td>이탈 확률 &gt;= 임계값 셀러 일괄 탐지</td>
-<td>RandomForest + SHAP</td>
+<td style="text-align:center">1</td>
+<td><strong>AI 에이전트</strong></td>
+<td>자연어 채팅 + 도구 호출 + 추천 질문 칩</td>
+<td>SSE 스트리밍, react-markdown, remark-gfm</td>
 </tr>
 <tr>
-<td style="text-align:center">2. 메시지</td>
-<td>SHAP 원인 분석 기반 맞춤 리텐션 메시지</td>
-<td>GPT-4o-mini</td>
+<td style="text-align:center">2</td>
+<td><strong>대시보드</strong></td>
+<td>KPI 4종, 차트 5종, AI 인사이트, 실시간 알림</td>
+<td>Recharts (Area/Bar/Pie/RadialBar), 60초 자동 폴링</td>
 </tr>
 <tr>
-<td style="text-align:center">3. 조치</td>
-<td>쿠폰 발급 / 업그레이드 제안 / 매니저 배정 / 맞춤 메시지</td>
-<td>4종 action_type</td>
+<td style="text-align:center">3</td>
+<td><strong>분석 (9탭)</strong></td>
+<td>9개 서브탭 동적 임포트 (셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅)</td>
+<td>Recharts (Radar/Bar/Area/Line), CSS HeatMap, dynamic import</td>
 </tr>
 <tr>
-<td style="text-align:center">4. 추적</td>
-<td>모든 조치 이력 로깅 + 파이프라인 단계별 추적</td>
-<td>Action Logger</td>
+<td style="text-align:center">4</td>
+<td><strong>ML 모델</strong></td>
+<td>MLflow 레지스트리 조회, 버전 선택/로드, 실험 메트릭 표시</td>
+<td>Promise.all 병렬 로드, Live/Sample 상태 배지</td>
+</tr>
+<tr>
+<td style="text-align:center">5</td>
+<td><strong>RAG 관리</strong></td>
+<td>상태 박스 4종 (인덱스/문서/청크/임베딩), 검색 모드 선택 (RAG/LightRAG/K2RAG/자동)</td>
+<td>Advanced RAG Features 상태 표시, 문서 목록 관리</td>
+</tr>
+<tr>
+<td style="text-align:center">6</td>
+<td><strong>설정</strong></td>
+<td>모델 선택, 프리셋 3종, 슬라이더 4개 (Temp/TopP/Presence/Frequency)</td>
+<td>Draft/Save 분리, 백엔드 시스템 프롬프트 읽기 전용</td>
+</tr>
+<tr>
+<td style="text-align:center">7</td>
+<td><strong>셀러 관리</strong></td>
+<td>사용자 목록 테이블, 신규 계정 추가</td>
+<td>관리자 전용, 역할 기반 접근</td>
+</tr>
+<tr>
+<td style="text-align:center">8</td>
+<td><strong>활동 로그</strong></td>
+<td>세션 활동 이력, 로그 초기화</td>
+<td>클라이언트 메모리 기반, 최신순 역순 정렬</td>
+</tr>
+<tr>
+<td style="text-align:center">9</td>
+<td><strong>CS 파이프라인</strong></td>
+<td>5단계 자동화, DnD 분기, 워크플로 시각화</td>
+<td>Framer Motion, @xyflow/react, useReducer</td>
+</tr>
+<tr>
+<td style="text-align:center">10</td>
+<td><strong>DB 보안 감시</strong></td>
+<td>3탭 (감시/복구/대시보드), 룰+ML 이중 분석, 프리셋 8개</td>
+<td>감시 모드 3종, WAI-ARIA 탭</td>
+</tr>
+<tr>
+<td style="text-align:center">11</td>
+<td><strong>자동화 엔진</strong></td>
+<td>4탭 (이탈 방지/플랜 업그레이드/FAQ 자동생성/운영 리포트)</td>
+<td>탭 컴포넌트 분리, 파이프라인 추적</td>
 </tr>
 </tbody>
 </table></div>
-<h3 id="82-cs-faq-자동-생성">8.2 CS FAQ 자동 생성 </h3>
-<p>CS 문의 패턴을 분석하여 FAQ를 자동 생성하고, 관리자가 승인/편집/삭제할 수 있습니다.</p>
-<ul>
-<li><strong>카테고리별 생성</strong>: 배송, 환불, 결제, 상품, 계정 등 9개 카테고리</li>
-<li><strong>승인 워크플로우</strong>: draft → approved 상태 관리</li>
-<li><strong>CRUD</strong>: 생성 · 조회 · 수정 · 삭제 · 승인</li>
-</ul>
-<h3 id="83-운영-리포트-자동-생성">8.3 운영 리포트 자동 생성 </h3>
-<p>플랫폼 전체 KPI를 집계하여 LLM이 자연어 리포트를 자동 작성합니다.</p>
-<div class="table-wrapper"><table aria-label="리포트 유형">
-<thead>
-<tr>
-<th style="text-align:center">리포트 유형</th>
-<th style="text-align:center">주기</th>
-<th>포함 내용</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="text-align:center">일간</td>
-<td style="text-align:center">매일</td>
-<td>GMV, 활성 셀러, 주문수, CS 현황</td>
-</tr>
-<tr>
-<td style="text-align:center">주간</td>
-<td style="text-align:center">매주</td>
-<td>주간 트렌드 + 전주 대비 변화율</td>
-</tr>
-<tr>
-<td style="text-align:center">월간</td>
-<td style="text-align:center">매월</td>
-<td>월간 종합 + 세그먼트 분석 + 개선 제안</td>
-</tr>
-</tbody>
-</table></div>
-<h3 id="api-엔드포인트-17개">API 엔드포인트 (17개) </h3>
-<div class="table-wrapper"><table aria-label="영역">
-<thead>
-<tr>
-<th>영역</th>
-<th>엔드포인트</th>
-<th>설명</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>이탈 방지</strong></td>
-<td><code>GET /retention/at-risk</code></td>
-<td>위험 셀러 목록</td>
-</tr>
-<tr>
-<td></td>
-<td><code>POST /retention/message</code></td>
-<td>맞춤 메시지 생성</td>
-</tr>
-<tr>
-<td></td>
-<td><code>POST /retention/execute</code></td>
-<td>단건 조치 실행</td>
-</tr>
-<tr>
-<td></td>
-<td><code>POST /retention/execute-bulk</code></td>
-<td>일괄 조치 실행</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /retention/history</code></td>
-<td>조치 이력</td>
-</tr>
-<tr>
-<td><strong>FAQ</strong></td>
-<td><code>POST /faq/analyze</code></td>
-<td>문의 패턴 분석</td>
-</tr>
-<tr>
-<td></td>
-<td><code>POST /faq/generate</code></td>
-<td>FAQ 자동 생성</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /faq/list</code></td>
-<td>FAQ 목록</td>
-</tr>
-<tr>
-<td></td>
-<td><code>PUT /faq/{id}/approve</code></td>
-<td>FAQ 승인</td>
-</tr>
-<tr>
-<td></td>
-<td><code>PUT /faq/{id}</code></td>
-<td>FAQ 수정</td>
-</tr>
-<tr>
-<td></td>
-<td><code>DELETE /faq/{id}</code></td>
-<td>FAQ 삭제</td>
-</tr>
-<tr>
-<td><strong>리포트</strong></td>
-<td><code>POST /report/generate</code></td>
-<td>리포트 생성</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /report/history</code></td>
-<td>리포트 이력</td>
-</tr>
-<tr>
-<td><strong>공통</strong></td>
-<td><code>GET /actions/log</code></td>
-<td>전체 액션 로그</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /actions/stats</code></td>
-<td>액션 통계</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /categories</code></td>
-<td>카테고리 목록</td>
-</tr>
-<tr>
-<td></td>
-<td><code>GET /pipeline/{run_id}</code></td>
-<td>파이프라인 추적</td>
-</tr>
-</tbody>
-</table></div>
-</section>
-<hr>
-<section class="portfolio-section">
-<h2 id="9-프론트엔드-12개-패널">9. 프론트엔드 (12개 패널)</h2>
-<p class="section-summary">Next.js 14 기반 SPA로 12개 기능 패널을 탭으로 구성. SSE 실시간 스트리밍, DnD 조작, Recharts 시각화, RBAC 접근 제어를 적용했습니다.</p>
+
 <h3 id="ux-설계-원칙">UX 설계 원칙</h3>
 <div class="table-wrapper"><table aria-label="원칙">
 <thead>
@@ -2534,201 +2476,41 @@ flowchart TD
 </tr>
 <tr>
 <td><strong>RBAC</strong></td>
-<td>관리자 12개 / 비관리자 7개 패널</td>
+<td>관리자 11개 / 비관리자 6개 패널</td>
 </tr>
 </tbody>
 </table></div>
-<h3 id="패널-구성">패널 구성 </h3>
-<div class="table-wrapper"><table aria-label="#">
+
+<h3 id="sse-훅-아키텍처">SSE 훅 아키텍처</h3>
+<p>프론트엔드의 모든 SSE 스트리밍은 <code>useBaseStream</code> 공통 훅을 기반으로 합니다. 이 훅이 연결 관리, 이벤트 파싱, 에러 핸들링을 통합 처리하며, 도메인별 전용 훅이 이를 확장합니다.</p>
+<div class="table-wrapper"><table aria-label="SSE 훅 구조">
 <thead>
 <tr>
-<th style="text-align:center">#</th>
-<th>패널</th>
-<th>핵심 기능</th>
-<th>주요 기술</th>
+<th>훅</th>
+<th>역할</th>
+<th>사용처</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:center">1</td>
-<td><strong>AI 에이전트</strong></td>
-<td>Supervisor 8워커 채팅 + 인터랙티브 도구 탐색기(31개, 6카테고리 아코디언)</td>
-<td>SSE, react-markdown, KaTeX</td>
+<td><code>useBaseStream</code></td>
+<td>SSE 연결 · 이벤트 파싱 · 에러/재연결 공통 로직</td>
+<td>모든 SSE 훅의 기반</td>
 </tr>
 <tr>
-<td style="text-align:center">2</td>
-<td><strong>대시보드</strong></td>
-<td>KPI, 차트, AI 인사이트, 알림</td>
-<td>Recharts (6종 차트)</td>
+<td><code>useMultiAgentStream</code></td>
+<td>멀티에이전트 agent_start/end · 도구 호출 추적</td>
+<td>AgentPanel (에이전트 대화)</td>
 </tr>
 <tr>
-<td style="text-align:center">3</td>
-<td><strong>분석 (9탭)</strong></td>
-<td>셀러/세그먼트/이상탐지/예측/코호트/트렌드/쇼핑몰/CS/마케팅</td>
-<td>RadarChart, HeatMap, Recharts</td>
-</tr>
-<tr>
-<td style="text-align:center">4</td>
-<td><strong>ML 모델</strong></td>
-<td>모델 레지스트리, 버전 선택</td>
-<td>실시간 모델 교체</td>
-</tr>
-<tr>
-<td style="text-align:center">5</td>
-<td><strong>RAG 관리</strong></td>
-<td>모드 선택, 인덱스 빌드, 상태 모니터링</td>
-<td>FAISS/LightRAG/K2RAG</td>
-</tr>
-<tr>
-<td style="text-align:center">6</td>
-<td><strong>설정</strong></td>
-<td>LLM 파라미터, 프리셋 3종, 시스템 프롬프트</td>
-<td>슬라이더 UI</td>
-</tr>
-<tr>
-<td style="text-align:center">7</td>
-<td><strong>셀러 관리</strong></td>
-<td>플랫폼 셀러 계정 관리</td>
-<td>관리자 전용</td>
-</tr>
-<tr>
-<td style="text-align:center">8</td>
-<td><strong>활동 로그</strong></td>
-<td>세션 활동 이력</td>
-<td>localStorage</td>
-</tr>
-<tr>
-<td style="text-align:center">9</td>
-<td><strong>CS 파이프라인</strong></td>
-<td>5단계 자동화 (DnD + React Flow + n8n)</td>
-<td>Framer Motion, @xyflow/react</td>
-</tr>
-<tr>
-<td style="text-align:center">10</td>
-<td><strong>DB 보안 감시</strong></td>
-<td>3단계 쿼리 분석 + 복구</td>
-<td>감시 모드 토글, 프리셋 8개</td>
-</tr>
-<tr>
-<td style="text-align:center">11</td>
-<td><strong>멀티에이전트</strong></td>
-<td>Supervisor 8워커 멀티에이전트 (AI 에이전트 탭과 동일 엔진)</td>
-<td>LangGraph, SSE 파이프라인</td>
-</tr>
-<tr>
-<td style="text-align:center">12</td>
-<td><strong>자동화 엔진</strong></td>
-<td>이탈방지 · FAQ 자동생성 · 운영 리포트 (3탭)</td>
-<td>탭 분리, 파이프라인 추적</td>
+<td><code>useAutomationStream</code></td>
+<td>자동화 파이프라인 단계별 진행 상태 스트리밍</td>
+<td>AutomationPanel (이탈방지/업그레이드/리포트)</td>
 </tr>
 </tbody>
 </table></div>
-<h3 id="대시보드-패널-상세">대시보드 패널 상세 </h3>
-<div class="table-wrapper"><table aria-label="영역">
-<thead>
-<tr>
-<th>영역</th>
-<th>표시 내용</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>KPI 카드 (4개)</strong></td>
-<td>쇼핑몰 수 (티어별), 전체 셀러 수 (이상거래 건수), CS 문의 (만족도), 운영 이벤트 (30일)</td>
-</tr>
-<tr>
-<td><strong>GMV 추이</strong></td>
-<td>일별 GMV AreaChart (그라디언트)</td>
-</tr>
-<tr>
-<td><strong>셀러 세그먼트</strong></td>
-<td>도넛 차트 (클릭 시 드릴다운: 평균 매출·상품수·주문수·리텐션)</td>
-</tr>
-<tr>
-<td><strong>운영 이벤트</strong></td>
-<td>이벤트 유형별 가로 BarChart</td>
-</tr>
-<tr>
-<td><strong>쇼핑몰 플랜</strong></td>
-<td>RadialBarChart + 플랜별(Basic/Standard/Premium/Enterprise) 카드</td>
-</tr>
-<tr>
-<td><strong>CS 카테고리</strong></td>
-<td>카테고리별 문의 통계 가로 BarChart</td>
-</tr>
-<tr>
-<td><strong>AI 인사이트</strong></td>
-<td>긍정/경고/중립 3종 인사이트 자동 생성</td>
-</tr>
-<tr>
-<td><strong>실시간 알림</strong></td>
-<td>색상별 이상 알림 (최신 항목 pulse 애니메이션)</td>
-</tr>
-</tbody>
-</table></div>
-<h3 id="분석-패널-상세-9개-서브탭">분석 패널 상세 (9개 서브탭) </h3>
-<div class="table-wrapper"><table aria-label="서브탭">
-<thead>
-<tr>
-<th>서브탭</th>
-<th>차트</th>
-<th>API</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>셀러 분석</td>
-<td>RadarChart (5축) + AreaChart</td>
-<td><code>/api/sellers/search</code></td>
-</tr>
-<tr>
-<td>세그먼트</td>
-<td>BarChart (5 클러스터 비교)</td>
-<td><code>/api/stats/summary</code></td>
-</tr>
-<tr>
-<td>이상탐지</td>
-<td>ComposedChart + Scatter</td>
-<td><code>/api/analysis/anomaly</code></td>
-</tr>
-<tr>
-<td>예측 분석</td>
-<td>AreaChart (이탈/매출/인게이지먼트)</td>
-<td><code>/api/analysis/prediction/churn</code></td>
-</tr>
-<tr>
-<td>코호트</td>
-<td>HeatMap + LineChart</td>
-<td><code>/api/analysis/cohort/retention</code></td>
-</tr>
-<tr>
-<td>트렌드</td>
-<td>LineChart + 상관관계</td>
-<td><code>/api/analysis/trend/kpis</code></td>
-</tr>
-<tr>
-<td>쇼핑몰</td>
-<td>BarChart (플랜별 색상)</td>
-<td><code>/api/shops</code></td>
-</tr>
-<tr>
-<td>CS 분석</td>
-<td>PieChart + 테이블</td>
-<td><code>/api/stats/summary</code></td>
-</tr>
-<tr>
-<td>마케팅 최적화</td>
-<td>채널별 ROI 테이블</td>
-<td><code>/api/marketing/optimize</code></td>
-</tr>
-</tbody>
-</table></div>
-</section>
-<hr>
-<section class="portfolio-section">
-<h2 id="10-기술-스택-및-아키텍처-결정">10. 기술 스택 및 아키텍처 결정</h2>
-<p class="section-summary">각 기술의 선택 이유와 트레이드오프를 정리합니다. 로컬 실행 가능성, 비용 효율, 해석 가능성을 우선했습니다.</p>
-<h3 id="백엔드">백엔드</h3>
+
+<h3 id="백엔드-기술-스택">백엔드 기술 스택</h3>
 <div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
@@ -2746,12 +2528,12 @@ flowchart TD
 <tr>
 <td><strong>LLM</strong></td>
 <td>OpenAI GPT-4o / GPT-4o-mini</td>
-<td>Tool Calling 정확도 + 비용 효율 (Coordinator: GPT-4o)</td>
+<td>Tool Calling 정확도 + 비용 효율 (Supervisor: GPT-4o)</td>
 </tr>
 <tr>
 <td><strong>에이전트</strong></td>
-<td>LangChain + LangGraph</td>
-<td>Tool Calling 추상화 + StateGraph 멀티 에이전트</td>
+<td>LangChain + LangGraph + langgraph-supervisor</td>
+<td>Supervisor 멀티에이전트 · 3개 일반 워커 + 8개 전문 워커 (2중 Supervisor 구조) · 하이브리드 라우팅</td>
 </tr>
 <tr>
 <td><strong>벡터 검색</strong></td>
@@ -2761,7 +2543,7 @@ flowchart TD
 <tr>
 <td><strong>GraphRAG</strong></td>
 <td>LightRAG</td>
-<td>99% 토큰 절감, 경량 지식 그래프</td>
+<td>99% 토큰 절감 (논문 기준, vs GraphRAG), 경량 지식 그래프</td>
 </tr>
 <tr>
 <td><strong>ML</strong></td>
@@ -2790,7 +2572,8 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<h3 id="프론트엔드">프론트엔드 </h3>
+
+<h3 id="프론트엔드-기술-스택">프론트엔드 기술 스택</h3>
 <div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
@@ -2812,13 +2595,13 @@ flowchart TD
 </tr>
 <tr>
 <td><strong>차트</strong></td>
-<td>Recharts</td>
-<td>선언적 React 차트</td>
+<td>Recharts 3</td>
+<td>선언적 React 차트, ResponsiveContainer 내장</td>
 </tr>
 <tr>
 <td><strong>SSE</strong></td>
 <td>@microsoft/fetch-event-source</td>
-<td>POST SSE 지원</td>
+<td>POST 메서드 SSE 지원, 인증 헤더 전달</td>
 </tr>
 <tr>
 <td><strong>워크플로우</strong></td>
@@ -2832,12 +2615,28 @@ flowchart TD
 </tr>
 <tr>
 <td><strong>마크다운</strong></td>
-<td>react-markdown + KaTeX</td>
-<td>GFM 테이블 + 수학 수식 렌더링</td>
+<td>react-markdown + remark-gfm + KaTeX</td>
+<td>GFM 테이블/체크리스트 + 수학 수식(LaTeX) 렌더링</td>
+</tr>
+<tr>
+<td><strong>아이콘</strong></td>
+<td>lucide-react</td>
+<td>트리셰이킹 지원, 일관된 아이콘 세트</td>
+</tr>
+<tr>
+<td><strong>알림</strong></td>
+<td>react-hot-toast</td>
+<td>경량 토스트 알림, 커스텀 스타일링</td>
+</tr>
+<tr>
+<td><strong>로딩</strong></td>
+<td>nprogress</td>
+<td>페이지 전환 프로그레스 바, Next.js Router 연동</td>
 </tr>
 </tbody>
 </table></div>
-<h3 id="인프라">인프라 </h3>
+
+<h3 id="인프라">인프라</h3>
 <div class="table-wrapper"><table aria-label="분류">
 <thead>
 <tr>
@@ -2860,221 +2659,14 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
-<h3 id="알고리즘-선택-근거">알고리즘 선택 근거 </h3>
-<div class="table-wrapper"><table aria-label="모델">
-<thead>
-<tr>
-<th>모델</th>
-<th>알고리즘</th>
-<th>선택 이유</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>셀러 이탈</td>
-<td>RandomForest</td>
-<td>SHAP 호환성, 불균형 데이터 class_weight 지원</td>
-</tr>
-<tr>
-<td>이상거래</td>
-<td>Isolation Forest</td>
-<td>라벨 없는 비지도 학습, 고차원 이상치 분리</td>
-</tr>
-<tr>
-<td>문의 분류</td>
-<td>TF-IDF + RF</td>
-<td>한국어 n-gram 패턴 포착 + 다중 클래스 성능</td>
-</tr>
-<tr>
-<td>셀러 세그먼트</td>
-<td>K-Means</td>
-<td>구현 단순, 센트로이드 비교로 해석 용이</td>
-</tr>
-<tr>
-<td>매출 예측</td>
-<td>LightGBM</td>
-<td>범주형 피처 네이티브, 빠른 학습</td>
-</tr>
-<tr>
-<td>정산 이상</td>
-<td>DBSCAN</td>
-<td>k 사전 지정 불필요, noise(-1)로 이상치 분리</td>
-</tr>
-<tr>
-<td>수요 예측</td>
-<td>XGBoost</td>
-<td>시계열 + 정적 피처 동시 처리</td>
-</tr>
-</tbody>
-</table></div>
-<h3 id="production-전환-시-고려사항">Production 전환 시 고려사항 </h3>
-<p>현재 데모는 합성 데이터 + 무료 티어 인프라 기반입니다. 실 서비스 전환 시 아래 리스크를 식별하고 있습니다.</p>
-<div class="table-wrapper"><table aria-label="영역">
-<thead>
-<tr>
-<th>영역</th>
-<th>데모 현재</th>
-<th>Production 리스크</th>
-<th>대응 방향</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>데이터</strong></td>
-<td>합성 CSV (~100K행)</td>
-<td>데이터 드리프트, 라벨 품질</td>
-<td>모니터링 + 재학습 파이프라인</td>
-</tr>
-<tr>
-<td><strong>라벨링</strong></td>
-<td>규칙 기반 자동 라벨</td>
-<td>라벨링 비용, 노이즈</td>
-<td>Active Learning + 휴먼 인더루프</td>
-</tr>
-<tr>
-<td><strong>개인정보</strong></td>
-<td>합성 데이터 (PII 없음)</td>
-<td>셀러/주문 실 데이터 PII</td>
-<td>익명화 + 접근 제어 + 감사 로그</td>
-</tr>
-<tr>
-<td><strong>LLM 비용</strong></td>
-<td>GPT-4o-mini (~$0.15/1K req)</td>
-<td>트래픽 증가 시 비용 폭증</td>
-<td>캐싱 + 규칙 우선 라우팅 (현재 적용)</td>
-</tr>
-<tr>
-<td><strong>RAG 문서</strong></td>
-<td>정적 정책 문서 12개</td>
-<td>문서 버전 관리, 최신성</td>
-<td>문서 파이프라인 + 임베딩 갱신 주기</td>
-</tr>
-<tr>
-<td><strong>ML 성능</strong></td>
-<td>합성 데이터 Accuracy ~98%</td>
-<td>실 분포에서 성능 하락 예상</td>
-<td>A/B 테스트 + 점진적 롤아웃</td>
-</tr>
-<tr>
-<td><strong>인프라</strong></td>
-<td>Railway 무료 티어</td>
-<td>Cold start, 메모리 제한</td>
-<td>K8s + Auto-scaling</td>
-</tr>
-</tbody>
-</table></div>
-</section>
-<hr>
-<section class="portfolio-section">
-<h2 id="11-프로젝트-구조">11. 프로젝트 구조</h2>
-<p class="section-summary">백엔드 9개 도메인 라우터 + 에이전트/RAG/ML/자동화 모듈, 프론트엔드 12개 패널 + SSE 훅의 전체 디렉터리 구조입니다.</p>
-<pre data-role="codeBlock" data-info="" class="language-text"><code>카페24 프로젝트/
-├── README.md                          # 프로젝트 루트 문서
-├── portfolio/PORTFOLIO.md              # 포트폴리오 문서 (이 파일)
-│
-├── backend 리팩토링 시작/             # FastAPI 백엔드
-│   ├── main.py                        # 앱 진입점 (미들웨어, startup)
-│   ├── state.py                       # 전역 상태 (DataFrame 16개 + 모델 12개)
-│   │
-│   ├── api/                           # REST API (도메인별 분리, 100개 엔드포인트)
-│   │   ├── common.py                  # 공통 의존성 (인증, 요청 모델)
-│   │   ├── routes.py                  # 라우터 통합 (9개 도메인 라우터)
-│   │   ├── routes_shop.py             # 쇼핑몰/카테고리/대시보드/분석/통계
-│   │   ├── routes_seller.py           # 셀러 검색/세그먼트/활동
-│   │   ├── routes_cs.py               # CS 파이프라인/자동화
-│   │   ├── routes_rag.py              # RAG/LightRAG/K2RAG 검색, OCR
-│   │   ├── routes_ml.py               # MLflow/마케팅 최적화
-│   │   ├── routes_guardian.py         # DB 보안 감시
-│   │   ├── routes_agent.py            # AI 에이전트 (SSE 스트리밍)
-│   │   ├── routes_admin.py            # 관리자/설정/시스템
-│   │   └── routes_automation.py       # 자동화 엔진 (이탈방지/FAQ/리포트, 17개)
-│   │
-│   ├── agent/                         # AI 에이전트 시스템
-│   │   ├── runner.py                  # Tool Calling 실행기
-│   │   ├── tools.py                   # 31개 도구 함수 (+ 에이전트별 분류)
-│   │   ├── tool_schemas.py            # 도구 스키마 정의
-│   │   ├── router.py                  # 2단계 라우터
-│   │   ├── intent.py                  # 인텐트 분류
-│   │   ├── multi_agent.py             # LangGraph 멀티에이전트
-│   │   └── llm.py                     # LLM 호출 래퍼 (재시도, GPT-5 호환)
-│   │
-│   ├── rag/                           # RAG 시스템 (모듈 분리)
-│   │   ├── service.py                 # 퍼사드 (외부 인터페이스)
-│   │   ├── search.py                  # FAISS + BM25 Hybrid Search
-│   │   ├── chunking.py                # Parent-Child Chunking
-│   │   ├── kg.py                      # 지식 그래프 빌더
-│   │   ├── contextual.py              # Contextual Retrieval
-│   │   ├── light_rag.py               # LightRAG (GraphRAG)
-│   │   └── k2rag.py                   # K2RAG (KG + Hybrid + Summarization)
-│   │
-│   ├── ml/                            # ML 파이프라인
-│   │   ├── train_models.py            # 18개 CSV + 12개 모델 학습
-│   │   ├── revenue_model.py           # LightGBM 매출 예측
-│   │   └── marketing_optimizer.py     # P-PSO 마케팅 최적화
-│   │
-│   ├── automation/                    # 자동화 엔진
-│   │   ├── retention_engine.py        # 셀러 이탈 방지 (ML+LLM 자동 조치)
-│   │   ├── faq_engine.py              # CS FAQ 자동 생성 (패턴 분석+LLM)
-│   │   ├── report_engine.py           # 운영 리포트 자동 생성
-│   │   └── action_logger.py           # 전 조치 이력 로깅 + 파이프라인 추적
-│   │
-│   ├── core/                          # 유틸리티 (상수, 메모리)
-│   ├── data/loader.py                 # CSV 16개 → DataFrame + 모델 12개 로더
-│   └── Dockerfile
-│
-└── nextjs/                            # Next.js 프론트엔드
-    ├── pages/                         # Pages Router (login, app, API Routes)
-    │   ├── _document.js               # HTML 문서 설정
-    │   ├── app.js                     # 메인 앱 (탭 기반 12개 패널)
-    │   └── api/                       # SSE 프록시 5개
-    ├── components/
-    │   ├── panels/                    # 12개 기능 패널
-    │   │   ├── hooks/                 # SSE 스트리밍 훅
-    │   │   │   ├── useBaseStream.js   # 공통 SSE 베이스 훅
-    │   │   │   └── useMultiAgentStream.js # Supervisor 스트리밍 (워커 에이전트 추적)
-    │   │   ├── lab/                   # CS 파이프라인 (11개 컴포넌트)
-    │   │   ├── analysis/              # 상세 분석 (10개 컴포넌트, 9탭)
-    │   │   ├── guardian/              # DB 보안 감시 (MonitorTab, RecoverTab, DashboardTab)
-    │   │   │   └── common/ToolStep.js # 도구 실행 단계 공통 컴포넌트
-    │   │   ├── automation/            # 자동화 엔진 (RetentionTab, FaqTab, ReportTab)
-    │   │   ├── AgentPanel.js           # 에이전트 패널 (19줄 래퍼 → MultiAgentPanel)
-    │   │   ├── MultiAgentPanel.js     # Supervisor 멀티에이전트 패널 (8워커)
-    │   │   ├── AutomationPanel.js     # 자동화 엔진 패널
-    │   │   └── ...                    # 기타 패널
-    │   └── common/                    # 공유 컴포넌트
-    │       ├── ToolExplorer.js        # 도구 탐색기 (6카테고리 아코디언 UI)
-    │       ├── toolRegistry.js        # 31개 도구 레지스트리 (카테고리별 정의)
-    │       ├── constants.js           # 차트 색상 상수 + 유틸
-    │       ├── CustomTooltip.js       # 차트 툴팁
-    │       ├── StatCard.js            # KPI 카드
-    │       ├── EditableAnswer.js      # 편집 가능 답변
-    │       └── buttonStyles.js        # CAFE24 버튼 스타일
-    ├── lib/                           # API 호출, SSE 파서, 스토리지
-    └── styles/globals.css             # CAFE24 디자인 시스템
-</code></pre></section>
-<hr>
-<section class="portfolio-section">
-<h2 id="12-설치-및-배포">12. 설치 및 배포</h2>
-<p class="section-summary">Vercel(프론트엔드) + Railway(백엔드) 구성으로 배포. 로컬에서도 명령어 4줄로 즉시 실행 가능합니다.</p>
-<h3 id="로컬-실행">로컬 실행</h3>
-<pre data-role="codeBlock" data-info="bash" class="language-bash bash"><code><span class="token comment"># 백엔드</span>
-<span class="token builtin class-name">cd</span> <span class="token string">"backend 리팩토링 시작"</span>
-pip <span class="token function">install</span> <span class="token parameter variable">-r</span> requirements.txt
-<span class="token builtin class-name">export</span> <span class="token assign-left variable">OPENAI_API_KEY</span><span class="token operator">=</span>sk-<span class="token punctuation">..</span>.
-python ml/train_models.py          <span class="token comment"># 합성 데이터 + 모델 학습 (최초 1회)</span>
-uvicorn main:app <span class="token parameter variable">--port</span> <span class="token number">8001</span> <span class="token parameter variable">--reload</span>
 
-<span class="token comment"># 프론트엔드</span>
-<span class="token builtin class-name">cd</span> nextjs
-<span class="token function">npm</span> <span class="token function">install</span>
-<span class="token function">npm</span> run dev
-</code></pre><h3 id="배포-아키텍처">배포 아키텍처 </h3>
+<h3 id="배포-아키텍처">배포 아키텍처</h3>
 <div class="mermaid-container"><div class="mermaid">flowchart LR
-    User[사용자] --&gt; Vercel["Vercel · Next.js"]
-    Vercel --&gt;|"API 프록시"| Railway["Railway · FastAPI"]
-    Railway --&gt; OpenAI["OpenAI API"]
-    Railway --&gt; n8n["n8n Cloud"]
-    n8n --&gt; Resend["Resend Email"]
+    User[사용자] --> Vercel["Vercel · Next.js"]
+    Vercel -->|"API 프록시"| Railway["Railway · FastAPI"]
+    Railway --> OpenAI["OpenAI API"]
+    Railway --> n8n["n8n Cloud"]
+    n8n --> Resend["Resend Email"]
 </div></div><div class="table-wrapper"><table aria-label="서비스">
 <thead>
 <tr>
@@ -3097,7 +2689,8 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 </tr>
 </tbody>
 </table></div>
-<h3 id="테스트-계정">테스트 계정 </h3>
+
+<h3 id="테스트-계정">테스트 계정</h3>
 <div class="table-wrapper"><table aria-label="계정">
 <thead>
 <tr>
@@ -3112,59 +2705,35 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 <td><code>admin</code></td>
 <td><code>admin123</code></td>
 <td style="text-align:center">관리자</td>
-<td style="text-align:center">13개 전체</td>
+<td style="text-align:center">11개 전체</td>
 </tr>
 <tr>
 <td><code>analyst</code></td>
 <td><code>analyst123</code></td>
 <td style="text-align:center">분석가</td>
-<td style="text-align:center">8개</td>
+<td style="text-align:center">6개</td>
 </tr>
 <tr>
 <td><code>user</code></td>
 <td><code>user123</code></td>
 <td style="text-align:center">사용자</td>
-<td style="text-align:center">8개</td>
+<td style="text-align:center">6개</td>
 </tr>
 <tr>
 <td><code>operator</code></td>
 <td><code>oper123</code></td>
 <td style="text-align:center">운영자</td>
-<td style="text-align:center">8개</td>
+<td style="text-align:center">6개</td>
 </tr>
 </tbody>
 </table></div>
 </section>
+</main>
+
+<!-- ===== Footer ===== -->
 <footer class="portfolio-footer">
 <hr>
 <div class="footer-content">
-<h3 id="기술-요약" class="footer-summary-title">기술 요약</h3>
-<div class="footer-tech-grid">
-<div class="footer-tech-item">
-  <strong>LLM</strong>
-  <span>GPT-4o / GPT-4o-mini (Tool Calling + SSE 스트리밍)</span>
-</div>
-<div class="footer-tech-item">
-  <strong>ML</strong>
-  <span>RandomForest · LightGBM · XGBoost · Isolation Forest · K-Means · DBSCAN + SHAP + P-PSO</span>
-</div>
-<div class="footer-tech-item">
-  <strong>RAG</strong>
-  <span>FAISS + BM25 Hybrid · RAG-Fusion · Parent-Child Chunking · Contextual Retrieval · LightRAG · K2RAG</span>
-</div>
-<div class="footer-tech-item">
-  <strong>Backend</strong>
-  <span>FastAPI · LangChain · LangGraph · MLflow · n8n · Resend · 112개 API</span>
-</div>
-<div class="footer-tech-item">
-  <strong>Frontend</strong>
-  <span>Next.js 14 · Tailwind CSS · Recharts · React Flow · Framer Motion · KaTeX · 12개 패널</span>
-</div>
-<div class="footer-tech-item">
-  <strong>Automation</strong>
-  <span>이탈방지 엔진 · FAQ 자동생성 · 운영 리포트 · 플랜 업그레이드 추천</span>
-</div>
-</div>
 <div class="footer-divider"></div>
 <p class="footer-title"><strong>CAFE24 AI 운영 플랫폼</strong></p>
 <p class="footer-subtitle">카페24 이커머스 AI 기반 내부 운영 시스템</p>
@@ -3174,17 +2743,14 @@ uvicorn main:app <span class="token parameter variable">--port</span> <span clas
 </p>
 </div>
 </footer>
-</main>
 
       </div>
-      
-      
-    
-    
+
+
+
+
     <!-- Mermaid 초기화는 DOMContentLoaded에서 처리 -->
-    
-    
-    
-  
-    <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:30px;right:30px;width:44px;height:44px;border-radius:50%;background:#00875A;color:#fff;border:none;font-size:20px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.15)">↑</button>
-    </body></html>
+
+    <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+  </body>
+</html>

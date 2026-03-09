@@ -1369,43 +1369,62 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <p><strong>설계 기반</strong>: Anthropic <a href="https://www.anthropic.com/research/building-effective-agents">Building Effective Agents</a> — "빠른 규칙 우선 + AI fallback" 패턴을 이커머스 운영에 적용</p>
 </blockquote>
 <h3 id="전체-아키텍처">전체 아키텍처</h3>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
-flowchart TD
-    FE["Frontend · Next.js 14&lt;br/&gt;11개 패널 · SSE 스트리밍"]
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
+flowchart TB
+    Q(["사용자 질문"]):::io
+    Q --> FE["Next.js 14&lt;br/&gt;11개 패널 · SSE 스트리밍"]:::fe
 
     FE -->|"REST / SSE"| Router
 
-    Router["하이브리드 라우터&lt;br/&gt;키워드 0ms + Supervisor LLM fallback"]
-
-    Router --> Workers
-
-    subgraph Workers["전문 워커 에이전트 · 31개 도구"]
+    subgraph Router["2단계 하이브리드 라우터"]
         direction LR
-        W1["search_agent&lt;br/&gt;검색 · RAG"]
-        W2["analysis_agent&lt;br/&gt;분석 · ML"]
-        W3["cs_agent&lt;br/&gt;CS · 자동응답"]
+        KW["키워드 분류 · 0ms"] -->|"미매칭"| LLM_R["LLM fallback"]
     end
 
-    Workers --> DataLayer
+    Router -->|"GENERAL"| Direct(["직접 응답"]):::io
+    Router -->|"7개 카테고리"| SUP["Supervisor&lt;br/&gt;질의 분석 → 워커 위임"]:::sup
+
+    SUP -->|"transfer_to_워커"| Workers
+
+    subgraph Workers["8종 전문 워커"]
+        direction LR
+        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석"] ~~~ SW4["성과 분석"]
+        SW5["이상거래"] ~~~ SW6["CS 품질"] ~~~ SW7["리포트"] ~~~ SW8["검색"]
+    end
+
+    Workers -->|"Tool Calling"| Tools["31개 도구"]:::tool
 
     subgraph DataLayer["데이터 · 모델 레이어"]
         direction LR
-        RAG["RAG 시스템&lt;br/&gt;FAISS+BM25&lt;br/&gt;LightRAG · K2RAG"]
-        ML["ML 10개 모델&lt;br/&gt;RF+SHAP&lt;br/&gt;IsolationForest&lt;br/&gt;LightGBM"]
+        RAG["RAG 7종&lt;br/&gt;FAISS+BM25 · LightRAG · K2RAG"]
+        ML["ML 10개 모델&lt;br/&gt;RF+SHAP · IsolationForest · LightGBM"]
         State["state.py&lt;br/&gt;전역 상태 관리"]
     end
 
+    Tools --> DataLayer
+
     subgraph SubSys["독립 서브시스템"]
         direction LR
-        G["DB 보안 감시&lt;br/&gt;룰+ML+Agent"]
-        Auto["자동화 엔진&lt;br/&gt;이탈방지·FAQ·리포트·업그레이드"]
+        G["DB 보안 감시&lt;br/&gt;룰 + ML + Agent 3단계"]
+        Auto["자동화 4종&lt;br/&gt;이탈방지 · 업그레이드 · FAQ · 리포트"]
     end
 
     SubSys --> State
-
-    Workers --> OpenAI["OpenAI API&lt;br/&gt;GPT-4o / 4o-mini"]
+    Workers --> OpenAI["OpenAI GPT-4o"]:::ext
     SubSys --> OpenAI
-    Auto --> N8N["n8n Cloud → Resend Email"]
+    Auto --> N8N["n8n Cloud → Resend"]:::ext
+    Workers -->|"SSE 스트리밍"| Resp(["사용자 응답"]):::io
+
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef fe fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef sup fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef tool fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+    classDef ext fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+
+    style Router fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#92400e
+    style Workers fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px,color:#5b21b6
+    style DataLayer fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46
+    style SubSys fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#991b1b
 </div></div>
 <h3 id="end-to-end-요청-처리-흐름">End-to-End 요청 처리 흐름</h3>
 <p>사용자가 "SEL0001 셀러가 이탈할 확률은?"이라고 질문하면:</p>
@@ -1510,39 +1529,36 @@ sequenceDiagram
 </tbody>
 </table></div>
 <h3 id="supervisor-멀티에이전트">Supervisor 멀티에이전트 (8종 워커)</h3>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TB
-    Q["사용자 질문"]
+    Q(["사용자 질문"]):::io
 
     subgraph Router["2단계 라우터"]
-        KW["키워드 분류 · 0ms"]
-        LLM["LLM Router · fallback"]
+        direction LR
+        KW["키워드 분류 · 0ms"] -->|"매칭 실패"| LLM["LLM fallback"]
     end
 
-    subgraph Supervisor["Supervisor · langgraph-supervisor"]
-        SUP["Supervisor LLM&lt;br/&gt;질의 분석 → 워커 위임&lt;br/&gt;forward_message 포워딩"]
-    end
+    SUP["Supervisor&lt;br/&gt;질의 분석 → 워커 위임"]:::sup
 
     subgraph Workers["8종 전문 워커"]
         direction LR
-        SW1["churn_analyst&lt;br/&gt;이탈 분석"]
-        SW2["retention_strategist&lt;br/&gt;이탈 방지 전략"]
-        SW3["seller_analyst&lt;br/&gt;셀러 종합 분석"]
-        SW4["performance_analyst&lt;br/&gt;성과 분석"]
-        SW5["fraud_investigator&lt;br/&gt;이상거래 조사"]
-        SW6["cs_quality_analyst&lt;br/&gt;CS 품질 분석"]
-        SW7["report_writer&lt;br/&gt;리포트 작성"]
-        SW8["platform_searcher&lt;br/&gt;플랫폼 검색"]
+        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석"] ~~~ SW4["성과 분석"]
+        SW5["이상거래"] ~~~ SW6["CS 품질"] ~~~ SW7["리포트"] ~~~ SW8["검색"]
     end
 
     Q --> Router
-    KW -->|"매칭 실패"| LLM
-    Router -->|"GENERAL"| Direct(["직접 LLM 응답"])
-    Router -->|"그 외 모든 요청"| SUP
+    Router -->|"GENERAL"| Direct(["직접 응답"]):::io
+    Router -->|"그 외"| SUP
     SUP -->|"transfer_to_워커"| Workers
-    SUP -.->|"분석 결과 기반 판단&lt;br/&gt;LOW → 후속 워커 생략"| SUP
-    Workers <-->|"Tool Calling"| Tools["31개 도구 함수"]
-    Workers -->|"워커 응답만 SSE 스트리밍&lt;br/&gt;Supervisor 텍스트 스킵"| E(["사용자 응답"])
+    Workers -->|"Tool Calling"| Tools["31개 도구"]:::tool
+    Workers -->|"SSE 스트리밍"| E(["사용자 응답"]):::io
+
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef sup fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef tool fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+
+    style Router fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#92400e
+    style Workers fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px,color:#5b21b6
 </div></div>
 <h3 id="전문-워커-프롬프트-엔지니어링">전문 워커 프롬프트 엔지니어링</h3>
 <p>8개 전문 워커는 <code>_WORKER_COMMON_RULES</code> 공통 프롬프트와 워커별 특화 지침으로 응답 품질을 제어합니다.</p>
@@ -1885,11 +1901,16 @@ flowchart TB
 <h3 id="42-마케팅-최적화-p-pso">4.2 마케팅 최적화 (P-PSO) </h3>
 <p>6개 마케팅 채널에 예산을 최적 배분하는 메타휴리스틱 최적화 (mealpy 라이브러리 기반):</p>
 <div class="mermaid-container"><div class="mermaid">flowchart LR
-    A["셀러 ID + 총 예산"] --> B["LightGBM 매출 예측"]
-    B --> C["P-PSO 최적화 · 6채널"]
-    C --> D["채널별 예산 배분 + ROAS"]
-    C -->|"실패 시"| F["Heuristic Fallback"]
+    A["셀러 ID + 총 예산"]:::io --> B["LightGBM 매출 예측"]:::ml
+    B --> C["P-PSO 최적화 · 6채널"]:::ai
+    C --> D["채널별 예산 배분 + ROAS"]:::io
+    C -->|"실패 시"| F["Heuristic Fallback"]:::warn
     F --> D
+
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef ml fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef ai fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef warn fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
 </div></div><div class="table-wrapper"><table aria-label="채널">
 <thead>
 <tr>
@@ -1968,16 +1989,23 @@ flowchart TB
 
 <h3 id="cs-5단계-파이프라인">CS 5단계 파이프라인</h3>
 <p>단순/반복 문의는 AI가 즉시 처리하고, 복잡한 문의만 담당자에게 넘깁니다.</p>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TD
-    A["접수 · TF-IDF+RF 분류"] --> B{"DnD 분기"}
-    B -->|"신뢰도 >= 0.75"| C["자동 처리"]
-    B -->|"신뢰도 < 0.75"| D["담당자 검토"]
-    C --> E["RAG+LLM 답변 생성"]
-    D --> F["상세 검토 · 우선순위 예측"]
+    A["접수 · TF-IDF+RF 분류"]:::ml --> B{"DnD 분기"}
+    B -->|"신뢰도 >= 0.75"| C["자동 처리"]:::auto
+    B -->|"신뢰도 < 0.75"| D["담당자 검토"]:::manual
+    C --> E["RAG+LLM 답변 생성"]:::ai
+    D --> F["상세 검토 · 우선순위 예측"]:::manual
     F --> E
-    E --> G["React Flow + n8n 회신"]
-    G --> H["개선 대시보드 · KPI"]
+    E --> G["React Flow + n8n 회신"]:::ext
+    G --> H["개선 대시보드 · KPI"]:::io
+
+    classDef ml fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef auto fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    classDef manual fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+    classDef ai fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef ext fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
 </div></div><div class="table-wrapper"><table aria-label="단계">
 <thead>
 <tr>
@@ -2030,7 +2058,7 @@ flowchart TD
 </div></div>
 
 <h3 id="4종-자동화-엔진">4종 자동화 엔진</h3>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TD
     subgraph Retention["이탈 방지 엔진"]
         R1["ML 이탈 예측 · RF+SHAP"] --> R2["위험 셀러 탐지"]
@@ -2054,8 +2082,15 @@ flowchart TD
         U2 --> U3["업그레이드 제안 실행<br/>(추천·혜택안내·상담·메시지)"]
     end
 
-    ActionLog["Action Logger · 전 조치 이력 추적"]
+    ActionLog["Action Logger · 전 조치 이력 추적"]:::log
     Retention & Upgrade & FAQ & Report --> ActionLog
+
+    classDef log fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+
+    style Retention fill:#fee2e2,stroke:#ef4444,stroke-width:2px,color:#991b1b
+    style FAQ fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    style Report fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46
+    style Upgrade fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
 </div></div>
 
 <h3 id="이탈-방지-자동-조치">이탈 방지 자동 조치 </h3>
@@ -2269,18 +2304,32 @@ flowchart TD
 
 <h3 id="data-guardian">Data Guardian</h3>
 <p>룰엔진(&lt;1ms) + IsolationForest ML 이상탐지 + AI Agent 3단계 위험 분석으로 치명적 SQL 쿼리를 실시간 차단하고, Recovery Agent가 복구 SQL을 제안합니다.</p>
-<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '14px'}}}%%
+<div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TD
-    A["SQL 쿼리 입력"] --> M{"감시 모드 선택"}
-    M --> B["룰엔진 · 패턴 매칭 · 1ms 미만"]
-    M --> ML["ML 이상탐지 · IsolationForest"]
-    B & ML -->|"고위험"| D["AI Agent · 위험 분석"]
-    B & ML -->|"저위험"| SAFE["즉시 실행"]
+    A["SQL 쿼리 입력"]:::io --> L1
+
+    subgraph L1["1단계 · 실시간 탐지"]
+        direction LR
+        B["룰엔진&lt;br/&gt;패턴 매칭 · 1ms 미만"]
+        ML["ML 이상탐지&lt;br/&gt;IsolationForest"]
+    end
+
+    L1 -->|"저위험"| SAFE["즉시 실행"]:::safe
+    L1 -->|"고위험"| D["2단계 · AI Agent 위험 분석"]:::agent
     D --> E{"판정"}
-    E --> SAFE
-    E --> WARN["WARNING"]
-    E --> BLOCK["BLOCKED · DBA 알림"]
-    BLOCK -.-|"복구 요청"| R["Recovery Agent · 복구 SQL 제안"]
+    E -->|"안전"| SAFE
+    E -->|"주의"| WARN["WARNING"]:::warn
+    E -->|"차단"| BLOCK["BLOCKED · DBA 알림"]:::block
+    BLOCK -.-|"복구 요청"| R["3단계 · Recovery Agent&lt;br/&gt;복구 SQL 제안"]:::recovery
+
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef safe fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    classDef agent fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef warn fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+    classDef block fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
+    classDef recovery fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+
+    style L1 fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#92400e
 </div></div>
 <h4>Guardian Agent 도구 (4개) + Recovery Agent 도구 (2개)</h4>
 <div class="table-wrapper"><table aria-label="Guardian 도구">
@@ -2672,11 +2721,16 @@ flowchart TD
 
 <h3 id="배포-아키텍처">배포 아키텍처</h3>
 <div class="mermaid-container"><div class="mermaid">flowchart LR
-    User[사용자] --> Vercel["Vercel · Next.js"]
-    Vercel -->|"API 프록시"| Railway["Railway · FastAPI"]
-    Railway --> OpenAI["OpenAI API"]
-    Railway --> n8n["n8n Cloud"]
-    n8n --> Resend["Resend Email"]
+    User[사용자]:::io --> Vercel["Vercel · Next.js"]:::fe
+    Vercel -->|"API 프록시"| Railway["Railway · FastAPI"]:::be
+    Railway --> OpenAI["OpenAI API"]:::ext
+    Railway --> n8n["n8n Cloud"]:::ext
+    n8n --> Resend["Resend Email"]:::ext
+
+    classDef io fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef fe fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef be fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef ext fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#7f1d1d
 </div></div><div class="table-wrapper"><table aria-label="서비스">
 <thead>
 <tr>

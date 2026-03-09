@@ -293,7 +293,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         { label: 'SEL0001 이상거래 조사하고 CS 품질 점검해줘' },
         { label: 'CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘' },
         { label: '고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘' },
-        { label: 'SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘' },
+        { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 모델 돌려줘' },
       ];
     },
     [selectedShop]

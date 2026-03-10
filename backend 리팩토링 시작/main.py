@@ -2,6 +2,7 @@
 main.py - 애플리케이션 진입점
 FastAPI 앱 생성, 미들웨어, lifespan, 라우터 등록
 """
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,6 +26,7 @@ if not hasattr(np, "NaN"):
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.gzip import GZipMiddleware
 
 import state as st
 from api.routes import router as api_router
@@ -48,11 +50,25 @@ async def lifespan(app: FastAPI):
     st.logger.info("BASE_DIR=%s", st.BASE_DIR)
     st.logger.info("LOG_FILE=%s", st.LOG_FILE)
     st.logger.info("PID=%s", os.getpid())
+    # 만료 컨텍스트 정리 백그라운드 태스크
+    cleanup_task = None
+
     try:
         st.load_system_prompt()
         st.load_llm_settings()
 
         init_data_models()
+
+        # 5분마다 만료 컨텍스트 정리 (메모리 누수 방지)
+        async def _periodic_cleanup():
+            while True:
+                await asyncio.sleep(300)  # 5분
+                try:
+                    st.cleanup_expired_contexts()
+                except Exception as e:
+                    st.logger.warning("PERIODIC_CLEANUP_ERROR: %s", e)
+
+        cleanup_task = asyncio.create_task(_periodic_cleanup())
 
         # RAG 인덱스 비동기 백그라운드 로딩 (서버 시작 블로킹 방지)
         _skip_rag = os.environ.get("SKIP_RAG_STARTUP", "").strip() in ("1", "true", "yes")
@@ -60,7 +76,6 @@ async def lifespan(app: FastAPI):
         if _skip_rag:
             st.logger.info("RAG_SKIP_STARTUP env SKIP_RAG_STARTUP=1")
         elif _k:
-            import asyncio
             asyncio.get_running_loop().run_in_executor(
                 None, lambda: rag_build_or_load_index(api_key=_k, force_rebuild=False)
             )
@@ -92,6 +107,9 @@ async def lifespan(app: FastAPI):
     yield  # 앱 실행 중
 
     # ── shutdown ──
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        st.logger.info("CLEANUP_TASK_CANCELLED")
     st.logger.info("APP_SHUTDOWN")
 
 
@@ -110,6 +128,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================
+# GZip 압축 (응답 크기 절감, Railway 메모리/대역폭 최적화)
+# ============================================================
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ============================================================
 # 요청/응답 로깅 미들웨어

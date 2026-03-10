@@ -38,6 +38,9 @@ except NameError:
 _CSV_CACHE: Dict[str, pd.DataFrame] = {}
 
 
+_CSV_CACHE_MAX_SIZE = 10  # Railway 메모리 최적화: 캐시 최대 항목 수
+
+
 def _load_csv_cached(path: Path) -> Optional[pd.DataFrame]:
     """CSV 로드 결과를 캐싱 (H22: 매 호출 시 중복 I/O 방지)"""
     key = str(path)
@@ -47,6 +50,11 @@ def _load_csv_cached(path: Path) -> Optional[pd.DataFrame]:
         return None
     try:
         df = pd.read_csv(path)
+        # Railway 메모리 최적화: 캐시가 maxsize 초과 시 가장 오래된 항목 제거
+        if len(_CSV_CACHE) >= _CSV_CACHE_MAX_SIZE:
+            oldest_key = next(iter(_CSV_CACHE))
+            del _CSV_CACHE[oldest_key]
+            logger.debug(f"CSV cache evicted oldest: {oldest_key}")
         _CSV_CACHE[key] = df
         return df
     except Exception as e:

@@ -8,6 +8,7 @@ CAFE24 AI 운영 플랫폼 - 전역 상태 관리
 import json
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from threading import Lock
@@ -41,7 +42,7 @@ def setup_logging() -> logging.Logger:
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(LOG_FILE, encoding="utf-8", delay=True),
+            RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8", delay=True),
         ],
         force=True,
     )
@@ -116,12 +117,6 @@ OPERATION_LOGS_DF: Optional[pd.DataFrame] = None
 
 # 셀러 분석 데이터
 SELLER_ANALYTICS_DF: Optional[pd.DataFrame] = None
-
-# 플랫폼 문서 데이터
-PLATFORM_DOCS_DF: Optional[pd.DataFrame] = None
-
-# 이커머스 용어집
-ECOMMERCE_GLOSSARY_DF: Optional[pd.DataFrame] = None
 
 # ============================================================
 # 분석용 추가 데이터프레임
@@ -251,9 +246,6 @@ LE_INQUIRY_CATEGORY: Optional[Any] = None  # 문의 분류 카테고리
 # 쇼핑몰별 서비스 매핑
 SHOP_SERVICE_MAP: Dict[str, Dict[str, Any]] = {}
 
-# 셀러별 분석 데이터 캐시
-SELLER_CACHE: Dict[str, Dict[str, Any]] = {}
-
 # 쇼핑몰별 성과 KPI 캐시 (shop_id → {col: val, ...})
 SHOP_PERF_MAP: Dict[str, Dict] = {}
 
@@ -299,6 +291,27 @@ def _evict_context_if_needed() -> None:
     to_remove = len(LAST_CONTEXT_STORE) - LAST_CONTEXT_MAX_ENTRIES
     for k in sorted_keys[:to_remove]:
         LAST_CONTEXT_STORE.pop(k, None)
+
+
+def cleanup_expired_contexts() -> int:
+    """TTL 만료된 컨텍스트 엔트리를 일괄 정리 (주기적 호출용).
+    반환값: 제거된 엔트리 수.
+    main.py의 백그라운드 태스크 등에서 호출하여 메모리 누수를 방지합니다.
+    """
+    import time as _time
+    now = _time.time()
+    removed = 0
+    with LAST_CONTEXT_LOCK:
+        expired_keys = [
+            k for k, v in LAST_CONTEXT_STORE.items()
+            if now - v.get("_ts", 0) > LAST_CONTEXT_TTL_SEC
+        ]
+        for k in expired_keys:
+            LAST_CONTEXT_STORE.pop(k, None)
+            removed += 1
+    if removed:
+        logger.info("CONTEXT_CLEANUP removed=%d remaining=%d", removed, len(LAST_CONTEXT_STORE))
+    return removed
 
 # ============================================================
 # RAG 설정/상태

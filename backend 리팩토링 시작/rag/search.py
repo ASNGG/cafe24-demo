@@ -54,7 +54,7 @@ _BM25_LOCK = threading.Lock()
 # ============================================================
 _SEARCH_CACHE: OrderedDict = OrderedDict()
 _SEARCH_CACHE_LOCK = threading.Lock()
-_SEARCH_CACHE_MAX_SIZE = 200
+_SEARCH_CACHE_MAX_SIZE = 100
 _SEARCH_CACHE_TTL = 300  # 5분
 
 # 캐시 히트율 모니터링 카운터
@@ -346,9 +346,10 @@ def _reciprocal_rank_fusion(
 RAG_FUSION_ENABLED = True
 RAG_FUSION_NUM_QUERIES = 2
 
-# L11: FIFO → LRU 캐시로 변경
+# L11: FIFO → LRU 캐시로 변경 + Railway 메모리 최적화: TTL 적용
 _FUSION_QUERY_CACHE: OrderedDict = OrderedDict()
 _FUSION_CACHE_MAX_SIZE = 200
+_FUSION_CACHE_TTL = 3600  # 1시간 TTL (초)
 
 
 def _is_simple_query(query: str) -> bool:
@@ -383,19 +384,24 @@ def _is_simple_query(query: str) -> bool:
 
 
 def _get_cached_fusion_queries(query: str) -> Optional[List[str]]:
-    """캐시에서 Fusion 쿼리 조회 (L11: LRU - 접근 시 순서 갱신)"""
+    """캐시에서 Fusion 쿼리 조회 (L11: LRU + TTL 만료 체크)"""
     if query in _FUSION_QUERY_CACHE:
+        result, ts = _FUSION_QUERY_CACHE[query]
+        # TTL 만료 체크
+        if time.time() - ts > _FUSION_CACHE_TTL:
+            del _FUSION_QUERY_CACHE[query]
+            return None
         _FUSION_QUERY_CACHE.move_to_end(query)
-        return _FUSION_QUERY_CACHE[query]
+        return result
     return None
 
 
 def _cache_fusion_queries(query: str, queries: List[str]) -> None:
-    """Fusion 쿼리를 캐시에 저장 (L11: LRU eviction)"""
+    """Fusion 쿼리를 캐시에 저장 (L11: LRU eviction + TTL 타임스탬프)"""
     if len(_FUSION_QUERY_CACHE) >= _FUSION_CACHE_MAX_SIZE:
         _FUSION_QUERY_CACHE.popitem(last=False)  # LRU: 가장 오래된 항목 제거
 
-    _FUSION_QUERY_CACHE[query] = queries
+    _FUSION_QUERY_CACHE[query] = (queries, time.time())
 
 
 def _generate_fusion_queries(original_query: str, api_key: str = "", num_queries: int = 4) -> List[str]:

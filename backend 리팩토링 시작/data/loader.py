@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import joblib
+import numpy as np
 import pandas as pd
 
 import state as st
@@ -22,18 +23,53 @@ def get_data_path(filename: str) -> Path:
     return Path(st.BASE_DIR) / filename
 
 
-def load_csv_safe(filepath: Path, encoding: str = "utf-8-sig") -> Optional[pd.DataFrame]:
-    """안전한 CSV 로딩"""
-    if not filepath.exists():
-        st.logger.warning(f"CSV 파일 없음: {filepath}")
+def _optimize_dtypes(df: pd.DataFrame) -> pd.DataFrame:
+    """DataFrame dtype 최적화 — Railway 메모리 절감용
+
+    - int64 → int32 (값 범위가 int32 이내인 경우만)
+    - float64 → float32
+    - object 컬럼 중 고유값 비율 50% 이하 → category
+    """
+    for col in df.columns:
+        col_dtype = df[col].dtype
+
+        # int64 → int32 (값 범위 체크)
+        if col_dtype == np.int64:
+            col_min, col_max = df[col].min(), df[col].max()
+            if np.iinfo(np.int32).min <= col_min and col_max <= np.iinfo(np.int32).max:
+                df[col] = df[col].astype(np.int32)
+
+        # float64 → float32
+        elif col_dtype == np.float64:
+            df[col] = df[col].astype(np.float32)
+
+        # object → category (고유값 비율 50% 이하)
+        elif col_dtype == object:
+            nunique = df[col].nunique()
+            if nunique <= len(df) * 0.5:
+                df[col] = df[col].astype("category")
+
+    return df
+
+
+def load_data_safe(filepath: Path) -> Optional[pd.DataFrame]:
+    """안전한 PKL 데이터 로딩 (dtype 자동 최적화 포함)"""
+    pkl_path = filepath.with_suffix(".pkl") if filepath.suffix != ".pkl" else filepath
+    if not pkl_path.exists():
+        st.logger.warning(f"데이터 파일 없음: {pkl_path}")
         return None
     try:
-        df = pd.read_csv(filepath, encoding=encoding)
-        st.logger.info(f"CSV 로드 완료: {filepath.name} ({len(df)} rows)")
+        df = pd.read_pickle(pkl_path)
+        df = _optimize_dtypes(df)
+        st.logger.info(f"PKL 로드 완료: {pkl_path.name} ({len(df)} rows, dtype 최적화 적용)")
         return df
     except Exception as e:
-        st.logger.error(f"CSV 로드 실패: {filepath} - {e}")
+        st.logger.error(f"PKL 로드 실패: {pkl_path} - {e}")
         return None
+
+
+# 하위 호환
+load_csv_safe = load_data_safe
 
 
 def load_model_safe(filepath: Path):
@@ -53,7 +89,7 @@ def load_model_safe(filepath: Path):
 def load_all_data():
     """모든 데이터 로드 (H23/cross-2: ThreadPoolExecutor 병렬화)"""
     st.logger.info("=" * 50)
-    st.logger.info("CAFE24 AI 운영 플랫폼 데이터 로딩 시작 (병렬)")
+    st.logger.info("CAFE24 AI 운영 플랫폼 데이터 로딩 시작 (PKL 병렬)")
     st.logger.info("=" * 50)
 
     _load_start = time.time()
@@ -61,39 +97,38 @@ def load_all_data():
     # ========================================
     # H23/cross-2: CSV 데이터 병렬 로드
     # ========================================
-    csv_tasks = {
-        "SHOPS_DF": "shops.csv",
-        "CATEGORIES_DF": "categories.csv",
-        "SERVICES_DF": "services.csv",
-        "PRODUCTS_DF": "products.csv",
-        "SELLERS_DF": "sellers.csv",
-        "SELLER_ANALYTICS_DF": "seller_analytics.csv",
-        "PLATFORM_DOCS_DF": "platform_docs.csv",
-        "ECOMMERCE_GLOSSARY_DF": "ecommerce_glossary.csv",
-        "SHOP_PERFORMANCE_DF": "shop_performance.csv",
-        "DAILY_METRICS_DF": "daily_metrics.csv",
-        "CS_STATS_DF": "cs_stats.csv",
-        "CS_TICKETS_DF": "cs_tickets.csv",
-        "FRAUD_DETAILS_DF": "fraud_details.csv",
-        "COHORT_RETENTION_DF": "cohort_retention.csv",
-        "CONVERSION_FUNNEL_DF": "conversion_funnel.csv",
-        "SELLER_ACTIVITY_DF": "seller_activity.csv",
+    data_tasks = {
+        "SHOPS_DF": "shops.pkl",
+        "CATEGORIES_DF": "categories.pkl",
+        "SERVICES_DF": "services.pkl",
+        "PRODUCTS_DF": "products.pkl",
+        "SELLERS_DF": "sellers.pkl",
+        "SELLER_ANALYTICS_DF": "seller_analytics.pkl",
+        "SHOP_PERFORMANCE_DF": "shop_performance.pkl",
+        "DAILY_METRICS_DF": "daily_metrics.pkl",
+        "CS_STATS_DF": "cs_stats.pkl",
+        "CS_TICKETS_DF": "cs_tickets.pkl",
+        "FRAUD_DETAILS_DF": "fraud_details.pkl",
+        "COHORT_RETENTION_DF": "cohort_retention.pkl",
+        "CONVERSION_FUNNEL_DF": "conversion_funnel.pkl",
+        "SELLER_ACTIVITY_DF": "seller_activity.pkl",
     }
 
-    def _load_csv_task(attr_name, filename):
-        return attr_name, load_csv_safe(get_data_path(filename))
+    def _load_data_task(attr_name, filename):
+        return attr_name, load_data_safe(get_data_path(filename))
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    # max_workers=4: 피크 메모리 감소 (Railway 512MB 제한 대응)
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [
-            executor.submit(_load_csv_task, attr, fname)
-            for attr, fname in csv_tasks.items()
+            executor.submit(_load_data_task, attr, fname)
+            for attr, fname in data_tasks.items()
         ]
         for future in as_completed(futures):
             try:
                 attr_name, df = future.result()
                 setattr(st, attr_name, df)
             except Exception as e:
-                st.logger.error(f"CSV 병렬 로드 실패: {e}")
+                st.logger.error(f"PKL 병렬 로드 실패: {e}")
 
     # SELLER_ANALYTICS_DF 후처리: plan_tier_encoded → plan_tier 디코딩
     if st.SELLER_ANALYTICS_DF is not None and "plan_tier_encoded" in st.SELLER_ANALYTICS_DF.columns:
@@ -105,21 +140,11 @@ def load_all_data():
         )
         st.logger.info("SELLER_ANALYTICS_DF: plan_tier 컬럼 디코딩 완료")
 
-    # 운영 로그 (nrows 제한이 있어 별도 처리)
-    logs_path = get_data_path("operation_logs.csv")
-    if logs_path.exists():
-        try:
-            st.OPERATION_LOGS_DF = pd.read_csv(logs_path, encoding="utf-8-sig", nrows=30000)
-            st.logger.info(f"CSV 로드 완료: operation_logs.csv ({len(st.OPERATION_LOGS_DF)} rows, 제한됨)")
-        except Exception as e:
-            st.logger.error(f"CSV 로드 실패: operation_logs.csv - {e}")
-            st.OPERATION_LOGS_DF = None
-    else:
-        st.logger.warning(f"CSV 파일 없음: {logs_path}")
-        st.OPERATION_LOGS_DF = None
+    # 운영 로그
+    st.OPERATION_LOGS_DF = load_data_safe(get_data_path("operation_logs.pkl"))
 
-    _csv_elapsed = time.time() - _load_start
-    st.logger.info("CSV 병렬 로드 완료: %.1f초", _csv_elapsed)
+    _data_elapsed = time.time() - _load_start
+    st.logger.info("PKL 데이터 로드 완료: %.1f초", _data_elapsed)
 
     # ========================================
     # ML 모델 로드 (M35: 병렬 로딩)

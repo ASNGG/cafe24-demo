@@ -156,7 +156,8 @@ def get_upgrade_candidates(limit: int = 20, use_ml_scoring: bool = False) -> Lis
         complete_pipeline_run(run_id)
         return []
 
-    df = st.SELLER_ANALYTICS_DF.copy()
+    # 읽기 전용 — 원본 수정 없으므로 copy 생략 (메모리 절감)
+    df = st.SELLER_ANALYTICS_DF
     if df.empty:
         update_pipeline_step(run_id, "detect", "complete", {"count": 0})
         update_pipeline_step(run_id, "analyze", "complete")
@@ -229,7 +230,8 @@ async def get_upgrade_candidates_stream(limit: int = 20, use_ml_scoring: bool = 
         yield {"event": "error", "data": {"message": "셀러 분석 데이터가 로드되지 않았습니다."}}
         return
 
-    df = st.SELLER_ANALYTICS_DF.copy()
+    # 읽기 전용 — 원본 수정 없으므로 copy 생략 (메모리 절감)
+    df = st.SELLER_ANALYTICS_DF
     if df.empty:
         yield {"event": "done", "data": {"ok": True, "candidates": [], "total": 0, "total_elapsed_ms": 0}}
         return

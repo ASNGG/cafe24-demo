@@ -27,9 +27,6 @@ pypdf>=4.0
 PyPDF2>=3.0
 pymupdf>=1.24              # 강력한 PDF 파서 (fitz)
 
-# Optional (추천 시스템 - LightFM 포함)
-recommenders[lightfm]>=1.2.0
-
 # MLOps
 mlflow>=2.10
 

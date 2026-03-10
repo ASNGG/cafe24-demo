@@ -12,7 +12,7 @@ from typing import Dict, List, Any, Optional
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -58,7 +58,8 @@ def _find_optimal_k(tfidf_matrix) -> dict:
 
     scores = []
     for k in range(k_min, k_max + 1):
-        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        # MiniBatchKMeans: 메모리 효율적, batch_size로 메모리 사용량 제어
+        kmeans = MiniBatchKMeans(n_clusters=k, random_state=42, n_init=3, batch_size=256)
         labels = kmeans.fit_predict(tfidf_matrix)
         score = silhouette_score(tfidf_matrix, labels)
         scores.append({"k": k, "silhouette": round(float(score), 4)})
@@ -72,7 +73,7 @@ def _find_optimal_k(tfidf_matrix) -> dict:
 
 
 def _cluster_with_optimal_k(texts: List[str]) -> Dict[str, Any]:
-    """TF-IDF + 실루엣 최적 K + K-Means 클러스터링."""
+    """TF-IDF + 실루엣 최적 K + MiniBatchKMeans 클러스터링 (메모리 효율적)."""
     if len(texts) < 3:
         return {
             "optimal_k": 1,
@@ -88,8 +89,8 @@ def _cluster_with_optimal_k(texts: List[str]) -> Dict[str, Any]:
     k_result = _find_optimal_k(tfidf_matrix)
     optimal_k = k_result["optimal_k"]
 
-    # 최적 K로 최종 클러스터링
-    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    # 최적 K로 최종 클러스터링 (MiniBatchKMeans: 메모리 효율적)
+    kmeans = MiniBatchKMeans(n_clusters=optimal_k, random_state=42, n_init=3, batch_size=256)
     labels = kmeans.fit_predict(tfidf_matrix)
 
     # PCA 2D 좌표 (산점도용)

@@ -26,8 +26,8 @@ CONTEXTUAL_MAX_WORKERS = 5
 CONTEXTUAL_MAX_RETRIES = 3
 CONTEXTUAL_CACHE_LOCK = threading.Lock()
 
-# M27: 캐시 최대 크기 제한 (무제한 → LRU)
-CONTEXTUAL_CACHE_MAX_SIZE = 10000
+# M27: 캐시 최대 크기 제한 (무제한 → LRU, Railway 메모리 절약)
+CONTEXTUAL_CACHE_MAX_SIZE = 3000
 
 
 def _load_contextual_cache() -> Dict[str, str]:

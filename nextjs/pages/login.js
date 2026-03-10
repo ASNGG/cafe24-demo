@@ -10,7 +10,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const [showAccounts, setShowAccounts] = useState(false);
+  const [showAccounts, setShowAccounts] = useState(true);
+  const [quickLoginUser, setQuickLoginUser] = useState('');
 
   useEffect(() => {
     const auth = loadFromSession(STORAGE_KEYS.AUTH, null);
@@ -47,6 +48,35 @@ export default function LoginPage() {
   function fillAccount(user, pass) {
     setUsername(user);
     setPassword(pass);
+  }
+
+  async function quickLogin(acc) {
+    setErr('');
+    setQuickLoginUser(acc.user);
+    setUsername(acc.user);
+    setPassword(acc.pass);
+
+    const res = await apiCall({
+      endpoint: '/api/login',
+      method: 'POST',
+      auth: { username: acc.user, password: acc.pass },
+      timeoutMs: 30000,
+    });
+
+    setQuickLoginUser('');
+
+    if (res?.status === 'success') {
+      const auth = {
+        username: acc.user,
+        password_b64: window.btoa(acc.pass),
+        user_name: res.user_name,
+        user_role: res.user_role,
+      };
+      saveToSession(STORAGE_KEYS.AUTH, auth);
+      router.replace('/app');
+    } else {
+      setErr('로그인에 실패했습니다. 다시 시도해주세요.');
+    }
   }
 
   const accounts = [
@@ -164,14 +194,17 @@ export default function LoginPage() {
               )}
             </button>
 
-            {/* 테스트 계정 토글 - 개발 환경에서만 표시 */}
+            {/* 테스트 계정 - 클릭하면 바로 로그인 */}
             {accounts.length > 0 && (
             <div className="pt-2">
               <button
                 onClick={() => setShowAccounts(!showAccounts)}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-cafe24-beige transition-colors text-sm text-cafe24-brown"
               >
-                <span className="font-medium">테스트 계정</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">체험용 계정</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cafe24-yellow/15 text-cafe24-orange font-medium">클릭 시 바로 로그인</span>
+                </div>
                 <ChevronDown className={`w-4 h-4 transition-transform ${showAccounts ? 'rotate-180' : ''}`} />
               </button>
 
@@ -180,18 +213,34 @@ export default function LoginPage() {
                   {accounts.map((acc) => (
                     <button
                       key={acc.user}
-                      onClick={() => fillAccount(acc.user, acc.pass)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-transparent hover:border-cafe24-yellow/20 hover:bg-cafe24-light transition-all text-left group"
+                      onClick={() => quickLogin(acc)}
+                      disabled={!!quickLoginUser}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-cafe24-yellow/10 bg-gradient-to-r from-cafe24-light/50 to-transparent hover:from-cafe24-yellow/10 hover:border-cafe24-yellow/30 transition-all text-left group disabled:opacity-50"
                     >
-                      <div>
-                        <span className="text-sm font-medium text-cafe24-brown">{acc.label}</span>
-                        <span className="text-xs text-cafe24-brown/50 ml-2">{acc.user}</span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-cafe24-beige flex items-center justify-center group-hover:bg-cafe24-yellow/20 transition-colors">
+                          <User className="w-4 h-4 text-cafe24-brown/50 group-hover:text-cafe24-orange transition-colors" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-cafe24-brown block">{acc.label}</span>
+                          <span className="text-[11px] text-cafe24-brown/40">{acc.user} / {acc.pass}</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cafe24-beige text-cafe24-brown/60 group-hover:bg-cafe24-yellow/10 group-hover:text-cafe24-yellow transition-colors">
-                        {acc.role}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-cafe24-beige text-cafe24-brown/60 group-hover:bg-cafe24-yellow/10 group-hover:text-cafe24-yellow transition-colors">
+                          {acc.role}
+                        </span>
+                        {quickLoginUser === acc.user ? (
+                          <span className="w-4 h-4 border-2 border-cafe24-orange/30 border-t-cafe24-orange rounded-full animate-spin" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-cafe24-brown/30 group-hover:text-cafe24-orange transition-colors" />
+                        )}
+                      </div>
                     </button>
                   ))}
+                  <p className="text-[11px] text-cafe24-brown/40 text-center pt-1">
+                    처음이시라면 <span className="text-cafe24-orange font-medium">관리자</span> 계정을 추천합니다
+                  </p>
                 </div>
               )}
             </div>

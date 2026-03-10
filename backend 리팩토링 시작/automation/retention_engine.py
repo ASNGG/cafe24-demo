@@ -19,8 +19,34 @@ from automation.action_logger import log_action, save_retention_action, create_p
 import state as st
 
 
-def _extract_shap_values(explainer, X) -> "np.ndarray | None":
-    """SHAP 값 추출 공통 로직 (배치/단일 공용)"""
+def _extract_shap_values(explainer, X, batch_size: int = 500) -> "np.ndarray | None":
+    """SHAP 값 추출 공통 로직 (배치/단일 공용).
+    대규모 데이터에서 메모리 폭발 방지를 위해 batch_size(기본 500)씩 분할 처리합니다.
+    """
+    try:
+        n_samples = X.shape[0]
+        # 배치 크기 이하면 한번에 처리
+        if n_samples <= batch_size:
+            return _extract_shap_values_single(explainer, X)
+
+        # 배치 분할 처리 — 메모리 절감
+        st.logger.info("RETENTION SHAP 배치 분할 처리: %d건 → %d개 배치 (배치당 %d건)",
+                       n_samples, (n_samples + batch_size - 1) // batch_size, batch_size)
+        chunks = []
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            chunk_result = _extract_shap_values_single(explainer, X[start:end])
+            if chunk_result is None:
+                return None
+            chunks.append(chunk_result)
+        return np.concatenate(chunks, axis=0)
+    except (ValueError, TypeError, RuntimeError) as e:
+        st.logger.error("RETENTION SHAP extraction error: %s", str(e))
+        return None
+
+
+def _extract_shap_values_single(explainer, X) -> "np.ndarray | None":
+    """단일 배치에 대한 SHAP 값 추출 (내부용)"""
     try:
         if hasattr(explainer, "shap_values"):
             shap_result = explainer.shap_values(X)
@@ -108,7 +134,8 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
         st.logger.warning("RETENTION get_at_risk_sellers: SELLER_ANALYTICS_DF is None")
         return []
 
-    df = st.SELLER_ANALYTICS_DF.copy()
+    # 읽기 전용 — 원본 수정 없으므로 copy 생략 (메모리 절감)
+    df = st.SELLER_ANALYTICS_DF
     if df.empty:
         return []
 
@@ -382,7 +409,8 @@ async def get_at_risk_sellers_stream(threshold: float = 0.6, limit: int = 20):
         yield {"event": "error", "data": {"message": "셀러 분석 데이터가 로드되지 않았습니다."}}
         return
 
-    df = st.SELLER_ANALYTICS_DF.copy()
+    # 읽기 전용 — 원본 수정 없으므로 copy 생략 (메모리 절감)
+    df = st.SELLER_ANALYTICS_DF
     if df.empty:
         yield {"event": "done", "data": {"ok": True, "sellers": [], "total": 0, "total_elapsed_ms": 0}}
         return

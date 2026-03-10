@@ -205,8 +205,9 @@ ROUTER_SYSTEM_PROMPT = """당신은 질문 분류 전문가입니다.
 카테고리명만 반환하세요. 예: analysis"""
 
 
-# M13: LLM Router용 ChatOpenAI 모듈 캐시
+# M13: LLM Router용 ChatOpenAI 모듈 캐시 (최대 3개 제한 — 메모리 절약)
 _router_llm_cache: dict = {}
+_ROUTER_LLM_CACHE_MAX = 3
 
 # M17: 카테고리 문자열 매핑 (공통)
 _CATEGORY_MAP = {
@@ -241,6 +242,10 @@ def route_intent_llm(
     try:
         cache_key = f"{model}:{api_key[:8] if api_key else ''}"
         if cache_key not in _router_llm_cache:
+            # 캐시 크기 초과 시 가장 오래된 항목 제거
+            if len(_router_llm_cache) >= _ROUTER_LLM_CACHE_MAX:
+                oldest_key = next(iter(_router_llm_cache))
+                del _router_llm_cache[oldest_key]
             _router_llm_cache[cache_key] = ChatOpenAI(
                 model=model,
                 openai_api_key=api_key,

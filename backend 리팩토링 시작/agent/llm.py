@@ -78,8 +78,9 @@ def build_langchain_messages(system_prompt: str, username: str, user_text: str, 
     return msgs
 
 
-# LLM 인스턴스 캐시 (동일 파라미터 조합 시 재사용)
+# LLM 인스턴스 캐시 (동일 파라미터 조합 시 재사용, 최대 20개 제한)
 _llm_cache: Dict[str, ChatOpenAI] = {}
+_LLM_CACHE_MAX_SIZE = 20
 
 
 def get_llm(
@@ -176,6 +177,10 @@ def get_llm(
         pass
 
     llm_instance = ChatOpenAI(**kwargs)
+    # 캐시 크기 제한: 최대 20개 초과 시 가장 오래된 항목부터 제거
+    if len(_llm_cache) >= _LLM_CACHE_MAX_SIZE:
+        oldest_key = next(iter(_llm_cache))
+        del _llm_cache[oldest_key]
     _llm_cache[cache_key] = llm_instance
     return llm_instance
 

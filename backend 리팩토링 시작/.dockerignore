@@ -8,5 +8,6 @@ venv/
 .vscode/
 .idea/
 *.log
+*.csv
 .DS_Store
 Thumbs.db

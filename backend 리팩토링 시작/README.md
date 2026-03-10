@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,16 @@ v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.3.3** (2026-03-09) — 멀티에이전트 프롬프트 판단 규칙 강화 + 리텐션 엔진 스마트 분기 + 도구 정밀도 개선
+> **v9.5.0** (2026-03-10) — 워커 통합 (8→7종) + 도구 출력 마크다운 표 추가 + 라벨 보호 프롬프트
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **워커 통합 (8→7종)** | `fraud_investigator`를 `seller_analyst`에 병합. seller_analyst가 셀러 활동·세그먼트·이상거래 조사·성과 분석을 모두 담당 |
+| **도구 출력 마크다운 표 추가** | 주요 도구의 반환값에 마크다운 표 포맷 추가하여 LLM 응답 품질 개선 |
+| **라벨 보호 프롬프트** | 워커 프롬프트에 라벨/레이블 임의 변경 방지 규칙 추가 |
+
+<details>
+<summary><b>v9.3.3</b> (2026-03-09) — 멀티에이전트 프롬프트 판단 규칙 강화 + 리텐션 엔진 스마트 분기 + 도구 정밀도 개선</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -26,12 +35,14 @@ v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
 | **multi_agent_prompts.json** | Supervisor: "분석 결과 기반 판단" 규칙 (LOW→retention_strategist 위임 안 함), 복합 요청 시 2개 이상 워커 호출 강제. churn_analyst: "주요 예측 영향 변수" 용어 규칙 + feature importance ≠ 이탈 원인 해석 가이드. retention_strategist: 이전 워커 결과 참조 및 판단 규칙 (LOW→불필요, judgment 필드 존중). performance_analyst/report_writer: 플랫폼 전체 vs 개별 쇼핑몰 데이터 범위 구분 규칙 |
 | **tools.py 도구 정밀도** | `churn_probability` 정밀도 `round(...,1)` → `round(...,2)`. `get_cohort_analysis` 요청 월 없으면 에러 대신 전체 코호트 폴백 반환. `get_shop_performance` 총 주문 0건이면 `avg_order_value`도 0 보정. `get_trend_analysis` docstring에 "플랫폼 전체 데이터" 명시 |
 
+</details>
+
 <details>
 <summary><b>v9.3.2</b> (2026-03-08) — 멀티에이전트 프롬프트 전면 개편 + 데드코드 대규모 정리</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 각각 역할별 특화 분석 지침 추가 |
+| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 7개 워커 각각 역할별 특화 분석 지침 추가 |
 | **Supervisor 프롬프트 강화** | 대화 맥락 유지, 형식적 응답 금지, 최소 3개 인사이트 필수, 금액 포맷 규칙(₩+콤마, 억/만원 환산) |
 | **데드코드 12파일 삭제** | crag.py, semantic_router.py, parsers.py, n8n/_writer.py, ml/helpers.py, ml/mlflow_tracker.py, 크롤러 2개, 테스트 스크립트 3개, CS 티켓 생성 스크립트 |
 | **미사용 함수 제거** | marketing_optimizer.py 2개, revenue_model.py 1개 (`__main__` 전용 함수) |
@@ -40,31 +51,30 @@ v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
 </details>
 
 <details>
-<summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 8개 전문 워커 + SSE 프로토콜 확립</summary>
+<summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 7개 전문 워커 + SSE 프로토콜 확립</summary>
 
 #### Supervisor 통합 — 기본 에이전트 경로 (agent/multi_agent.py)
 
 | 변경 | 상세 |
 |------|------|
 | **Supervisor 기본 경로화** | 프론트엔드에서 항상 `multi_agent: true`로 요청 → Supervisor가 기본 에이전트 경로 |
-| **8개 전문 워커** | 기존 3개(search/analysis/cs) → 8개 전문 워커로 확장 (`MULTI_AGENT_WORKERS`) |
-| **`build_multi_agent_supervisor(llm)`** | 8종 워커 동적 라우팅 Supervisor 그래프 빌드 (`create_supervisor()`) |
+| **7개 전문 워커** | 기존 3개(search/analysis/cs) → 7개 전문 워커로 확장 (`MULTI_AGENT_WORKERS`) |
+| **`build_multi_agent_supervisor(llm)`** | 7종 워커 동적 라우팅 Supervisor 그래프 빌드 (`create_supervisor()`) |
 | **`get_cached_multi_supervisor(llm, model_key)`** | 모델별 멀티에이전트 Supervisor 그래프 캐시 |
-| **AGENT_DESCRIPTIONS 확장** | 기존 3개 + 멀티에이전트 워커 8개 = 11개 에이전트 설명 등록 |
+| **AGENT_DESCRIPTIONS 확장** | 기존 3개 + 멀티에이전트 워커 7개 = 10개 에이전트 설명 등록 |
 | **워커별 도구 분리** | 각 워커가 전문 도구만 보유 (churn_analyst 3개, seller_analyst 6개 등) |
 | **`_WORKER_COMMON_RULES` 공통 규칙** | 모든 워커가 공유하는 응답 규칙(수치 언급, 형식적 응답 금지, 최소 3개 인사이트, 금액 포맷) + 분석 관점 5가지(추세 파악, 이상값 발견, 비교 분석, 원인 추론, 실행 제안) |
-| **워커별 특화 분석 지침** | 8개 워커 각각 역할별 전문 분석 지침 추가 (SHAP 순위 표, 맞춤 전략, 세그먼트 비교, KPI 추세, 위험 점수, CS 병목, 경영진 보고서, RAG 할루시네이션 금지 등) |
+| **워커별 특화 분석 지침** | 7개 워커 각각 역할별 전문 분석 지침 추가 (SHAP 순위 표, 맞춤 전략, 세그먼트 비교, KPI 추세, CS 병목, 경영진 보고서, RAG 할루시네이션 금지 등) |
 | **Supervisor 프롬프트 강화** | 대화 맥락 유지, 형식적 응답 금지, 최소 3개 인사이트, 금액 포맷(₩+콤마, 억/만원 환산) |
 
-#### 8개 전문 워커 에이전트
+#### 7개 전문 워커 에이전트
 
 | 워커 | 설명 | 도구 수 |
 |------|------|---------|
 | **churn_analyst** | 이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석 | 3 |
 | **retention_strategist** | 리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 | 3 |
-| **seller_analyst** | 셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 | 6 |
+| **seller_analyst** | 셀러 종합 분석가 — 셀러 활동·세그먼트·이상거래 조사·성과 분석 | 6 |
 | **performance_analyst** | 성과 분석가 — 매출/KPI/마케팅 분석 | 8 |
-| **fraud_investigator** | 이상거래 조사관 — 부정행위 탐지 + 영향 분석 | 3 |
 | **cs_quality_analyst** | CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가 | 5 |
 | **report_writer** | 리포트 작성가 — 대시보드 + KPI 종합 보고서 | 4 |
 | **platform_searcher** | RAG 지식 검색 — 쇼핑몰/카테고리/용어 조회 | 2 |
@@ -242,7 +252,7 @@ v9.3.3 | 개발 기간: 2026.02.06 ~ 진행 중
 카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **9개 도메인별 라우터(112개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 8개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
 - **RAG 시스템 (7종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -391,8 +401,8 @@ backend 리팩토링 시작/
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
-│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 8개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
-│   ├── multi_agent_prompts.json     # 멀티에이전트 프롬프트 외부화 (Supervisor 판단 규칙 + 8개 워커 역할별 지침, 용어 규칙, 데이터 범위 구분)
+│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
+│   ├── multi_agent_prompts.json     # 멀티에이전트 프롬프트 외부화 (Supervisor 판단 규칙 + 7개 워커 역할별 지침, 용어 규칙, 데이터 범위 구분)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
@@ -649,7 +659,7 @@ flowchart TB
 
     subgraph Router["2단계 라우터"]
         R1{"1단계: 키워드 분류<br/>(0ms, 비용 없음)"}
-        R2{"2단계: LLM Router<br/>(gpt-4o-mini fallback)"}
+        R2{"2단계: LLM Router<br/>(gpt-5-mini fallback)"}
     end
 
     subgraph HybridRoute["하이브리드 라우팅"]
@@ -720,7 +730,7 @@ flowchart TD
 
 **문제**: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
 
-**해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-4o-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(DB 보안 감시의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
+**해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-5-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(DB 보안 감시의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
 
 ```mermaid
 flowchart TB
@@ -871,7 +881,7 @@ flowchart LR
 |--------|------|
 | **키워드 우선** | LLM 호출 없이 빠른 분류 (대부분 여기서 처리) |
 | **KEYWORD_TOOL_MAPPING** | 키워드 매칭 -> LLM 호출 전 강제 도구 실행 |
-| **LLM Fallback** | 키워드 분류 실패 시만 gpt-4o-mini 호출 |
+| **LLM Fallback** | 키워드 분류 실패 시만 gpt-5-mini 호출 |
 | **RAG 스킵** | PLATFORM, GENERAL 외 모든 데이터 카테고리(SHOP, SELLER, ANALYSIS 등)는 RAG 사전검색 건너뜀 |
 | **PLATFORM 강제 RAG** | `tool_choice="required"`로 LLM 자체 지식 사용 방지 |
 | **GENERAL 모드** | 인사/단답은 도구 없이 직접 LLM 응답 |
@@ -941,7 +951,7 @@ flowchart TD
     TOOLS --> SSE["SSE 스트리밍 응답"]
 ```
 
-**멀티에이전트 Supervisor (8개 전문 워커 — `multi_agent: true` 경로):**
+**멀티에이전트 Supervisor (7개 전문 워커 — `multi_agent: true` 경로):**
 
 ```mermaid
 flowchart TD
@@ -949,30 +959,28 @@ flowchart TD
 
     SUB_SUP -->|"transfer_to_churn_analyst"| W1["churn_analyst<br/>이탈 분석"]
     SUB_SUP -->|"transfer_to_retention_strategist"| W2["retention_strategist<br/>리텐션 전략"]
-    SUB_SUP -->|"transfer_to_seller_analyst"| W3["seller_analyst<br/>셀러 종합 분석"]
+    SUB_SUP -->|"transfer_to_seller_analyst"| W3["seller_analyst<br/>셀러 종합·이상거래 분석"]
     SUB_SUP -->|"transfer_to_performance_analyst"| W4["performance_analyst<br/>성과/KPI 분석"]
-    SUB_SUP -->|"transfer_to_fraud_investigator"| W5["fraud_investigator<br/>이상거래 조사"]
-    SUB_SUP -->|"transfer_to_cs_quality_analyst"| W6["cs_quality_analyst<br/>CS 품질 분석"]
-    SUB_SUP -->|"transfer_to_report_writer"| W7["report_writer<br/>운영 리포트"]
-    SUB_SUP -->|"transfer_to_platform_searcher"| W8["platform_searcher<br/>RAG 지식 검색"]
+    SUB_SUP -->|"transfer_to_cs_quality_analyst"| W5["cs_quality_analyst<br/>CS 품질 분석"]
+    SUB_SUP -->|"transfer_to_report_writer"| W6["report_writer<br/>운영 리포트"]
+    SUB_SUP -->|"transfer_to_platform_searcher"| W7["platform_searcher<br/>RAG 지식 검색"]
 
-    W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 -->|"handoff back"| SUB_SUP
-    W1 & W2 & W3 & W4 & W5 & W6 & W7 & W8 --> TOOLS["Tool Calling (31개)"]
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 -->|"handoff back"| SUB_SUP
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 --> TOOLS["Tool Calling (31개)"]
     TOOLS --> SSE["SSE 스트리밍 응답"]
 ```
 
-#### 8개 전문 워커 에이전트 (`MULTI_AGENT_WORKERS`)
+#### 7개 전문 워커 에이전트 (`MULTI_AGENT_WORKERS`)
 
 | # | 워커명 | 설명 | 도구 | 라우팅 키워드 |
 |---|--------|------|------|---------------|
 | 1 | **churn_analyst** | 이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석 | `get_at_risk_sellers`, `predict_seller_churn`, `get_churn_prediction` | 이탈/위험 셀러 분석 |
 | 2 | **retention_strategist** | 리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 | `generate_retention_message`, `execute_retention_action`, `get_at_risk_sellers` | 이탈 방지 전략/메시지/조치 |
-| 3 | **seller_analyst** | 셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 | `analyze_seller`, `get_seller_segment`, `detect_fraud`, `get_segment_statistics`, `get_fraud_statistics`, `get_seller_activity_report` | 셀러 종합 진단 |
+| 3 | **seller_analyst** | 셀러 종합 분석가 — 셀러 활동·세그먼트·이상거래 조사·성과 분석 | `analyze_seller`, `get_seller_segment`, `detect_fraud`, `get_segment_statistics`, `get_fraud_statistics`, `get_seller_activity_report` | 셀러 종합 진단/이상거래/부정행위 |
 | 4 | **performance_analyst** | 성과 분석가 — 매출/KPI/마케팅 분석 | `get_shop_info`, `get_shop_performance`, `get_trend_analysis`, `get_cohort_analysis`, `predict_shop_revenue`, `get_gmv_prediction`, `optimize_marketing`, `get_order_statistics` | 쇼핑몰 성과/매출/마케팅 |
-| 5 | **fraud_investigator** | 이상거래 조사관 — 부정행위 탐지 + 영향 분석 | `detect_fraud`, `get_fraud_statistics`, `analyze_seller` | 이상거래/부정행위 |
-| 6 | **cs_quality_analyst** | CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가 | `get_cs_statistics`, `auto_reply_cs`, `check_cs_quality`, `classify_inquiry`, `get_ecommerce_glossary` | CS 품질/상담/감성 |
-| 7 | **report_writer** | 리포트 작성가 — 대시보드 + KPI 종합 보고서 | `get_dashboard_summary`, `get_order_statistics`, `get_trend_analysis`, `get_cohort_analysis` | 대시보드/KPI/리포트 |
-| 8 | **platform_searcher** | RAG 지식 검색 — 플랫폼 문서/쇼핑몰/카테고리/용어 조회 | `search_platform`, `search_platform_lightrag` | 플랫폼/정책/가이드/용어 |
+| 5 | **cs_quality_analyst** | CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가 | `get_cs_statistics`, `auto_reply_cs`, `check_cs_quality`, `classify_inquiry`, `get_ecommerce_glossary` | CS 품질/상담/감성 |
+| 6 | **report_writer** | 리포트 작성가 — 대시보드 + KPI 종합 보고서 | `get_dashboard_summary`, `get_order_statistics`, `get_trend_analysis`, `get_cohort_analysis` | 대시보드/KPI/리포트 |
+| 7 | **platform_searcher** | RAG 지식 검색 — 플랫폼 문서/쇼핑몰/카테고리/용어 조회 | `search_platform`, `search_platform_lightrag` | 플랫폼/정책/가이드/용어 |
 
 #### 워커 프롬프트 구조 (공통 규칙 + 역할별 특화)
 
@@ -988,9 +996,8 @@ flowchart TD
 |------|-----------|
 | **churn_analyst** | "주요 예측 영향 변수" 용어 규칙 (feature importance ≠ 이탈 원인), SHAP 영향 변수 순위 표, 이탈 확률 높은 셀러의 공통 패턴, 리텐션 우선순위 추천 |
 | **retention_strategist** | 이전 워커 결과 참조 필수 (수치/등급 인용), LOW 위험 → 리텐션 불필요 판단, judgment 필드 존중, 셀러 상황별 맞춤 전략, 조치 유형별 예상 효과, 긴급도별(즉시/단기/중기) 분류 |
-| **seller_analyst** | 세그먼트 간 비교 표(매출/주문/환불률), 세그먼트별 관리 전략, 강점/약점/기회/위협 |
+| **seller_analyst** | 세그먼트 간 비교 표(매출/주문/환불률), 세그먼트별 관리 전략, 강점/약점/기회/위협, 이상 유형 분류(환불 사기/가짜 주문/비정상 패턴), 위험 점수 분포, 대응 방안(차단/모니터링/경고) |
 | **performance_analyst** | 플랫폼 전체 vs 개별 쇼핑몰 데이터 범위 구분 (`get_trend_analysis`=전체, `get_shop_performance`=개별), 코호트 월 미지정 시 전체 조회 후 선택, 기간별 추세(전월/전년 대비), ROI/CPA/ROAS 비교 |
-| **fraud_investigator** | 이상 유형 분류(환불 사기/가짜 주문/비정상 패턴), 위험 점수 분포, 대응 방안(차단/모니터링/경고) |
 | **cs_quality_analyst** | 카테고리별 비교 표(티켓 수/만족도/해결 시간), 병목 카테고리 지적, 개선 우선순위 액션 |
 | **report_writer** | 플랫폼 전체 vs 개별 쇼핑몰 데이터 구분 (혼동 금지), 경영진 의사결정 수준 보고서, KPI 요약 표 선행, 변화량+변화율(%) 표기 |
 | **platform_searcher** | RAG 결과 꼼꼼히 읽기, 할루시네이션 금지, 항목 수 세기, 도구 호출 필수 |
@@ -1042,7 +1049,7 @@ INTENT_AGENT_MAP = {
 | `build_supervisor_graph(llm)` | 3개 워커(search/analysis/cs) + Supervisor 그래프 빌드 | - |
 | `get_cached_supervisor(llm, model_key)` | 모델별 Supervisor 그래프 캐시 반환 | `_supervisor_cache` |
 | `get_cached_worker(llm, model_key, agent_name)` | 개별 워커 에이전트 캐시 반환 (supervisor 우회) | `_worker_cache` |
-| `build_multi_agent_supervisor(llm)` | 8종 워커 동적 라우팅 멀티에이전트 Supervisor 빌드 | - |
+| `build_multi_agent_supervisor(llm)` | 7종 워커 동적 라우팅 멀티에이전트 Supervisor 빌드 | - |
 | `get_cached_multi_supervisor(llm, model_key)` | 모델별 멀티에이전트 Supervisor 그래프 캐시 반환 | `_multi_supervisor_cache` |
 
 #### SSE 이벤트 프로토콜 (7종)
@@ -1083,9 +1090,9 @@ AGENT_DESCRIPTIONS = {
     "analysis_agent": "분석 에이전트 — 셀러 분석, ML 예측, KPI 분석",
     "cs_agent": "CS 에이전트 — CS 응답 생성, 품질 평가",
 }
-# + 멀티에이전트 워커 8개 자동 등록 (MULTI_AGENT_WORKERS에서 description 추출)
+# + 멀티에이전트 워커 7개 자동 등록 (MULTI_AGENT_WORKERS에서 description 추출)
 # churn_analyst, retention_strategist, seller_analyst, performance_analyst,
-# fraud_investigator, cs_quality_analyst, report_writer, platform_searcher
+# cs_quality_analyst, report_writer, platform_searcher
 ```
 
 **에이전트별 도구 분류 (기본 에이전트):**
@@ -1113,14 +1120,14 @@ PLATFORM, GENERAL 외 모든 데이터 카테고리(SHOP, SELLER, ANALYSIS, CS, 
 skip_rag = category not in [IntentCategory.PLATFORM, IntentCategory.GENERAL]
 ```
 
-> **참고**: 기존 `StateGraph` 기반 Coordinator→Agent 패턴은 레거시로 유지되며, 실제 `/api/agent/stream`은 Supervisor 패턴 + 하이브리드 라우팅으로 동작합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 멀티에이전트 Supervisor(8개 전문 워커)가 기본 경로입니다.
+> **참고**: 기존 `StateGraph` 기반 Coordinator→Agent 패턴은 레거시로 유지되며, 실제 `/api/agent/stream`은 Supervisor 패턴 + 하이브리드 라우팅으로 동작합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 멀티에이전트 Supervisor(7개 전문 워커)가 기본 경로입니다.
 
 **전체 라우팅 데이터 흐름:**
 ```
 사용자 → router(키워드/IntentCategory 감지)
   → 명확 intent (SHOP,SELLER,CS 등): 워커 직접 호출 (get_cached_worker, supervisor 우회)
   → 애매 intent (PLATFORM,GENERAL): Supervisor 경유 (get_cached_supervisor)
-  → multi_agent: true → 멀티에이전트 Supervisor (8개 전문 워커, run_multi_agent_stream)
+  → multi_agent: true → 멀티에이전트 Supervisor (7개 전문 워커, run_multi_agent_stream)
   → SSE 스트리밍 응답
 ```
 
@@ -2063,7 +2070,7 @@ data: {"ok": true, "final": "...", "tool_calls": [...]}
 
 **구현 메커니즘:**
 - LangGraph `astream_events` (v2) 사용
-- `multi_agent: true` → 멀티에이전트 Supervisor(8개 전문 워커) 경로, 프론트엔드 기본값
+- `multi_agent: true` → 멀티에이전트 Supervisor(7개 전문 워커) 경로, 프론트엔드 기본값
 - 하이브리드 라우팅: `INTENT_AGENT_MAP` → 워커 직접 / Supervisor 경유 분기
 - `langgraph_checkpoint_ns` 파싱으로 외부 노드 식별 (워커 vs supervisor)
 - `worker_responded` 플래그로 supervisor 재요약 방지
@@ -2318,7 +2325,7 @@ event: done  ->  { total: 2, channels: ["email"] }
 
 | 설정 | 기본값 |
 |------|--------|
-| `selectedModel` | `gpt-4o-mini` |
+| `selectedModel` | `gpt-5-mini` |
 | `temperature` | `0.3` |
 | `maxTokens` | `8000` |
 | `timeoutMs` | `30000` |

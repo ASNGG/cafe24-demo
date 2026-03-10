@@ -13,7 +13,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -21,7 +21,18 @@ v9.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.4.0** (2026-03-09) — 멀티에이전트 응답 품질 개선 + 데이터 품질 보정 + 프론트 예시 칩 개편
+> **v9.5.0** (2026-03-10) — 멀티에이전트 워커 최적화 + LLM 응답 정확도 개선
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **워커 통합 (8→7종)** | fraud_investigator를 seller_analyst에 흡수 — 도구 완전 부분집합이므로 Supervisor 라우팅 단순화 |
+| **도구 출력 마크다운 표** | get_trend_analysis, get_dashboard_summary, get_cs_statistics, get_order_statistics 4개 도구에 `_markdown` 필드 추가 — LLM이 라벨을 패러프레이징하지 않고 원본 표를 그대로 인용하도록 유도 |
+| **라벨 보호 프롬프트** | common_rules에 도구 결과 라벨/수치 변형 금지 규칙 + 올바른/잘못된 예시 few-shot 표 추가 (활성쇼핑몰→활성 셀러 수 변환 방지 등) |
+| **performance_analyst vs report_writer 경계 명확화** | Supervisor 라우팅에 구분 규칙 추가 — 특정 쇼핑몰 개별 분석 vs 플랫폼 전체 종합 보고서 |
+| **cs_quality_analyst 도구 정리** | 불필요한 get_ecommerce_glossary 제거 (platform_searcher 전담) |
+
+<details>
+<summary><b>v9.4.0</b> (2026-03-09) — 멀티에이전트 응답 품질 개선 + 데이터 품질 보정 + 프론트 예시 칩 개편</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -37,12 +48,14 @@ v9.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **플랫폼 전체 vs 개별 쇼핑몰 구분** | performance_analyst·report_writer 프롬프트에 `get_trend_analysis`는 플랫폼 전체 데이터임을 명시, 개별 쇼핑몰 데이터와 혼동 금지 규칙 추가 |
 | **멀티에이전트 예시 칩 개편** | 멀티 워커 연계 질문 6개로 변경 (이탈 분석+리텐션, 셀러 진단+이탈 분석, 이상거래+CS 품질, CS 통계+대시보드, 이탈 셀러+세그먼트, 셀러 활동+마케팅 최적화) |
 
+</details>
+
 <details>
 <summary><b>v9.3.2</b> (2026-03-08) — 멀티에이전트 워커 프롬프트 전면 개편 + 데드코드 대규모 정리</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 각각 역할별 특화 분석 지침 추가 (예: churn_analyst SHAP 원인 순위 표, cs_quality_analyst 카테고리별 비교 표 등) |
+| **워커 프롬프트 전면 개편** | `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출 (5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 7개 워커 각각 역할별 특화 분석 지침 추가 (예: churn_analyst SHAP 원인 순위 표, cs_quality_analyst 카테고리별 비교 표 등) |
 | **Supervisor 프롬프트 강화** | 대화 맥락 유지(이전 대상 자동 추적), 형식적 응답 금지("성공적으로 조회했습니다" 등), 최소 3개 인사이트 필수, 금액 포맷 규칙(₩+콤마, 억/만원 환산) |
 | **백엔드 데드코드 삭제** | 미사용 파일 12개 삭제 — crag.py, semantic_router.py, parsers.py, n8n/_writer.py, ml/helpers.py, ml/mlflow_tracker.py, 크롤러 2개, 테스트 스크립트 3개, CS 티켓 생성 스크립트 |
 | **프론트엔드 데드코드 삭제** | 미사용 파일 2개 삭제 — DataState.js, useCheckboxSelection.js |
@@ -71,7 +84,7 @@ v9.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **Supervisor 통합** | AI 에이전트 탭이 항상 Supervisor(8워커) 모드로 동작, 일반/Supervisor 모드 토글 제거 |
+| **Supervisor 통합** | AI 에이전트 탭이 항상 Supervisor(7워커) 모드로 동작, 일반/Supervisor 모드 토글 제거 |
 | **인터랙티브 도구 탐색기** | 31개 AI 도구를 6개 카테고리로 분류한 아코디언 UI (toolRegistry.js + ToolExplorer.js) |
 | **위험 질문 제거** | "전체 셀러/전체 데이터" 대상 ML 분석 추천 질문 제거, 개별 엔티티 대상으로 교체 |
 | **AgentPanel 코드 정리** | AgentPanel 638줄 → 19줄 래퍼로 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
@@ -205,7 +218,7 @@ v9.4.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 |------|------|
 | **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 워커: GPT-4o-mini) |
 | **하이브리드 라우팅** | 명확한 질문: 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문: Supervisor LLM이 판단하여 워커 위임 |
-| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(8워커) 항상 활성 — 전문 워커 8개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, 워커 직접 스트리밍, 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 시 2개+ 워커 순차 호출 강제, `full_history` 모드로 워커 간 이전 결과 참조, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침 |
+| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(7워커) 항상 활성 — 전문 워커 7개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, 워커 직접 스트리밍, 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 시 2개+ 워커 순차 호출 강제, `full_history` 모드로 워커 간 이전 결과 참조, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침 |
 | **RAG 7종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
 | **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 — 워커 에이전트 직접 스트리밍 (7종 이벤트: delta/tool_start/tool_end/agent_start/agent_end/done/error) |
@@ -366,8 +379,8 @@ flowchart LR
 
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
-| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(8워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-4o-mini + Tool Calling + 31개 도구 |
-| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 8개에 작업 위임 + 분석 결과 기반 후속 판단(LOW → retention 위임 생략) + 복합 요청 2개+ 워커 순차 호출 강제 + `full_history` 워커 간 결과 참조 + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 8워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst, report_writer, platform_searcher) |
+| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(7워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-4o-mini + Tool Calling + 31개 도구 |
+| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 7개에 작업 위임 + 분석 결과 기반 후속 판단(LOW → retention 위임 생략) + 복합 요청 2개+ 워커 순차 호출 강제 + `full_history` 워커 간 결과 참조 + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 7워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) |
 | **RAG 7종 기법** | 7가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + Cross-Encoder |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
 | **이상거래 탐지** | 사기 거래/비정상 패턴 자동 탐지 | Isolation Forest |
@@ -703,10 +716,11 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.5.0 | 2026-03-10 | 멀티에이전트 워커 최적화: fraud_investigator를 seller_analyst에 흡수(8→7워커), 도구 완전 부분집합이므로 Supervisor 라우팅 단순화. LLM 응답 정확도 개선: 4개 도구에 `_markdown` 필드 추가(라벨 패러프레이징 방지), common_rules에 라벨/수치 변형 금지 규칙+few-shot 예시, performance_analyst vs report_writer 라우팅 경계 명확화, cs_quality_analyst에서 불필요한 get_ecommerce_glossary 제거 |
 | 9.4.0 | 2026-03-09 | 멀티에이전트 응답 품질 개선: Supervisor 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 2개+ 워커 순차 호출 강제, full_history 워커 간 결과 참조, churn_analyst "주요 예측 영향 변수" 용어 정립+feature importance 해석 가이드, retention_strategist LOW 판단 로직, generate_retention_message LOW 시 LLM 미호출 즉시 반환. 데이터 품질 개선: churn_probability 소수점 2자리, 코호트 분석 폴백(없는 월 → 전체 반환), 쇼핑몰 성과 주문 0건 avg_order_value 0 보정, 플랫폼 전체 vs 개별 쇼핑몰 데이터 구분 명시. 프론트: 멀티에이전트 예시 칩을 멀티 워커 연계 질문 6개로 변경 |
-| 9.3.2 | 2026-03-08 | 멀티에이전트 워커 프롬프트 전면 개편: `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출(5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 8개 워커 역할별 특화 분석 지침 추가, Supervisor 프롬프트 강화(대화 맥락 유지·형식적 응답 금지·최소 3개 인사이트 필수·금액 포맷 규칙). 데드코드 대규모 정리: 백엔드 미사용 파일 12개+프론트 2개 삭제, 미사용 함수 3개 제거, RAG 기법 8→7종 정정, README 3개+포트폴리오 문서 동기화 |
+| 9.3.2 | 2026-03-08 | 멀티에이전트 워커 프롬프트 전면 개편: `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출(5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 7개 워커 역할별 특화 분석 지침 추가, Supervisor 프롬프트 강화(대화 맥락 유지·형식적 응답 금지·최소 3개 인사이트 필수·금액 포맷 규칙). 데드코드 대규모 정리: 백엔드 미사용 파일 12개+프론트 2개 삭제, 미사용 함수 3개 제거, RAG 기법 8→7종 정정, README 3개+포트폴리오 문서 동기화 |
 | 9.3.1 | 2026-03-07 | 멀티에이전트 리네이밍("서브에이전트"→"멀티에이전트" 프론트/백 전면 리네이밍), platform_searcher 8번째 워커 추가(RAG+LightRAG+쇼핑몰/카테고리/용어 조회), 도구 재시도 3회 제한(무한 루프 방지), 워커+Supervisor 이중 스트리밍 버그 수정, 사이드바 독립 스크롤, 답변 말풍선 내 에이전트 뱃지+도구 정보 표시 |
-| 9.3.0 | 2026-03-07 | Supervisor 통합(항상 8워커 모드, 토글 제거), 인터랙티브 도구 탐색기(31개 도구 6개 카테고리 아코디언 UI, toolRegistry.js+ToolExplorer.js), 위험 추천 질문 제거(전체 셀러/전체 데이터 → 개별 엔티티), AgentPanel 638→19줄 래퍼 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
+| 9.3.0 | 2026-03-07 | Supervisor 통합(항상 7워커 모드, 토글 제거), 인터랙티브 도구 탐색기(31개 도구 6개 카테고리 아코디언 UI, toolRegistry.js+ToolExplorer.js), 위험 추천 질문 제거(전체 셀러/전체 데이터 → 개별 엔티티), AgentPanel 638→19줄 래퍼 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
 | 9.2.2 | 2026-03-06 | FAQ 클러스터 선택 기능(체크박스+전체 토글), FAQ 생성 개수 자동 계산(선택 클러스터 수 × 1~3), LLM 모드 카테고리 제한(상위 랜덤 3개만 호출), 카테고리 변경 시 아코디언 자동 펼침, FAQ 생성 크래시 버그 3건 수정(Pydantic 422/toast.error/Recharts Cell+shape), ChartErrorBoundary 도입 |
 | 9.2.1 | 2026-03-06 | CS FAQ 클러스터링 고도화: TF-IDF + 실루엣 최적 K-Means + PCA 2D 시각화 / LLM 의미 분류 듀얼 모드, Recharts 실루엣 바 차트 + 군집 산점도, 클러스터당 FAQ 수 자동 계산, cs_tickets.csv 503건 |
 | 9.2.0 | 2026-03-05 | Supervisor 멀티에이전트 패턴: langgraph-supervisor 기반 Supervisor → 전문 워커(search/analysis/cs) 위임, 하이브리드 라우팅(키워드 사전라우팅 + Supervisor fallback), 워커 직접 스트리밍(supervisor 재요약 제거), 평균 첫 delta 3.9초/총시간 7.6초 |

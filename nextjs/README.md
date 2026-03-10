@@ -280,7 +280,7 @@ flowchart TB
 |---|------|-----------|
 | 1 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | churn_analyst → retention_strategist |
 | 2 | `SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘` | seller_analyst → churn_analyst |
-| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | fraud_investigator → cs_quality_analyst |
+| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | seller_analyst → cs_quality_analyst |
 | 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
 | 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
 | 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
@@ -471,7 +471,7 @@ flowchart LR
 
 | 설정 | 타입 | 기본값 | 비고 |
 |------|------|--------|------|
-| **selectedModel** | select | `gpt-4o-mini` | 읽기 전용 (UI 비활성) |
+| **selectedModel** | select | `gpt-5-mini` | 읽기 전용 (UI 비활성) |
 | **customModel** | text | 빈 값 | 비활성 |
 | **temperature** | slider (0~2) | `0.3` | |
 | **topP** | slider (0~1) | `1.0` | |
@@ -488,6 +488,7 @@ flowchart LR
 
 | 모델 |
 |------|
+| gpt-5-mini |
 | gpt-4o |
 | gpt-4o-mini |
 | gpt-4.1 |
@@ -560,7 +561,7 @@ flowchart LR
 |------|------|------|---------------|
 | 1 | 접수 | 접수함 5건 일괄 분류 → 자동/수동 2열 분기 | 수동 분류 → ML 일괄 분류 + 신뢰도 라우팅 |
 | 2 | 검토 | 선택 문의 상세 분석 + 우선순위 예측 | 전건 수동 → 임계값 기반 분기 |
-| 3 | 답변 | RAG + LLM(gpt-4o-mini) 스트리밍 답변 초안 | 처음부터 작성 → AI 초안 생성 |
+| 3 | 답변 | RAG + LLM(gpt-5-mini) 스트리밍 답변 초안 | 처음부터 작성 → AI 초안 생성 |
 | 4 | 회신 | React Flow 워크플로우 + n8n 연동 (job_id + SSE + 콜백) | 수동 발송 → n8n 워크플로우 시각화 + 실시간 전송 |
 | 5 | 개선 | CS 통계 대시보드 + 파이프라인 이력 | 별도 관리 없음 → 실시간 대시보드 |
 
@@ -863,7 +864,7 @@ flowchart LR
 |---|--------|-----------|
 | 1 | `SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘` | churn_analyst → retention_strategist |
 | 2 | `SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘` | seller_analyst → churn_analyst |
-| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | fraud_investigator → cs_quality_analyst |
+| 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | seller_analyst → cs_quality_analyst |
 | 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
 | 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
 | 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
@@ -1145,7 +1146,7 @@ async rewrites() {
 ```javascript
 {
   apiKey: '',
-  selectedModel: 'gpt-4o-mini',
+  selectedModel: 'gpt-5-mini',
   maxTokens: 8000,
   temperature: 0.3,
   systemPrompt: '',    // 백엔드에서 자동 로드

@@ -115,7 +115,7 @@ hr { border: none; border-top: 2px solid #d3cbb7; margin: 2em 0; }
 
 | 적용 영역 | 1차: 규칙 기반 (빠름, 비용 0) | 2차: AI fallback (정확, 비용 발생) |
 |----------|------------------------------|-----------------------------------|
-| **에이전트 라우터** | 키워드 분류 (0ms) | LLM Router (gpt-4o-mini) |
+| **에이전트 라우터** | 키워드 분류 (0ms) | LLM Router (gpt-5-mini) |
 | **DB 보안 감시** | 룰엔진 (<1ms) | LangChain Agent (3~8초) |
 | **CS 파이프라인** | 신뢰도 >= 0.75 자동 처리 | 신뢰도 < 0.75 담당자 검토 |
 | **ML 예측** | Heuristic 스코어링 | ML 모델 (RandomForest, LightGBM) |

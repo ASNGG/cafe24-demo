@@ -228,7 +228,7 @@ export default function useBaseStream({
             user_input: q,
             shop_id: selectedShop || null,
             api_key: settings?.apiKey || '',
-            model: settings?.selectedModel || 'gpt-4o-mini',
+            model: settings?.selectedModel || 'gpt-5-mini',
             max_tokens: Number(settings?.maxTokens ?? 4000),
             temperature: Number(settings?.temperature ?? 0.3),
             system_prompt: systemPromptToSend,

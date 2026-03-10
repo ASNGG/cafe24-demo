@@ -85,7 +85,7 @@ const EXAMPLE_QUESTIONS = {
 
 const DEFAULT_SETTINGS = {
   apiKey: '',
-  selectedModel: 'gpt-4o-mini',
+  selectedModel: 'gpt-5-mini',
   maxTokens: 8000,
   temperature: 0.3,
   systemPrompt: '',
@@ -390,17 +390,23 @@ export default function AppPage() {
 
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div key={activeTab} className="animate-fade-in">
-      {activeTab === 'agent' ? (
-          <AgentPanel
-            auth={auth}
-            selectedShop={selectedShop}
-            addLog={addLog}
-            settings={settings}
-            apiCall={apiCall}
-          />
-      ) : null}
+      {/* 대화 상태 보존 패널: 항상 마운트, CSS로 숨김 */}
+      <div style={{ display: activeTab === 'agent' ? 'block' : 'none' }}>
+        <AgentPanel
+          auth={auth}
+          selectedShop={selectedShop}
+          addLog={addLog}
+          settings={settings}
+          apiCall={apiCall}
+        />
+      </div>
 
+      <div style={{ display: activeTab === 'lab' ? 'block' : 'none' }}>
+        <LabPanel auth={auth} apiCall={apiCall} settings={settings} />
+      </div>
+
+      {/* 나머지 패널: 탭 전환 시 언마운트 */}
+      <div className="animate-fade-in">
       {activeTab === 'dashboard' ? (
         <DashboardPanel auth={auth} selectedShop={selectedShop} apiCall={apiCall} />
       ) : null}
@@ -421,15 +427,9 @@ export default function AppPage() {
         <LogsPanel activityLog={activityLog} clearLog={clearLog} />
       ) : null}
 
-      {activeTab === 'lab' ? (
-        <LabPanel auth={auth} apiCall={apiCall} settings={settings} />
-      ) : null}
-
       {activeTab === 'guardian' ? (
         <GuardianPanel auth={auth} apiCall={apiCall} />
       ) : null}
-
-
 
       {activeTab === 'automation' ? (
         <AutomationPanel auth={auth} apiCall={apiCall} />

@@ -666,7 +666,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
           <div className="text-sm text-cafe24-brown/70 space-y-1">
             <div>
               <span className="text-cafe24-brown/50">모델</span>:{' '}
-              <span className="font-mono">{settings?.selectedModel || 'gpt-4o-mini'}</span>
+              <span className="font-mono">{settings?.selectedModel || 'gpt-5-mini'}</span>
             </div>
             <div>
               <span className="text-cafe24-brown/50">Max Tokens</span>:{' '}

@@ -112,9 +112,10 @@ function AccordionItem({ label, itemKey, content, expanded, onToggle }) {
 }
 
 export default function SettingsPanel({ settings, setSettings, addLog, apiCall, auth }) {
-  // ✅ GPT-4 계열 중심 + 필요시 확장
+  // ✅ GPT-5/4 계열 중심 + 필요시 확장
   const models = useMemo(
     () => [
+      "gpt-5-mini",
       "gpt-4o",
       "gpt-4o-mini",
       "gpt-4.1",
@@ -137,7 +138,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
 
   // LLM 설정 임시 상태 (저장 버튼 누르기 전까지 여기에만 저장)
   const [draftLLM, setDraftLLM] = useState({
-    selectedModel: settings?.selectedModel || "gpt-4o-mini",
+    selectedModel: settings?.selectedModel || "gpt-5-mini",
     customModel: settings?.customModel || "",
     temperature: settings?.temperature ?? 0.3,
     topP: settings?.topP ?? 1.0,
@@ -152,7 +153,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   });
 
   // draftLLM 기반 파생 값 (useState 이후에 위치해야 함)
-  const selectedModel = (draftLLM?.selectedModel || "gpt-4o-mini").trim();
+  const selectedModel = (draftLLM?.selectedModel || "gpt-5-mini").trim();
   const isGpt5 = selectedModel.toLowerCase().startsWith("gpt-5");
   const isMiniModel = selectedModel.toLowerCase().includes("mini");
   const maxTokensLimit = 16000;
@@ -193,7 +194,7 @@ export default function SettingsPanel({ settings, setSettings, addLog, apiCall, 
   // M49: 빈 의존성 useEffect 2개 통합 → 단일 초기화
   useEffect(() => {
     setDraftLLM({
-      selectedModel: settings?.selectedModel || "gpt-4o-mini",
+      selectedModel: settings?.selectedModel || "gpt-5-mini",
       customModel: settings?.customModel || "",
       temperature: settings?.temperature ?? 0.3,
       topP: settings?.topP ?? 1.0,

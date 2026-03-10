@@ -5,8 +5,8 @@ agent/multi_agent.py - LangGraph Supervisor 기반 멀티 에이전트 시스템
 
 구조 (langgraph-supervisor 패턴):
 - Supervisor: 사용자 질의 분석 → 전문 워커 에이전트에게 위임 → 결과 종합
-- 멀티에이전트 Supervisor (8종 워커): churn_analyst, retention_strategist,
-  seller_analyst, performance_analyst, fraud_investigator, cs_quality_analyst,
+- 멀티에이전트 Supervisor (7종 워커): churn_analyst, retention_strategist,
+  seller_analyst, performance_analyst, cs_quality_analyst,
   report_writer, platform_searcher
 
 프로덕션 경로:
@@ -66,6 +66,7 @@ from agent.tools import (
     get_shop_services,
     get_category_info,
     list_categories,
+    analyze_data,
 )
 
 from agent.llm import get_llm, pick_api_key
@@ -89,43 +90,38 @@ def _load_prompts():
 _PROMPTS = _load_prompts()
 
 # ============================================================
-# Supervisor 워커 정의 (8종)
+# Supervisor 워커 정의 (7종) — fraud_investigator → seller_analyst 통합
 # ============================================================
 MULTI_AGENT_WORKERS = {
     "churn_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["churn_analyst"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [get_at_risk_sellers, predict_seller_churn, get_churn_prediction],
-        "description": "이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석",
+        "tools": [get_at_risk_sellers, predict_seller_churn, get_churn_prediction, get_seller_segment, get_segment_statistics],
+        "description": "이탈 분석 전문가 — ML 이탈 예측 + SHAP 분석 + 세그먼트 교차 분석",
     },
     "retention_strategist": {
         "prompt": _PROMPTS["multi_agent_workers"]["retention_strategist"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [generate_retention_message, execute_retention_action, get_at_risk_sellers],
-        "description": "리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치",
+        "tools": [generate_retention_message, execute_retention_action, get_at_risk_sellers, predict_seller_churn, analyze_seller],
+        "description": "리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 + 셀러 진단",
     },
     "seller_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["seller_analyst"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [analyze_seller, get_seller_segment, detect_fraud, get_segment_statistics, get_fraud_statistics, get_seller_activity_report],
-        "description": "셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래",
+        "tools": [analyze_seller, get_seller_segment, detect_fraud, get_segment_statistics, get_fraud_statistics, get_seller_activity_report, analyze_data],
+        "description": "셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 조사",
     },
     "performance_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["performance_analyst"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [get_shop_info, get_shop_performance, get_trend_analysis, get_cohort_analysis, predict_shop_revenue, get_gmv_prediction, optimize_marketing, get_order_statistics],
-        "description": "성과 분석가 — 매출/KPI/마케팅 분석",
-    },
-    "fraud_investigator": {
-        "prompt": _PROMPTS["multi_agent_workers"]["fraud_investigator"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [detect_fraud, get_fraud_statistics, analyze_seller],
-        "description": "이상거래 조사관 — 부정행위 탐지 + 영향 분석",
+        "tools": [get_shop_info, get_shop_performance, get_trend_analysis, get_cohort_analysis, predict_shop_revenue, get_gmv_prediction, optimize_marketing, get_order_statistics, list_shops, analyze_data],
+        "description": "성과 분석가 — 특정 쇼핑몰 성과/매출/마케팅/코호트 개별 분석",
     },
     "cs_quality_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["cs_quality_analyst"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [get_cs_statistics, auto_reply_cs, check_cs_quality, classify_inquiry, get_ecommerce_glossary],
+        "tools": [get_cs_statistics, auto_reply_cs, check_cs_quality, classify_inquiry, analyze_data],
         "description": "CS 품질 분석가 — CS 통계 + 자동 응답 + 품질 평가",
     },
     "report_writer": {
         "prompt": _PROMPTS["multi_agent_workers"]["report_writer"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [get_dashboard_summary, get_order_statistics, get_trend_analysis, get_cohort_analysis],
-        "description": "리포트 작성가 — 대시보드 + KPI 종합 보고서",
+        "tools": [get_dashboard_summary, get_order_statistics, get_trend_analysis, get_cohort_analysis, get_cs_statistics, get_segment_statistics, get_fraud_statistics, analyze_data],
+        "description": "리포트 작성가 — 대시보드 + KPI + CS/셀러/이상거래 종합 보고서",
     },
     "platform_searcher": {
         "prompt": _PROMPTS["multi_agent_workers"]["platform_searcher"]["prompt"] + _PROMPTS["common_rules"],
@@ -179,7 +175,7 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
         )
 
         model_key = normalize_model_name(req.model)
-        supervisor = get_cached_multi_supervisor(llm, model_key)
+        supervisor = get_cached_multi_supervisor(llm, model_key, api_key=api_key)
 
         # 메시지 히스토리 구성 (멀티턴 지원)
         prev_messages = memory_messages(username)
@@ -414,8 +410,9 @@ AGENT_DESCRIPTIONS = {_wname: _wcfg["description"] for _wname, _wcfg in MULTI_AG
 _multi_supervisor_cache: Dict[str, Any] = {}
 
 
-def build_multi_agent_supervisor(llm):
-    """멀티에이전트용 Supervisor 생성 — 8종 워커 동적 라우팅"""
+def build_multi_agent_supervisor(llm, api_key: str = ""):
+    """멀티에이전트용 Supervisor 생성 — 7종 워커 동적 라우팅
+    전체 워커 동일 LLM (gpt-5-mini) 사용"""
     if not SUPERVISOR_AVAILABLE:
         raise ImportError("langgraph-supervisor가 설치되지 않았습니다. 'pip install langgraph-supervisor'")
 
@@ -447,9 +444,9 @@ def build_multi_agent_supervisor(llm):
     return workflow.compile()
 
 
-def get_cached_multi_supervisor(llm, model_key: str):
+def get_cached_multi_supervisor(llm, model_key: str, api_key: str = ""):
     """모델별 멀티에이전트 Supervisor 그래프 캐시"""
     if model_key not in _multi_supervisor_cache:
-        _multi_supervisor_cache[model_key] = build_multi_agent_supervisor(llm)
+        _multi_supervisor_cache[model_key] = build_multi_agent_supervisor(llm, api_key=api_key)
         st.logger.info("MULTI_SUPERVISOR_GRAPH_BUILD model=%s (cached)", model_key)
     return _multi_supervisor_cache[model_key]

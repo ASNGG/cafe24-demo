@@ -7,7 +7,7 @@ CAFE24 AI 운영 플랫폼
 
 분류 우선순위:
 1. 키워드 기반 분류 (가장 빠름, 비용 없음)
-2. LLM Router (gpt-4o-mini, fallback)
+2. LLM Router (gpt-5-mini, fallback)
 
 References:
 - https://www.anthropic.com/research/building-effective-agents
@@ -225,7 +225,7 @@ _CATEGORY_MAP = {
 def route_intent_llm(
     text: str,
     api_key: str,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-mini",
 ) -> IntentCategory:
     """
     M17: 동기 함수로 변환 (async 오버헤드 제거)
@@ -294,7 +294,7 @@ def classify_and_get_tools(
 
     분류 순서:
     1. 키워드 기반 분류 (가장 빠름, 비용 없음)
-    2. LLM Router (gpt-4o-mini, fallback)
+    2. LLM Router (gpt-5-mini, fallback)
 
     Args:
         text: 사용자 질문

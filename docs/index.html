@@ -1346,7 +1346,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <tr>
 <td><strong>에이전트 라우터</strong></td>
 <td>키워드 사전라우팅 → 워커 직접 호출 (0ms)</td>
-<td>Supervisor LLM 판단 (gpt-4o-mini)</td>
+<td>Supervisor LLM 판단 (gpt-5-mini)</td>
 </tr>
 <tr>
 <td><strong>DB 보안 감시</strong></td>
@@ -1386,10 +1386,10 @@ flowchart TB
 
     SUP -->|"transfer_to_워커"| Workers
 
-    subgraph Workers["8종 전문 워커"]
+    subgraph Workers["7종 전문 워커"]
         direction LR
-        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석"] ~~~ SW4["성과 분석"]
-        SW5["이상거래"] ~~~ SW6["CS 품질"] ~~~ SW7["리포트"] ~~~ SW8["검색"]
+        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석&lt;br/&gt;(이상거래 포함)"] ~~~ SW4["성과 분석"]
+        SW5["CS 품질"] ~~~ SW6["리포트"] ~~~ SW7["검색"]
     end
 
     Workers -->|"Tool Calling"| Tools["31개 도구"]:::tool
@@ -1464,7 +1464,7 @@ sequenceDiagram
 <hr>
 <section class="portfolio-section">
 <h2 id="2-ai-에이전트">2. AI 에이전트</h2>
-<p class="section-summary">langgraph-supervisor 기반 Supervisor가 8종 전문 워커에게 위임하는 멀티에이전트 시스템. 키워드 분류로 단순 인사를 필터링하고, 나머지 모든 요청은 Supervisor LLM이 적절한 워커를 선택합니다.</p>
+<p class="section-summary">langgraph-supervisor 기반 Supervisor가 7종 전문 워커에게 위임하는 멀티에이전트 시스템. 키워드 분류로 단순 인사를 필터링하고, 나머지 모든 요청은 Supervisor LLM이 적절한 워커를 선택합니다.</p>
 <h3 id="2단계-라우터">2단계 라우터 (키워드 → LLM fallback)</h3>
 <p>키워드 분류(0ms)로 IntentCategory를 결정하고, 매칭 실패 시 LLM Router가 판단합니다. 단순 인사(GENERAL)는 직접 LLM 응답, 그 외 모든 요청은 Supervisor에게 전달됩니다.</p>
 <h3 id="intentcategory">IntentCategory (8개)</h3>
@@ -1528,7 +1528,7 @@ sequenceDiagram
 </tr>
 </tbody>
 </table></div>
-<h3 id="supervisor-멀티에이전트">Supervisor 멀티에이전트 (8종 워커)</h3>
+<h3 id="supervisor-멀티에이전트">Supervisor 멀티에이전트 (7종 워커)</h3>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TB
     Q(["사용자 질문"]):::io
@@ -1540,10 +1540,10 @@ flowchart TB
 
     SUP["Supervisor&lt;br/&gt;질의 분석 → 워커 위임"]:::sup
 
-    subgraph Workers["8종 전문 워커"]
+    subgraph Workers["7종 전문 워커"]
         direction LR
-        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석"] ~~~ SW4["성과 분석"]
-        SW5["이상거래"] ~~~ SW6["CS 품질"] ~~~ SW7["리포트"] ~~~ SW8["검색"]
+        SW1["이탈 분석"] ~~~ SW2["이탈 방지"] ~~~ SW3["셀러 분석&lt;br/&gt;(이상거래 포함)"] ~~~ SW4["성과 분석"]
+        SW5["CS 품질"] ~~~ SW6["리포트"] ~~~ SW7["검색"]
     end
 
     Q --> Router
@@ -1561,7 +1561,7 @@ flowchart TB
     style Workers fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px,color:#5b21b6
 </div></div>
 <h3 id="전문-워커-프롬프트-엔지니어링">전문 워커 프롬프트 엔지니어링</h3>
-<p>8개 전문 워커는 <code>_WORKER_COMMON_RULES</code> 공통 프롬프트와 워커별 특화 지침으로 응답 품질을 제어합니다.</p>
+<p>7개 전문 워커는 <code>_WORKER_COMMON_RULES</code> 공통 프롬프트와 워커별 특화 지침으로 응답 품질을 제어합니다.</p>
 <div class="table-wrapper"><table aria-label="프롬프트 규칙">
 <thead>
 <tr>
@@ -1634,7 +1634,7 @@ flowchart TB
 <td><code>analyze_seller</code>, <code>get_seller_segment</code>, <code>detect_fraud</code>, <code>get_segment_statistics</code>, <code>get_fraud_statistics</code>, <code>get_seller_activity_report</code></td>
 <td>analysis</td>
 <td style="text-align:center">K-Means, IsolationForest</td>
-<td>셀러 종합 분석</td>
+<td>셀러 종합 분석 + 이상거래 탐지</td>
 </tr>
 <tr>
 <td><strong>예측</strong></td>
@@ -2592,7 +2592,7 @@ flowchart TD
 <tr>
 <td><strong>에이전트</strong></td>
 <td>LangChain + LangGraph + langgraph-supervisor</td>
-<td>Supervisor 멀티에이전트 · 8종 전문 워커 · 2단계 라우터 (키워드 → LLM fallback)</td>
+<td>Supervisor 멀티에이전트 · 7종 전문 워커 · 2단계 라우터 (키워드 → LLM fallback)</td>
 </tr>
 <tr>
 <td><strong>벡터 검색</strong></td>

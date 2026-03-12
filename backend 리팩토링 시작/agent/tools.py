@@ -326,10 +326,15 @@ def tool_check_cs_quality(
     text_length: int = 100,
 ) -> dict:
     """CS 티켓의 우선순위/긴급도를 예측합니다."""
+    # lazy loading: 모델이 아직 로드되지 않았으면 디스크에서 로드 시도
+    st.get_model("CS_QUALITY_MODEL")
     if st.CS_QUALITY_MODEL is None:
         return {"status": "error", "message": "CS 품질 예측 모델이 로드되지 않았습니다."}
 
-    # 피처 인코딩
+    # 피처 인코딩 (lazy loading)
+    st.get_model("LE_TICKET_CATEGORY")
+    st.get_model("LE_SELLER_TIER")
+    st.get_model("LE_CS_PRIORITY")
     try:
         category_encoded = st.LE_TICKET_CATEGORY.transform([ticket_category])[0] if st.LE_TICKET_CATEGORY else 0
     except (ValueError, AttributeError):
@@ -464,21 +469,49 @@ def tool_analyze_seller(seller_id: str) -> dict:
 
     row = seller.iloc[0]
 
-    return {
+    total_orders = safe_int(row.get("total_orders"))
+    total_revenue = safe_int(row.get("total_revenue"))
+
+    # avg_order_value: 원본이 0이면 total_revenue / total_orders로 계산
+    avg_order_value = safe_int(row.get("avg_order_value"))
+    if avg_order_value == 0 and total_orders > 0 and total_revenue > 0:
+        avg_order_value = round(total_revenue / total_orders)
+
+    conversion_rate = safe_float(row.get("conversion_rate"))
+    repeat_purchase_rate = safe_float(row.get("repeat_purchase_rate"))
+    monthly_growth_rate = safe_float(row.get("monthly_growth_rate"))
+
+    # 데이터 정합성 경고 (LLM이 잘못된 해석을 하지 않도록 가이드)
+    data_warnings = []
+    if total_orders > 0 and conversion_rate == 0.0:
+        data_warnings.append("전환율 0%: 방문자 데이터가 집계되지 않아 산출 불가")
+    if total_orders > 100 and repeat_purchase_rate == 0.0:
+        data_warnings.append("재구매율 0%: 고객별 중복구매 집계가 반영되지 않았을 가능성")
+    if monthly_growth_rate == 0.0:
+        data_warnings.append("월간 성장률 0%: 월별 시계열 데이터 부재로 산출 불가")
+    if safe_int(row.get("ad_spend")) == 0:
+        data_warnings.append("광고비 0원: 외부 채널 광고비 미연동 또는 유기적 유입 중심 가능성 — paid 광고 미실시로 단정 불가")
+
+    refund_rate = safe_float(row.get("refund_rate"))
+    plan_tier = safe_str(row.get("plan_tier"))
+
+    result = {
         "status": "success",
         "seller_id": seller_id,
         "performance": {
-            "total_orders": safe_int(row.get("total_orders")),
-            "total_revenue": safe_int(row.get("total_revenue")),
+            "total_orders": total_orders,
+            "total_revenue": total_revenue,
             "product_count": safe_int(row.get("product_count")),
-            "avg_order_value": safe_int(row.get("avg_order_value")),
-            "conversion_rate": safe_float(row.get("conversion_rate")),
-            "repeat_purchase_rate": safe_float(row.get("repeat_purchase_rate")),
-            "monthly_growth_rate": safe_float(row.get("monthly_growth_rate")),
+            "avg_order_value": avg_order_value,
+            "conversion_rate": conversion_rate,
+            "repeat_purchase_rate": repeat_purchase_rate,
+            "monthly_growth_rate": monthly_growth_rate,
         },
         "operations": {
             "cs_tickets": safe_int(row.get("cs_tickets")),
-            "refund_rate": safe_float(row.get("refund_rate")),
+            "cs_ticket_rate_pct": round(safe_int(row.get("cs_tickets")) / max(total_orders, 1) * 100, 2),
+            "refund_rate": refund_rate,
+            "refund_rate_pct": round(refund_rate * 100, 2) if refund_rate < 1 else round(refund_rate, 2),
             "avg_response_time": safe_float(row.get("avg_response_time")),
             "days_since_last_login": safe_int(row.get("days_since_last_login")),
             "days_since_register": safe_int(row.get("days_since_register")),
@@ -487,8 +520,67 @@ def tool_analyze_seller(seller_id: str) -> dict:
             "ad_spend": safe_int(row.get("ad_spend")),
             "roas": safe_float(row.get("roas")),
         },
-        "plan_tier": safe_str(row.get("plan_tier")),
+        "plan_tier": plan_tier,
     }
+
+    # 세그먼트 정보 포함
+    if "cluster" in row.index:
+        cluster = safe_int(row.get("cluster"))
+        result["segment"] = {
+            "cluster": cluster,
+            "segment_name": _get_segment_name(cluster),
+        }
+
+    # 전체 셀러 대비 비교 데이터 (LLM이 맥락 있는 해석을 할 수 있도록)
+    df = st.SELLER_ANALYTICS_DF
+    try:
+        total_sellers = len(df)
+        platform_avg_revenue = float(df["total_revenue"].mean())
+        platform_avg_orders = float(df["total_orders"].mean())
+        platform_avg_refund = float(df["refund_rate"].mean())
+
+        platform_avg_cs = float(df["cs_tickets"].mean()) if "cs_tickets" in df.columns else 0
+        platform_cs_rate = round(platform_avg_cs / max(platform_avg_orders, 1) * 100, 2)
+
+        result["comparison"] = {
+            "platform_avg": {
+                "total_orders": round(platform_avg_orders, 1),
+                "total_revenue": round(platform_avg_revenue),
+                "avg_order_value": round(df["total_revenue"].sum() / max(df["total_orders"].sum(), 1)),
+                "refund_rate": round(platform_avg_refund, 4),
+                "refund_rate_pct": round(platform_avg_refund * 100, 2) if platform_avg_refund < 1 else round(platform_avg_refund, 2),
+                "cs_tickets": round(platform_avg_cs, 1),
+                "cs_ticket_rate_pct": platform_cs_rate,
+                "seller_count": total_sellers,
+            },
+        }
+
+        # 동일 등급(plan_tier) 평균
+        if plan_tier:
+            tier_df = df[df["plan_tier"] == plan_tier]
+            if len(tier_df) > 1:
+                tier_avg_refund = float(tier_df["refund_rate"].mean())
+                result["comparison"]["tier_avg"] = {
+                    "plan_tier": plan_tier,
+                    "seller_count": len(tier_df),
+                    "total_orders": round(float(tier_df["total_orders"].mean()), 1),
+                    "total_revenue": round(float(tier_df["total_revenue"].mean())),
+                    "refund_rate_pct": round(tier_avg_refund * 100, 2) if tier_avg_refund < 1 else round(tier_avg_refund, 2),
+                }
+
+        # 백분위 순위 (이 셀러가 전체 중 상위 몇%인지)
+        if total_orders > 0:
+            result["comparison"]["percentile"] = {
+                "total_orders": round(float((df["total_orders"] <= total_orders).mean()) * 100, 1),
+                "total_revenue": round(float((df["total_revenue"] <= total_revenue).mean()) * 100, 1),
+            }
+    except Exception:
+        pass
+
+    if data_warnings:
+        result["data_warnings"] = data_warnings
+
+    return result
 
 
 def tool_get_seller_segment(seller_id_or_features) -> dict:
@@ -525,6 +617,9 @@ def tool_get_seller_segment(seller_id_or_features) -> dict:
         seller_features = seller_id_or_features
         seller_id = None
 
+    # lazy loading: 모델이 아직 로드되지 않았으면 디스크에서 로드 시도
+    st.get_model("SELLER_SEGMENT_MODEL")
+    st.get_model("SCALER_CLUSTER")
     if st.SELLER_SEGMENT_MODEL is None:
         return {"status": "error", "message": "셀러 세그먼트 모델이 로드되지 않았습니다."}
 
@@ -581,6 +676,8 @@ def tool_detect_fraud(seller_id: Optional[str] = None, transaction_features: Opt
 
         # 거래 피처로 실시간 탐지 (ML 모델 필요)
         if transaction_features:
+            # lazy loading: 모델이 아직 로드되지 않았으면 디스크에서 로드 시도
+            st.get_model("FRAUD_DETECTION_MODEL")
             if st.FRAUD_DETECTION_MODEL is None:
                 return {"status": "error", "message": "이상거래 탐지 ML 모델이 로드되지 않았습니다. seller_id로 기록 조회는 가능합니다."}
             feature_cols = ["order_amount", "order_frequency", "refund_rate",
@@ -639,6 +736,9 @@ def tool_get_segment_statistics() -> dict:
             }
 
         # 세그먼트 분류가 안 되어 있으면 모델로 분류 (원본 변경 방지를 위해 copy)
+        # lazy loading: 모델 로드 시도
+        st.get_model("SELLER_SEGMENT_MODEL")
+        st.get_model("SCALER_CLUSTER")
         if st.SELLER_SEGMENT_MODEL is not None and st.SCALER_CLUSTER is not None:
             df = df.copy()
             X = df[FEATURE_COLS_SELLER_SEGMENT].fillna(0)
@@ -769,12 +869,30 @@ def tool_get_order_statistics(event_type: Optional[str] = None, days: int = 30) 
     # 셀러별 이벤트 수
     seller_event_counts = df["seller_id"].value_counts().head(10).to_dict() if "seller_id" in df.columns else {}
 
+    # 마크다운 표 생성 (LLM 라벨 보존용)
+    md_lines = [
+        f"## 운영 이벤트 통계 (최근 {days}일)",
+        "",
+        f"- 총 이벤트: **{len(df):,}건**",
+        f"- 총 금액: **₩{total_amount:,}**" if total_amount else "",
+        "",
+        "| 이벤트 유형 | 건수 |",
+        "|-------------|------|",
+    ]
+    for etype, cnt in event_counts.items():
+        md_lines.append(f"| {etype} | {cnt:,} |")
+    if seller_event_counts:
+        md_lines += ["", "### 이벤트 상위 셀러", "| 셀러 ID | 이벤트 수 |", "|---------|----------|"]
+        for sid, cnt in seller_event_counts.items():
+            md_lines.append(f"| {sid} | {cnt:,} |")
+
     return {
         "status": "success",
         "period": f"최근 {days}일",
         "total_events": len(df),
         "total_amount": total_amount,
         "event_type_filter": event_type,
+        "_markdown": "\n".join([l for l in md_lines if l != "" or True]),
         "event_counts": event_counts,
         "top_sellers_by_events": seller_event_counts,
         "daily_trend": daily_counts,
@@ -802,9 +920,12 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
         total_revenue = safe_int(df["revenue"].sum()) if "revenue" in df.columns else 0
         total_cs = safe_int(df["cs_handled"].sum()) if "cs_handled" in df.columns else 0
 
+        total_products = safe_int(df["products_updated"].sum()) if "products_updated" in df.columns else 0
+        total_all_events = total_orders + total_products + total_cs
+
         event_summary = {
             "주문처리": total_orders,
-            "상품업데이트": safe_int(df["products_updated"].sum()) if "products_updated" in df.columns else 0,
+            "상품업데이트": total_products,
             "CS처리": total_cs,
         }
 
@@ -812,11 +933,11 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
             "status": "success",
             "seller_id": seller_id,
             "period": f"최근 {days}일",
-            "total_events": total_orders + total_cs,
-            "total_amount": total_revenue,
+            "total_events": total_all_events,
+            "total_revenue": total_revenue,
             "active_days": active_days,
             "event_summary": event_summary,
-            "avg_events_per_day": round((total_orders + total_cs) / max(active_days, 1), 2),
+            "avg_events_per_day": round(total_all_events / max(active_days, 1), 2),
         }
 
     # OPERATION_LOGS_DF 폴백
@@ -853,6 +974,10 @@ def tool_get_seller_activity_report(seller_id: str, days: int = 30) -> dict:
 # ============================================================
 def tool_classify_inquiry(text: str) -> dict:
     """CS 문의 텍스트를 카테고리별로 자동 분류합니다 (TF-IDF + RandomForest)."""
+    # lazy loading: 모델이 아직 로드되지 않았으면 디스크에서 로드 시도
+    st.get_model("INQUIRY_CLASSIFICATION_MODEL")
+    st.get_model("TFIDF_VECTORIZER")
+    st.get_model("LE_INQUIRY_CATEGORY")
     if st.INQUIRY_CLASSIFICATION_MODEL is None or st.TFIDF_VECTORIZER is None:
         return {"status": "error", "message": "문의 분류 모델이 로드되지 않았습니다."}
 
@@ -915,23 +1040,59 @@ def tool_get_cs_statistics() -> dict:
         for rec in df[cs_cols].to_dict("records"):
             by_category[str(rec[cat_col])] = {
                 "total_tickets": int(rec["total_tickets"]),
-                "avg_resolution_hours": safe_float(rec.get("avg_resolution_hours", 0)),
-                "satisfaction_score": safe_float(rec.get("satisfaction_score", 0)),
+                "avg_resolution_hours": round(safe_float(rec.get("avg_resolution_hours", 0)), 1),
+                "satisfaction_score": round(safe_float(rec.get("satisfaction_score", 0)), 2),
             }
     elif cat_col in df.columns:
         by_category = df[cat_col].value_counts().to_dict()
 
-    # 평균 만족도 점수
-    avg_satisfaction = safe_float(df["satisfaction_score"].mean()) if "satisfaction_score" in df.columns else 0
+    # 티켓 수 기반 가중평균 (카테고리별 단순 평균이 아닌 전체 티켓 가중평균)
+    if "satisfaction_score" in df.columns and "total_tickets" in df.columns:
+        weights = pd.to_numeric(df["total_tickets"], errors="coerce").fillna(0)
+        scores = pd.to_numeric(df["satisfaction_score"], errors="coerce").fillna(0)
+        avg_satisfaction = safe_float((scores * weights).sum() / max(weights.sum(), 1))
+    elif "satisfaction_score" in df.columns:
+        avg_satisfaction = safe_float(df["satisfaction_score"].mean())
+    else:
+        avg_satisfaction = 0
 
-    # 평균 해결 시간
-    avg_resolution = safe_float(df["avg_resolution_hours"].mean()) if "avg_resolution_hours" in df.columns else 0
+    if "avg_resolution_hours" in df.columns and "total_tickets" in df.columns:
+        weights = pd.to_numeric(df["total_tickets"], errors="coerce").fillna(0)
+        hours = pd.to_numeric(df["avg_resolution_hours"], errors="coerce").fillna(0)
+        avg_resolution = safe_float((hours * weights).sum() / max(weights.sum(), 1))
+    elif "avg_resolution_hours" in df.columns:
+        avg_resolution = safe_float(df["avg_resolution_hours"].mean())
+    else:
+        avg_resolution = 0
+
+    # 마크다운 표 생성 (LLM 라벨 보존용)
+    md_lines = [
+        "## CS 문의 통계",
+        "",
+        f"- 총 티켓 수: **{total_tickets:,}**",
+        f"- 평균 만족도: **{round(avg_satisfaction, 2)}**",
+        f"- 평균 해결 시간: **{round(avg_resolution, 1)}시간**",
+        "",
+        "| 카테고리 | 티켓 수 | 평균 해결 시간(h) | 만족도 |",
+        "|----------|---------|-------------------|--------|",
+    ]
+    for cat_name, cat_data in by_category.items():
+        if isinstance(cat_data, dict):
+            md_lines.append(
+                f"| {cat_name} | {cat_data.get('total_tickets', 0)} "
+                f"| {cat_data.get('avg_resolution_hours', 0)} "
+                f"| {cat_data.get('satisfaction_score', 0)} |"
+            )
+        else:
+            md_lines.append(f"| {cat_name} | {cat_data} | - | - |")
 
     return {
         "status": "success",
         "total_tickets": total_tickets,
         "avg_satisfaction_score": round(avg_satisfaction, 2),
         "avg_resolution_hours": round(avg_resolution, 1),
+        "_markdown": "\n".join(md_lines),
+        "_llm_instruction": "⚠️ 이 CS 통계는 **카페24 플랫폼 전체** 집계입니다. 특정 셀러의 CS 품질이 아닙니다! 셀러별 CS 점검 시 반드시 '플랫폼 전체 CS 통계 기준'임을 명시하세요.",
         "by_category": by_category,
     }
 
@@ -1124,6 +1285,7 @@ def tool_get_cohort_analysis(cohort: str = None, month: str = None) -> dict:
         return {
             "status": "success",
             "analysis_type": "셀러 코호트 리텐션 분석",
+            "_llm_instruction": "⚠️ 이 코호트 리텐션은 **카페24 플랫폼 전체** 셀러 기준입니다. 특정 쇼핑몰/셀러의 코호트가 아닙니다! 개별 쇼핑몰 분석과 함께 제시할 때 반드시 '플랫폼 전체 코호트 기준'임을 명시하세요.",
             "total_cohorts": len(retention),
             "retention": retention,
             "avg_retention": {k: f"{v}%" for k, v in avg_retention.items()},
@@ -1283,16 +1445,38 @@ def tool_get_trend_analysis(start_date: str = None, end_date: str = None, days: 
         if cs_rate_change > 0:
             insight_parts.append(f"CS 해결률 {format_change(cs_rate_change)} 개선.")
 
+        # 마크다운 표 생성 (LLM 라벨 보존용)
+        md_lines = [
+            f"## 플랫폼 트렌드 분석 (최근 {len(recent)}일 vs 이전 {len(previous)}일)",
+            "",
+            "| 지표 | 현재 | 이전 | 변화율 |",
+            "|------|------|------|--------|",
+            f"| GMV | {format_revenue(gmv_curr)} | {format_revenue(gmv_prev)} | {format_change(gmv_change)} |",
+            f"| 활성쇼핑몰 | {shops_curr} | {shops_prev} | {format_change(shops_change)} |",
+            f"| 주문수 | {orders_curr} | {orders_prev} | {format_change(orders_change)} |",
+            f"| 신규가입 | {signups_curr} | {signups_prev} | {format_change(signups_change)} |",
+            f"| 정산소요시간 | {settlement_curr:.1f}일 | {settlement_prev:.1f}일 | {format_change(settlement_change)} |",
+            f"| CS해결률 | {cs_rate_curr}% | {cs_rate_prev}% | {format_change(cs_rate_change)} |",
+            f"| CS티켓 | {cs_curr} | {cs_prev} | {format_change(cs_change)} |",
+            f"| 세션수 | {sessions_curr} | {sessions_prev} | {format_change(sessions_change)} |",
+        ]
+        if correlations:
+            md_lines += ["", "### 상관관계", "| 변수1 | 변수2 | 상관계수 | 강도 |", "|-------|-------|----------|------|"]
+            for c in correlations:
+                md_lines.append(f"| {c['var1']} | {c['var2']} | {c['correlation']} | {c['strength']} |")
+
         return {
             "status": "success",
             "analysis_type": "플랫폼 트렌드 분석",
+            "_llm_instruction": "⚠️ 이 데이터는 카페24 **플랫폼 전체** 집계입니다. 특정 쇼핑몰/셀러 데이터가 아닙니다! 특정 쇼핑몰 분석에는 get_shop_performance를 사용하세요.",
             "period": f"최근 {len(recent)}일 vs 이전 {len(previous)}일",
+            "_markdown": "\n".join(md_lines),
             "kpis": {
                 "GMV": {"current": format_revenue(gmv_curr), "previous": format_revenue(gmv_prev), "change": format_change(gmv_change)},
                 "활성쇼핑몰": {"current": shops_curr, "previous": shops_prev, "change": format_change(shops_change)},
                 "주문수": {"current": orders_curr, "previous": orders_prev, "change": format_change(orders_change)},
                 "신규가입": {"current": signups_curr, "previous": signups_prev, "change": format_change(signups_change)},
-                "정산소요시간": {"current": f"{settlement_curr}일", "previous": f"{settlement_prev}일", "change": format_change(settlement_change)},
+                "정산소요시간": {"current": f"{settlement_curr:.1f}일", "previous": f"{settlement_prev:.1f}일", "change": format_change(settlement_change)},
                 "CS해결률": {"current": f"{cs_rate_curr}%", "previous": f"{cs_rate_prev}%", "change": format_change(cs_rate_change)},
                 "CS티켓": {"current": cs_curr, "previous": cs_prev, "change": format_change(cs_change)},
                 "세션수": {"current": sessions_curr, "previous": sessions_prev, "change": format_change(sessions_change)},
@@ -1546,6 +1730,69 @@ def tool_get_dashboard_summary() -> dict:
         summary["daily_metrics"] = []
         summary["daily_gmv"] = []
 
+    # 마크다운 표 생성 (LLM 라벨 보존용)
+    md_sections = ["## 플랫폼 전체 운영 현황 대시보드"]
+
+    # 쇼핑몰 분포
+    if "shop_stats" in summary:
+        ss = summary["shop_stats"]
+        md_sections.append(f"\n### 쇼핑몰 현황\n- 총 쇼핑몰 수: **{ss['total']}**")
+        if ss.get("by_tier"):
+            md_sections.append("\n**티어별 분포**\n| 티어 | 수 |\n|------|-------|")
+            for tier, cnt in ss["by_tier"].items():
+                md_sections.append(f"| {tier} | {cnt} |")
+        if ss.get("by_category"):
+            md_sections.append("\n**카테고리별 분포**\n| 카테고리 | 수 |\n|----------|-------|")
+            for cat, cnt in ss["by_category"].items():
+                md_sections.append(f"| {cat} | {cnt} |")
+        if ss.get("by_region"):
+            md_sections.append("\n**지역별 분포**\n| 지역 | 수 |\n|------|-------|")
+            for region, cnt in ss["by_region"].items():
+                md_sections.append(f"| {region} | {cnt} |")
+
+    # 셀러 현황
+    if "seller_stats" in summary:
+        sl = summary["seller_stats"]
+        md_sections.append(f"\n### 셀러 현황\n- 총 판매자 수: **{sl['total']}**")
+        if sl.get("anomaly_count"):
+            md_sections.append(f"- 이상 징후 셀러: **{sl['anomaly_count']}**")
+        if sl.get("segments"):
+            md_sections.append("\n**세그먼트별 분포**\n| 세그먼트 | 수 |\n|----------|-------|")
+            for seg, cnt in sl["segments"].items():
+                md_sections.append(f"| {seg} | {cnt} |")
+
+    # CS 통계
+    if "cs_stats" in summary:
+        cs = summary["cs_stats"]
+        md_sections.append(f"\n### CS 통계\n- 총 티켓 수: **{cs.get('total', 0):,}**")
+        md_sections.append(f"- 평균 만족도: **{cs.get('avg_satisfaction', 0)}**")
+        md_sections.append(f"- 평균 해결 시간: **{cs.get('avg_resolution_hours', 0)}시간**")
+        if cs.get("by_category"):
+            md_sections.append("\n| 카테고리 | 티켓 수 |\n|----------|---------|")
+            for cat, cnt in cs["by_category"].items():
+                md_sections.append(f"| {cat} | {cnt} |")
+
+    # 운영 이벤트
+    if "order_stats" in summary:
+        os_ = summary["order_stats"]
+        md_sections.append(f"\n### 운영 이벤트\n- 총 이벤트: **{os_.get('total', 0):,}**")
+        if os_.get("by_type"):
+            md_sections.append("\n| 이벤트 유형 | 건수 |\n|-------------|------|")
+            for etype, cnt in os_["by_type"].items():
+                md_sections.append(f"| {etype} | {cnt:,} |")
+
+    # 이상거래
+    if "fraud_stats" in summary:
+        fs = summary["fraud_stats"]
+        md_sections.append(f"\n### 이상거래 현황\n- 총 기록: **{fs.get('total_records', 0)}**")
+        md_sections.append(f"- 고위험: **{fs.get('high_risk_count', 0)}**")
+        md_sections.append(f"- 사기 비율: **{fs.get('fraud_rate', 0)}%**")
+        if fs.get("by_type"):
+            md_sections.append("\n| 유형 | 건수 |\n|------|------|")
+            for ftype, cnt in fs["by_type"].items():
+                md_sections.append(f"| {ftype} | {cnt} |")
+
+    summary["_markdown"] = "\n".join(md_sections)
     return summary
 
 
@@ -1567,6 +1814,8 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
 
     row = seller.iloc[0]
 
+    # lazy loading: 이탈 예측 모델 로드 시도
+    st.get_model("SELLER_CHURN_MODEL")
     # 이탈 예측 모델이 없으면 휴리스틱 사용
     if st.SELLER_CHURN_MODEL is None:
         total_orders = safe_int(row.get("total_orders", 0))
@@ -1592,12 +1841,15 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
 
         churn_score = min(max(churn_score, 0.05), 0.95)
         risk_level = "HIGH" if churn_score > 0.6 else "MEDIUM" if churn_score > 0.3 else "LOW"
+        heuristic_pct = round(churn_score * 100, 2)
 
         return {
             "status": "success",
             "seller_id": seller_id,
-            "churn_probability": round(churn_score * 100, 2),
+            "churn_probability_pct": heuristic_pct,
+            "churn_probability_display": f"{heuristic_pct}%",
             "risk_level": risk_level,
+            "risk_thresholds": "LOW: 0~30%, MEDIUM: 30~60%, HIGH: 60%+",
             "model_used": "heuristic",
             "top_factors": [
                 {"factor": f"마지막 접속 {days_since_last}일 전", "importance": 30},
@@ -1654,14 +1906,22 @@ def tool_predict_seller_churn(seller_id: str) -> dict:
         days_since_last = safe_int(row.get("days_since_last_login", 0))
         total_revenue = safe_int(row.get("total_revenue", 0))
 
+        # 모델 확률 0.0% → 최소 0.5%로 표시 (모델 보정 한계, 과신 방지)
+        churn_pct = round(churn_prob * 100, 2)
+        if churn_pct < 1.0:
+            churn_pct = max(churn_pct, 0.5)
+
         return {
             "status": "success",
             "seller_id": seller_id,
-            "churn_probability": round(churn_prob * 100, 2),
+            "churn_probability_pct": churn_pct,
+            "churn_probability_display": f"{churn_pct}%",
             "risk_level": risk_level,
+            "risk_thresholds": "LOW: 0~30%, MEDIUM: 30~60%, HIGH: 60%+",
             "will_churn": bool(churn_pred),
             "model_used": "random_forest",
             "top_factors": top_factors,
+            "importance_note": "모델 전체 학습 데이터 기준 변수 중요도이며, 해당 셀러 개별 원인 분석은 아닙니다",
             "recommendation": _get_seller_churn_recommendation(risk_level, days_since_last, total_revenue),
         }
 
@@ -1679,7 +1939,7 @@ def _get_seller_churn_recommendation(risk_level: str, days_since_last: int, tota
         if total_revenue < 500000:
             return "중간 이탈 위험. 매출 부진 셀러입니다. 마케팅 교육 프로그램 및 프로모션 참여 유도를 권장합니다."
         return "중간 이탈 위험. 정기적인 운영 현황 리포트 발송 및 신규 기능 안내를 권장합니다."
-    return "낮은 이탈 위험. 현재 운영 상태가 양호합니다. 플랜 업그레이드 및 추가 서비스 교차 판매 기회를 모색하세요."
+    return "현재 기준 저위험. 주요 운영 지표가 양호한 편이나, 정기적인 모니터링을 권장합니다. 플랜 업그레이드 및 추가 서비스 교차 판매 기회를 검토해 보세요."
 
 
 def tool_predict_shop_revenue(shop_id: str) -> dict:
@@ -1713,7 +1973,8 @@ def tool_predict_shop_revenue(shop_id: str) -> dict:
     review_score = safe_float(row.get("review_score"))
     refund_rate = safe_float(row.get("refund_rate"))
 
-    # 모델 예측
+    # 모델 예측 (lazy loading)
+    st.get_model("REVENUE_PREDICTION_MODEL")
     predicted_revenue = actual_next_revenue
     if st.REVENUE_PREDICTION_MODEL is not None:
         try:
@@ -1830,7 +2091,8 @@ def tool_get_shop_performance(shop_id: str) -> dict:
 
     row = shop.iloc[0]
 
-    total_revenue = safe_int(row.get("total_revenue"))
+    # 컬럼명 호환: monthly_revenue/total_revenue 둘 다 지원
+    total_revenue = safe_int(row.get("monthly_revenue", row.get("total_revenue")))
 
     def format_revenue(val):
         if val >= 100000000:
@@ -1840,28 +2102,54 @@ def tool_get_shop_performance(shop_id: str) -> dict:
         else:
             return f"₩{val:,}"
 
-    total_orders = safe_int(row.get("total_orders"))
+    total_orders = safe_int(row.get("monthly_orders", row.get("total_orders")))
     avg_order_value = safe_int(row.get("avg_order_value")) if total_orders > 0 else 0
+    refund_rate = safe_float(row.get("return_rate", row.get("refund_rate")))
+    monthly_visitors = safe_int(row.get("monthly_visitors"))
+    retention_rate = safe_float(row.get("customer_retention_rate"))
 
-    return {
+    # shops.pkl에서 이름/카테고리/지역 보완
+    shop_name = safe_str(row.get("shop_name", row.get("name")))
+    shop_category = safe_str(row.get("category"))
+    shop_region = safe_str(row.get("region"))
+    if (not shop_name or not shop_category) and st.SHOPS_DF is not None:
+        shop_row = st.SHOPS_DF[st.SHOPS_DF["shop_id"] == shop_id]
+        if not shop_row.empty:
+            r2 = shop_row.iloc[0]
+            shop_name = shop_name or safe_str(r2.get("shop_name"))
+            shop_category = shop_category or safe_str(r2.get("category"))
+            shop_region = shop_region or safe_str(r2.get("region"))
+
+    # 데이터 정합성 경고
+    data_warnings = []
+    if total_orders == 0 and safe_float(row.get("conversion_rate")) > 0:
+        data_warnings.append("주문 수 0인데 전환율이 0보다 큼 — 데이터 미집계 가능성")
+    if total_revenue == 0 and total_orders > 0:
+        data_warnings.append("매출 0인데 주문 수가 0보다 큼 — 매출 미집계 가능성")
+
+    result = {
         "status": "success",
         "shop_id": safe_str(row.get("shop_id")),
-        "name": safe_str(row.get("name")),
-        "category": safe_str(row.get("category")),
-        "region": safe_str(row.get("region")),
+        "name": shop_name,
+        "category": shop_category,
+        "region": shop_region,
         "performance": {
             "total_revenue": format_revenue(total_revenue),
             "total_revenue_raw": total_revenue,
             "total_orders": total_orders,
-            "unique_customers": safe_int(row.get("unique_customers")),
+            "monthly_visitors": monthly_visitors,
             "avg_order_value": avg_order_value,
-            "revenue_growth": safe_float(row.get("revenue_growth")),
             "conversion_rate": safe_float(row.get("conversion_rate")),
             "review_score": safe_float(row.get("review_score")),
-            "refund_rate": safe_float(row.get("refund_rate")),
+            "refund_rate": refund_rate,
+            "customer_retention_rate": retention_rate,
         },
         "revenue_tier": _get_revenue_tier(total_revenue),
     }
+    if data_warnings:
+        result["data_warnings"] = data_warnings
+        result["_llm_instruction"] = "⚠️ data_warnings를 반드시 사용자에게 전달하세요. 0값 지표는 '데이터 미집계 가능성'을 먼저 언급하세요."
+    return result
 
 
 def tool_optimize_marketing(
@@ -2523,6 +2811,284 @@ def execute_retention_action(seller_id: str, action_type: str, api_key: str = ""
 
 
 # ============================================================
+# 데이터 통계 분석 도구
+# ============================================================
+
+# 분석 가능한 DataFrame 매핑
+_ANALYSIS_DF_MAP = {
+    "shops": "SHOPS_DF",
+    "sellers": "SELLERS_DF",
+    "seller_analytics": "SELLER_ANALYTICS_DF",
+    "products": "PRODUCTS_DF",
+    "operation_logs": "OPERATION_LOGS_DF",
+    "cs_tickets": "CS_TICKETS_DF",
+    "cs_stats": "CS_STATS_DF",
+    "daily_metrics": "DAILY_METRICS_DF",
+    "shop_performance": "SHOP_PERFORMANCE_DF",
+    "seller_activity": "SELLER_ACTIVITY_DF",
+    "fraud_details": "FRAUD_DETAILS_DF",
+    "cohort_retention": "COHORT_RETENTION_DF",
+    "conversion_funnel": "CONVERSION_FUNNEL_DF",
+}
+
+
+def _get_analysis_df(name: str):
+    """DataFrame 이름으로 실제 객체 반환"""
+    attr = _ANALYSIS_DF_MAP.get(name)
+    if not attr:
+        return None
+    return getattr(st, attr, None)
+
+
+def tool_analyze_data(
+    dataframe: str,
+    operation: str,
+    column: str = "",
+    group_by: str = "",
+    filter_column: str = "",
+    filter_value: str = "",
+    top_n: int = 10,
+    ascending: bool = False,
+) -> dict:
+    """데이터프레임에 대해 통계 분석을 수행합니다."""
+
+    df = _get_analysis_df(dataframe)
+    if df is None:
+        available = [k for k, v in _ANALYSIS_DF_MAP.items() if getattr(st, v, None) is not None]
+        return {"status": "error", "message": f"'{dataframe}' 없음. 사용 가능: {available}"}
+
+    # 필터 적용
+    if filter_column and filter_value and filter_column in df.columns:
+        df = df[df[filter_column].astype(str).str.contains(filter_value, case=False, na=False)]
+        if df.empty:
+            return {"status": "error", "message": f"필터 결과 없음: {filter_column}='{filter_value}'"}
+
+    try:
+        # describe: 기술 통계
+        if operation == "describe":
+            if column and column in df.columns:
+                desc = df[column].describe()
+            else:
+                desc = df.describe(include="all")
+            result = {str(k): round(v, 4) if isinstance(v, float) else v for k, v in desc.to_dict().items()} if isinstance(desc, pd.Series) else {col: {str(k): round(v, 4) if isinstance(v, float) else v for k, v in vals.items()} for col, vals in desc.to_dict().items()}
+            return {"status": "success", "operation": "describe", "dataframe": dataframe, "rows": len(df), "columns": list(df.columns), "result": result}
+
+        # value_counts: 고유값 빈도 (상위 top_n개)
+        elif operation == "value_counts":
+            if not column or column not in df.columns:
+                return {"status": "error", "message": f"column 필요. 사용 가능: {list(df.columns)}"}
+            vc = df[column].value_counts().head(top_n)
+            total = len(df)
+            result = [{"value": str(k), "count": int(v), "ratio": f"{v/total*100:.1f}%"} for k, v in vc.items()]
+            return {"status": "success", "operation": "value_counts", "column": column, "total_rows": total, "unique_count": df[column].nunique(), "top_n": result}
+
+        # groupby_agg: 그룹별 집계 (mean, sum, count, min, max)
+        elif operation.startswith("groupby_"):
+            agg_func = operation.replace("groupby_", "")
+            if agg_func not in ("mean", "sum", "count", "min", "max", "median"):
+                return {"status": "error", "message": f"지원 집계: mean, sum, count, min, max, median"}
+            if not group_by or group_by not in df.columns:
+                return {"status": "error", "message": f"group_by 필요. 사용 가능: {list(df.columns)}"}
+            if not column or column not in df.columns:
+                # count는 column 없어도 가능
+                if agg_func == "count":
+                    grp = df.groupby(group_by).size().reset_index(name="count")
+                else:
+                    return {"status": "error", "message": f"column 필요. 사용 가능: {list(df.columns)}"}
+            else:
+                grp = df.groupby(group_by)[column].agg(agg_func).reset_index()
+                grp.columns = [group_by, f"{column}_{agg_func}"]
+
+            grp = grp.sort_values(grp.columns[-1], ascending=ascending).head(top_n)
+            result = grp.to_dict("records")
+            # float 반올림
+            for r in result:
+                for k, v in r.items():
+                    if isinstance(v, float):
+                        r[k] = round(v, 2)
+            return {"status": "success", "operation": operation, "group_by": group_by, "column": column, "result": result}
+
+        # top_n / bottom_n: 상위/하위 N개
+        elif operation in ("top_n", "bottom_n"):
+            if not column or column not in df.columns:
+                return {"status": "error", "message": f"column 필요. 사용 가능: {list(df.columns)}"}
+            numeric_col = pd.to_numeric(df[column], errors="coerce")
+            if operation == "top_n":
+                idx = numeric_col.nlargest(top_n).index
+            else:
+                idx = numeric_col.nsmallest(top_n).index
+            # 핵심 컬럼만 반환 (최대 6개)
+            display_cols = [c for c in df.columns if c != column][:5]
+            display_cols = [column] + display_cols
+            result = df.loc[idx, display_cols].to_dict("records")
+            for r in result:
+                for k, v in r.items():
+                    if isinstance(v, float):
+                        r[k] = round(v, 2)
+            return {"status": "success", "operation": operation, "column": column, "count": len(result), "result": result}
+
+        # correlation: 수치형 컬럼 간 상관관계
+        elif operation == "correlation":
+            numeric_df = df.select_dtypes(include="number")
+            if column and column in numeric_df.columns:
+                corr = numeric_df.corr()[column].drop(column).sort_values(key=abs, ascending=False).head(top_n)
+                result = [{"column": k, "correlation": round(v, 3)} for k, v in corr.items()]
+            else:
+                corr = numeric_df.corr()
+                # 상위 상관관계 쌍 추출
+                pairs = []
+                for i, c1 in enumerate(corr.columns):
+                    for c2 in corr.columns[i+1:]:
+                        pairs.append({"col1": c1, "col2": c2, "correlation": round(corr.loc[c1, c2], 3)})
+                pairs.sort(key=lambda x: abs(x["correlation"]), reverse=True)
+                result = pairs[:top_n]
+            return {"status": "success", "operation": "correlation", "result": result}
+
+        # percentile: 분위수 분포
+        elif operation == "percentile":
+            if not column or column not in df.columns:
+                return {"status": "error", "message": f"column 필요. 사용 가능: {list(df.columns)}"}
+            numeric_col = pd.to_numeric(df[column], errors="coerce").dropna()
+            result = {
+                "count": int(len(numeric_col)),
+                "mean": round(float(numeric_col.mean()), 2),
+                "std": round(float(numeric_col.std()), 2),
+                "min": round(float(numeric_col.min()), 2),
+                "25%": round(float(numeric_col.quantile(0.25)), 2),
+                "50%": round(float(numeric_col.quantile(0.50)), 2),
+                "75%": round(float(numeric_col.quantile(0.75)), 2),
+                "max": round(float(numeric_col.max()), 2),
+            }
+            return {"status": "success", "operation": "percentile", "column": column, "result": result}
+
+        # trend: 시계열 추세 요약
+        elif operation == "trend":
+            date_col = None
+            for c in ["date", "created_at", "timestamp", "event_date"]:
+                if c in df.columns:
+                    date_col = c
+                    break
+            if not date_col:
+                return {"status": "error", "message": "날짜 컬럼을 찾을 수 없음"}
+            df_copy = df.copy()
+            df_copy[date_col] = pd.to_datetime(df_copy[date_col], errors="coerce")
+            df_copy = df_copy.dropna(subset=[date_col]).sort_values(date_col)
+
+            if column and column in df_copy.columns:
+                # 수치 컬럼의 일별 집계
+                daily = df_copy.groupby(df_copy[date_col].dt.date)[column].mean()
+            else:
+                # 일별 건수
+                daily = df_copy.groupby(df_copy[date_col].dt.date).size()
+
+            if len(daily) < 2:
+                return {"status": "error", "message": "추세 분석에 충분한 데이터 없음"}
+
+            half = len(daily) // 2
+            first_half = daily.iloc[:half].mean()
+            second_half = daily.iloc[half:].mean()
+            change_pct = ((second_half - first_half) / first_half * 100) if first_half != 0 else 0
+
+            result = {
+                "period": f"{daily.index[0]} ~ {daily.index[-1]}",
+                "total_days": len(daily),
+                "daily_mean": round(float(daily.mean()), 2),
+                "daily_min": {"date": str(daily.idxmin()), "value": round(float(daily.min()), 2)},
+                "daily_max": {"date": str(daily.idxmax()), "value": round(float(daily.max()), 2)},
+                "first_half_avg": round(float(first_half), 2),
+                "second_half_avg": round(float(second_half), 2),
+                "trend_change": f"{change_pct:+.1f}%",
+                "trend_direction": "상승" if change_pct > 5 else "하락" if change_pct < -5 else "안정",
+                "recent_7": [{"date": str(d), "value": round(float(v), 2)} for d, v in daily.tail(7).items()],
+            }
+            return {"status": "success", "operation": "trend", "column": column or "건수", "result": result}
+
+        # compare: 두 그룹 비교
+        elif operation == "compare":
+            if not group_by or group_by not in df.columns:
+                return {"status": "error", "message": f"group_by 필요. 사용 가능: {list(df.columns)}"}
+            numeric_cols = [c for c in df.select_dtypes(include="number").columns if c != group_by][:8]
+            comparison = []
+            for grp_val, grp_df in df.groupby(group_by):
+                stats = {"group": str(grp_val), "count": len(grp_df)}
+                for c in numeric_cols:
+                    stats[f"{c}_mean"] = round(float(grp_df[c].mean()), 2)
+                comparison.append(stats)
+            comparison.sort(key=lambda x: x["count"], reverse=True)
+            return {"status": "success", "operation": "compare", "group_by": group_by, "groups": len(comparison), "result": comparison[:top_n]}
+
+        # columns: 컬럼 목록 조회
+        elif operation == "columns":
+            col_info = []
+            for c in df.columns:
+                info = {"name": c, "dtype": str(df[c].dtype), "non_null": int(df[c].notna().sum()), "unique": int(df[c].nunique())}
+                if df[c].dtype in ("int32", "int64", "float32", "float64"):
+                    info["min"] = round(float(df[c].min()), 2)
+                    info["max"] = round(float(df[c].max()), 2)
+                elif df[c].dtype == "object" or str(df[c].dtype) == "category":
+                    info["sample_values"] = [str(v) for v in df[c].dropna().unique()[:5]]
+                col_info.append(info)
+            return {"status": "success", "operation": "columns", "dataframe": dataframe, "rows": len(df), "columns": col_info}
+
+        else:
+            return {"status": "error", "message": f"지원 operation: describe, value_counts, groupby_mean, groupby_sum, groupby_count, top_n, bottom_n, correlation, percentile, trend, compare, columns"}
+
+    except Exception as e:
+        return {"status": "error", "message": f"분석 실패: {str(e)}"}
+
+
+@tool
+def analyze_data(
+    dataframe: str,
+    operation: str,
+    column: str = "",
+    group_by: str = "",
+    filter_column: str = "",
+    filter_value: str = "",
+    top_n: int = 10,
+    ascending: bool = False,
+) -> str:
+    """데이터프레임에 대해 통계 분석(정렬·필터·집계·비교·추세)을 수행합니다.
+    직접 수치를 계산하므로 정확한 통계 결과를 얻을 수 있습니다.
+
+    Args:
+        dataframe: 분석할 데이터 (shops, sellers, seller_analytics, products, operation_logs, cs_tickets, cs_stats, daily_metrics, shop_performance, seller_activity, fraud_details, cohort_retention, conversion_funnel)
+        operation: 분석 유형
+            - columns: 컬럼 목록·타입·샘플값 조회
+            - describe: 기술 통계 (평균, 표준편차, 최소, 최대 등)
+            - value_counts: 고유값 빈도 및 비율
+            - groupby_mean / groupby_sum / groupby_count / groupby_max / groupby_min: 그룹별 집계
+            - top_n / bottom_n: 상위/하위 N개 추출
+            - correlation: 수치형 컬럼 간 상관관계
+            - percentile: 분위수 분포 (25%, 50%, 75%)
+            - trend: 시계열 추세 요약 (일별 평균, 최고/최저일, 추세 방향)
+            - compare: 그룹 간 수치 비교
+        column: 분석 대상 컬럼
+        group_by: 그룹화 기준 컬럼
+        filter_column: 필터링할 컬럼
+        filter_value: 필터 값 (부분 일치)
+        top_n: 결과 개수 (기본 10)
+        ascending: 오름차순 정렬 여부 (기본 False = 내림차순)
+
+    Returns:
+        계산된 통계 결과 (정확한 수치)
+    """
+    return json.dumps(
+        tool_analyze_data(
+            dataframe=dataframe,
+            operation=operation,
+            column=column,
+            group_by=group_by,
+            filter_column=filter_column,
+            filter_value=filter_value,
+            top_n=top_n,
+            ascending=ascending,
+        ),
+        ensure_ascii=False,
+    )
+
+
+# ============================================================
 # 에이전트별 도구 분류
 # ============================================================
 
@@ -2580,4 +3146,6 @@ ALL_TOOLS = [
     get_at_risk_sellers,
     generate_retention_message,
     execute_retention_action,
+    # 통계 분석 도구
+    analyze_data,
 ]

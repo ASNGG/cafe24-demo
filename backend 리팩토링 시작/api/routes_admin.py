@@ -35,9 +35,9 @@ def health():
         "pid": os.getpid(),
         "platform": "CAFE24 AI Platform",
         "models_ready": bool(
-            st.CS_QUALITY_MODEL is not None and
-            st.SELLER_SEGMENT_MODEL is not None and
-            st.FRAUD_DETECTION_MODEL is not None
+            (st.CS_QUALITY_MODEL is not None or "CS_QUALITY_MODEL" not in st._MODEL_LOAD_FAILED) and
+            (st.SELLER_SEGMENT_MODEL is not None or "SELLER_SEGMENT_MODEL" not in st._MODEL_LOAD_FAILED) and
+            (st.FRAUD_DETECTION_MODEL is not None or "FRAUD_DETECTION_MODEL" not in st._MODEL_LOAD_FAILED)
         ),
         "data_ready": {
             "shops": st.SHOPS_DF is not None and len(st.SHOPS_DF) > 0,

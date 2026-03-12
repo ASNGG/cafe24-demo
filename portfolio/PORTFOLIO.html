@@ -4,7 +4,7 @@
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta name="description" content="CAFE24 AI 운영 플랫폼 - 이커머스 SaaS를 위한 LLM+ML 하이브리드 AI 시스템">
       <meta property="og:title" content="CAFE24 AI 운영 플랫폼 - 포트폴리오">
-      <meta property="og:description" content="31개 AI 도구, 10개 ML 모델, 7종 RAG 기법을 하나의 에이전트로 통합한 이커머스 AI 운영 시스템">
+      <meta property="og:description" content="31개 AI 도구, 12개 ML 모델, 7종 RAG 기법을 하나의 에이전트로 통합한 이커머스 AI 운영 시스템">
       <meta property="og:type" content="website">
       <meta property="og:url" content="https://asngg.github.io/cafe24-demo/">
       <meta name="twitter:card" content="summary">
@@ -1201,7 +1201,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
         <a href="#1-시스템-아키텍처" class="nav-link">1.아키텍처</a>
         <a href="#2-ai-에이전트" class="nav-link">2.에이전트</a>
         <a href="#3-rag-시스템-7종-기법" class="nav-link">3.RAG</a>
-        <a href="#4-ml-파이프라인-10개-모델" class="nav-link">4.ML</a>
+        <a href="#4-ml-파이프라인-12개-모델" class="nav-link">4.ML</a>
         <a href="#5-자동화-시스템" class="nav-link">5.자동화</a>
         <a href="#6-독립-서브시스템" class="nav-link">6.서브시스템</a>
         <a href="#7-프론트엔드-기술-스택-배포" class="nav-link">7.프론트/배포</a>
@@ -1240,7 +1240,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
 <div class="stat-card">
   <div class="stat-icon">🤖</div>
   <div class="stat-label">ML 모델</div>
-  <div class="stat-value">10개</div>
+  <div class="stat-value">12개</div>
   <div class="stat-desc">8종 알고리즘</div>
 </div>
 <div class="stat-card">
@@ -1275,7 +1275,7 @@ html body[for=html-export]:not([data-presentation-mode]):not([html-show-sidebar-
   <a href="#1-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98" class="toc-item"><span class="toc-num">01</span> 시스템 아키텍처</a>
   <a href="#2-ai-%EC%97%90%EC%9D%B4%EC%A0%84%ED%8A%B8" class="toc-item"><span class="toc-num">02</span> AI 에이전트</a>
   <a href="#3-rag-%EC%8B%9C%EC%8A%A4%ED%85%9C-7%EC%A2%85-%EA%B8%B0%EB%B2%95" class="toc-item"><span class="toc-num">03</span> RAG 시스템 (7종 기법)</a>
-  <a href="#4-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-10%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">04</span> ML 파이프라인 (10개 모델)</a>
+  <a href="#4-ml-%ED%8C%8C%EC%9D%B4%ED%94%84%EB%9D%BC%EC%9D%B8-12%EA%B0%9C-%EB%AA%A8%EB%8D%B8" class="toc-item"><span class="toc-num">04</span> ML 파이프라인 (12개 모델)</a>
   <a href="#5-%EC%9E%90%EB%8F%99%ED%99%94-%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">05</span> 자동화 시스템 (CS 파이프라인 · 이탈방지 · 업그레이드 · FAQ · 리포트)</a>
   <a href="#6-%EB%8F%85%EB%A6%BD-%EC%84%9C%EB%B8%8C%EC%8B%9C%EC%8A%A4%ED%85%9C" class="toc-item"><span class="toc-num">06</span> 독립 서브시스템 (Data Guardian)</a>
   <a href="#7-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-%EA%B8%B0%EC%88%A0-%EC%8A%A4%ED%83%9D-%EB%B0%B0%ED%8F%AC" class="toc-item"><span class="toc-num">07</span> 프론트엔드 · 기술 스택 · 배포</a>
@@ -1397,7 +1397,7 @@ flowchart TB
     subgraph DataLayer["데이터 · 모델 레이어"]
         direction LR
         RAG["RAG 7종&lt;br/&gt;FAISS+BM25 · LightRAG · K2RAG"]
-        ML["ML 10개 모델&lt;br/&gt;RF+SHAP · IsolationForest · LightGBM"]
+        ML["ML 12개 모델&lt;br/&gt;RF+SHAP · IsolationForest · LightGBM"]
         State["state.py&lt;br/&gt;전역 상태 관리"]
     end
 
@@ -1764,8 +1764,8 @@ flowchart TB
 <hr>
 <!-- ===== 섹션 4: ML 파이프라인 ===== -->
 <section class="portfolio-section">
-<h2 id="4-ml-파이프라인-10개-모델">4. ML 파이프라인 (10개 모델)</h2>
-<p class="section-summary">8종 알고리즘으로 10개 ML 모델을 구축. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 골라 실행하고, MLflow가 모든 실험을 추적합니다.</p>
+<h2 id="4-ml-파이프라인-12개-모델">4. ML 파이프라인 (12개 모델)</h2>
+<p class="section-summary">8종 알고리즘으로 12개 ML 모델을 구축. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 골라 실행하고, MLflow가 모든 실험을 추적합니다.</p>
 <h3 id="설계-원칙">설계 원칙</h3>
 <ul>
 <li><strong>AI 에이전트 통합</strong>: 에이전트가 Tool Calling으로 ML 모델을 호출합니다. 사용자가 자연어로 질문하면 에이전트가 적절한 모델을 골라 결과를 자연어로 설명합니다.</li>
@@ -1853,6 +1853,20 @@ flowchart TB
 <td>DBSCAN</td>
 <td>정산 이상 패턴 탐지</td>
 <td>정상/이상 클러스터</td>
+</tr>
+<tr>
+<td style="text-align:center">11</td>
+<td><strong>다음 활동 예측</strong></td>
+<td>RandomForest Classifier</td>
+<td>프로세스 다음 활동 Top-3 예측</td>
+<td>활동명 + 확률</td>
+</tr>
+<tr>
+<td style="text-align:center">12</td>
+<td><strong>이상 프로세스 탐지</strong></td>
+<td>Isolation Forest</td>
+<td>경로 기반 이상 프로세스 케이스 탐지</td>
+<td>정상/이상 + 이상 점수</td>
 </tr>
 </tbody>
 </table></div>
@@ -2788,6 +2802,29 @@ flowchart TD
 <td><code>oper123</code></td>
 <td style="text-align:center">운영자</td>
 <td style="text-align:center">6개</td>
+</tr>
+</tbody>
+</table></div>
+</section>
+
+<!-- ===== 섹션: 업데이트 이력 ===== -->
+<section class="portfolio-section">
+<h2 id="업데이트-이력">업데이트 이력</h2>
+<div class="table-wrapper"><table aria-label="업데이트 이력">
+<thead>
+<tr>
+<th>버전</th>
+<th>주요 변경</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v9.7.0</strong></td>
+<td>도구 데이터 정합성 수정 (get_shop_performance 컬럼 매핑, get_cs_statistics 가중평균, get_seller_activity_report total_events), LLM 범위 혼동 방지 _llm_instruction 추가, 8개 질문 전수 테스트 검증</td>
+</tr>
+<tr>
+<td><strong>v9.6.0</strong></td>
+<td>GPT-5-mini 전환, 워커 도구 배정 최적화, 대화 보존, 해석 톤 규칙</td>
 </tr>
 </tbody>
 </table></div>

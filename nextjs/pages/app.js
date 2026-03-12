@@ -205,6 +205,10 @@ export default function AppPage() {
     if (!mergedSettings.apiKey || mergedSettings.apiKey.trim() === '') {
       mergedSettings.apiKey = DEFAULT_SETTINGS.apiKey;
     }
+    // 모델 마이그레이션: 이전 기본값(gpt-4o-mini) → 새 기본값(gpt-5-mini)
+    if (mergedSettings.selectedModel === 'gpt-4o-mini') {
+      mergedSettings.selectedModel = DEFAULT_SETTINGS.selectedModel;
+    }
     setSettings(mergedSettings);
     setSettingsLoaded(true);
 
@@ -371,7 +375,7 @@ export default function AppPage() {
               <h1 className="text-2xl font-bold text-cafe24-brown">CAFE24 AI Platform</h1>
               {settings?.selectedModel?.includes("mini") && (
                 <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-bold whitespace-nowrap">
-                  GPT-4o mini 모드
+                  {settings.selectedModel} 모드
                 </span>
               )}
             </div>
@@ -380,7 +384,7 @@ export default function AppPage() {
         </div>
         <div className="mt-2 flex items-center gap-2">
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cafe24-yellow/20 text-cafe24-brown">
-            GPT-4 기반
+            GPT-5 기반
           </span>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cafe24-orange/15 text-cafe24-orange">
             CAFE24

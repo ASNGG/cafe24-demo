@@ -82,6 +82,7 @@ RETENTION_KEYWORDS: frozenset = frozenset([
     "이탈 위험", "이탈 분석", "이탈 방지", "이탈 예측",
     "at-risk", "위험 셀러", "맞춤 전략",
     "리텐션 전략", "리텐션 메시지", "자동 발송",
+    "리텐션 실행", "전략 실행", "조치 실행", "이탈 방지 실행",
 ])
 
 GENERAL_KEYWORDS: frozenset = frozenset([

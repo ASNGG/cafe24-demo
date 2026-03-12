@@ -27,13 +27,11 @@ from api.common import (
     K2RagSearchRequest, K2RagConfigRequest,
 )
 
-try:
-    import easyocr
-    OCR_AVAILABLE = True
-    OCR_READER = None
-except ImportError:
-    OCR_AVAILABLE = False
-    OCR_READER = None
+# easyocr lazy import — torch/easyocr는 ~500MB+ 메모리를 소비하므로
+# OCR 함수가 실제로 호출될 때만 import (Railway 메모리 최적화)
+OCR_AVAILABLE = None  # None = 아직 확인 안 됨, True/False = 확인 완료
+OCR_READER = None
+_easyocr_module = None  # lazy import된 모듈 캐시
 
 
 router = APIRouter(prefix="/api", tags=["rag"])
@@ -264,12 +262,30 @@ def k2rag_summarize_endpoint(text: str = Body(..., embed=True), max_length: int 
 # ============================================================
 # OCR
 # ============================================================
+def _ocr_lazy_check() -> bool:
+    """easyocr 설치 여부를 lazy하게 확인 (첫 호출 시 import 시도)"""
+    global OCR_AVAILABLE, _easyocr_module
+    if OCR_AVAILABLE is not None:
+        return OCR_AVAILABLE
+    try:
+        import easyocr
+        _easyocr_module = easyocr
+        OCR_AVAILABLE = True
+        st.logger.info("OCR_LAZY_IMPORT: easyocr 모듈 로드 완료")
+    except ImportError:
+        OCR_AVAILABLE = False
+        st.logger.warning("OCR_LAZY_IMPORT: easyocr 미설치")
+    return OCR_AVAILABLE
+
+
 def _ocr_init_reader():
-    """EasyOCR Reader 초기화 (CPU 바운드, 스레드에서 실행)"""
-    global OCR_READER
+    """EasyOCR Reader 초기화 (CPU 바운드, 스레드에서 실행, lazy import)"""
+    global OCR_READER, _easyocr_module
     if OCR_READER is None:
+        if not _ocr_lazy_check():
+            raise ImportError("easyocr가 설치되지 않았습니다.")
         st.logger.info("OCR_INIT: EasyOCR Reader 초기화 중...")
-        OCR_READER = easyocr.Reader(['ko', 'en'], gpu=False)
+        OCR_READER = _easyocr_module.Reader(['ko', 'en'], gpu=False)
         st.logger.info("OCR_INIT: EasyOCR Reader 초기화 완료")
     return OCR_READER
 
@@ -281,7 +297,7 @@ def _ocr_readtext(reader, contents: bytes) -> list:
 
 @router.post("/ocr/extract")
 async def ocr_extract(file: UploadFile = File(...), api_key: str = "", save_to_rag: bool = True, user: dict = Depends(verify_credentials)):
-    if not OCR_AVAILABLE:
+    if not _ocr_lazy_check():
         return {"status": "error", "message": "OCR 라이브러리(easyocr)가 설치되지 않았습니다."}
     try:
         filename = file.filename or "unknown"
@@ -328,10 +344,11 @@ async def ocr_extract(file: UploadFile = File(...), api_key: str = "", save_to_r
 def ocr_status(user: dict = Depends(verify_credentials)):
     easyocr_version = None
     reader_initialized = False
-    if OCR_AVAILABLE:
+    available = _ocr_lazy_check()
+    if available and _easyocr_module is not None:
         try:
-            easyocr_version = easyocr.__version__
+            easyocr_version = _easyocr_module.__version__
             reader_initialized = OCR_READER is not None
         except Exception:
             pass
-    return {"status": "success", "ocr_available": OCR_AVAILABLE, "library": "EasyOCR", "version": easyocr_version, "reader_initialized": reader_initialized, "supported_formats": list(OCR_ALLOWED_EXTS), "supported_languages": ["ko", "en"]}
+    return {"status": "success", "ocr_available": available, "library": "EasyOCR", "version": easyocr_version, "reader_initialized": reader_initialized, "supported_formats": list(OCR_ALLOWED_EXTS), "supported_languages": ["ko", "en"]}

@@ -293,7 +293,9 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         { label: 'SEL0001 이상거래 조사하고 CS 품질 점검해줘' },
         { label: 'CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘' },
         { label: '고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘' },
-        { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 모델 돌려줘' },
+        { label: `${shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` },
+        { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘' },
+        { label: '카페24 정산 주기와 수수료 정책 알려줘' },
       ];
     },
     [selectedShop]
@@ -626,14 +628,13 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
               Supervisor 멀티에이전트 구조입니다. Supervisor가 질문을 분석하여 전문 워커에게 위임하고 결과를 종합합니다. 멀티턴 대화로 후속 질문이 가능합니다.
             </p>
             <div className="rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown space-y-1">
-              <div className="font-extrabold mb-1">전문 워커 에이전트 (8종)</div>
-              <div>이탈 분석 - ML 이탈 예측 + SHAP 분석</div>
-              <div>전략 수립 - LLM 맞춤 메시지 + 리텐션 전략</div>
-              <div>셀러 분석 - 셀러 진단 + 세그먼트 + 리스크</div>
-              <div>성과 분석 - 쇼핑몰/플랫폼 성과 분석</div>
-              <div>이상거래 - 패턴 탐지 + 영향도 평가</div>
-              <div>CS 품질 - 감성 분석 + 자동 응답 생성</div>
-              <div>리포트 - 종합 보고서 자동 작성</div>
+              <div className="font-extrabold mb-1">전문 워커 에이전트 (7종)</div>
+              <div>이탈 분석 - ML 이탈 예측 + SHAP + 위험 셀러 조회</div>
+              <div>전략 수립 - 맞춤 리텐션 메시지 + 자동 조치 실행</div>
+              <div>셀러 분석 - 종합 진단 + 세그먼트 + 이상거래 조사</div>
+              <div>성과 분석 - 쇼핑몰 매출/코호트/마케팅 최적화</div>
+              <div>CS 품질 - CS 통계 + 자동 분류 + 품질 평가</div>
+              <div>리포트 - 대시보드 + KPI 종합 보고서</div>
               <div>플랫폼 검색 - RAG 지식 검색 + FAQ</div>
             </div>
           </div>

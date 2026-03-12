@@ -14,6 +14,14 @@
 
 ## 최신 업데이트
 
+> **v9.7.0** (2026-03-12) — 추천 질문 확장 + 에이전트 정보 업데이트
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **추천 질문 칩 확장** | 6→8개 확장: performance_analyst, platform_searcher 워커 커버 추가 |
+| **에이전트 정보** | "8종" → "7종" 워커 수정 |
+| **신규 추천 질문** | `{shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘`, `카페24 정산 주기와 수수료 정책 알려줘` |
+
 > **v9.3.0** (2026-03-07) — Supervisor 통합 + 인터랙티브 도구 탐색기 + Dead Code 정리
 
 | 영역 | 주요 변경 |
@@ -274,7 +282,7 @@ flowchart TB
 | 셀러 분석 | 12 | "우수 셀러 세그먼트 통계 알려줘" |
 | 카페24 FAQ | 10 | "카페24 결제수단 설정 방법 알려줘" |
 
-**추천 질문 chips** (MultiAgentPanel 하단, 6개 — 멀티 워커 연계 질문):
+**추천 질문 chips** (MultiAgentPanel 하단, 8개 — 멀티 워커 연계 질문):
 
 | # | 질문 | 워커 연계 |
 |---|------|-----------|
@@ -283,9 +291,11 @@ flowchart TB
 | 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | seller_analyst → cs_quality_analyst |
 | 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
 | 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
-| 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
+| 6 | `{shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` | performance_analyst |
+| 7 | `SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘` | seller_analyst → performance_analyst |
+| 8 | `카페24 정산 주기와 수수료 정책 알려줘` | platform_searcher |
 
-> 모든 칩이 2개 이상의 워커를 순차적으로 호출하도록 설계 — 멀티에이전트 파이프라인 시연용
+> 멀티에이전트 파이프라인 시연용 — 대부분의 칩이 2개 이상의 워커를 순차적으로 호출하도록 설계
 
 **빠른 분석 버튼 (AgentPanel 하단):**
 
@@ -825,7 +835,7 @@ flowchart LR
 | **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 |
 | **StepResultCard** | 단계별 결과 접기/펼치기 -- 마크다운 렌더링 (`react-markdown` + `remark-gfm`) |
 | **채팅 UI** | messages 기반 대화 인터페이스 -- 마크다운 + KaTeX 수학 렌더링 |
-| **추천 칩** | 6개 추천 칩 -- 멀티 워커 연계 질문 (모든 칩이 2+ 워커 순차 호출) |
+| **추천 칩** | 8개 추천 칩 -- 멀티 워커 연계 질문 (performance_analyst, platform_searcher 커버 추가) |
 | **사이드바** | 도구 탐색기 (`ToolExplorer` 아코디언), 파이프라인 정보 요약, LLM 설정 요약 |
 
 **파이프라인 (6개):** 🚧
@@ -858,7 +868,7 @@ flowchart LR
 | `cs_sentiment` | CS 감성 분석 |
 | `cs_report` | CS 품질 리포트 |
 
-**추천 칩 (6개 -- 멀티 워커 연계 질문):**
+**추천 칩 (8개 -- 멀티 워커 연계 질문):**
 
 | # | 추천 칩 | 워커 연계 |
 |---|--------|-----------|
@@ -867,7 +877,9 @@ flowchart LR
 | 3 | `SEL0001 이상거래 조사하고 CS 품질 점검해줘` | seller_analyst → cs_quality_analyst |
 | 4 | `CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘` | cs_quality_analyst → report_writer |
 | 5 | `고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘` | churn_analyst → seller_analyst |
-| 6 | `SEL0001 셀러 활동 분석하고 마케팅 최적화 전략 제안해줘` | seller_analyst → performance_analyst |
+| 6 | `{shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` | performance_analyst |
+| 7 | `SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘` | seller_analyst → performance_analyst |
+| 8 | `카페24 정산 주기와 수수료 정책 알려줘` | platform_searcher |
 
 **SSE 이벤트 스펙 (7종):**
 
@@ -1665,6 +1677,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.7.0 | 2026-03-12 | 추천 질문 칩 6→8개 확장(performance_analyst, platform_searcher 워커 커버 추가), 에이전트 정보 "8종"→"7종" 워커 수정, 신규 추천 질문 2개 추가({shopId} 매출 성과 분석+코호트 리텐션, 카페24 정산 주기+수수료 정책) |
 | 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 멀티 워커 연계 질문 6개로 교체(모든 칩 2+ 워커 순차 호출) |
 | 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |
 | 9.1.0 | 2026-03-05 | AgentPanel 추천 질문 경량화(10개→7개), Supervisor 멀티에이전트 연동(agent_start/agent_end에 워커 에이전트명 표시) |

@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.7.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,13 +18,29 @@ v9.5.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.5.0** (2026-03-10) — 워커 통합 (8→7종) + 도구 출력 마크다운 표 추가 + 라벨 보호 프롬프트
+> **v9.7.0** (2026-03-12) — 도구 데이터 정합성 수정 + 멀티에이전트 최적화
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **`get_shop_performance` 수정** | 컬럼 매핑 수정 (monthly_revenue/monthly_orders/return_rate 호환), shops.pkl 이름/카테고리 보완, data_warnings 추가 |
+| **`get_cs_statistics` 수정** | 카테고리 단순평균 → 티켓 수 기반 가중평균으로 전환, `_llm_instruction` 추가 (플랫폼 전체 데이터 명시) |
+| **`get_seller_activity_report` 수정** | total_events 계산에 상품업데이트 포함, 필드명 total_amount → total_revenue |
+| **`get_cohort_analysis` 수정** | `_llm_instruction` 추가 (플랫폼 전체 코호트 명시) |
+| **워커 도구 배정 최적화** | retention_strategist에서 predict_seller_churn 제거, seller_analyst에 get_cs_statistics 추가 |
+| **Supervisor 프롬프트** | 워커 분기 판단 규칙 3개 추가 (seller↔retention, seller↔churn, performance↔report) |
+| **RETENTION 키워드 보강** | "리텐션 실행", "전략 실행", "조치 실행" 등 추가 |
+| **테스트 스크립트** | 8개 질문 전수 테스트 스크립트(test_all_questions.py) 추가 |
+
+<details>
+<summary><b>v9.5.0</b> (2026-03-10) — 워커 통합 (8→7종) + 도구 출력 마크다운 표 추가 + 라벨 보호 프롬프트</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
 | **워커 통합 (8→7종)** | `fraud_investigator`를 `seller_analyst`에 병합. seller_analyst가 셀러 활동·세그먼트·이상거래 조사·성과 분석을 모두 담당 |
 | **도구 출력 마크다운 표 추가** | 주요 도구의 반환값에 마크다운 표 포맷 추가하여 LLM 응답 품질 개선 |
 | **라벨 보호 프롬프트** | 워커 프롬프트에 라벨/레이블 임의 변경 방지 규칙 추가 |
+
+</details>
 
 <details>
 <summary><b>v9.3.3</b> (2026-03-09) — 멀티에이전트 프롬프트 판단 규칙 강화 + 리텐션 엔진 스마트 분기 + 도구 정밀도 개선</summary>
@@ -303,7 +319,7 @@ flowchart TB
     end
 
     subgraph External["외부 서비스"]
-        OPENAI["OpenAI API<br/>(GPT-4o / GPT-4o-mini)"]
+        OPENAI["OpenAI API<br/>(GPT-5-mini)"]
         N8N["n8n Cloud<br/>(CS 워크플로우)"]
         RESEND["Resend<br/>(이메일 발송)"]
     end
@@ -336,7 +352,7 @@ flowchart TB
 | **LangChain** (`langchain-openai`) | LLM 래퍼, Tool Calling | `ChatOpenAI` 기반 |
 | **LangGraph** | 멀티 에이전트 그래프 | `StateGraph`, `ToolNode`, `create_react_agent` |
 | **langgraph-supervisor** | Supervisor 멀티에이전트 패턴 | `create_supervisor()` 기반 워커 오케스트레이션 |
-| **OpenAI GPT-4o / GPT-4o-mini** | LLM 모델 | Tool Calling, 분류, 답변 생성 |
+| **OpenAI GPT-5-mini** | LLM 모델 | Tool Calling, 분류, 답변 생성 |
 | **OpenAI Embeddings** | 벡터 임베딩 | `text-embedding-3-small` |
 
 ### RAG / 검색
@@ -402,7 +418,7 @@ backend 리팩토링 시작/
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
 │   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
-│   ├── multi_agent_prompts.json     # 멀티에이전트 프롬프트 외부화 (Supervisor 판단 규칙 + 7개 워커 역할별 지침, 용어 규칙, 데이터 범위 구분)
+│   ├── multi_agent_prompts.yaml     # 멀티에이전트 프롬프트 (YAML — Supervisor 판단 규칙 + 7개 워커 역할별 지침 + 데이터 품질 해석 규칙)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
@@ -743,7 +759,7 @@ flowchart TB
     end
 
     subgraph Stage2["2단계: LLM Router (fallback)"]
-        L1["GPT-4o-mini 분류"]
+        L1["GPT-5-mini 분류"]
         L2["JSON 응답 파싱"]
     end
 
@@ -1255,7 +1271,7 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    A["원본 쿼리: 카페24 정산 정책 알려줘"] -->|GPT-4o-mini 확장| B["카페24 정산 주기와 정책 안내"]
+    A["원본 쿼리: 카페24 정산 정책 알려줘"] -->|GPT-5-mini 확장| B["카페24 정산 주기와 정책 안내"]
     A --> C["CAFE24 settlement policy"]
     A --> D["카페24 셀러 정산 절차"]
     A --> E["카페24 수수료 정산 방식"]
@@ -1276,7 +1292,7 @@ flowchart TD
 원본 청크:
 "정산은 매월 1일과 15일에 진행됩니다"
 
--> GPT-4o-mini 컨텍스트 생성
+-> GPT-5-mini 컨텍스트 생성
 
 컨텍스트 추가된 청크:
 "[문서: 카페24 정산 정책 가이드] [섹션: 3. 정산 주기]
@@ -1355,7 +1371,7 @@ flowchart TB
     end
 
     subgraph StepE["E. Final Answer"]
-        Final["GPT-4o-mini"]
+        Final["GPT-5-mini"]
     end
 
     Q --> StepA --> StepB --> StepC --> StepD --> StepE
@@ -2577,7 +2593,7 @@ contribution = -shap_values[feature_idx]  # 양수 = 이상에 기여
 
 **z-score 폴백**: SHAP 라이브러리 미설치 시, StandardScaler의 z-score `|z| > 0.8`인 피처를 위험 요인으로 추출합니다.
 
-**LLM 해석 (`_guardian_ml_interpret`)**: ML 점수 + risk_factors를 GPT-4o-mini에 전달하여, 비전문가도 이해할 수 있는 1~2문장 자연어 해석을 생성합니다.
+**LLM 해석 (`_guardian_ml_interpret`)**: ML 점수 + risk_factors를 GPT-5-mini에 전달하여, 비전문가도 이해할 수 있는 1~2문장 자연어 해석을 생성합니다.
 
 ```
 입력: "종합 이상 점수: 82.3/100, 이상 점수(모델): 75.1%, 사용자 이탈도: 920.0%"
@@ -2599,7 +2615,7 @@ contribution = -shap_values[feature_idx]  # 양수 = 이상에 기여
 
 **기술 스택:**
 - LangChain `create_agent` (v1.2+) -- `CompiledStateGraph` 기반
-- GPT-4o-mini (temperature=0) -- 비용 효율 + 결정적 판단
+- GPT-5-mini (temperature=0) -- 비용 효율 + 결정적 판단
 - SQLite 감사 로그 DB -- 사용자 패턴 + 과거 사건 이력 저장
 
 **Agent Tools:**
@@ -2732,7 +2748,7 @@ SQLite objects created in a thread can only be used in that same thread
 **성능 측정 결과**:
 - `pass` (정상 통과): 평균 **0.009ms**
 - `warn` (경고): 평균 **0.012ms**
-- `block` + Agent 상세 분석: **3~8초** (GPT-4o-mini 호출 포함)
+- `block` + Agent 상세 분석: **3~8초** (GPT-5-mini 호출 포함)
 - 전체 요청 중 Agent 호출 비율: 약 1~2% (대부분 룰엔진에서 처리 완료)
 
 **핵심 인사이트**: "모든 쿼리에 AI를 적용"하는 것보다, "AI가 필요한 쿼리만 선별하여 적용"하는 다단계 구조가 실시간 시스템에 적합. 이는 프로젝트 전체 아키텍처(2단계 라우터, LLM fallback 패턴)에서 일관되게 적용된 설계 원칙.
@@ -2762,7 +2778,7 @@ flowchart LR
     end
 
     subgraph LLM["LLM"]
-        GPT["GPT-4o-mini"]
+        GPT["GPT-5-mini"]
     end
 
     CHURN --> RET --> GPT

@@ -147,7 +147,8 @@ def load_all_data():
     st.logger.info("PKL 데이터 로드 완료: %.1f초", _data_elapsed)
 
     # ========================================
-    # ML 모델 로드 (M35: 병렬 로딩)
+    # ML 모델 — Lazy Loading (Railway 메모리 최적화)
+    # 시작 시 전체 로드 대신, 각 모델을 처음 사용할 때 로드
     # ========================================
     _model_start = time.time()
 
@@ -171,20 +172,24 @@ def load_all_data():
     def _load_model_task(attr_name, filename):
         return attr_name, load_model_safe(get_data_path(filename))
 
-    _ml_workers = min(os.cpu_count() or 4, len(model_tasks))
-    with ThreadPoolExecutor(max_workers=_ml_workers) as executor:
-        futures = [
-            executor.submit(_load_model_task, attr, fname)
-            for attr, fname in model_tasks.items()
-        ]
-        for future in as_completed(futures):
-            try:
-                attr_name, model = future.result()
-                setattr(st, attr_name, model)
-            except Exception as e:
-                st.logger.error(f"모델 병렬 로드 실패: {e}")
+    # Lazy loading 모드: 파일 존재 여부만 확인, 실제 로드는 get_model()에서 수행
+    st._LAZY_LOADING_ENABLED = True
+    _available_models = []
+    _missing_models = []
+    for attr_name, filename in model_tasks.items():
+        filepath = get_data_path(filename)
+        if filepath.exists():
+            _available_models.append(attr_name)
+        else:
+            _missing_models.append(attr_name)
+            st._MODEL_LOAD_FAILED.add(attr_name)
 
-    # 이탈 예측 모델 설정 (JSON)
+    st.logger.info(
+        "ML 모델 Lazy Loading 활성화: %d개 대기 (파일 있음), %d개 없음",
+        len(_available_models), len(_missing_models),
+    )
+
+    # 이탈 예측 모델 설정 (JSON) — 작은 파일이므로 즉시 로드
     churn_config_path = get_data_path("churn_model_config.json")
     if churn_config_path.exists():
         try:
@@ -197,7 +202,7 @@ def load_all_data():
             st.CHURN_MODEL_CONFIG = None
 
     _model_elapsed = time.time() - _model_start
-    st.logger.info("ML 모델 병렬 로드 완료: %.1f초", _model_elapsed)
+    st.logger.info("ML 모델 Lazy Loading 설정 완료: %.1f초", _model_elapsed)
 
     # ========================================
     # 마케팅 최적화 모듈 확인
@@ -211,7 +216,7 @@ def load_all_data():
         st.logger.warning(f"마케팅 최적화 모듈 로드 실패: {e}")
 
     # ========================================
-    # 라벨 인코더 병렬 로드
+    # 라벨 인코더 — Lazy Loading (get_model로 접근 시 자동 로드)
     # ========================================
     le_tasks = {
         "LE_TICKET_CATEGORY": "le_ticket_category.pkl",
@@ -219,17 +224,14 @@ def load_all_data():
         "LE_CS_PRIORITY": "le_cs_priority.pkl",
         "LE_INQUIRY_CATEGORY": "le_inquiry_category.pkl",
     }
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        le_futures = [
-            executor.submit(_load_model_task, attr, fname)
-            for attr, fname in le_tasks.items()
-        ]
-        for future in as_completed(le_futures):
-            try:
-                attr_name, le_model = future.result()
-                setattr(st, attr_name, le_model)
-            except Exception as e:
-                st.logger.error(f"라벨 인코더 병렬 로드 실패: {e}")
+    for attr_name, filename in le_tasks.items():
+        filepath = get_data_path(filename)
+        if not filepath.exists():
+            st._MODEL_LOAD_FAILED.add(attr_name)
+    # _MODEL_FILE_MAP에 라벨 인코더도 등록 (get_model에서 찾을 수 있도록)
+    for attr_name, filename in le_tasks.items():
+        st._MODEL_FILE_MAP[attr_name] = filename
+    st.logger.info("라벨 인코더 Lazy Loading 설정 완료 (%d개)", len(le_tasks))
 
     # ========================================
     # 매출 예측 모델 초기화 (학습 필요 시 백그라운드)
@@ -264,17 +266,9 @@ def load_all_data():
     # 시스템 상태 업데이트
     # ========================================
     st.SYSTEM_STATUS["data_loaded"] = True
+    # lazy loading 모드에서는 파일 존재 여부로 모델 로드 가능 상태 판단
     st.SYSTEM_STATUS["models_loaded"] = (
-        st.CS_QUALITY_MODEL is not None or
-        st.INQUIRY_CLASSIFICATION_MODEL is not None or
-        st.SELLER_SEGMENT_MODEL is not None or
-        st.FRAUD_DETECTION_MODEL is not None or
-        st.SELLER_CHURN_MODEL is not None or
-        st.REVENUE_PREDICTION_MODEL is not None or
-        st.CUSTOMER_LTV_MODEL is not None or
-        st.REVIEW_SENTIMENT_MODEL is not None or
-        st.DEMAND_FORECAST_MODEL is not None or
-        st.MARKETING_OPTIMIZER_AVAILABLE
+        len(_available_models) > 0 or st.MARKETING_OPTIMIZER_AVAILABLE
     )
 
     st.logger.info("=" * 50)
@@ -290,17 +284,19 @@ def load_all_data():
     st.logger.info(f"  - 일별 지표: {len(st.DAILY_METRICS_DF) if st.DAILY_METRICS_DF is not None else 0}일")
     st.logger.info(f"  - CS 통계: {len(st.CS_STATS_DF) if st.CS_STATS_DF is not None else 0}개")
     st.logger.info(f"  - 코호트: {len(st.COHORT_RETENTION_DF) if st.COHORT_RETENTION_DF is not None else 0}개")
-    st.logger.info(f"  [ML 모델 (10개)]")
-    st.logger.info(f"  - 셀러 이탈 예측: {'O' if st.SELLER_CHURN_MODEL else 'X'}")
-    st.logger.info(f"  - 이상거래 탐지: {'O' if st.FRAUD_DETECTION_MODEL else 'X'}")
-    st.logger.info(f"  - 문의 자동 분류: {'O' if st.INQUIRY_CLASSIFICATION_MODEL else 'X'}")
-    st.logger.info(f"  - 셀러 세그먼트: {'O' if st.SELLER_SEGMENT_MODEL else 'X'}")
-    st.logger.info(f"  - 매출 예측: {'O' if st.REVENUE_PREDICTION_MODEL else 'X'}")
-    st.logger.info(f"  - CS 응답 품질: {'O' if st.CS_QUALITY_MODEL else 'X'}")
-    st.logger.info(f"  - 고객 LTV: {'O' if st.CUSTOMER_LTV_MODEL else 'X'}")
-    st.logger.info(f"  - 리뷰 감성: {'O' if st.REVIEW_SENTIMENT_MODEL else 'X'}")
-    st.logger.info(f"  - 수요 예측: {'O' if st.DEMAND_FORECAST_MODEL else 'X'}")
-    st.logger.info(f"  - 정산 이상: {'O' if st.SETTLEMENT_ANOMALY_MODEL else 'X'}")
+    # Lazy loading 모드에서는 파일 존재=대기(L), 파일 없음=X로 표시
+    _model_status = lambda name: 'L(lazy)' if name in _available_models else 'X'
+    st.logger.info(f"  [ML 모델 (Lazy Loading, 10개)]")
+    st.logger.info(f"  - 셀러 이탈 예측: {_model_status('SELLER_CHURN_MODEL')}")
+    st.logger.info(f"  - 이상거래 탐지: {_model_status('FRAUD_DETECTION_MODEL')}")
+    st.logger.info(f"  - 문의 자동 분류: {_model_status('INQUIRY_CLASSIFICATION_MODEL')}")
+    st.logger.info(f"  - 셀러 세그먼트: {_model_status('SELLER_SEGMENT_MODEL')}")
+    st.logger.info(f"  - 매출 예측: {_model_status('REVENUE_PREDICTION_MODEL')}")
+    st.logger.info(f"  - CS 응답 품질: {_model_status('CS_QUALITY_MODEL')}")
+    st.logger.info(f"  - 고객 LTV: {_model_status('CUSTOMER_LTV_MODEL')}")
+    st.logger.info(f"  - 리뷰 감성: {_model_status('REVIEW_SENTIMENT_MODEL')}")
+    st.logger.info(f"  - 수요 예측: {_model_status('DEMAND_FORECAST_MODEL')}")
+    st.logger.info(f"  - 정산 이상: {_model_status('SETTLEMENT_ANOMALY_MODEL')}")
     st.logger.info(f"  - 마케팅 최적화: {'O' if st.MARKETING_OPTIMIZER_AVAILABLE else 'X'}")
     st.logger.info("=" * 50)
 
@@ -490,16 +486,16 @@ def get_data_summary() -> dict:
             "loaded": st.COHORT_RETENTION_DF is not None,
         },
         "models": {
-            "seller_churn": st.SELLER_CHURN_MODEL is not None,
-            "fraud_detection": st.FRAUD_DETECTION_MODEL is not None,
-            "inquiry_classification": st.INQUIRY_CLASSIFICATION_MODEL is not None,
-            "seller_segment": st.SELLER_SEGMENT_MODEL is not None,
-            "revenue_prediction": st.REVENUE_PREDICTION_MODEL is not None,
-            "cs_quality": st.CS_QUALITY_MODEL is not None,
-            "customer_ltv": st.CUSTOMER_LTV_MODEL is not None,
-            "review_sentiment": st.REVIEW_SENTIMENT_MODEL is not None,
-            "demand_forecast": st.DEMAND_FORECAST_MODEL is not None,
-            "settlement_anomaly": st.SETTLEMENT_ANOMALY_MODEL is not None,
+            "seller_churn": st.SELLER_CHURN_MODEL is not None or "SELLER_CHURN_MODEL" not in st._MODEL_LOAD_FAILED,
+            "fraud_detection": st.FRAUD_DETECTION_MODEL is not None or "FRAUD_DETECTION_MODEL" not in st._MODEL_LOAD_FAILED,
+            "inquiry_classification": st.INQUIRY_CLASSIFICATION_MODEL is not None or "INQUIRY_CLASSIFICATION_MODEL" not in st._MODEL_LOAD_FAILED,
+            "seller_segment": st.SELLER_SEGMENT_MODEL is not None or "SELLER_SEGMENT_MODEL" not in st._MODEL_LOAD_FAILED,
+            "revenue_prediction": st.REVENUE_PREDICTION_MODEL is not None or "REVENUE_PREDICTION_MODEL" not in st._MODEL_LOAD_FAILED,
+            "cs_quality": st.CS_QUALITY_MODEL is not None or "CS_QUALITY_MODEL" not in st._MODEL_LOAD_FAILED,
+            "customer_ltv": st.CUSTOMER_LTV_MODEL is not None or "CUSTOMER_LTV_MODEL" not in st._MODEL_LOAD_FAILED,
+            "review_sentiment": st.REVIEW_SENTIMENT_MODEL is not None or "REVIEW_SENTIMENT_MODEL" not in st._MODEL_LOAD_FAILED,
+            "demand_forecast": st.DEMAND_FORECAST_MODEL is not None or "DEMAND_FORECAST_MODEL" not in st._MODEL_LOAD_FAILED,
+            "settlement_anomaly": st.SETTLEMENT_ANOMALY_MODEL is not None or "SETTLEMENT_ANOMALY_MODEL" not in st._MODEL_LOAD_FAILED,
             "marketing_optimizer": st.MARKETING_OPTIMIZER_AVAILABLE,
         },
     }

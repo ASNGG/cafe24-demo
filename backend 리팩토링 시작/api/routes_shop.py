@@ -412,6 +412,9 @@ def get_churn_prediction(days: int = 7, user: dict = Depends(verify_credentials)
         available_features = []
         feature_names_kr = {}
 
+        # lazy loading
+        st.get_model("SELLER_CHURN_MODEL")
+        st.get_model("SHAP_EXPLAINER_CHURN")
         if st.SELLER_CHURN_MODEL is not None:
             config = st.CHURN_MODEL_CONFIG or {}
             features = config.get("features", ["total_orders", "total_revenue", "product_count", "cs_tickets", "refund_rate", "avg_response_time"])
@@ -556,6 +559,9 @@ def get_user_churn_prediction(user_id: str, user: dict = Depends(verify_credenti
         features = config.get("features", ["total_orders", "total_revenue", "product_count", "cs_tickets", "refund_rate", "avg_response_time"])
         feature_names_kr = config.get("feature_names_kr", {"total_orders": "총 주문 수", "total_revenue": "총 매출", "product_count": "등록 상품 수", "cs_tickets": "CS 문의 수", "refund_rate": "환불률", "avg_response_time": "평균 응답 시간"})
         available_features = [f for f in features if f in df.columns]
+        # lazy loading
+        st.get_model("SELLER_CHURN_MODEL")
+        st.get_model("SHAP_EXPLAINER_CHURN")
         if st.SELLER_CHURN_MODEL is None:
             return error_response("이탈 예측 모델이 로드되지 않았습니다.")
         if not available_features:

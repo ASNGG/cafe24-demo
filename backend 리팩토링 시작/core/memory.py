@@ -8,7 +8,7 @@ from typing import Dict, List
 
 # Settings
 MAX_MEMORY_TURNS = 10
-MAX_SESSIONS = 1000           # 최대 동시 세션 수
+MAX_SESSIONS = 200            # 최대 동시 세션 수 (Railway 메모리 최적화, 1000→200)
 SESSION_TTL_SEC = 30 * 60     # 30분 비활성 시 만료
 _CLEANUP_INTERVAL_SEC = 60    # cleanup 최소 간격 (초)
 

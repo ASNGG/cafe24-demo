@@ -14,7 +14,7 @@ try:
 except ImportError:
     pass
 
-# OpenMP 충돌 방지 (EasyOCR + numpy/sklearn 등)
+# OpenMP 충돌 방지 (numpy/sklearn 등)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import numpy as np

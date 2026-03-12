@@ -105,6 +105,8 @@ def _apply_ml_churn_scoring(results: List[Dict]) -> List[Dict]:
     """
     from core.constants import FEATURE_COLS_CHURN
 
+    # lazy loading
+    st.get_model("SELLER_CHURN_MODEL")
     if st.SELLER_CHURN_MODEL is None or st.SELLER_ANALYTICS_DF is None:
         return results
 
@@ -289,7 +291,8 @@ async def get_upgrade_candidates_stream(limit: int = 20, use_ml_scoring: bool = 
         }}
         await asyncio.sleep(0)
 
-    # ML 이탈 스코어링 적용
+    # ML 이탈 스코어링 적용 (lazy loading)
+    st.get_model("SELLER_CHURN_MODEL")
     if use_ml_scoring and st.SELLER_CHURN_MODEL is not None:
         yield {"event": "step_start", "data": {"step": "ml_scoring", "description": "ML 이탈 위험도 스코어링", "timestamp": time.time()}}
         await asyncio.sleep(0)

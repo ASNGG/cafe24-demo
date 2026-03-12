@@ -11,9 +11,9 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org)
 [![LangChain](https://img.shields.io/badge/LangChain-0.2+-green?style=flat-square)](https://langchain.com)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
-[![OpenAI](https://img.shields.io/badge/GPT--4o--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
+[![OpenAI](https://img.shields.io/badge/GPT--5--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.7.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -21,7 +21,33 @@ v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## 최신 업데이트
 
-> **v9.5.0** (2026-03-10) — 멀티에이전트 워커 최적화 + LLM 응답 정확도 개선
+> **v9.7.0** (2026-03-12) — 멀티에이전트 도구 데이터 품질 개선 + 전수 테스트 검증
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **도구 데이터 정합성 수정** | `get_shop_performance` 컬럼 매핑 수정(monthly_revenue/monthly_orders/return_rate), `get_cs_statistics` 가중평균 전환, `get_seller_activity_report` total_events 계산 수정 |
+| **LLM 범위 혼동 방지** | `get_cs_statistics`, `get_cohort_analysis`에 `_llm_instruction` 추가 (플랫폼 전체 데이터임을 명시) |
+| **data_warnings 자동 감지** | `get_shop_performance`에 데이터 모순(주문수 0인데 전환율 >0) 자동 감지 경고 추가 |
+| **워커 도구 배정 최적화** | retention_strategist 중복 도구 제거, seller_analyst에 CS 통계 도구 추가 |
+| **Supervisor 프롬프트 강화** | 워커 분기 판단 규칙 3개 추가 |
+| **프론트엔드 추천 질문 확장** | 추천 질문 6→8개 확장 (7종 워커 전체 커버) |
+| **전수 테스트 시스템** | 8개 질문 전수 테스트 스크립트 및 자동 검증 시스템 구축 |
+
+<details>
+<summary><b>v9.6.0</b> (2026-03-12) — GPT-5-mini 전환 + 도구 데이터 품질 개선 + 프롬프트 YAML 전환 + Railway 메모리 최적화</summary>
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **GPT-5-mini 전환** | Supervisor·7종 워커·Intent 라우터·프론트 기본값 전체를 gpt-5-mini로 통일 (기존 사용자 sessionStorage 자동 마이그레이션) |
+| **도구 데이터 품질 개선** | `analyze_seller`: avg_order_value 계산 fallback (total_revenue/total_orders), data_warnings (0값 지표 미집계 경고), 플랫폼 평균/동일 등급 비교 데이터·백분위·세그먼트 정보 포함. `predict_seller_churn`: 확률 floor 0.5% (과신 방지), importance_note (모델 전체 기준 변수 중요도임을 명시) |
+| **프롬프트 YAML 전환** | `multi_agent_prompts.json` → `.yaml` 전환 — `\n` 이스케이프 제거, `\|` 블록으로 가독성 향상, 데이터 품질 해석 규칙 추가 (0값 지표·비교 기준·이탈 확률 해석) |
+| **Railway 메모리 최적화** | ML 모델 lazy loading (시작 시 파일 존재 확인만, 첫 사용 시 로드), torch/easyocr 비활성화 (~500MB 절감), LLM 캐시 20→5, 세션 캐시 1000→200, Supervisor 캐시 MAX=3 |
+| **프론트엔드 개선** | Agent/Lab 패널 대화 보존 (display:none 방식), 로그인 페이지 서버 운영 시간 표시, 동적 모델명 표시, 해석 톤 규칙 (원인 단정 금지) |
+
+</details>
+
+<details>
+<summary><b>v9.5.0</b> (2026-03-10) — 멀티에이전트 워커 최적화 + LLM 응답 정확도 개선</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -30,6 +56,8 @@ v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **라벨 보호 프롬프트** | common_rules에 도구 결과 라벨/수치 변형 금지 규칙 + 올바른/잘못된 예시 few-shot 표 추가 (활성쇼핑몰→활성 셀러 수 변환 방지 등) |
 | **performance_analyst vs report_writer 경계 명확화** | Supervisor 라우팅에 구분 규칙 추가 — 특정 쇼핑몰 개별 분석 vs 플랫폼 전체 종합 보고서 |
 | **cs_quality_analyst 도구 정리** | 불필요한 get_ecommerce_glossary 제거 (platform_searcher 전담) |
+
+</details>
 
 <details>
 <summary><b>v9.4.0</b> (2026-03-09) — 멀티에이전트 응답 품질 개선 + 데이터 품질 보정 + 프론트 예시 칩 개편</summary>
@@ -205,7 +233,7 @@ v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **CS 문의 처리** | CS 담당자 수동 분류/응답 | TF-IDF + RF 일괄 분류 + RAG+LLM 답변 생성 + DnD 자동/수동 분기 |
 | **정산 이상** | 수작업 정산 검증 | DBSCAN 기반 정산 이상 패턴 탐지 |
 | **매출 예측** | 경험 기반 예측 | LightGBM 기반 다변량 매출 예측 |
-| **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-4o-mini + 31 Tools) |
+| **데이터 분석** | SQL 작성, 대시보드 개발 필요 | 자연어 질의 -> 자동 분석 (GPT-5-mini + 31 Tools) |
 | **DB 보안** | 수동 모니터링 | DB 보안 감시 (룰엔진 + ML + LangChain) 실시간 차단 |
 | **셀러 리텐션** | 이탈 후 대응, 수동 관리 | ML 이탈 예측 → LLM 맞춤 메시지 → 자동 조치 (쿠폰/업그레이드/매니저) |
 | **플랜 업그레이드** | 수동 셀러 분석, 일괄 안내 | 규칙 기반 후보 탐지 (매출/주문수 임계값) → LLM 맞춤 추천 메시지 → 4종 액션 자동 실행 |
@@ -216,7 +244,7 @@ v9.5.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 | 특징 | 설명 |
 |------|------|
-| **LLM + ML 하이브리드** | GPT-4o / GPT-4o-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 (Coordinator: GPT-4o, 워커: GPT-4o-mini) |
+| **LLM + ML 하이브리드** | GPT-5-mini가 31개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 |
 | **하이브리드 라우팅** | 명확한 질문: 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문: Supervisor LLM이 판단하여 워커 위임 |
 | **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(7워커) 항상 활성 — 전문 워커 7개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, 워커 직접 스트리밍, 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 시 2개+ 워커 순차 호출 강제, `full_history` 모드로 워커 간 이전 결과 참조, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침 |
 | **RAG 7종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + Cross-Encoder Reranking |
@@ -284,7 +312,7 @@ flowchart TB
     end
 
     subgraph External["외부 서비스"]
-        OpenAI["OpenAI API<br/>(GPT-4o / GPT-4o-mini)"]
+        OpenAI["OpenAI API<br/>(GPT-5-mini)"]
         n8n["n8n<br/>워크플로우 자동화"]
         Resend["Resend<br/>이메일 알림"]
     end
@@ -326,7 +354,7 @@ sequenceDiagram
     participant Worker as 워커 에이전트
     participant Tool as Tool Executor (tools.py)
     participant ML as ML Model (.pkl)
-    participant LLM as GPT-4o-mini
+    participant LLM as GPT-5-mini
 
     User->>FE: "SEL0001 셀러가 이탈할 확률은?"
     FE->>Router: SSE 연결 (/api/agent/stream)
@@ -379,7 +407,7 @@ flowchart LR
 
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
-| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(7워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-4o-mini + Tool Calling + 31개 도구 |
+| **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(7워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-5-mini + Tool Calling + 31개 도구 |
 | **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 7개에 작업 위임 + 분석 결과 기반 후속 판단(LOW → retention 위임 생략) + 복합 요청 2개+ 워커 순차 호출 강제 + `full_history` 워커 간 결과 참조 + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 7워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) |
 | **RAG 7종 기법** | 7가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + Cross-Encoder |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
@@ -443,7 +471,7 @@ flowchart TD
     A["SQL 쿼리 입력"]
     B["1단계: 룰엔진<br/>위험 패턴 매칭 (<1ms)"]
     C["2단계: ML 이상탐지<br/>Isolation Forest + SHAP"]
-    D["3단계: AI Agent<br/>LangChain (GPT-4o-mini)<br/>위험 분석 + 복구 SQL 제안"]
+    D["3단계: AI Agent<br/>LangChain (GPT-5-mini)<br/>위험 분석 + 복구 SQL 제안"]
     E{"판정"}
     F["SAFE"]
     G["WARNING"]
@@ -467,7 +495,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["규칙 기반 후보 탐지<br/>(매출/주문수 임계값)"]
-    B["LLM 맞춤 추천 메시지 생성<br/>(GPT-4o-mini)"]
+    B["LLM 맞춤 추천 메시지 생성<br/>(GPT-5-mini)"]
     C{"4종 액션 실행"}
     D["upgrade_recommend<br/>플랜 업그레이드 추천"]
     E["benefit_info<br/>상위 플랜 혜택 안내"]
@@ -484,7 +512,7 @@ flowchart TD
 | 항목 | 설명 |
 |------|------|
 | **후보 탐지** | 매출/주문수 임계값 기반 규칙 엔진으로 업그레이드 대상 셀러 자동 탐지 |
-| **메시지 생성** | GPT-4o-mini가 셀러별 매출·주문·카테고리 데이터를 분석하여 맞춤 추천 메시지 작성 |
+| **메시지 생성** | GPT-5-mini가 셀러별 매출·주문·카테고리 데이터를 분석하여 맞춤 추천 메시지 작성 |
 | **액션 실행** | upgrade_recommend · benefit_info · consultation_request · custom_message 4종 |
 | **API** | `GET /api/automation/upgrade/candidates` · `POST /api/automation/upgrade/message` · `POST /api/automation/upgrade/execute` |
 
@@ -497,7 +525,7 @@ flowchart TD
 | 분류 | 기술 | 용도 |
 |------|------|------|
 | **프레임워크** | FastAPI 0.110+ | REST API, SSE 스트리밍 |
-| **LLM** | OpenAI GPT-4o / GPT-4o-mini | 에이전트 추론, RAG 답변 생성 (Coordinator: GPT-4o) |
+| **LLM** | OpenAI GPT-5-mini | 에이전트 추론, RAG 답변 생성 |
 | **에이전트** | LangChain 0.2+, LangGraph 0.2+, langgraph-supervisor | Tool Calling, Supervisor 멀티에이전트 |
 | **벡터 검색** | FAISS (faiss-cpu) | Dense Vector Search |
 | **GraphRAG** | LightRAG (lightrag-hku) | 지식 그래프 기반 검색 |
@@ -618,7 +646,7 @@ flowchart TD
 
 - **Python** 3.10+ (Conda 환경 권장)
 - **Node.js** 18+
-- **OpenAI API Key** (GPT-4o-mini)
+- **OpenAI API Key** (GPT-5-mini)
 
 ### 백엔드
 
@@ -716,6 +744,8 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.7.0 | 2026-03-12 | 멀티에이전트 도구 데이터 품질 개선: `get_shop_performance` 컬럼 매핑 수정(monthly_revenue/monthly_orders/return_rate), `get_cs_statistics` 가중평균 전환, `get_seller_activity_report` total_events 계산 수정. LLM 범위 혼동 방지: `get_cs_statistics`·`get_cohort_analysis`에 `_llm_instruction` 추가. `get_shop_performance` data_warnings 자동 감지(주문수 0인데 전환율 >0). 워커 도구 배정 최적화(retention_strategist 중복 제거, seller_analyst에 CS 통계 추가). Supervisor 프롬프트 워커 분기 판단 규칙 3개 추가. 프론트 추천 질문 6→8개 확장(7종 워커 전체 커버). 8개 질문 전수 테스트 스크립트 및 자동 검증 시스템 구축 |
+| 9.6.0 | 2026-03-12 | GPT-5-mini 전환: Supervisor·7종 워커·Intent 라우터·프론트 기본값 전체 gpt-5-mini 통일(sessionStorage 자동 마이그레이션). 도구 데이터 품질 개선: analyze_seller avg_order_value fallback·data_warnings·플랫폼 비교 데이터, predict_seller_churn 확률 floor 0.5%·importance_note. 프롬프트 YAML 전환: multi_agent_prompts.json→.yaml, 데이터 품질 해석 규칙 추가. Railway 메모리 최적화: ML lazy loading·torch/easyocr 비활성화(~500MB 절감)·캐시 축소. 프론트: Agent/Lab 대화 보존·서버 운영 시간 표시·해석 톤 규칙 |
 | 9.5.0 | 2026-03-10 | 멀티에이전트 워커 최적화: fraud_investigator를 seller_analyst에 흡수(8→7워커), 도구 완전 부분집합이므로 Supervisor 라우팅 단순화. LLM 응답 정확도 개선: 4개 도구에 `_markdown` 필드 추가(라벨 패러프레이징 방지), common_rules에 라벨/수치 변형 금지 규칙+few-shot 예시, performance_analyst vs report_writer 라우팅 경계 명확화, cs_quality_analyst에서 불필요한 get_ecommerce_glossary 제거 |
 | 9.4.0 | 2026-03-09 | 멀티에이전트 응답 품질 개선: Supervisor 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 2개+ 워커 순차 호출 강제, full_history 워커 간 결과 참조, churn_analyst "주요 예측 영향 변수" 용어 정립+feature importance 해석 가이드, retention_strategist LOW 판단 로직, generate_retention_message LOW 시 LLM 미호출 즉시 반환. 데이터 품질 개선: churn_probability 소수점 2자리, 코호트 분석 폴백(없는 월 → 전체 반환), 쇼핑몰 성과 주문 0건 avg_order_value 0 보정, 플랫폼 전체 vs 개별 쇼핑몰 데이터 구분 명시. 프론트: 멀티에이전트 예시 칩을 멀티 워커 연계 질문 6개로 변경 |
 | 9.3.2 | 2026-03-08 | 멀티에이전트 워커 프롬프트 전면 개편: `_WORKER_COMMON_RULES` 공통 응답 규칙 상수 추출(5가지 분석 관점: 추세 파악·이상값 발견·비교 분석·원인 추론·실행 제안), 7개 워커 역할별 특화 분석 지침 추가, Supervisor 프롬프트 강화(대화 맥락 유지·형식적 응답 금지·최소 3개 인사이트 필수·금액 포맷 규칙). 데드코드 대규모 정리: 백엔드 미사용 파일 12개+프론트 2개 삭제, 미사용 함수 3개 제거, RAG 기법 8→7종 정정, README 3개+포트폴리오 문서 동기화 |

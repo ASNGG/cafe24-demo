@@ -141,7 +141,9 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
 
     results = []
 
-    # ML 모델이 있는 경우
+    # ML 모델이 있는 경우 (lazy loading)
+    st.get_model("SELLER_CHURN_MODEL")
+    st.get_model("SHAP_EXPLAINER_CHURN")
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
@@ -358,6 +360,9 @@ def generate_retention_message(seller_id: str, api_key: str = "") -> Dict:
 
 def _analyze_single_seller(row) -> Dict:
     """단일 셀러의 이탈 분석 결과를 반환합니다."""
+    # lazy loading
+    st.get_model("SELLER_CHURN_MODEL")
+    st.get_model("SHAP_EXPLAINER_CHURN")
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
@@ -423,6 +428,9 @@ async def get_at_risk_sellers_stream(threshold: float = 0.6, limit: int = 20):
 
     results = []
 
+    # lazy loading
+    st.get_model("SELLER_CHURN_MODEL")
+    st.get_model("SHAP_EXPLAINER_CHURN")
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN

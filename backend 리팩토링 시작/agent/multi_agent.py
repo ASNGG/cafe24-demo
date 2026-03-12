@@ -76,15 +76,16 @@ import state as st
 
 
 # ============================================================
-# 프롬프트 JSON 로드
+# 프롬프트 YAML 로드 (JSON에서 전환 — 가독성/편집 용이성 향상)
 # ============================================================
-_PROMPTS_PATH = Path(__file__).parent / "multi_agent_prompts.json"
+_PROMPTS_PATH = Path(__file__).parent / "multi_agent_prompts.yaml"
 
 
 def _load_prompts():
-    """multi_agent_prompts.json에서 프롬프트 로드"""
+    """multi_agent_prompts.yaml에서 프롬프트 로드"""
+    import yaml
     with open(_PROMPTS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        return yaml.safe_load(f)
 
 
 _PROMPTS = _load_prompts()
@@ -100,13 +101,13 @@ MULTI_AGENT_WORKERS = {
     },
     "retention_strategist": {
         "prompt": _PROMPTS["multi_agent_workers"]["retention_strategist"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [generate_retention_message, execute_retention_action, get_at_risk_sellers, predict_seller_churn, analyze_seller],
-        "description": "리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 + 셀러 진단",
+        "tools": [generate_retention_message, execute_retention_action, get_at_risk_sellers, analyze_seller],
+        "description": "리텐션 전략가 — 맞춤 메시지 생성 + 자동 조치 실행",
     },
     "seller_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["seller_analyst"]["prompt"] + _PROMPTS["common_rules"],
-        "tools": [analyze_seller, get_seller_segment, detect_fraud, get_segment_statistics, get_fraud_statistics, get_seller_activity_report, analyze_data],
-        "description": "셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 조사",
+        "tools": [analyze_seller, get_seller_segment, detect_fraud, get_segment_statistics, get_fraud_statistics, get_seller_activity_report, get_cs_statistics, analyze_data],
+        "description": "셀러 분석가 — 셀러 종합 분석 + 세그먼트 + 이상거래 + CS 비율 분석",
     },
     "performance_analyst": {
         "prompt": _PROMPTS["multi_agent_workers"]["performance_analyst"]["prompt"] + _PROMPTS["common_rules"],
@@ -197,7 +198,7 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
         current_tool = None
         agents_used_set = set()
         tool_fail_counts: Dict[str, int] = {}  # 도구별 실패 횟수 추적
-        MAX_TOOL_RETRIES = 3  # 동일 도구 최대 재시도 횟수
+        MAX_TOOL_RETRIES = 5  # 동일 도구 최대 재시도 횟수 (3→5 완화: 일시적 오류 허용)
 
         # 워커 이름 집합 (handoff 이벤트 감지용)
         worker_names = set(MULTI_AGENT_WORKERS.keys())
@@ -408,6 +409,7 @@ AGENT_DESCRIPTIONS = {_wname: _wcfg["description"] for _wname, _wcfg in MULTI_AG
 # 멀티에이전트 Supervisor 빌드 + 캐시
 # ============================================================
 _multi_supervisor_cache: Dict[str, Any] = {}
+_MULTI_SUPERVISOR_CACHE_MAX = 3  # Supervisor 캐시 최대 크기 (메모리 최적화)
 
 
 def build_multi_agent_supervisor(llm, api_key: str = ""):
@@ -445,8 +447,13 @@ def build_multi_agent_supervisor(llm, api_key: str = ""):
 
 
 def get_cached_multi_supervisor(llm, model_key: str, api_key: str = ""):
-    """모델별 멀티에이전트 Supervisor 그래프 캐시"""
+    """모델별 멀티에이전트 Supervisor 그래프 캐시 (FIFO, 최대 3개)"""
     if model_key not in _multi_supervisor_cache:
+        # 캐시 크기 제한: 최대 개수 초과 시 가장 오래된 항목부터 제거 (FIFO)
+        if len(_multi_supervisor_cache) >= _MULTI_SUPERVISOR_CACHE_MAX:
+            oldest_key = next(iter(_multi_supervisor_cache))
+            del _multi_supervisor_cache[oldest_key]
+            st.logger.info("MULTI_SUPERVISOR_CACHE_EVICT model=%s (limit=%d)", oldest_key, _MULTI_SUPERVISOR_CACHE_MAX)
         _multi_supervisor_cache[model_key] = build_multi_agent_supervisor(llm, api_key=api_key)
-        st.logger.info("MULTI_SUPERVISOR_GRAPH_BUILD model=%s (cached)", model_key)
+        st.logger.info("MULTI_SUPERVISOR_GRAPH_BUILD model=%s (cached, size=%d)", model_key, len(_multi_supervisor_cache))
     return _multi_supervisor_cache[model_key]

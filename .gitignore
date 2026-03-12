@@ -61,7 +61,8 @@ node_modules/
 **/.next/
 out/
 
-# Notebook checkpoints
+# Notebook
+*.ipynb
 **/.ipynb_checkpoints/
 
 # RAG data

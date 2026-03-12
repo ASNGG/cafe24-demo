@@ -233,6 +233,81 @@ SCALER_CLUSTER: Optional[Any] = None
 MARKETING_OPTIMIZER_AVAILABLE: bool = False
 
 # ============================================================
+# ML 모델 Lazy Loading (Railway 메모리 최적화)
+# ============================================================
+# 모델 이름 → pkl 파일 매핑 (lazy loading에 사용)
+_MODEL_FILE_MAP: Dict[str, str] = {
+    "CS_QUALITY_MODEL": "model_cs_quality.pkl",
+    "INQUIRY_CLASSIFICATION_MODEL": "model_inquiry_classification.pkl",
+    "SELLER_SEGMENT_MODEL": "model_seller_segment.pkl",
+    "FRAUD_DETECTION_MODEL": "model_fraud_detection.pkl",
+    "SELLER_CHURN_MODEL": "model_seller_churn.pkl",
+    "SHAP_EXPLAINER_CHURN": "shap_explainer_churn.pkl",
+    "REVENUE_PREDICTION_MODEL": "model_revenue_prediction.pkl",
+    "CUSTOMER_LTV_MODEL": "model_customer_ltv.pkl",
+    "REVIEW_SENTIMENT_MODEL": "model_review_sentiment.pkl",
+    "DEMAND_FORECAST_MODEL": "model_demand_forecast.pkl",
+    "SETTLEMENT_ANOMALY_MODEL": "model_settlement_anomaly.pkl",
+    "TFIDF_VECTORIZER": "tfidf_vectorizer.pkl",
+    "TFIDF_VECTORIZER_SENTIMENT": "tfidf_vectorizer_sentiment.pkl",
+    "SCALER_CLUSTER": "scaler_cluster.pkl",
+}
+
+# lazy loading 활성화 여부 (load_all_data가 모델을 로드했으면 False)
+_LAZY_LOADING_ENABLED: bool = True
+_MODEL_LOAD_LOCK = Lock()
+
+# 로드 시도 실패 기록 (반복 로드 방지)
+_MODEL_LOAD_FAILED: set = set()
+
+
+def get_model(attr_name: str) -> Optional[Any]:
+    """ML 모델 lazy getter — 첫 접근 시 디스크에서 로드
+
+    이미 로드된 모델(setattr로 세팅된 경우)이 있으면 그대로 반환.
+    아직 로드되지 않았으면 pkl 파일에서 로드 후 전역 변수에 캐시.
+    """
+    # 이미 로드된 모델이 있으면 반환
+    current = globals().get(attr_name)
+    if current is not None:
+        return current
+
+    # lazy loading 비활성화 상태면 None 반환 (이미 시도 완료)
+    if not _LAZY_LOADING_ENABLED:
+        return None
+
+    # 로드 실패 기록이 있으면 재시도하지 않음
+    if attr_name in _MODEL_LOAD_FAILED:
+        return None
+
+    filename = _MODEL_FILE_MAP.get(attr_name)
+    if not filename:
+        return None
+
+    with _MODEL_LOAD_LOCK:
+        # 더블체크 (다른 스레드가 이미 로드했을 수 있음)
+        current = globals().get(attr_name)
+        if current is not None:
+            return current
+
+        filepath = os.path.join(BASE_DIR, filename)
+        if not os.path.exists(filepath):
+            logger.warning("LAZY_LOAD 파일 없음: %s", filepath)
+            _MODEL_LOAD_FAILED.add(attr_name)
+            return None
+
+        try:
+            import joblib
+            model = joblib.load(filepath)
+            globals()[attr_name] = model
+            logger.info("LAZY_LOAD 모델 로드 완료: %s ← %s", attr_name, filename)
+            return model
+        except Exception as e:
+            logger.error("LAZY_LOAD 모델 로드 실패: %s - %s", attr_name, e)
+            _MODEL_LOAD_FAILED.add(attr_name)
+            return None
+
+# ============================================================
 # 라벨 인코더
 # ============================================================
 LE_TICKET_CATEGORY: Optional[Any] = None   # CS 문의 카테고리

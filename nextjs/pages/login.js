@@ -134,6 +134,14 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* 서버 운영 안내 */}
+        <div className="mb-4 text-center px-4 py-2.5 rounded-xl bg-cafe24-beige/60 border border-cafe24-yellow/15">
+          <p className="text-xs text-cafe24-brown/60">
+            서버 운영 시간: <span className="font-semibold text-cafe24-orange">AM 9:00 ~ PM 6:00</span> (KST)
+          </p>
+          <p className="text-[10px] text-cafe24-brown/40 mt-0.5">운영 시간 외에는 서버가 꺼져 있을 수 있습니다</p>
+        </div>
+
         {/* 로그인 카드 */}
         <div className="bg-white rounded-2xl border border-[var(--border)] shadow-soft p-6">
           <div className="space-y-4">

@@ -300,6 +300,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         { label: '고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘' },
         { label: `${shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` },
         { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘' },
+        { label: 'SEL0001 컨설팅 해줘' },
         { label: '카페24 정산 주기와 수수료 정책 알려줘' },
       ];
     },
@@ -708,6 +709,12 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
               <div>CS 품질 - CS 통계 + 자동 분류 + 품질 평가</div>
               <div>리포트 - 대시보드 + KPI 종합 보고서</div>
               <div>플랫폼 검색 - RAG 지식 검색 + FAQ</div>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-3 text-xs text-cafe24-brown space-y-1 mt-2">
+              <div className="font-extrabold mb-1">셀러 컨설팅 (4단계 워크플로우)</div>
+              <div>"SEL0001 컨설팅 해줘" 입력 시 자동 진입</div>
+              <div>① 진단 → ② 전략 수립 → ③ 실행 계획 → ④ 실행</div>
+              <div>각 단계에서 자유 대화 가능, '다음' 입력 시 진행</div>
             </div>
           </div>
 

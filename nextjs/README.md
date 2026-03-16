@@ -14,11 +14,11 @@
 
 ## 최신 업데이트
 
-> **v9.8.0** (2026-03-16) — 셀러 컨설팅 패널 추가
+> **v9.8.0** (2026-03-16) — 셀러 컨설팅 통합
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **셀러 컨설팅 패널** | 12번째 패널 추가 — 4단계 멀티스텝 워크플로우 (진단 → 전략 수립 → 실행 계획 → 실행) |
+| **셀러 컨설팅 통합** | AI 에이전트 탭(MultiAgentPanel)에 컨설팅 워크플로우 통합 (자동 라우팅, 자유 대화 루프) |
 | **Human-in-the-Loop** | 각 단계 사용자 확인 후 다음 단계 진행, rollback 지원 |
 | **SSE 훅** | `useConsultingStream.js` 추가 (useBaseStream + 단계 진행/rollback) |
 | **SSE 프록시** | `pages/api/agent/consulting/stream.js` 추가 |
@@ -38,7 +38,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (12개)](#2-패널-12개)
+2. [패널 (11개)](#2-패널-11개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -55,13 +55,13 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 자동화 엔진 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 자동화 엔진 등 **11개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["12개 패널"]
+        Panels["11개 패널"]
         SSEProxy["SSE 프록시<br/>(6개 API Route)"]
     end
 
@@ -103,7 +103,7 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth, password btoa 인코딩)
-│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 11개 패널 라우팅)
 │   └── api/
 │       ├── agent/
 │       │   ├── stream.js           # SSE 프록시 (AI 에이전트)
@@ -116,7 +116,7 @@ nextjs/
 │           └── callback.js         # CS 콜백 프록시 (JSON)
 │
 ├── components/                     # React 컴포넌트
-│   ├── Layout.js                   # 12-column 그리드 레이아웃
+│   ├── Layout.js                   # 그리드 레이아웃
 │   ├── Sidebar.js                  # 예시 질문 아코디언, 셀러 정보
 │   ├── Topbar.js                   # 사용자 정보, 로그아웃
 │   ├── Tabs.js                     # 역할별 탭 네비게이션 (ARIA, 키보드)
@@ -132,7 +132,7 @@ nextjs/
 │   │   ├── ToolExplorer.js         # 인터랙티브 도구 탐색기 (아코디언 UI, Framer Motion)
 │   │   └── constants.js            # 공통 상수 (COLORS, getSeverityClasses 등)
 │   │
-│   └── panels/                     # 기능별 패널 (12개)
+│   └── panels/                     # 기능별 패널 (11개)
 │       ├── AgentPanel.js           # AI 에이전트 (19줄 래퍼 → MultiAgentPanel 직접 렌더)
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
@@ -144,7 +144,7 @@ nextjs/
 │       ├── LabPanel.js             # CS 자동화 파이프라인 (→ lab/ 위임)
 │       ├── GuardianPanel.js        # DB 보안 감시
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/플랜 업그레이드/FAQ/리포트 4탭)
-│       ├── ConsultingPanel.js    # 셀러 컨설팅 (4단계 멀티스텝 워크플로우, Human-in-the-Loop)
+│       ├── ConsultingPanel.js    # [deprecated] 셀러 컨설팅 — MultiAgentPanel에 통합, 탭으로 마운트되지 않음
 │       ├── MultiAgentPanel.js    # Supervisor 멀티에이전트 채팅 + 파이프라인 (메인 UI)
 │       │
 │       ├── hooks/                 # 패널 전용 커스텀 훅
@@ -207,17 +207,17 @@ nextjs/
 
 ---
 
-## 2. 패널 (12개)
+## 2. 패널 (11개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
+    Role -->|"관리자<br/>(Admin)"| Admin["11개 탭 전부"]
     Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["6개 탭"]
 
-    Admin --> A1["AI 에이전트"]
+    Admin --> A1["AI 에이전트<br/>(컨설팅 통합)"]
     Admin --> A2["대시보드"]
     Admin --> A3["분석"]
     Admin --> A4["ML 모델"]
@@ -225,24 +225,22 @@ graph TD
     Admin --> A6["CS 자동화"]
     Admin --> A7["DB 보안 감시"]
     Admin --> A8["자동화 엔진"]
-    Admin --> A9["셀러 컨설팅"]
-    Admin --> A10["LLM 설정"]
-    Admin --> A11["셀러 관리"]
-    Admin --> A12["로그"]
+    Admin --> A9["LLM 설정"]
+    Admin --> A10["셀러 관리"]
+    Admin --> A11["로그"]
 
-    User --> U1["AI 에이전트"]
+    User --> U1["AI 에이전트<br/>(컨설팅 통합)"]
     User --> U2["대시보드"]
     User --> U3["분석"]
     User --> U4["CS 자동화"]
     User --> U5["DB 보안 감시"]
     User --> U6["자동화 엔진"]
-    User --> U7["셀러 컨설팅"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 12개 전부 | 12 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, Automation, Consulting | 7 |
+| **관리자** (Admin) | 11개 전부 | 11 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, Automation | 6 |
 
 ---
 
@@ -809,19 +807,18 @@ flowchart LR
 
 ---
 
-### 2.12 ConsultingPanel (셀러 컨설팅)
+### 2.12 ConsultingPanel (셀러 컨설팅) — MultiAgentPanel에 통합됨
+
+> **v9.8.0 변경**: 셀러 컨설팅은 별도 탭이 아니라 AI 에이전트 탭(MultiAgentPanel)에 통합되었다. 컨설팅 관련 질문은 Supervisor가 자동 라우팅하며, 자유 대화 루프로 처리된다. `ConsultingPanel.js` 파일은 잔존하지만 탭으로 마운트되지 않는다.
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `components/panels/ConsultingPanel.js` |
-| **역할** | 셀러 컨설팅 4단계 멀티스텝 워크플로우 (진단 → 전략 수립 → 실행 계획 → 실행) |
+| **파일** | `components/panels/ConsultingPanel.js` (deprecated — 탭 미사용) |
+| **통합 위치** | `MultiAgentPanel.js` — Supervisor 멀티에이전트가 컨설팅 워크플로우를 자동 라우팅 |
 | **SSE 훅** | `hooks/useConsultingStream.js` (useBaseStream + 단계 진행/rollback) |
 | **API** | `POST /api/consulting/stream` (SSE), `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
-| **권한** | 관리자 + 비관리자 모두 |
 
-> **핵심 컨셉**: AI가 셀러 현황을 단계별로 분석하고, 각 단계마다 사용자 확인을 받아 다음 단계로 진행하는 Human-in-the-Loop 워크플로우
-
-**4단계 워크플로우:**
+**컨설팅 워크플로우 (MultiAgentPanel 내 자동 라우팅):**
 
 ```mermaid
 flowchart LR
@@ -1455,7 +1452,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 11개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1474,7 +1471,7 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
+| 관리자 | `admin` | `admin123` | Admin | 11개 전부 |
 | 운영자 | `operator` | `oper123` | Operator | 7개 (공개) |
 | 분석가 | `analyst` | `analyst123` | Analyst | 7개 (공개) |
 | 사용자 | `user` | `user123` | User | 7개 (공개) |
@@ -1643,7 +1640,7 @@ sequenceDiagram
 | **optimizePackageImports** | `next.config.js` | experimental.optimizePackageImports 추가 (lucide-react, recharts) |
 | **GET 인메모리 캐시** | `lib/api.js` | Map 기반 인메모리 캐시 (TTL 60초, shops/categories 정적 데이터) |
 | **Tailwind content 확장** | `tailwind.config.js` | content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
-| **PanelLoader 스켈레톤** | `pages/app.js` | 12개 dynamic import에 PanelLoader 스켈레톤 추가 |
+| **PanelLoader 스켈레톤** | `pages/app.js` | 11개 dynamic import에 PanelLoader 스켈레톤 추가 |
 
 ### v8.5.0 최적화 (2026-02-18)
 
@@ -1719,7 +1716,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 9.8.0 | 2026-03-16 | 셀러 컨설팅 패널 추가(12번째 패널): ConsultingPanel.js + useConsultingStream.js, 4단계 멀티스텝 워크플로우(진단→전략→계획→실행), Human-in-the-Loop(각 단계 사용자 확인), rollback 지원, Context Summary Layer, SSE 프록시(pages/api/agent/consulting/stream.js) |
+| 9.8.0 | 2026-03-16 | 셀러 컨설팅 AI 에이전트 탭 통합: 별도 패널 대신 MultiAgentPanel에 컨설팅 워크플로우 통합(자동 라우팅, 자유 대화 루프), 4단계 멀티스텝(진단→전략→계획→실행), Human-in-the-Loop, rollback 지원, Context Summary Layer, useConsultingStream.js, SSE 프록시(pages/api/agent/consulting/stream.js), 12탭→11탭 |
 | 9.7.0 | 2026-03-12 | 추천 질문 칩 6→8개 확장(performance_analyst, platform_searcher 워커 커버 추가), 에이전트 정보 "8종"→"7종" 워커 수정, 신규 추천 질문 2개 추가({shopId} 매출 성과 분석+코호트 리텐션, 카페24 정산 주기+수수료 정책) |
 | 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 멀티 워커 연계 질문 6개로 교체(모든 칩 2+ 워커 순차 호출) |
 | 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |

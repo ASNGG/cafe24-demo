@@ -24,7 +24,7 @@ from core.utils import safe_str
 from agent.intent import (
     ANALYSIS_KEYWORDS, PLATFORM_KEYWORDS, SHOP_KEYWORDS,
     SELLER_KEYWORDS, CS_KEYWORDS, DASHBOARD_KEYWORDS, GENERAL_KEYWORDS,
-    RETENTION_KEYWORDS,
+    RETENTION_KEYWORDS, CONSULTING_KEYWORDS,
 )
 import state as st
 
@@ -37,6 +37,7 @@ _SELLER_ID_RE = re.compile(r'SEL\d{1,6}', re.IGNORECASE)
 # ============================================================
 class IntentCategory(str, Enum):
     """질문 의도 카테고리"""
+    CONSULTING = "consulting"   # 셀러 컨설팅 (4단계 워크플로우)
     ANALYSIS = "analysis"       # 매출, GMV, 이탈, DAU, 코호트, 트렌드
     PLATFORM = "platform"       # 플랫폼 정책, 기능, 운영 가이드
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출
@@ -49,6 +50,14 @@ class IntentCategory(str, Enum):
 
 # 카테고리별 도구 매핑
 CATEGORY_TOOLS = {
+    IntentCategory.CONSULTING: [
+        "analyze_seller",
+        "predict_seller_churn",
+        "get_seller_segment",
+        "optimize_marketing",
+        "generate_retention_message",
+        "execute_retention_action",
+    ],
     IntentCategory.ANALYSIS: [
         "get_churn_prediction",
         "get_gmv_prediction",
@@ -127,9 +136,13 @@ def _keyword_classify(text: str) -> Optional[IntentCategory]:
     """
     t = text.lower()
 
-    # 우선순위: 셀러ID감지 > 리텐션 > 분석 > 셀러 > 쇼핑몰 > CS > 대시보드 > 플랫폼 > 일반
+    # 우선순위: 컨설팅 > 셀러ID감지 > 리텐션 > 분석 > 셀러 > 쇼핑몰 > CS > 대시보드 > 플랫폼 > 일반
 
-    # 0. 셀러 ID(SEL0001)가 포함되면 SELLER 우선 (분석보다 높은 우선순위)
+    # 0. 컨설팅 키워드 (최우선 — "SEL0001 컨설팅 해줘")
+    if any(kw in t for kw in CONSULTING_KEYWORDS):
+        return IntentCategory.CONSULTING
+
+    # 0.5. 셀러 ID(SEL0001)가 포함되면 SELLER 우선 (분석보다 높은 우선순위)
     if _SELLER_ID_RE.search(text):
         return IntentCategory.SELLER
 

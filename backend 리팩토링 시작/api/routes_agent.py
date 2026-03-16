@@ -15,6 +15,7 @@ from core.memory import clear_memory, append_memory
 from agent.llm import pick_api_key
 from agent.runner import run_agent
 from agent.multi_agent import run_multi_agent_stream
+from agent.consulting_agent import run_consulting_stream, _sessions as _consulting_sessions
 import state as st
 from api.common import verify_credentials, AgentRequest, sse_pack
 
@@ -86,7 +87,59 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                 yield sse_pack("done", {"ok": True, "final": full_response, "tool_calls": tool_calls_log})
                 return
 
-            # 모든 비단순 요청 → 멀티에이전트 Supervisor (8종 워커)
+            # ── 컨설팅 모드: CONSULTING 카테고리 또는 활성 컨설팅 세션 ──
+            import re
+            _has_consulting_session = (
+                username in _consulting_sessions
+                and _consulting_sessions[username]["state"]["current_step"] != "done"
+            )
+            is_consulting = category == IntentCategory.CONSULTING or _has_consulting_session
+
+            if is_consulting:
+                # 셀러 ID 추출
+                seller_match = re.search(r'SEL\d{1,6}', user_text, re.IGNORECASE)
+                seller_id = seller_match.group(0) if seller_match else ""
+                # 기존 세션에서 seller_id 복구
+                if not seller_id and _has_consulting_session:
+                    seller_id = _consulting_sessions[username]["state"].get("seller_id", "")
+                # 기존 세션 ID 복구
+                sess_id = _consulting_sessions[username]["session_id"] if _has_consulting_session else None
+
+                st.logger.info("STREAM_CONSULTING_MODE seller=%s session=%s user=%s", seller_id, sess_id, username)
+                queue = asyncio.Queue()
+
+                async def sse_callback(event_type: str, data: dict):
+                    await queue.put((event_type, data))
+
+                async def run_task():
+                    try:
+                        await run_consulting_stream(
+                            seller_id=seller_id,
+                            user_input=user_text,
+                            session_id=sess_id,
+                            action="message",
+                            strategy_choice=None,
+                            username=username,
+                            sse_callback=sse_callback,
+                            api_key=api_key,
+                            model=req.model or "gpt-4o-mini",
+                        )
+                    finally:
+                        await queue.put(None)
+
+                task = asyncio.create_task(run_task())
+
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        break
+                    event_type, data = item
+                    yield sse_pack(event_type, data)
+
+                await task
+                return
+
+            # ── 일반 멀티에이전트 Supervisor (8종 워커) ──
             st.logger.info("STREAM_MULTI_AGENT_MODE category=%s user=%s", category.value, username)
             queue = asyncio.Queue()
 

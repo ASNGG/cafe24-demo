@@ -85,6 +85,12 @@ RETENTION_KEYWORDS: frozenset = frozenset([
     "리텐션 실행", "전략 실행", "조치 실행", "이탈 방지 실행",
 ])
 
+CONSULTING_KEYWORDS: frozenset = frozenset([
+    "컨설팅", "컨설팅 해줘", "컨설팅 시작", "consulting",
+    "종합 컨설팅", "셀러 컨설팅", "맞춤 컨설팅",
+    "진단해줘", "종합 진단", "전략 수립",
+])
+
 GENERAL_KEYWORDS: frozenset = frozenset([
     "안녕", "하이", "헬로", "hi", "hello",
     "고마워", "감사", "thanks",

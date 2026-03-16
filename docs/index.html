@@ -1674,7 +1674,7 @@ flowchart TB
 </tbody>
 </table></div>
 <h3 id="셀러-컨설팅-에이전트">셀러 컨설팅 에이전트 (멀티스텝 워크플로우)</h3>
-<p>기존 Q&amp;A형 에이전트와 별도로, <strong>4단계 대화형 워크플로우</strong>로 셀러를 종합 컨설팅합니다. 각 단계에서 사용자 확인(Human-in-the-Loop)을 거치며, 언제든 이전 단계로 되돌아갈 수 있습니다.</p>
+<p>AI 에이전트 탭에서 자동 라우팅으로 진입하는 <strong>4단계 대화형 컨설팅 워크플로우</strong>입니다. '컨설팅 해줘', '종합 진단' 등의 키워드를 감지하면 자동으로 컨설팅 모드로 전환됩니다. 각 단계에서 자유롭게 질문·대화할 수 있으며, '다음'이라고 입력하면 다음 단계로 진행합니다. Human-in-the-Loop으로 사용자 확인을 거치며, 언제든 이전 단계로 되돌아갈 수 있습니다.</p>
 <div class="mermaid-container"><div class="mermaid">%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px', 'lineColor': '#94a3b8', 'primaryTextColor': '#1e293b'}}}%%
 flowchart TD
     Start(["셀러 ID 입력"]):::io --> D["① 진단<br/>analyze_seller + churn + segment"]:::step
@@ -1704,19 +1704,19 @@ flowchart TD
 <td><strong>① 진단</strong></td>
 <td>셀러 종합 분석</td>
 <td><code>analyze_seller</code>, <code>predict_seller_churn</code>, <code>get_seller_segment</code></td>
-<td>결과 확인 → 다음 단계</td>
+<td>자유 대화 → '다음' 입력</td>
 </tr>
 <tr>
 <td><strong>② 전략 수립</strong></td>
 <td>전략 방향 제시</td>
 <td>-</td>
-<td>마케팅/이탈방지/통합 선택</td>
+<td>방향 선택 또는 자유 대화 → '다음'</td>
 </tr>
 <tr>
 <td><strong>③ 실행 계획</strong></td>
 <td>구체적 계획 수립</td>
 <td><code>optimize_marketing</code>, <code>generate_retention_message</code></td>
-<td>계획 확인/수정</td>
+<td>자유 대화 → '다음' 입력</td>
 </tr>
 <tr>
 <td><strong>④ 실행</strong></td>

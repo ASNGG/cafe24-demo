@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import EmptyState from '@/components/EmptyState';
 import SectionHeader from '@/components/SectionHeader';
-import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, RotateCcw, CheckCircle2, XCircle, Bot } from 'lucide-react';
+import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, RotateCcw, CheckCircle2, XCircle, Bot, Search, Target, ClipboardList, Rocket } from 'lucide-react';
 import useMultiAgentStream from './hooks/useMultiAgentStream';
 import ToolExplorer from '@/components/common/ToolExplorer';
 import { cafe24Btn, cafe24BtnInline, cafe24BtnSecondaryInline, cafe24BtnSecondary } from '@/components/common/buttonStyles';
@@ -269,6 +269,11 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
     stepProgress,
     activeAgent,
     agentHistory,
+    consultingMode,
+    consultingStep,
+    consultingStepHistory,
+    consultingAwaitingInput,
+    consultingSessionId,
   } = useMultiAgentStream({ auth, selectedShop, settings });
 
   const canSend = useMemo(() => !!input?.trim() && !isLoading, [input, isLoading]);
@@ -548,6 +553,73 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
               {error}
+            </div>
+          )}
+
+          {/* 컨설팅 모드: 스텝 진행바 + 옵션 버튼 */}
+          {consultingMode && (
+            <div className="space-y-3">
+              {/* 스텝 진행바 */}
+              <div className="flex items-center gap-1 w-full overflow-x-auto pb-1">
+                {[
+                  { key: 'diagnosis', label: '진단', Icon: Search },
+                  { key: 'strategy', label: '전략 수립', Icon: Target },
+                  { key: 'plan', label: '실행 계획', Icon: ClipboardList },
+                  { key: 'execute', label: '실행', Icon: Rocket },
+                ].map((step, idx) => {
+                  const h = consultingStepHistory.find((s) => s.step === step.key);
+                  const isCompleted = h?.status === 'completed';
+                  const isActive = h?.status === 'active' || consultingStep === step.key;
+                  return (
+                    <React.Fragment key={step.key}>
+                      {idx > 0 && (
+                        <div className={`hidden sm:block h-0.5 flex-1 min-w-[16px] max-w-[40px] transition-colors ${
+                          isCompleted ? 'bg-emerald-400' : isActive ? 'bg-cafe24-orange/50' : 'bg-gray-200'
+                        }`} />
+                      )}
+                      <div className={`flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold shrink-0 ${
+                        isCompleted ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : isActive ? 'bg-cafe24-orange text-white shadow-md'
+                          : 'bg-gray-100 text-gray-400 border border-gray-200'
+                      }`}>
+                        {isCompleted ? <CheckCircle2 size={14} /> : <step.Icon size={14} />}
+                        <span className="hidden sm:inline">{idx + 1}. {step.label}</span>
+                        <span className="sm:hidden">{idx + 1}</span>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+                {consultingSessionId && (
+                  <span className="ml-auto text-[10px] text-gray-400 font-mono hidden sm:inline">
+                    #{consultingSessionId.slice(0, 8)}
+                  </span>
+                )}
+              </div>
+
+              {/* 옵션 버튼 */}
+              {consultingAwaitingInput && !isLoading && (
+                <div className="rounded-xl border border-cafe24-orange/20 bg-cafe24-yellow/5 p-3 space-y-2">
+                  {consultingAwaitingInput.prompt && (
+                    <p className="text-xs font-bold text-cafe24-brown">{consultingAwaitingInput.prompt}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {(consultingAwaitingInput.options || []).map((opt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSend(opt)}
+                        className={`rounded-lg px-3 py-2 text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                          opt.includes('다음 단계') || opt === '승인'
+                            ? 'bg-cafe24-orange hover:bg-cafe24-orange/90 text-white shadow-sm'
+                            : 'bg-white hover:bg-gray-50 text-cafe24-brown border border-cafe24-brown/20'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

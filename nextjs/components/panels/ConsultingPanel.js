@@ -289,18 +289,30 @@ export default function ConsultingPanel({ auth, addLog, settings, apiCall }) {
 
   // 옵션 선택
   const handleOptionSelect = useCallback((option) => {
-    // 전략 선택 여부 판별
-    const strategyKeywords = ['마케팅 최적화', '이탈 방지', '통합 전략'];
-    const isStrategyChoice = strategyKeywords.some((kw) => option.includes(kw));
+    // 전략 방향 선택
+    const strategyDirections = ['마케팅 강화', '리텐션(이탈방지)', '둘 다', '마케팅 최적화', '이탈 방지', '통합 전략'];
+    const isStrategyChoice = strategyDirections.some((kw) => option.includes(kw));
 
-    if (isStrategyChoice) {
+    // "다음 단계로" 계열
+    const isAdvance = option.includes('다음 단계') || option === '다음';
+
+    // "승인" 계열
+    const isConfirm = option === '승인' || option === '확인';
+
+    // "이전 단계" / 롤백
+    const isRollback = option.includes('이전 단계') || option.includes('다시') || option.includes('롤백');
+
+    if (isAdvance) {
+      sendMessage('다음', { sellerId, action: 'advance' });
+    } else if (isConfirm) {
+      sendMessage(option, { sellerId, action: 'message' });
+    } else if (isStrategyChoice) {
       sendMessage(option, {
         sellerId,
         action: 'strategy_choice',
         strategyChoice: option,
       });
-    } else if (option.includes('다시') || option.includes('롤백')) {
-      // 이전 단계로 롤백
+    } else if (isRollback) {
       const prevStep = stepHistory.length > 1
         ? stepHistory[stepHistory.length - 2]?.step
         : stepHistory[0]?.step;
@@ -308,6 +320,7 @@ export default function ConsultingPanel({ auth, addLog, settings, apiCall }) {
         rollbackTo(prevStep);
       }
     } else {
+      // 일반 옵션 (매출 분석 상세, 전략 수정 등) → 자유 대화로 전송
       sendMessage(option, { sellerId, action: 'message' });
     }
     addLog?.('컨설팅', `옵션 선택: ${option}`);

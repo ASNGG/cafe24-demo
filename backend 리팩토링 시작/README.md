@@ -281,7 +281,7 @@ v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
 카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **32개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **10개 도메인별 라우터(115개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 32개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 9개 IntentCategory로 32개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
 - **RAG 시스템 (7종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -429,7 +429,7 @@ backend 리팩토링 시작/
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
 │   ├── tools.py                     # 32개 도구 함수 구현체 (실제 비즈니스 로직, Retention 도구 3개 포함)
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
-│   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
+│   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 9개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
 │   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
 │   ├── multi_agent_prompts.yaml     # 멀티에이전트 프롬프트 (YAML — Supervisor 판단 규칙 + 7개 워커 역할별 지침 + 데이터 품질 해석 규칙)
@@ -789,12 +789,13 @@ flowchart TB
 - `agent/intent.py` - `detect_intent()` + `run_deterministic_tools()` (router.py와 키워드 분류 로직 통합)
 - `agent/runner.py` - `KEYWORD_TOOL_MAPPING` 강제 도구 실행 + `run_agent()`
 
-#### 6.4.1 IntentCategory (8개)
+#### 6.4.1 IntentCategory (9개)
 
 `agent/router.py`에서 정의하는 질문 의도 카테고리:
 
 ```python
 class IntentCategory(str, Enum):
+    CONSULTING = "consulting"   # 셀러 컨설팅 (4단계 워크플로우)
     ANALYSIS = "analysis"       # 매출, GMV, 이탈, DAU, 코호트, 트렌드
     PLATFORM = "platform"       # 플랫폼 정책, 기능, 운영 가이드
     SHOP = "shop"               # 쇼핑몰 정보, 서비스, 성과, 매출

@@ -377,10 +377,11 @@ export default function useConsultingStream({ auth, settings }) {
                 const idx = msgIndexRef.current;
                 if (idx < 0 || idx >= arr.length || arr[idx]?._id !== assistantId) return arr;
                 const m = arr[idx];
+                const streamed = String(m.content || '').trim();
                 const next = arr.slice();
                 next[idx] = {
                   ...m,
-                  content: finalText || String(m.content || ''),
+                  content: streamed || finalText || '',
                   _pending: false,
                 };
                 return next;

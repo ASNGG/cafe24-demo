@@ -22,6 +22,13 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
   const [activeAgent, setActiveAgent] = useState(null);
   const [agentHistory, setAgentHistory] = useState([]); // [{agent, status:'active'|'done', elapsed_ms?}]
 
+  // 컨설팅 모드 상태
+  const [consultingMode, setConsultingMode] = useState(false);
+  const [consultingStep, setConsultingStep] = useState(null);
+  const [consultingStepHistory, setConsultingStepHistory] = useState([]);
+  const [consultingAwaitingInput, setConsultingAwaitingInput] = useState(null);
+  const [consultingSessionId, setConsultingSessionId] = useState(null);
+
   const resetPipeline = useCallback(() => {
     setSteps([]);
     setCurrentStep(-1);
@@ -100,6 +107,40 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
       return true;
     }
 
+    // ── 컨설팅 모드 이벤트 ──
+    if (ev.event === 'step_change') {
+      setConsultingMode(true);
+      const { step, step_number, total, description } = data;
+      setConsultingStep(step);
+      setConsultingStepHistory((prev) => {
+        const updated = prev.map((s) =>
+          s.status === 'active' ? { ...s, status: 'completed' } : s
+        );
+        const exists = updated.find((s) => s.step === step);
+        if (exists) {
+          return updated.map((s) =>
+            s.step === step ? { ...s, status: 'active', description } : s
+          );
+        }
+        return [...updated, { step, step_number, total, description, status: 'active' }];
+      });
+      return true;
+    }
+
+    if (ev.event === 'awaiting_input') {
+      setConsultingAwaitingInput({
+        step: data.step,
+        prompt: data.prompt,
+        options: data.options || [],
+      });
+      return true;
+    }
+
+    if (ev.event === 'session_info') {
+      if (data.session_id) setConsultingSessionId(data.session_id);
+      return true;
+    }
+
     return false;
   }, []);
 
@@ -151,6 +192,7 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
     setActiveAgent(null);
     setAgentHistory([]);
     setPipelineStatus('running');
+    setConsultingAwaitingInput(null);
   }, []);
 
   const bodyExtra = useMemo(() => ({ multi_agent: true }), []);
@@ -189,5 +231,11 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
     stepProgress,
     activeAgent,
     agentHistory,
+    // 컨설팅 모드
+    consultingMode,
+    consultingStep,
+    consultingStepHistory,
+    consultingAwaitingInput,
+    consultingSessionId,
   };
 }

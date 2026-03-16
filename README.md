@@ -29,7 +29,7 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **Human-in-the-Loop** | 각 단계 사용자 확인 후 다음 단계 진행 |
 | **Context Summary Layer** | 단계별 요약을 다음 단계에 전달 |
 | **API 3개 추가** | `POST /api/consulting/stream`, `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
-| **프론트엔드 패널** | 셀러 컨설팅 패널 추가 (12번째 패널) |
+| **프론트엔드 패널** | 셀러 컨설팅 워크플로우를 AI 에이전트 탭에 통합 (자동 라우팅 + 자유 대화) |
 
 <details>
 <summary><b>v9.7.0</b> (2026-03-12) — 멀티에이전트 도구 데이터 품질 개선 + 전수 테스트 검증</summary>
@@ -106,100 +106,6 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 </details>
 
-<details>
-<summary><b>v9.3.1</b> (2026-03-07) — 멀티에이전트 리네이밍 + RAG 워커 추가 + UX 개선</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **멀티에이전트 리네이밍** | "서브에이전트" → "멀티에이전트" 전면 리네이밍 (프론트/백 파일명·변수명·API 파라미터·UI 텍스트) |
-| **platform_searcher 워커** | 8번째 워커 추가 — RAG 검색(FAISS+BM25) + LightRAG + 쇼핑몰/카테고리/용어 조회, FAQ 질문 시 RAG 도구 강제 호출 |
-| **도구 재시도 제한** | 에이전트 도구 호출 3회 실패 시 자동 중단 (무한 루프 방지) |
-| **응답 중복 제거** | 워커+Supervisor 이중 스트리밍 버그 수정 — Supervisor 최종 응답만 출력 |
-| **사이드바 독립 스크롤** | 질문 목록 펼침 시 사이드바 자체 스크롤 (메인 콘텐츠와 분리) |
-| **답변 내 에이전트 표시** | 워커 뱃지+도구 실행 정보를 채팅 상단이 아닌 AI 답변 말풍선 내부로 이동 |
-
-</details>
-
-<details>
-<summary><b>v9.3.0</b> (2026-03-07) — Supervisor 통합 + 인터랙티브 도구 탐색기 + 코드 대규모 정리</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **Supervisor 통합** | AI 에이전트 탭이 항상 Supervisor(7워커) 모드로 동작, 일반/Supervisor 모드 토글 제거 |
-| **인터랙티브 도구 탐색기** | 32개 AI 도구를 6개 카테고리로 분류한 아코디언 UI (toolRegistry.js + ToolExplorer.js) |
-| **위험 질문 제거** | "전체 셀러/전체 데이터" 대상 ML 분석 추천 질문 제거, 개별 엔티티 대상으로 교체 |
-| **AgentPanel 코드 정리** | AgentPanel 638줄 → 19줄 래퍼로 경량화, useAgentStream.js 삭제, app.js 불필요 state 제거 |
-
-</details>
-
-<details>
-<summary><b>v9.2.2</b> (2026-03-06) — FAQ 클러스터 선택 기능 + LLM 모드 최적화 + 크래시 버그 수정</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **FAQ 클러스터 선택 기능** | 분석 후 각 클러스터에 체크박스 표시, 원하는 클러스터만 선택하여 FAQ 생성 · 전체 선택/해제 토글 |
-| **FAQ 생성 개수 자동 계산** | 기존 고정 개수 → 선택된 클러스터 수 × 클러스터당(1~3) 자동 계산 |
-| **LLM 모드 카테고리 제한** | 전체 분석 시 건수 상위에서 랜덤 3개만 LLM 호출 (속도 최적화) |
-| **카테고리 변경 시 아코디언 자동 펼침** | 카테고리 변경 시 해당 클러스터 아코디언 자동 펼침 UX 개선 |
-| **FAQ 생성 크래시 버그 수정** | Pydantic 422 에러 + toast.error React 크래시 + Recharts Cell+shape 크래시 해결 |
-| **ChartErrorBoundary** | Recharts 차트 ErrorBoundary 도입으로 차트 렌더링 오류 격리 |
-
-</details>
-
-<details>
-<summary><b>v9.2.1</b> (2026-03-06) — CS FAQ 클러스터링 고도화 (TF-IDF + K-Means / LLM 듀얼 모드)</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **FAQ 클러스터링 듀얼 모드** | K-Means 모드: TF-IDF 임베딩 + 실루엣 계수 최적 K 자동 탐색 · LLM 모드: GPT-4o-mini 의미 기반 그룹핑 + 주제 라벨 |
-| **합성 CS 데이터** | cs_tickets.csv 503건 (9개 카테고리, 주제-변형 구조) — 클러스터링 품질 검증용 |
-| **FaqTab UI 개선** | K-Means/LLM 듀얼 모드 토글, 카테고리별 아코디언, Recharts 실루엣 바 차트 + PCA 2D 군집 산점도(중심점 다이아몬드), 클러스터당 FAQ 수(1~3) 선택 |
-
-</details>
-
-<details>
-<summary><b>v9.2.0</b> (2026-03-05) — Supervisor 멀티에이전트 패턴 + 하이브리드 라우팅</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **Supervisor 패턴 도입** | `langgraph-supervisor` 기반 Supervisor 멀티에이전트 — LLM Supervisor가 전문 워커 에이전트(search/analysis/cs)에 작업 위임 |
-| **전문 워커 에이전트** | search_agent (쇼핑몰/카테고리/RAG), analysis_agent (셀러 분석/ML 예측/KPI), cs_agent (CS 자동응답/품질 평가) |
-| **하이브리드 라우팅** | 명확한 질문(SHOP/SELLER/CS): 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문(PLATFORM/GENERAL): Supervisor LLM이 판단하여 워커 위임 |
-| **워커 직접 스트리밍** | 워커 에이전트 응답을 직접 SSE 스트리밍 (supervisor 재요약 제거) — `langgraph_checkpoint_ns` 기반 외부 노드 식별 |
-| **응답 속도 개선** | 평균 첫 delta 3.9초, 평균 총시간 7.6초 |
-
-</details>
-
-<details>
-<summary><b>v9.1.0</b> (2026-03-04) — RAG 검색 품질 근본 개선 (6가설 검증 기반, 정답 문서 1위 달성)</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **Garbage filter 보정** | 한국어 대형 문서 보호 — unique 문자 100개 이상이면 정상 판정 (기존 39개 문서 누락 해결) |
-| **섹션 분할 강화** | `_split_by_sections`에 `##/###/####` 마크다운 헤더 인식 추가 (기존: 번호 패턴만) |
-| **Bullet 청크 개선** | parent를 원본 섹션 텍스트로 설정 + `[문서:]`, `[섹션:]` 태그 자동 부여 |
-| **쿼리 확장 정제** | PG사명(이니시스/토스페이먼츠 등) 제거 → 일반 동의어(결제수단/결제방법)로 교체 |
-| **BM25 Hybrid 활성화** | BM25/KG 캐시 디스크 저장 + 로드 시 자동 복원, 진단 로그 추가 |
-| **소스 매칭 보너스** | 파일명 키워드 매칭 + 복합어 분해(결제수단→결제+수단) + 가이드 문서 가산점 |
-| **검색 후보 확대** | retrieval_k를 top_k의 3배로 확대 → 보너스 재정렬로 정답 문서 상위 노출 |
-
-</details>
-
-<details>
-<summary><b>v9.0.0</b> (2026-03-04) — 전체 코드 속도 최적화 (백엔드 API 10-100x, 프론트엔드 번들/렌더링 개선)</summary>
-
-| 영역 | 주요 변경 |
-|------|-----------|
-| **iterrows() 전면 제거** | tools.py 11곳 + routes_shop/seller.py 12곳 + retention_engine.py 3곳 → `to_dict('records')` / `itertuples()` / 벡터화 연산으로 교체 (API 응답 10-100x 향상) |
-| **SHOP_PERF_MAP 캐시** | state.py에 전역 캐시 추가, startup 시 사전 빌드 → tools.py/routes에서 매 호출 재빌드 제거 (O(n) → O(1) 딕셔너리 조회) |
-| **ML 모델 로딩** | max_workers 하드코딩(6) → `cpu_count()` 기반 동적 설정, SHAP 배치 계산 전환 |
-| **LightRAG 이벤트 루프** | `time.sleep` polling → `threading.Event` 기반 대기로 교체 (최대 5초 → 즉시) |
-| **RAG 캐시 모니터링** | 히트율 카운터 + 자동 로깅, LLM 캐시 키 SHA-256 해시로 충돌 방지 |
-| **SSE 스트리밍 O(1)** | useBaseStream.js 메시지 인덱스 캐싱 — `.map()` / `.findIndex()` O(n) → 인덱스 직접 교체 O(1) |
-| **렌더링 최적화** | AgentPanel/SubAgentPanel `prevLengthRef` 교체 (메모리 누적 방지), remarkPlugins 외부 상수화 |
-| **빌드 최적화** | next.config.js `optimizePackageImports` (lucide-react, recharts), GET API 인메모리 캐시 (TTL 60s), 패널 로딩 스켈레톤 |
-
-</details>
 
 ---
 
@@ -211,7 +117,7 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **ML 모델** | 12개 (RandomForest, LightGBM, XGBoost, IsolationForest, K-Means, DBSCAN 등) |
 | **RAG 엔진** | 7종 기법 (Hybrid · RAG-Fusion · Parent-Child · Contextual · LightRAG · K2RAG · Cross-Encoder) |
 | **API 엔드포인트** | 110개 REST API |
-| **프론트엔드 패널** | 12개 (Agent, Dashboard, Analysis, Models, RAG, Lab, Guardian, Automation, Consulting, Settings, Users, Logs) |
+| **프론트엔드 패널** | 11개 (Agent, Dashboard, Analysis, Models, RAG, Lab, Guardian, Automation, Settings, Users, Logs) |
 | **배포** | Vercel (프론트엔드) + Railway (백엔드) |
 
 > **상세 문서**: [백엔드 README](backend%20리팩토링%20시작/README.md) | [프론트엔드 README](nextjs/README.md)
@@ -282,7 +188,7 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 flowchart TB
     subgraph Frontend["Frontend (Next.js 14 + Tailwind CSS)"]
         Login[로그인]
-        Panels["12개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab(멀티에이전트) · Process Miner<br/>DB 보안 감시 · 자동화 엔진 · 셀러 컨설팅<br/>Settings · Users · Logs"]
+        Panels["11개 패널<br/>Dashboard · Agent · Analysis<br/>Models · RAG · Lab(멀티에이전트) · Process Miner<br/>DB 보안 감시 · 자동화 엔진<br/>Settings · Users · Logs"]
     end
 
     subgraph Backend["Backend (FastAPI + Python 3.10+)"]
@@ -431,7 +337,7 @@ flowchart LR
 | **DB 보안 감시** | DB 대량 변경 실시간 차단 + SHAP 위험 분석 + 복구 SQL 생성 | 룰엔진 + Isolation Forest + SHAP + LangChain Agent |
 | **AI 인사이트** | 대시보드 데이터 기반 동적 인사이트 자동 생성 | 실시간 데이터 분석 |
 | **셀러 종합 프로필** | 레이더 차트 + 5개 ML 모델 예측 결과 통합 | Percentile 기반 스코어링 |
-| **셀러 컨설팅** | 4단계 멀티스텝 워크플로우 (진단→전략→계획→실행), Human-in-the-Loop, rollback 지원 | LangGraph StateGraph + Context Summary Layer |
+| **셀러 컨설팅** | AI 에이전트 탭 통합, 자동 라우팅(IntentCategory.CONSULTING), 4단계 멀티스텝 워크플로우 (진단→전략→계획→실행), Human-in-the-Loop, rollback 지원 | LangGraph StateGraph + Context Summary Layer |
 | **OCR** | 이미지에서 텍스트 추출 + RAG 문서 등록 | EasyOCR |
 | **RBAC** | 역할 기반 접근 제어 (관리자/분석가/사용자/운영자) | Basic Auth + 역할별 패널 제한 |
 
@@ -763,7 +669,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
-| 9.8.0 | 2026-03-16 | 셀러 컨설팅 에이전트 추가: 4단계 멀티스텝 워크플로우(진단→전략 수립→실행 계획→실행), rollback 지원, Human-in-the-Loop 각 단계 사용자 확인, Context Summary Layer 단계별 요약 전달. API 3개 추가(POST /consulting/stream, GET /sessions, DELETE /sessions/{id}). 프론트엔드 셀러 컨설팅 패널 추가(12번째 패널) |
+| 9.8.0 | 2026-03-16 | 셀러 컨설팅 에이전트 추가: 4단계 멀티스텝 워크플로우(진단→전략 수립→실행 계획→실행), rollback 지원, Human-in-the-Loop 각 단계 사용자 확인, Context Summary Layer 단계별 요약 전달. API 3개 추가(POST /consulting/stream, GET /sessions, DELETE /sessions/{id}). 프론트엔드 AI 에이전트 탭에 컨설팅 워크플로우 통합 (자동 라우팅, 자유 대화 루프) |
 | 9.7.0 | 2026-03-12 | 멀티에이전트 도구 데이터 품질 개선: `get_shop_performance` 컬럼 매핑 수정(monthly_revenue/monthly_orders/return_rate), `get_cs_statistics` 가중평균 전환, `get_seller_activity_report` total_events 계산 수정. LLM 범위 혼동 방지: `get_cs_statistics`·`get_cohort_analysis`에 `_llm_instruction` 추가. `get_shop_performance` data_warnings 자동 감지(주문수 0인데 전환율 >0). 워커 도구 배정 최적화(retention_strategist 중복 제거, seller_analyst에 CS 통계 추가). Supervisor 프롬프트 워커 분기 판단 규칙 3개 추가. 프론트 추천 질문 6→8개 확장(7종 워커 전체 커버). 8개 질문 전수 테스트 스크립트 및 자동 검증 시스템 구축 |
 | 9.6.0 | 2026-03-12 | GPT-5-mini 전환: Supervisor·7종 워커·Intent 라우터·프론트 기본값 전체 gpt-5-mini 통일(sessionStorage 자동 마이그레이션). 도구 데이터 품질 개선: analyze_seller avg_order_value fallback·data_warnings·플랫폼 비교 데이터, predict_seller_churn 확률 floor 0.5%·importance_note. 프롬프트 YAML 전환: multi_agent_prompts.json→.yaml, 데이터 품질 해석 규칙 추가. Railway 메모리 최적화: ML lazy loading·torch/easyocr 비활성화(~500MB 절감)·캐시 축소. 프론트: Agent/Lab 대화 보존·서버 운영 시간 표시·해석 톤 규칙 |
 | 9.5.0 | 2026-03-10 | 멀티에이전트 워커 최적화: fraud_investigator를 seller_analyst에 흡수(8→7워커), 도구 완전 부분집합이므로 Supervisor 라우팅 단순화. LLM 응답 정확도 개선: 4개 도구에 `_markdown` 필드 추가(라벨 패러프레이징 방지), common_rules에 라벨/수치 변형 금지 규칙+few-shot 예시, performance_analyst vs report_writer 라우팅 경계 명확화, cs_quality_analyst에서 불필요한 get_ecommerce_glossary 제거 |

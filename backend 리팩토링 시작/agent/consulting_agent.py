@@ -4,8 +4,12 @@ agent/consulting_agent.py - 셀러 컨설팅 에이전트
 StateGraph 기반 4단계 인터랙티브 컨설팅 워크플로우
   diagnosis → strategy → plan → execute
 
+각 단계 내에서 자유 대화 루프 지원:
+  - 초기 진입: 도구 호출 + LLM 분석
+  - 대화 모드: 사용자 질문/수정 요청에 응답
+  - "다음" 키워드로만 단계 전환
+
 롤백/리셋 지원, SSE 스트리밍, 세션 관리 포함.
-기존 멀티에이전트 시스템과 완전히 분리된 독립 모듈.
 """
 
 import asyncio
@@ -16,7 +20,7 @@ import pathlib
 from typing import TypedDict, Any, Dict, Optional
 
 import yaml
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from core.utils import safe_str, safe_int, safe_float, json_sanitize, format_openai_error
 from agent.llm import get_llm, pick_api_key
@@ -36,7 +40,6 @@ import state as st
 _PROMPTS_PATH = pathlib.Path(__file__).parent / "consulting_prompts.yaml"
 
 def _load_prompts() -> dict:
-    """YAML 프롬프트 파일 로드"""
     try:
         with open(_PROMPTS_PATH, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
@@ -47,7 +50,6 @@ def _load_prompts() -> dict:
 _PROMPTS: dict = {}
 
 def _get_prompts() -> dict:
-    """프롬프트 싱글톤 (최초 호출 시 로드)"""
     global _PROMPTS
     if not _PROMPTS:
         _PROMPTS = _load_prompts()
@@ -78,8 +80,14 @@ class ConsultingState(TypedDict):
     strategy_direction: str     # marketing / retention / both
     plan_confirmed: bool
 
+    # 단계 초기화 여부 (도구 호출 + 첫 분석 완료 여부)
+    step_initialized: dict      # {"diagnosis": True, ...}
+
+    # 대화 이력 (단계별 필터)
+    chat_history: list          # [{"step": str, "role": str, "content": str}, ...]
+
     # SSE 스트리밍
-    sse_callback: Any           # async callback
+    sse_callback: Any
     api_key: str
     model: str
 
@@ -87,13 +95,12 @@ class ConsultingState(TypedDict):
 # ============================================================
 # 세션 관리
 # ============================================================
-_sessions: Dict[str, Dict[str, Any]] = {}   # username -> {session_id, state, last_access}
-_SESSION_TTL_SEC = 30 * 60                  # 30분 TTL
-_MAX_SESSIONS = 100                         # 최대 동시 세션 수
+_sessions: Dict[str, Dict[str, Any]] = {}
+_SESSION_TTL_SEC = 30 * 60
+_MAX_SESSIONS = 100
 
 
 def _cleanup_expired_sessions():
-    """만료 세션 정리"""
     now = time.time()
     expired = [
         uname for uname, s in _sessions.items()
@@ -104,21 +111,17 @@ def _cleanup_expired_sessions():
 
 
 def _get_session(username: str, session_id: str | None) -> tuple[str, ConsultingState]:
-    """세션 조회 또는 생성"""
     _cleanup_expired_sessions()
 
-    # 기존 세션 조회
     if username in _sessions:
         sess = _sessions[username]
         if session_id and sess["session_id"] == session_id:
             sess["last_access"] = time.time()
             return sess["session_id"], sess["state"]
 
-    # 새 세션 생성
     if len(_sessions) >= _MAX_SESSIONS:
         _cleanup_expired_sessions()
         if len(_sessions) >= _MAX_SESSIONS:
-            # 가장 오래된 세션 제거
             oldest = min(_sessions, key=lambda u: _sessions[u]["last_access"])
             del _sessions[oldest]
 
@@ -137,6 +140,8 @@ def _get_session(username: str, session_id: str | None) -> tuple[str, Consulting
         "plan_summary": "",
         "strategy_direction": "",
         "plan_confirmed": False,
+        "step_initialized": {},
+        "chat_history": [],
         "sse_callback": None,
         "api_key": "",
         "model": "gpt-4o-mini",
@@ -150,14 +155,12 @@ def _get_session(username: str, session_id: str | None) -> tuple[str, Consulting
 
 
 def _save_session(username: str, state: ConsultingState):
-    """세션 상태 저장"""
     if username in _sessions:
         _sessions[username]["state"] = state
         _sessions[username]["last_access"] = time.time()
 
 
 def get_user_sessions(username: str) -> list[dict]:
-    """사용자의 활성 세션 목록 반환"""
     _cleanup_expired_sessions()
     if username not in _sessions:
         return []
@@ -171,7 +174,6 @@ def get_user_sessions(username: str) -> list[dict]:
 
 
 def delete_session(username: str, session_id: str) -> bool:
-    """세션 삭제"""
     if username in _sessions and _sessions[username]["session_id"] == session_id:
         del _sessions[username]
         return True
@@ -190,24 +192,75 @@ STEP_LABELS = {
     "done": "✅ 완료",
 }
 
+# 단계 전환 키워드
+ADVANCE_KEYWORDS = ["다음", "다음 단계", "넘어가", "진행해", "넘어가자", "다음으로", "next"]
+# 리셋 키워드
+RESET_KEYWORDS = ["처음부터", "리셋", "reset", "다시 시작"]
+# 롤백 키워드
+ROLLBACK_KEYWORDS = ["돌아가", "이전", "rollback", "back", "이전 단계"]
+# 실행 승인 키워드
+CONFIRM_KEYWORDS = ["확인", "좋아", "네", "오케이", "ok", "승인", "실행해", "confirm", "ㅇㅋ", "고"]
+# 전략 방향 키워드
+DIRECTION_KEYWORDS = {
+    "marketing": ["마케팅", "광고", "홍보", "marketing"],
+    "retention": ["리텐션", "이탈", "유지", "retention", "이탈방지"],
+    "both": ["둘 다", "모두", "양쪽", "both", "전체", "둘다"],
+}
+
+MAX_HISTORY_PER_STEP = 10  # 단계당 최대 대화 이력 수
+
 
 def _next_step(current: str) -> str:
-    """다음 단계 반환"""
     idx = STEP_ORDER.index(current) if current in STEP_ORDER else 0
     return STEP_ORDER[min(idx + 1, len(STEP_ORDER) - 1)]
 
 
 def _prev_step(current: str) -> str:
-    """이전 단계 반환"""
     idx = STEP_ORDER.index(current) if current in STEP_ORDER else 0
     return STEP_ORDER[max(idx - 1, 0)]
 
 
+def _detect_intent(text: str) -> dict:
+    """사용자 입력에서 의도 파싱"""
+    t = text.strip().lower()
+    result = {"advance": False, "reset": False, "rollback": False,
+              "rollback_target": None, "confirm": False, "direction": None}
+
+    if any(kw in t for kw in RESET_KEYWORDS):
+        result["reset"] = True
+        return result
+
+    if any(kw in t for kw in ROLLBACK_KEYWORDS):
+        result["rollback"] = True
+        if "진단" in t or "diagnosis" in t:
+            result["rollback_target"] = "diagnosis"
+        elif "전략" in t or "strategy" in t:
+            result["rollback_target"] = "strategy"
+        elif "계획" in t or "plan" in t:
+            result["rollback_target"] = "plan"
+        return result
+
+    if any(kw in t for kw in ADVANCE_KEYWORDS):
+        result["advance"] = True
+
+    if any(kw in t for kw in CONFIRM_KEYWORDS):
+        result["confirm"] = True
+
+    # 전략 방향
+    for direction, keywords in DIRECTION_KEYWORDS.items():
+        if any(kw in t for kw in keywords):
+            result["direction"] = direction
+    # "둘 다" 우선
+    if any(kw in t for kw in DIRECTION_KEYWORDS["both"]):
+        result["direction"] = "both"
+
+    return result
+
+
 # ============================================================
-# 롤백/리셋 처리
+# 롤백/리셋
 # ============================================================
 def _clear_downstream(state: ConsultingState, from_step: str):
-    """특정 단계 이후의 모든 데이터 초기화"""
     idx = STEP_ORDER.index(from_step) if from_step in STEP_ORDER else 0
     step_fields = {
         "diagnosis": ("diagnosis_result", "diagnosis_summary"),
@@ -215,7 +268,7 @@ def _clear_downstream(state: ConsultingState, from_step: str):
         "plan": ("plan_result", "plan_summary", "plan_confirmed"),
         "execute": ("execute_result",),
     }
-    for i in range(idx, len(STEP_ORDER) - 1):  # done 제외
+    for i in range(idx, len(STEP_ORDER) - 1):
         step = STEP_ORDER[i]
         if step in step_fields:
             for field in step_fields[step]:
@@ -225,57 +278,33 @@ def _clear_downstream(state: ConsultingState, from_step: str):
                     state[field] = {}
                 else:
                     state[field] = ""
-
-
-def _parse_user_action(user_input: str, current_step: str) -> dict:
-    """사용자 입력에서 액션, 롤백 대상, 전략 선택 파싱"""
-    text = user_input.strip().lower()
-    result = {"action": "forward", "rollback_target": None, "strategy_choice": None}
-
-    # 리셋 감지
-    reset_kw = ["처음부터", "리셋", "reset", "다시 시작"]
-    if any(kw in text for kw in reset_kw):
-        result["action"] = "reset"
-        return result
-
-    # 롤백 감지
-    rollback_kw = ["돌아가", "이전", "rollback", "back", "이전 단계"]
-    if any(kw in text for kw in rollback_kw):
-        result["action"] = "rollback"
-        # 특정 단계 롤백 대상 파싱
-        if "진단" in text or "diagnosis" in text:
-            result["rollback_target"] = "diagnosis"
-        elif "전략" in text or "strategy" in text:
-            result["rollback_target"] = "strategy"
-        elif "계획" in text or "plan" in text:
-            result["rollback_target"] = "plan"
-        return result
-
-    # 확인/승인 감지
-    confirm_kw = ["확인", "진행", "좋아", "네", "오케이", "ok", "승인", "실행해", "confirm", "ㅇㅋ"]
-    if any(kw in text for kw in confirm_kw):
-        result["action"] = "confirm"
-
-    # 전략 방향 감지
-    if "마케팅" in text or "광고" in text or "홍보" in text or "marketing" in text:
-        result["strategy_choice"] = "marketing"
-    if "리텐션" in text or "이탈" in text or "유지" in text or "retention" in text:
-        if result["strategy_choice"] == "marketing":
-            result["strategy_choice"] = "both"
-        else:
-            result["strategy_choice"] = "retention"
-    if "둘 다" in text or "모두" in text or "both" in text or "전체" in text:
-        result["strategy_choice"] = "both"
-
-    return result
+        # 초기화 상태 리셋
+        state["step_initialized"][step] = False
+    # 해당 단계 이후 대화 이력 제거
+    state["chat_history"] = [
+        m for m in state["chat_history"]
+        if STEP_ORDER.index(m.get("step", "diagnosis")) < idx
+    ]
 
 
 # ============================================================
-# 도구 호출 헬퍼 (SSE 이벤트 발행 포함)
+# 대화 이력 헬퍼
+# ============================================================
+def _get_step_history(state: ConsultingState, step: str) -> list[dict]:
+    """특정 단계의 대화 이력 반환 (최근 MAX_HISTORY_PER_STEP개)"""
+    history = [m for m in state["chat_history"] if m.get("step") == step]
+    return history[-MAX_HISTORY_PER_STEP:]
+
+
+def _add_to_history(state: ConsultingState, step: str, role: str, content: str):
+    """대화 이력 추가"""
+    state["chat_history"].append({"step": step, "role": role, "content": content})
+
+
+# ============================================================
+# 도구 호출 헬퍼
 # ============================================================
 async def _call_tool(sse_callback, tool_name: str, tool_fn, *args, **kwargs) -> dict:
-    """도구 호출 + SSE tool_start/tool_end 이벤트 발행"""
-    # 핵심 파라미터 추출 (표시용)
     display_args = {}
     for k in ("seller_id", "threshold", "goal", "total_budget", "action_type"):
         if k in kwargs:
@@ -313,7 +342,7 @@ async def _call_tool(sse_callback, tool_name: str, tool_fn, *args, **kwargs) -> 
 
 
 # ============================================================
-# LLM 응답 스트리밍 헬퍼
+# LLM 응답 스트리밍 (대화 이력 포함)
 # ============================================================
 async def _stream_llm_response(
     sse_callback,
@@ -321,8 +350,9 @@ async def _stream_llm_response(
     system_prompt: str,
     user_content: str,
     tool_results: dict | None = None,
+    chat_history: list | None = None,
 ) -> str:
-    """LLM 응답을 SSE delta로 스트리밍하고 전체 텍스트 반환"""
+    """LLM 응답을 SSE delta로 스트리밍 (대화 이력 포함)"""
     prompts = _get_prompts()
     common_rules = prompts.get("common_rules", "")
     full_system = f"{system_prompt}\n\n{common_rules}"
@@ -333,10 +363,17 @@ async def _stream_llm_response(
         tool_json = json.dumps(safe_data, ensure_ascii=False, indent=2)
         user_text += f"\n\n[도구 분석 결과]\n{tool_json}"
 
-    messages = [
-        SystemMessage(content=full_system),
-        HumanMessage(content=user_text),
-    ]
+    messages = [SystemMessage(content=full_system)]
+
+    # 대화 이력 추가
+    if chat_history:
+        for m in chat_history:
+            if m["role"] == "user":
+                messages.append(HumanMessage(content=m["content"]))
+            elif m["role"] == "assistant":
+                messages.append(AIMessage(content=m["content"]))
+
+    messages.append(HumanMessage(content=user_text))
 
     buf = []
     async for chunk in llm.astream(messages):
@@ -349,28 +386,20 @@ async def _stream_llm_response(
 
 
 # ============================================================
-# 단계별 노드 함수
+# 단계별 초기 실행 (도구 호출 + 첫 분석)
 # ============================================================
-async def _run_diagnosis(state: ConsultingState) -> ConsultingState:
-    """1단계: 셀러 진단"""
+async def _init_diagnosis(state: ConsultingState) -> str:
+    """진단 단계 초기화: 도구 호출 + LLM 분석"""
     cb = state["sse_callback"]
     seller_id = state["seller_id"]
     api_key = state["api_key"]
 
-    await cb("step_change", {
-        "step": "diagnosis",
-        "label": STEP_LABELS["diagnosis"],
-        "step_index": 0,
-        "total_steps": 4,
-    })
     await cb("agent_start", {"agent": "consulting_diagnosis", "description": "셀러 종합 진단 분석"})
 
-    # 도구 호출: 셀러 분석, 이탈 예측, 세그먼트
     analysis = await _call_tool(cb, "analyze_seller", tool_analyze_seller, seller_id)
     churn = await _call_tool(cb, "predict_seller_churn", tool_predict_seller_churn, seller_id)
     segment = await _call_tool(cb, "get_seller_segment", tool_get_seller_segment, seller_id)
 
-    # 결과 통합
     tool_results = {
         "seller_analysis": analysis,
         "churn_prediction": churn,
@@ -378,7 +407,6 @@ async def _run_diagnosis(state: ConsultingState) -> ConsultingState:
     }
     state["diagnosis_result"] = tool_results
 
-    # LLM 응답 생성
     prompts = _get_prompts()
     system_prompt = prompts.get("steps", {}).get("diagnosis", {}).get("system", "셀러 진단을 수행하세요.")
 
@@ -389,7 +417,7 @@ async def _run_diagnosis(state: ConsultingState) -> ConsultingState:
         tool_results,
     )
 
-    # 요약 생성 (다음 단계 컨텍스트용)
+    # 요약 생성
     perf = analysis.get("performance", {}) if isinstance(analysis, dict) else {}
     churn_pct = churn.get("churn_probability_pct", "N/A") if isinstance(churn, dict) else "N/A"
     churn_risk = churn.get("risk_level", "N/A") if isinstance(churn, dict) else "N/A"
@@ -407,37 +435,23 @@ async def _run_diagnosis(state: ConsultingState) -> ConsultingState:
         f"- 등급: {analysis.get('plan_tier', 'N/A') if isinstance(analysis, dict) else 'N/A'}\n"
     )
 
-    state["current_step"] = "strategy"
+    state["step_initialized"]["diagnosis"] = True
+    await cb("agent_end", {"agent": "consulting_diagnosis", "elapsed_ms": 0, "description": "셀러 종합 진단 완료"})
 
-    elapsed_ms = 0  # 단순화
-    await cb("agent_end", {"agent": "consulting_diagnosis", "elapsed_ms": elapsed_ms, "description": "셀러 종합 진단 완료"})
-    await cb("awaiting_input", {
-        "step": "strategy",
-        "prompt": "전략 방향을 선택해주세요: 마케팅 강화, 리텐션(이탈방지), 또는 둘 다",
-        "options": ["마케팅 강화", "리텐션(이탈방지)", "둘 다"],
-    })
-
-    return state
+    return response
 
 
-async def _run_strategy(state: ConsultingState) -> ConsultingState:
-    """2단계: 전략 수립"""
+async def _init_strategy(state: ConsultingState) -> str:
+    """전략 수립 초기화: 도구 호출 + LLM 전략 분석"""
     cb = state["sse_callback"]
     seller_id = state["seller_id"]
     api_key = state["api_key"]
     direction = state["strategy_direction"] or "both"
 
-    await cb("step_change", {
-        "step": "strategy",
-        "label": STEP_LABELS["strategy"],
-        "step_index": 1,
-        "total_steps": 4,
-    })
     await cb("agent_start", {"agent": "consulting_strategy", "description": f"전략 수립 ({direction})"})
 
     tool_results = {"diagnosis": state["diagnosis_result"]}
 
-    # 마케팅 전략: 마케팅 최적화 도구 호출
     if direction in ("marketing", "both"):
         marketing = await _call_tool(
             cb, "optimize_marketing", tool_optimize_marketing,
@@ -445,7 +459,6 @@ async def _run_strategy(state: ConsultingState) -> ConsultingState:
         )
         tool_results["marketing_optimization"] = marketing
 
-    # 리텐션 전략: 리텐션 메시지 생성 도구 호출
     if direction in ("retention", "both"):
         retention = await _call_tool(
             cb, "generate_retention_message", tool_generate_retention_message,
@@ -455,7 +468,6 @@ async def _run_strategy(state: ConsultingState) -> ConsultingState:
 
     state["strategy_result"] = tool_results
 
-    # LLM 응답 생성
     prompts = _get_prompts()
     system_template = prompts.get("steps", {}).get("strategy", {}).get("system", "전략을 수립하세요.")
     system_prompt = system_template.replace("{diagnosis_summary}", state["diagnosis_summary"])
@@ -468,7 +480,6 @@ async def _run_strategy(state: ConsultingState) -> ConsultingState:
         tool_results,
     )
 
-    # 요약 생성
     state["strategy_summary"] = (
         f"전략 방향: {direction}\n"
         f"셀러: {seller_id}\n"
@@ -476,30 +487,18 @@ async def _run_strategy(state: ConsultingState) -> ConsultingState:
         f"LLM 전략 응답 요약: {response[:300]}..."
     )
 
-    state["current_step"] = "plan"
-
+    state["step_initialized"]["strategy"] = True
     await cb("agent_end", {"agent": "consulting_strategy", "elapsed_ms": 0, "description": "전략 수립 완료"})
-    await cb("awaiting_input", {
-        "step": "plan",
-        "prompt": "이 전략으로 실행 계획을 수립할까요? 확인 또는 수정 사항을 말씀해주세요.",
-        "options": ["확인", "수정 요청"],
-    })
 
-    return state
+    return response
 
 
-async def _run_plan(state: ConsultingState) -> ConsultingState:
-    """3단계: 실행 계획 수립"""
+async def _init_plan(state: ConsultingState) -> str:
+    """실행 계획 초기화"""
     cb = state["sse_callback"]
     seller_id = state["seller_id"]
     api_key = state["api_key"]
 
-    await cb("step_change", {
-        "step": "plan",
-        "label": STEP_LABELS["plan"],
-        "step_index": 2,
-        "total_steps": 4,
-    })
     await cb("agent_start", {"agent": "consulting_plan", "description": "실행 계획 수립"})
 
     tool_results = {
@@ -507,7 +506,6 @@ async def _run_plan(state: ConsultingState) -> ConsultingState:
         "strategy": state["strategy_result"],
     }
 
-    # LLM 응답 생성
     prompts = _get_prompts()
     system_template = prompts.get("steps", {}).get("plan", {}).get("system", "실행 계획을 수립하세요.")
     system_prompt = system_template.replace("{diagnosis_summary}", state["diagnosis_summary"])
@@ -516,7 +514,7 @@ async def _run_plan(state: ConsultingState) -> ConsultingState:
     llm = get_llm(state["model"], api_key, max_tokens=4000, streaming=True, temperature=0.3)
     response = await _stream_llm_response(
         cb, llm, system_prompt,
-        f"셀러 '{seller_id}'에 대한 실행 계획을 수립해주세요.\n\n사용자 추가 요청: {state['user_input']}",
+        f"셀러 '{seller_id}'에 대한 실행 계획을 수립해주세요.",
         tool_results,
     )
 
@@ -527,39 +525,25 @@ async def _run_plan(state: ConsultingState) -> ConsultingState:
         f"계획 요약: {response[:300]}..."
     )
 
-    state["current_step"] = "execute"
-
+    state["step_initialized"]["plan"] = True
     await cb("agent_end", {"agent": "consulting_plan", "elapsed_ms": 0, "description": "실행 계획 수립 완료"})
-    await cb("awaiting_input", {
-        "step": "execute",
-        "prompt": "실행 계획을 승인하시겠습니까? 승인 시 자동 조치를 시작합니다.",
-        "options": ["승인", "수정 요청"],
-    })
 
-    return state
+    return response
 
 
-async def _run_execute(state: ConsultingState) -> ConsultingState:
-    """4단계: 실행"""
+async def _init_execute(state: ConsultingState) -> str:
+    """실행 단계 초기화"""
     cb = state["sse_callback"]
     seller_id = state["seller_id"]
     api_key = state["api_key"]
     direction = state["strategy_direction"] or "both"
 
-    await cb("step_change", {
-        "step": "execute",
-        "label": STEP_LABELS["execute"],
-        "step_index": 3,
-        "total_steps": 4,
-    })
     await cb("agent_start", {"agent": "consulting_execute", "description": "자동 조치 실행"})
 
     tool_results = {}
     executed_actions = []
 
-    # 리텐션 조치 실행 (리텐션 또는 both)
     if direction in ("retention", "both"):
-        # 쿠폰 발행
         coupon_result = await _call_tool(
             cb, "execute_retention_action", tool_execute_retention_action,
             seller_id=seller_id, action_type="coupon", api_key=api_key,
@@ -567,7 +551,6 @@ async def _run_execute(state: ConsultingState) -> ConsultingState:
         tool_results["coupon_action"] = coupon_result
         executed_actions.append("쿠폰 발행")
 
-        # 매니저 배정
         manager_result = await _call_tool(
             cb, "execute_retention_action", tool_execute_retention_action,
             seller_id=seller_id, action_type="manager_assign", api_key=api_key,
@@ -575,7 +558,6 @@ async def _run_execute(state: ConsultingState) -> ConsultingState:
         tool_results["manager_action"] = manager_result
         executed_actions.append("전담 매니저 배정")
 
-    # 마케팅 최적화 결과 재확인
     if direction in ("marketing", "both"):
         marketing = await _call_tool(
             cb, "optimize_marketing", tool_optimize_marketing,
@@ -586,7 +568,6 @@ async def _run_execute(state: ConsultingState) -> ConsultingState:
 
     state["execute_result"] = tool_results
 
-    # LLM 응답 생성
     prompts = _get_prompts()
     system_template = prompts.get("steps", {}).get("execute", {}).get("system", "실행 결과를 보고하세요.")
     system_prompt = system_template.replace("{diagnosis_summary}", state["diagnosis_summary"])
@@ -600,11 +581,82 @@ async def _run_execute(state: ConsultingState) -> ConsultingState:
         tool_results,
     )
 
+    state["step_initialized"]["execute"] = True
     state["current_step"] = "done"
-
     await cb("agent_end", {"agent": "consulting_execute", "elapsed_ms": 0, "description": "실행 완료"})
 
-    return state
+    return response
+
+
+# ============================================================
+# 단계 내 대화 처리 (자유 대화 루프)
+# ============================================================
+async def _chat_in_step(state: ConsultingState, user_input: str) -> str:
+    """현재 단계 내에서 사용자 질문에 응답 (도구 결과 + 대화 이력 기반)"""
+    cb = state["sse_callback"]
+    current = state["current_step"]
+    api_key = state["api_key"]
+
+    # 현재 단계의 도구 결과 수집
+    tool_results = {}
+    if current == "diagnosis":
+        tool_results = state["diagnosis_result"]
+    elif current == "strategy":
+        tool_results = state["strategy_result"]
+    elif current == "plan":
+        tool_results = {
+            "diagnosis": state["diagnosis_result"],
+            "strategy": state["strategy_result"],
+            "plan": state["plan_result"],
+        }
+    elif current == "execute":
+        tool_results = state["execute_result"]
+
+    # 이전 단계 요약을 컨텍스트에 포함
+    context_parts = []
+    if state["diagnosis_summary"]:
+        context_parts.append(f"[진단 요약]\n{state['diagnosis_summary']}")
+    if current in ("strategy", "plan", "execute") and state["strategy_summary"]:
+        context_parts.append(f"[전략 요약]\n{state['strategy_summary']}")
+    if current in ("plan", "execute") and state["plan_summary"]:
+        context_parts.append(f"[실행 계획 요약]\n{state['plan_summary']}")
+
+    # 시스템 프롬프트: 대화 모드
+    prompts = _get_prompts()
+    step_prompts = prompts.get("steps", {}).get(current, {})
+    base_system = step_prompts.get("system", "")
+    chat_system = step_prompts.get("chat", "")
+
+    # chat 프롬프트가 없으면 기본 생성
+    if not chat_system:
+        step_label = STEP_LABELS.get(current, current)
+        chat_system = (
+            f"당신은 카페24 셀러 컨설팅 에이전트입니다. 현재 **{step_label}** 단계에서 "
+            f"사용자와 대화 중입니다.\n\n"
+            f"아래 도구 분석 결과와 대화 이력을 참고하여 사용자의 질문에 답하세요.\n"
+            f"사용자가 추가 분석, 수정, 설명을 요청하면 상세히 응답하세요.\n"
+            f"사용자가 '다음'이라고 하면 다음 단계로 넘어갈 준비를 안내하세요."
+        )
+
+    # 이전 단계 요약을 시스템 프롬프트에 포함
+    if context_parts:
+        chat_system += "\n\n## 이전 단계 컨텍스트\n" + "\n\n".join(context_parts)
+
+    # 템플릿 변수 치환
+    chat_system = chat_system.replace("{diagnosis_summary}", state.get("diagnosis_summary", ""))
+    chat_system = chat_system.replace("{strategy_summary}", state.get("strategy_summary", ""))
+    chat_system = chat_system.replace("{plan_summary}", state.get("plan_summary", ""))
+    chat_system = chat_system.replace("{strategy_direction}", state.get("strategy_direction", ""))
+
+    # 대화 이력
+    history = _get_step_history(state, current)
+
+    llm = get_llm(state["model"], api_key, max_tokens=3000, streaming=True, temperature=0.4)
+    response = await _stream_llm_response(
+        cb, llm, chat_system, user_input, tool_results, history,
+    )
+
+    return response
 
 
 # ============================================================
@@ -614,41 +666,27 @@ async def run_consulting_stream(
     seller_id: str,
     user_input: str,
     session_id: str | None,
-    action: str,            # message / confirm / rollback / reset
+    action: str,
     strategy_choice: str | None,
     username: str,
     sse_callback,
     api_key: str,
     model: str = "gpt-4o-mini",
 ) -> None:
-    """셀러 컨설팅 SSE 스트리밍 메인 함수
-
-    Args:
-        seller_id: 셀러 ID
-        user_input: 사용자 입력 텍스트
-        session_id: 세션 ID (없으면 새 세션 생성)
-        action: 요청 액션 (message/confirm/rollback/reset)
-        strategy_choice: 전략 방향 선택 (marketing/retention/both)
-        username: 사용자명
-        sse_callback: SSE 이벤트 콜백 (async callable)
-        api_key: OpenAI API Key
-        model: 모델명
-    """
+    """셀러 컨설팅 SSE 스트리밍 메인 함수 — 자유 대화 루프 지원"""
     api_key = pick_api_key(api_key)
     if not api_key:
         await sse_callback("done", {"ok": False, "final": "OpenAI API Key가 없습니다.", "tool_calls": []})
         return
 
     st.logger.info(
-        "CONSULTING_STREAM_START user=%s seller=%s action=%s",
-        username, seller_id, action,
+        "CONSULTING_STREAM_START user=%s seller=%s action=%s step_input=%s",
+        username, seller_id, action, user_input[:50] if user_input else "",
     )
 
     try:
-        # 세션 조회/생성
         sess_id, state = _get_session(username, session_id)
 
-        # 상태 업데이트
         state["seller_id"] = seller_id
         state["user_input"] = user_input
         state["session_id"] = sess_id
@@ -656,19 +694,22 @@ async def run_consulting_stream(
         state["api_key"] = api_key
         state["model"] = model
 
-        # 사용자 입력에서 액션 파싱 (명시적 action이 없으면 텍스트 분석)
-        if action == "message" and user_input:
-            parsed = _parse_user_action(user_input, state["current_step"])
-            if parsed["action"] != "forward":
-                action = parsed["action"]
-            if parsed["strategy_choice"] and not strategy_choice:
-                strategy_choice = parsed["strategy_choice"]
-            if parsed["action"] == "confirm":
-                action = "confirm"
+        # 의도 파싱
+        intent = _detect_intent(user_input or "")
 
-        # 전략 선택 적용
-        if strategy_choice:
-            state["strategy_direction"] = strategy_choice
+        # 명시적 action 파라미터 처리
+        if action == "rollback":
+            intent["rollback"] = True
+        elif action == "reset":
+            intent["reset"] = True
+        elif action == "strategy_choice" and strategy_choice:
+            intent["direction"] = strategy_choice
+        elif action == "advance":
+            intent["advance"] = True
+
+        # 전략 방향 적용
+        if intent["direction"]:
+            state["strategy_direction"] = intent["direction"]
 
         # 세션 정보 전송
         await sse_callback("session_info", {
@@ -677,162 +718,92 @@ async def run_consulting_stream(
             "seller_id": seller_id,
         })
 
-        # ── 리셋 처리 ──
-        if action == "reset":
+        current = state["current_step"]
+
+        # ── 리셋 ──
+        if intent["reset"]:
             _clear_downstream(state, "diagnosis")
             state["current_step"] = "diagnosis"
+            state["step_initialized"] = {}
+            state["chat_history"] = []
             await sse_callback("step_change", {
-                "step": "diagnosis",
-                "label": STEP_LABELS["diagnosis"],
-                "step_index": 0,
-                "total_steps": 4,
-                "reset": True,
+                "step": "diagnosis", "step_number": 1, "total": 4,
+                "description": "진단", "reset": True,
             })
-            # 진단부터 다시 시작
-            state = await _run_diagnosis(state)
+            response = await _init_diagnosis(state)
+            _add_to_history(state, "diagnosis", "assistant", response)
             _save_session(username, state)
+            await _send_step_options(sse_callback, state)
             await sse_callback("done", {
-                "ok": True,
-                "final": "세션이 리셋되어 진단부터 다시 시작합니다.",
-                "session_id": sess_id,
-                "current_step": state["current_step"],
-                "tool_calls": [],
+                "ok": True, "session_id": sess_id,
+                "current_step": state["current_step"], "tool_calls": [],
             })
             return
 
-        # ── 롤백 처리 ──
-        if action == "rollback":
-            parsed = _parse_user_action(user_input, state["current_step"])
-            target = parsed.get("rollback_target") or _prev_step(state["current_step"])
-
-            if target == state["current_step"]:
-                # 이미 해당 단계에 있음
-                await sse_callback("delta", {"delta": f"이미 {STEP_LABELS.get(target, target)} 단계에 있습니다.\n"})
-            else:
+        # ── 롤백 ──
+        if intent["rollback"]:
+            target = intent.get("rollback_target") or _prev_step(current)
+            if target != current:
                 _clear_downstream(state, target)
                 state["current_step"] = target
+                step_num = STEP_ORDER.index(target) + 1
                 await sse_callback("step_change", {
-                    "step": target,
-                    "label": STEP_LABELS.get(target, target),
-                    "step_index": STEP_ORDER.index(target),
-                    "total_steps": 4,
+                    "step": target, "step_number": step_num, "total": 4,
+                    "description": STEP_LABELS.get(target, target).replace("🔍 ", "").replace("🎯 ", "").replace("📋 ", "").replace("🚀 ", ""),
                     "rollback": True,
                 })
                 await sse_callback("delta", {
-                    "delta": f"**{STEP_LABELS.get(target, target)}** 단계로 돌아갑니다. 다시 진행해주세요.\n",
+                    "delta": f"**{STEP_LABELS.get(target, target)}** 단계로 돌아왔습니다. 질문하거나 '다음'으로 진행하세요.\n",
                 })
-
+            else:
+                await sse_callback("delta", {
+                    "delta": f"이미 {STEP_LABELS.get(target, target)} 단계에 있습니다.\n",
+                })
             _save_session(username, state)
-            await sse_callback("awaiting_input", {
-                "step": state["current_step"],
-                "prompt": f"{STEP_LABELS.get(state['current_step'], '')} 단계를 다시 진행합니다.",
-            })
+            await _send_step_options(sse_callback, state)
             await sse_callback("done", {
-                "ok": True,
-                "final": f"{STEP_LABELS.get(target, target)} 단계로 롤백 완료",
-                "session_id": sess_id,
-                "current_step": state["current_step"],
-                "tool_calls": [],
+                "ok": True, "session_id": sess_id,
+                "current_step": state["current_step"], "tool_calls": [],
             })
             return
 
-        # ── 단계별 실행 ──
-        current = state["current_step"]
-
-        if current == "diagnosis":
-            state = await _run_diagnosis(state)
-
-        elif current == "strategy":
-            # 전략 방향이 선택되지 않은 경우
-            if not state["strategy_direction"]:
-                await sse_callback("delta", {
-                    "delta": "전략 방향을 먼저 선택해주세요: **마케팅 강화**, **리텐션(이탈방지)**, 또는 **둘 다**\n",
-                })
-                await sse_callback("awaiting_input", {
-                    "step": "strategy",
-                    "prompt": "전략 방향을 선택해주세요",
-                    "options": ["마케팅 강화", "리텐션(이탈방지)", "둘 다"],
-                })
+        # ── 단계 전환 (다음) ──
+        if intent["advance"]:
+            advanced = await _try_advance_step(state, username, sse_callback)
+            if advanced:
                 _save_session(username, state)
+                await _send_step_options(sse_callback, state)
                 await sse_callback("done", {
-                    "ok": True,
-                    "final": "전략 방향 선택 대기 중",
-                    "session_id": sess_id,
-                    "current_step": state["current_step"],
-                    "tool_calls": [],
+                    "ok": True, "session_id": sess_id,
+                    "current_step": state["current_step"], "tool_calls": [],
                 })
                 return
-            state = await _run_strategy(state)
+            # 전환 불가능 시 (조건 미충족) 아래 대화 모드로 이동
 
-        elif current == "plan":
-            if action == "confirm" or state.get("plan_confirmed"):
-                state = await _run_plan(state)
-            else:
-                # 확인이 필요함
-                await sse_callback("delta", {
-                    "delta": "전략을 검토한 후 **확인**을 눌러 실행 계획 수립을 진행하거나, 수정할 부분을 말씀해주세요.\n",
-                })
-                await sse_callback("awaiting_input", {
-                    "step": "plan",
-                    "prompt": "전략을 확인하고 실행 계획을 수립할까요?",
-                    "options": ["확인", "수정 요청"],
-                })
+        # ── 단계 초기 실행 또는 대화 ──
+        if not state["step_initialized"].get(current):
+            # 초기 실행 필요
+            response = await _handle_step_init(state, intent, sse_callback)
+            if response is None:
+                # 조건 미충족 (전략 방향 미선택 등) — 이미 메시지 전송됨
                 _save_session(username, state)
                 await sse_callback("done", {
-                    "ok": True,
-                    "final": "전략 확인 대기 중",
-                    "session_id": sess_id,
-                    "current_step": state["current_step"],
-                    "tool_calls": [],
+                    "ok": True, "session_id": sess_id,
+                    "current_step": state["current_step"], "tool_calls": [],
                 })
                 return
+            _add_to_history(state, current, "assistant", response)
+        else:
+            # 대화 모드: 사용자 질문/수정에 응답
+            _add_to_history(state, current, "user", user_input)
+            response = await _chat_in_step(state, user_input)
+            _add_to_history(state, current, "assistant", response)
 
-        elif current == "execute":
-            if action == "confirm":
-                state["plan_confirmed"] = True
-                state = await _run_execute(state)
-            else:
-                await sse_callback("delta", {
-                    "delta": "실행 계획을 검토한 후 **승인**을 눌러 자동 조치를 시작하거나, 수정할 부분을 말씀해주세요.\n",
-                })
-                await sse_callback("awaiting_input", {
-                    "step": "execute",
-                    "prompt": "실행 계획을 승인하시겠습니까?",
-                    "options": ["승인", "수정 요청"],
-                })
-                _save_session(username, state)
-                await sse_callback("done", {
-                    "ok": True,
-                    "final": "실행 승인 대기 중",
-                    "session_id": sess_id,
-                    "current_step": state["current_step"],
-                    "tool_calls": [],
-                })
-                return
-
-        elif current == "done":
-            await sse_callback("delta", {
-                "delta": "컨설팅이 완료되었습니다. 새로운 세션을 시작하려면 **처음부터** 를 입력하세요.\n",
-            })
-            _save_session(username, state)
-            await sse_callback("done", {
-                "ok": True,
-                "final": "컨설팅 완료",
-                "session_id": sess_id,
-                "current_step": "done",
-                "tool_calls": [],
-            })
-            return
-
-        # 세션 저장
         _save_session(username, state)
-
+        await _send_step_options(sse_callback, state)
         await sse_callback("done", {
-            "ok": True,
-            "final": f"{STEP_LABELS.get(state['current_step'], state['current_step'])} 단계 완료",
-            "session_id": sess_id,
-            "current_step": state["current_step"],
-            "tool_calls": [],
+            "ok": True, "session_id": sess_id,
+            "current_step": state["current_step"], "tool_calls": [],
         })
 
         st.logger.info(
@@ -845,7 +816,152 @@ async def run_consulting_stream(
         st.logger.exception("CONSULTING_STREAM_FAIL err=%s", err)
         msg = f"컨설팅 오류: {err.get('type', 'Unknown')} - {err.get('message', str(e))}"
         await sse_callback("done", {
-            "ok": False,
-            "final": msg,
-            "tool_calls": [],
+            "ok": False, "final": msg, "tool_calls": [],
+        })
+
+
+# ============================================================
+# 단계별 초기화 분기
+# ============================================================
+async def _handle_step_init(state: ConsultingState, intent: dict, sse_callback) -> str | None:
+    """단계 초기화 처리. 조건 미충족 시 None 반환."""
+    current = state["current_step"]
+    step_num = STEP_ORDER.index(current) + 1
+
+    await sse_callback("step_change", {
+        "step": current, "step_number": step_num, "total": 4,
+        "description": STEP_LABELS.get(current, current).replace("🔍 ", "").replace("🎯 ", "").replace("📋 ", "").replace("🚀 ", ""),
+    })
+
+    if current == "diagnosis":
+        return await _init_diagnosis(state)
+
+    elif current == "strategy":
+        if not state["strategy_direction"]:
+            # 전략 방향 미선택 → 안내
+            await sse_callback("delta", {
+                "delta": "전략 방향을 선택해주세요: **마케팅 강화**, **리텐션(이탈방지)**, 또는 **둘 다**\n\n"
+                         "선택 후 자동으로 전략 분석이 시작됩니다.\n",
+            })
+            await sse_callback("awaiting_input", {
+                "step": "strategy",
+                "prompt": "전략 방향을 선택해주세요",
+                "options": ["마케팅 강화", "리텐션(이탈방지)", "둘 다"],
+            })
+            return None
+        return await _init_strategy(state)
+
+    elif current == "plan":
+        return await _init_plan(state)
+
+    elif current == "execute":
+        if not intent.get("confirm"):
+            # 실행 전 승인 필요
+            await sse_callback("delta", {
+                "delta": "실행 계획이 수립되었습니다. **승인**을 눌러 자동 조치를 시작하거나, "
+                         "수정할 부분을 말씀해주세요.\n",
+            })
+            await sse_callback("awaiting_input", {
+                "step": "execute",
+                "prompt": "실행을 승인하시겠습니까?",
+                "options": ["승인", "계획 수정", "이전 단계로"],
+            })
+            return None
+        return await _init_execute(state)
+
+    elif current == "done":
+        await sse_callback("delta", {
+            "delta": "컨설팅이 완료되었습니다. 새로운 세션을 시작하려면 **처음부터**를 입력하세요.\n",
+        })
+        return "컨설팅 완료"
+
+    return None
+
+
+# ============================================================
+# 단계 전환 시도
+# ============================================================
+async def _try_advance_step(state: ConsultingState, username: str, sse_callback) -> bool:
+    """다음 단계로 전환. 성공 시 True, 조건 미충족 시 False."""
+    current = state["current_step"]
+
+    if current == "done":
+        await sse_callback("delta", {"delta": "이미 컨설팅이 완료되었습니다.\n"})
+        return True
+
+    if not state["step_initialized"].get(current):
+        # 현재 단계 초기화가 안 됐으면 먼저 초기화
+        return False
+
+    next_step = _next_step(current)
+
+    # 전략 단계 → plan: 방향이 선택되어 있어야 함
+    if current == "strategy" and not state["strategy_direction"]:
+        await sse_callback("delta", {"delta": "전략 방향을 먼저 선택해주세요.\n"})
+        return False
+
+    state["current_step"] = next_step
+    step_num = STEP_ORDER.index(next_step) + 1
+
+    if next_step == "done":
+        await sse_callback("delta", {"delta": "모든 단계가 완료되었습니다.\n"})
+        return True
+
+    await sse_callback("step_change", {
+        "step": next_step, "step_number": step_num, "total": 4,
+        "description": STEP_LABELS.get(next_step, next_step).replace("🔍 ", "").replace("🎯 ", "").replace("📋 ", "").replace("🚀 ", ""),
+    })
+
+    # 다음 단계 초기화
+    intent = _detect_intent(state["user_input"] or "")
+    response = await _handle_step_init(state, intent, sse_callback)
+    if response:
+        _add_to_history(state, next_step, "assistant", response)
+
+    return True
+
+
+# ============================================================
+# 옵션 버튼 전송 (단계별 동적)
+# ============================================================
+async def _send_step_options(sse_callback, state: ConsultingState):
+    """현재 단계에 맞는 옵션 버튼 전송"""
+    current = state["current_step"]
+    initialized = state["step_initialized"].get(current, False)
+
+    if current == "diagnosis" and initialized:
+        await sse_callback("awaiting_input", {
+            "step": "diagnosis",
+            "prompt": "진단 결과에 대해 질문하거나, '다음'으로 전략 수립을 시작하세요.",
+            "options": ["매출 분석 상세", "이탈 위험 상세", "다음 단계로"],
+        })
+    elif current == "strategy" and not state["strategy_direction"]:
+        await sse_callback("awaiting_input", {
+            "step": "strategy",
+            "prompt": "전략 방향을 선택해주세요",
+            "options": ["마케팅 강화", "리텐션(이탈방지)", "둘 다"],
+        })
+    elif current == "strategy" and initialized:
+        await sse_callback("awaiting_input", {
+            "step": "strategy",
+            "prompt": "전략에 대해 질문/수정하거나, '다음'으로 실행 계획을 수립하세요.",
+            "options": ["전략 수정", "예산 조정", "다음 단계로"],
+        })
+    elif current == "plan" and initialized:
+        await sse_callback("awaiting_input", {
+            "step": "plan",
+            "prompt": "실행 계획에 대해 질문/수정하거나, '다음'으로 실행을 시작하세요.",
+            "options": ["계획 수정", "일정 조정", "다음 단계로 (실행)"],
+        })
+    elif current == "execute" and not initialized:
+        await sse_callback("awaiting_input", {
+            "step": "execute",
+            "prompt": "실행을 승인하시겠습니까?",
+            "options": ["승인", "계획 수정", "이전 단계로"],
+        })
+    elif current == "done":
+        await sse_callback("awaiting_input", {
+            "step": "done",
+            "prompt": "컨설팅이 완료되었습니다.",
+            "options": ["처음부터 다시", "결과 요약"],
         })

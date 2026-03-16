@@ -14,20 +14,21 @@
 
 ## 최신 업데이트
 
-> **v9.7.0** (2026-03-12) — 추천 질문 확장 + 에이전트 정보 업데이트
+> **v9.8.0** (2026-03-16) — 셀러 컨설팅 패널 추가
 
 | 영역 | 주요 변경 |
 |------|-----------|
-| **추천 질문 칩 확장** | 6→8개 확장: performance_analyst, platform_searcher 워커 커버 추가 |
-| **에이전트 정보** | "8종" → "7종" 워커 수정 |
-| **신규 추천 질문** | `{shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘`, `카페24 정산 주기와 수수료 정책 알려줘` |
+| **셀러 컨설팅 패널** | 12번째 패널 추가 — 4단계 멀티스텝 워크플로우 (진단 → 전략 수립 → 실행 계획 → 실행) |
+| **Human-in-the-Loop** | 각 단계 사용자 확인 후 다음 단계 진행, rollback 지원 |
+| **SSE 훅** | `useConsultingStream.js` 추가 (useBaseStream + 단계 진행/rollback) |
+| **SSE 프록시** | `pages/api/agent/consulting/stream.js` 추가 |
 
-> **v9.3.0** (2026-03-07) — Supervisor 통합 + 인터랙티브 도구 탐색기 + Dead Code 정리
+> **v9.7.0** (2026-03-12) — Supervisor 통합 + 인터랙티브 도구 탐색기 + Dead Code 정리
 
 | 영역 | 주요 변경 |
 |------|-----------|
 | **Supervisor 통합** | AgentPanel → MultiAgentPanel 직접 렌더하는 19줄 래퍼로 변경, 모드 토글 제거. 모든 채팅이 Supervisor 멀티에이전트 경유 |
-| **인터랙티브 도구 탐색기** | `common/toolRegistry.js` (31개 도구 데이터) + `common/ToolExplorer.js` (아코디언 UI) 신규 추가, MultiAgentPanel 사이드바에 통합 |
+| **인터랙티브 도구 탐색기** | `common/toolRegistry.js` (32개 도구 데이터) + `common/ToolExplorer.js` (아코디언 UI) 신규 추가, MultiAgentPanel 사이드바에 통합 |
 | **Dead Code 정리** | `useAgentStream.js` 삭제 (useMultiAgentStream만 사용), app.js에서 `agentMessages`/`totalQueries` state 제거, sub-agent 탭 제거 (13탭 → 12탭) |
 | **추천 칩 개선** | 단일 워커 칩 제거 → 멀티 워커 연계 질문 6개로 교체 (모든 칩이 2개 이상의 워커를 순차 호출) |
 
@@ -37,7 +38,7 @@
 
 0. [프로젝트 개요](#프로젝트-개요)
 1. [프로젝트 구조](#1-프로젝트-구조)
-2. [패널 (11개)](#2-패널-11개)
+2. [패널 (12개)](#2-패널-12개)
 3. [컴포넌트](#3-컴포넌트)
 4. [API 통신](#4-api-통신)
 5. [상태 관리](#5-상태-관리)
@@ -54,14 +55,14 @@
 
 ## 프로젝트 개요
 
-CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 자동화 엔진 등 **11개 기능 패널**을 탭 기반 SPA로 제공한다.
+CAFE24 AI 운영 플랫폼 프론트엔드는 **이커머스 SaaS 운영 전반을 단일 인터페이스**에서 관리하기 위한 Next.js 애플리케이션이다. AI 에이전트 채팅(Supervisor 멀티에이전트), 실시간 KPI 대시보드, 9종 심층 분석, ML 모델 관리, RAG 문서 관리, CS 자동화 파이프라인, DB 보안 감시, 자동화 엔진 등 **12개 기능 패널**을 탭 기반 SPA로 제공한다.
 
 ```mermaid
 graph LR
     subgraph Frontend["Next.js Frontend :3000"]
         Pages["Pages Router"]
-        Panels["11개 패널"]
-        SSEProxy["SSE 프록시<br/>(5개 API Route)"]
+        Panels["12개 패널"]
+        SSEProxy["SSE 프록시<br/>(6개 API Route)"]
     end
 
     subgraph Backend["FastAPI Backend :8001"]
@@ -102,10 +103,12 @@ nextjs/
 │   ├── _app.js                     # App 진입점 (NProgress, Toast)
 │   ├── index.js                    # 랜딩 페이지 (세션 체크 → 리다이렉트)
 │   ├── login.js                    # 로그인 페이지 (Basic Auth, password btoa 인코딩)
-│   ├── app.js                      # 메인 앱 (탭 기반 11개 패널 라우팅)
+│   ├── app.js                      # 메인 앱 (탭 기반 12개 패널 라우팅)
 │   └── api/
 │       ├── agent/
-│       │   └── stream.js           # SSE 프록시 (AI 에이전트)
+│       │   ├── stream.js           # SSE 프록시 (AI 에이전트)
+│       │   └── consulting/
+│       │       └── stream.js       # SSE 프록시 (셀러 컨설팅)
 │       └── cs/
 │           ├── pipeline-answer.js  # CS 파이프라인 답변 SSE 프록시
 │           ├── send-reply.js       # CS 회신 전송 프록시 (JSON)
@@ -125,11 +128,11 @@ nextjs/
 │   ├── common/                     # 공통 컴포넌트
 │   │   ├── CustomTooltip.js        # 차트 공통 툴팁 (DashboardPanel, AnalysisPanel 공유)
 │   │   ├── StatCard.js             # 통합 통계 카드 (GuardianPanel 등에서 사용)
-│   │   ├── toolRegistry.js         # 에이전트 도구 레지스트리 (31개 도구 메타데이터)
+│   │   ├── toolRegistry.js         # 에이전트 도구 레지스트리 (32개 도구 메타데이터)
 │   │   ├── ToolExplorer.js         # 인터랙티브 도구 탐색기 (아코디언 UI, Framer Motion)
 │   │   └── constants.js            # 공통 상수 (COLORS, getSeverityClasses 등)
 │   │
-│   └── panels/                     # 기능별 패널 (11개)
+│   └── panels/                     # 기능별 패널 (12개)
 │       ├── AgentPanel.js           # AI 에이전트 (19줄 래퍼 → MultiAgentPanel 직접 렌더)
 │       ├── DashboardPanel.js       # 대시보드 (KPI, 차트, 인사이트)
 │       ├── AnalysisPanel.js        # 상세 분석 (→ analysis/ 위임)
@@ -141,11 +144,13 @@ nextjs/
 │       ├── LabPanel.js             # CS 자동화 파이프라인 (→ lab/ 위임)
 │       ├── GuardianPanel.js        # DB 보안 감시
 │       ├── AutomationPanel.js     # 자동화 엔진 (이탈방지/플랜 업그레이드/FAQ/리포트 4탭)
+│       ├── ConsultingPanel.js    # 셀러 컨설팅 (4단계 멀티스텝 워크플로우, Human-in-the-Loop)
 │       ├── MultiAgentPanel.js    # Supervisor 멀티에이전트 채팅 + 파이프라인 (메인 UI)
 │       │
 │       ├── hooks/                 # 패널 전용 커스텀 훅
 │       │   ├── useBaseStream.js      # SSE 스트리밍 공통 로직 (~250줄)
-│       │   └── useMultiAgentStream.js # Supervisor SSE 훅 (useBaseStream + agent_start/agent_end, ~123줄)
+│       │   ├── useMultiAgentStream.js # Supervisor SSE 훅 (useBaseStream + agent_start/agent_end, ~123줄)
+│       │   └── useConsultingStream.js # 컨설팅 SSE 훅 (useBaseStream + 단계 진행/rollback)
 │       │
 │       ├── guardian/              # GuardianPanel 공통 컴포넌트
 │       │   └── common/
@@ -202,14 +207,14 @@ nextjs/
 
 ---
 
-## 2. 패널 (11개)
+## 2. 패널 (12개)
 
 ### 접근 권한 체계
 
 ```mermaid
 graph TD
     Auth["인증 (app.js)"] --> Role{"auth.role 확인"}
-    Role -->|"관리자<br/>(Admin)"| Admin["11개 탭 전부"]
+    Role -->|"관리자<br/>(Admin)"| Admin["12개 탭 전부"]
     Role -->|"비관리자<br/>(Operator/Analyst/User)"| User["6개 탭"]
 
     Admin --> A1["AI 에이전트"]
@@ -220,9 +225,10 @@ graph TD
     Admin --> A6["CS 자동화"]
     Admin --> A7["DB 보안 감시"]
     Admin --> A8["자동화 엔진"]
-    Admin --> A9["LLM 설정"]
-    Admin --> A10["셀러 관리"]
-    Admin --> A11["로그"]
+    Admin --> A9["셀러 컨설팅"]
+    Admin --> A10["LLM 설정"]
+    Admin --> A11["셀러 관리"]
+    Admin --> A12["로그"]
 
     User --> U1["AI 에이전트"]
     User --> U2["대시보드"]
@@ -230,12 +236,13 @@ graph TD
     User --> U4["CS 자동화"]
     User --> U5["DB 보안 감시"]
     User --> U6["자동화 엔진"]
+    User --> U7["셀러 컨설팅"]
 ```
 
 | 역할 | 접근 가능 패널 | 탭 수 |
 |------|---------------|-------|
-| **관리자** (Admin) | 11개 전부 | 11 |
-| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, Automation | 6 |
+| **관리자** (Admin) | 12개 전부 | 12 |
+| **비관리자** (Operator / Analyst / User) | Agent, Dashboard, Analysis, Lab, Guardian, Automation, Consulting | 7 |
 
 ---
 
@@ -802,6 +809,41 @@ flowchart LR
 
 ---
 
+### 2.12 ConsultingPanel (셀러 컨설팅)
+
+| 항목 | 내용 |
+|------|------|
+| **파일** | `components/panels/ConsultingPanel.js` |
+| **역할** | 셀러 컨설팅 4단계 멀티스텝 워크플로우 (진단 → 전략 수립 → 실행 계획 → 실행) |
+| **SSE 훅** | `hooks/useConsultingStream.js` (useBaseStream + 단계 진행/rollback) |
+| **API** | `POST /api/consulting/stream` (SSE), `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
+| **권한** | 관리자 + 비관리자 모두 |
+
+> **핵심 컨셉**: AI가 셀러 현황을 단계별로 분석하고, 각 단계마다 사용자 확인을 받아 다음 단계로 진행하는 Human-in-the-Loop 워크플로우
+
+**4단계 워크플로우:**
+
+```mermaid
+flowchart LR
+    S1["1. 진단<br/>셀러 현황 분석<br/>+ 이탈 위험도"] --> S2["2. 전략 수립<br/>세그먼트 기반<br/>최적 전략"]
+    S2 --> S3["3. 실행 계획<br/>맞춤 리텐션<br/>메시지 수립"]
+    S3 --> S4["4. 실행<br/>자동 조치<br/>실행"]
+```
+
+| 단계 | 기능 | 사용자 인터랙션 |
+|------|------|----------------|
+| 1. 진단 | 셀러 현황 분석 + 이탈 확률 예측 | 결과 확인 후 승인/rollback |
+| 2. 전략 수립 | 세그먼트 분석 + 마케팅 최적화 전략 | 전략 확인 후 승인/rollback |
+| 3. 실행 계획 | 맞춤 리텐션 메시지 및 구체적 계획 | 계획 확인 후 승인/rollback |
+| 4. 실행 | 조치 실행 (쿠폰/업그레이드/매니저/메시지) | 실행 결과 확인 |
+
+**주요 기능:**
+- **Rollback**: "다시", "돌아가", "취소" 등 키워드 입력 시 이전 단계로 복귀
+- **Context Summary**: 이전 단계 분석 결과가 다음 단계에 자동 전달
+- **세션 관리**: 진행 중인 컨설팅 세션 목록 조회 및 삭제
+
+---
+
 ### MultiAgentPanel (AgentPanel 내부 구현 — Supervisor 멀티에이전트)
 
 | 항목 | 내용 |
@@ -978,7 +1020,7 @@ useBaseStream.js (~250줄)            # 공통: SSE 연결, delta 버퍼, 메시
 |----------|------|------|
 | **CustomTooltip** | `common/CustomTooltip.js` | Recharts 차트 공통 툴팁 (DashboardPanel, AnalysisPanel에서 중복 추출) |
 | **StatCard** | `common/StatCard.js` | 통합 통계 카드 (GuardianPanel 등에서 사용) |
-| **toolRegistry** | `common/toolRegistry.js` | 에이전트 도구 레지스트리 — 31개 도구 메타데이터 (이름, 설명, 파라미터, 소속 에이전트) 9개 카테고리로 분류 |
+| **toolRegistry** | `common/toolRegistry.js` | 에이전트 도구 레지스트리 — 32개 도구 메타데이터 (이름, 설명, 파라미터, 소속 에이전트) 9개 카테고리로 분류 |
 | **ToolExplorer** | `common/ToolExplorer.js` | 인터랙티브 도구 탐색기 — 카테고리별 아코디언 UI, 도구명/설명/파라미터 표시, Framer Motion 애니메이션, 카테고리별 accent 색상 |
 | **constants** | `common/constants.js` | 공통 상수 (COLORS 차트/UI 색상, `getSeverityClasses()` 헬퍼) |
 
@@ -1413,7 +1455,7 @@ flowchart LR
 |--------|------|------|
 | `/` | `pages/index.js` | 세션 체크 후 `/app` 또는 `/login`으로 리다이렉트 |
 | `/login` | `pages/login.js` | 로그인 폼 (Basic Auth, 테스트 계정 퀵필) |
-| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 11개 패널) |
+| `/app` | `pages/app.js` | 메인 앱 (탭 기반 패널 라우팅, 12개 패널) |
 
 ### 8.2 로그인 페이지 (`pages/login.js`)
 
@@ -1432,7 +1474,7 @@ flowchart LR
 
 | 라벨 | 아이디 | 비밀번호 | 역할 | 접근 패널 |
 |------|--------|---------|------|-----------|
-| 관리자 | `admin` | `admin123` | Admin | 11개 전부 |
+| 관리자 | `admin` | `admin123` | Admin | 12개 전부 |
 | 운영자 | `operator` | `oper123` | Operator | 7개 (공개) |
 | 분석가 | `analyst` | `analyst123` | Analyst | 7개 (공개) |
 | 사용자 | `user` | `user123` | User | 7개 (공개) |
@@ -1601,7 +1643,7 @@ sequenceDiagram
 | **optimizePackageImports** | `next.config.js` | experimental.optimizePackageImports 추가 (lucide-react, recharts) |
 | **GET 인메모리 캐시** | `lib/api.js` | Map 기반 인메모리 캐시 (TTL 60초, shops/categories 정적 데이터) |
 | **Tailwind content 확장** | `tailwind.config.js` | content에 `'./lib/**/*.{js,jsx}'` 추가, 미사용 cafe24 색상 7개 제거 |
-| **PanelLoader 스켈레톤** | `pages/app.js` | 11개 dynamic import에 PanelLoader 스켈레톤 추가 |
+| **PanelLoader 스켈레톤** | `pages/app.js` | 12개 dynamic import에 PanelLoader 스켈레톤 추가 |
 
 ### v8.5.0 최적화 (2026-02-18)
 
@@ -1677,6 +1719,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.8.0 | 2026-03-16 | 셀러 컨설팅 패널 추가(12번째 패널): ConsultingPanel.js + useConsultingStream.js, 4단계 멀티스텝 워크플로우(진단→전략→계획→실행), Human-in-the-Loop(각 단계 사용자 확인), rollback 지원, Context Summary Layer, SSE 프록시(pages/api/agent/consulting/stream.js) |
 | 9.7.0 | 2026-03-12 | 추천 질문 칩 6→8개 확장(performance_analyst, platform_searcher 워커 커버 추가), 에이전트 정보 "8종"→"7종" 워커 수정, 신규 추천 질문 2개 추가({shopId} 매출 성과 분석+코호트 리텐션, 카페24 정산 주기+수수료 정책) |
 | 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 멀티 워커 연계 질문 6개로 교체(모든 칩 2+ 워커 순차 호출) |
 | 9.2.0 | 2026-03-06 | FaqTab 클러스터 선택 UI(전체/개별 체크박스 + selectedClusters Set + selectedCount useMemo), 카테고리 드롭다운 연동 아코디언 자동 펼침, FAQ 생성 버튼 예상 개수 표시, 선택된 클러스터만 백엔드 전달, ChartErrorBoundary 추가, toast.error Pydantic 422 안전 처리, Recharts 중심점 diamond+고정fill 간소화, Tooltip null safety |
@@ -1697,6 +1740,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 9.3.0** · Last Updated 2026-03-07
+**Version 9.8.0** · Last Updated 2026-03-16
 
 </div>

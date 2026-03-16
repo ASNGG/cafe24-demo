@@ -14,6 +14,7 @@ main.py에서는 이 router 하나만 include하면 됩니다.
   - routes_agent.py     : 에이전트/채팅, 스트리밍
   - routes_guardian.py   : Data Guardian 보안 감시
   - routes_automation.py : 자동화 엔진 (이탈방지/FAQ/리포트)
+  - routes_consulting.py : 셀러 컨설팅 에이전트 (4단계 인터랙티브)
 """
 from fastapi import APIRouter
 
@@ -26,6 +27,7 @@ from api.routes_ml import router as ml_router
 from api.routes_agent import router as agent_router
 from api.routes_guardian import router as guardian_router
 from api.routes_automation import router as automation_router
+from api.routes_consulting import router as consulting_router
 
 router = APIRouter()
 
@@ -38,3 +40,4 @@ router.include_router(ml_router)
 router.include_router(agent_router)
 router.include_router(guardian_router)
 router.include_router(automation_router)
+router.include_router(consulting_router)

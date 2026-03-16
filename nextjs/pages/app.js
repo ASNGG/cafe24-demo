@@ -28,6 +28,7 @@ const RagPanel = dynamic(() => import('@/components/panels/RagPanel'), { ssr: fa
 const LabPanel = dynamic(() => import('@/components/panels/LabPanel'), { ssr: false, loading: PanelLoader });
 const GuardianPanel = dynamic(() => import('@/components/panels/GuardianPanel'), { ssr: false, loading: PanelLoader });
 const AutomationPanel = dynamic(() => import('@/components/panels/AutomationPanel'), { ssr: false, loading: PanelLoader });
+const ConsultingPanel = dynamic(() => import('@/components/panels/ConsultingPanel'), { ssr: false, loading: PanelLoader });
 
 import { apiCall as apiCallRaw } from '@/lib/api';
 import {
@@ -127,6 +128,7 @@ export default function AppPage() {
         { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
         { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
         { key: 'automation', label: '⚡ 자동화 엔진' },
+        { key: 'consulting', label: '💼 셀러 컨설팅' },
         { key: 'settings', label: '⚙️ LLM 설정' },
         { key: 'users', label: '👥 셀러 관리' },
         { key: 'logs', label: '📋 로그' },
@@ -139,6 +141,7 @@ export default function AppPage() {
       { key: 'lab', label: '🧪 실험실 - CS 자동화 파이프라인' },
       { key: 'guardian', label: '🔒 실험실 - DB 보안 감시' },
       { key: 'automation', label: '⚡ 자동화 엔진' },
+      { key: 'consulting', label: '💼 셀러 컨설팅' },
     ];
   }, [isAdmin]);
 
@@ -437,6 +440,10 @@ export default function AppPage() {
 
       {activeTab === 'automation' ? (
         <AutomationPanel auth={auth} apiCall={apiCall} />
+      ) : null}
+
+      {activeTab === 'consulting' ? (
+        <ConsultingPanel auth={auth} addLog={addLog} settings={settings} apiCall={apiCall} />
       ) : null}
       </div>
     </Layout>

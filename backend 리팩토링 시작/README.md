@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.7.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,18 @@ v9.7.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.7.0** (2026-03-12) — 도구 데이터 정합성 수정 + 멀티에이전트 최적화
+> **v9.8.0** (2026-03-16) — 셀러 컨설팅 에이전트 추가
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **셀러 컨설팅 에이전트** | 4단계 멀티스텝 워크플로우 (진단 → 전략 수립 → 실행 계획 → 실행), StateGraph 기반, rollback 키워드 감지 지원 |
+| **Human-in-the-Loop** | 각 단계 사용자 확인 후 다음 단계 진행, Context Summary Layer로 단계별 요약 전달 |
+| **세션 관리** | 30분 TTL, 최대 100세션, 자동 정리 |
+| **API 3개 추가** | `POST /api/consulting/stream`, `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
+| **파일 추가** | `agent/consulting_agent.py`, `agent/consulting_prompts.yaml`, `api/routes_consulting.py` |
+
+<details>
+<summary><b>v9.7.0</b> (2026-03-12) — 도구 데이터 정합성 수정 + 멀티에이전트 최적화</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -30,6 +41,8 @@ v9.7.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | **Supervisor 프롬프트** | 워커 분기 판단 규칙 3개 추가 (seller↔retention, seller↔churn, performance↔report) |
 | **RETENTION 키워드 보강** | "리텐션 실행", "전략 실행", "조치 실행" 등 추가 |
 | **테스트 스크립트** | 8개 질문 전수 테스트 스크립트(test_all_questions.py) 추가 |
+
+</details>
 
 <details>
 <summary><b>v9.5.0</b> (2026-03-10) — 워커 통합 (8→7종) + 도구 출력 마크다운 표 추가 + 라벨 보호 프롬프트</summary>
@@ -265,10 +278,10 @@ v9.7.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 1. 프로젝트 개요
 
-카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **31개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **9개 도메인별 라우터(112개 REST API)**로 운영 전 영역을 커버합니다.
+카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **32개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **10개 도메인별 라우터(115개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 31개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 8개 IntentCategory로 32개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
 - **RAG 시스템 (7종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -290,11 +303,11 @@ flowchart TB
     end
 
     subgraph Backend["FastAPI Backend (Port 8001)"]
-        ROUTES["api/ 도메인별 라우터 9개<br/>(112개 엔드포인트)"]
+        ROUTES["api/ 도메인별 라우터 10개<br/>(115개 엔드포인트)"]
 
         subgraph Agent["AI 에이전트"]
             ROUTER["2단계 라우터<br/>(키워드 + LLM)"]
-            TOOLS["31개 도구<br/>(tool_schemas.py)"]
+            TOOLS["32개 도구<br/>(tool_schemas.py)"]
             SUPERVISOR["Supervisor 멀티에이전트<br/>(langgraph-supervisor)"]
             HYBRID["하이브리드 라우팅<br/>(워커 직접 / Supervisor 경유)"]
         end
@@ -400,7 +413,7 @@ backend 리팩토링 시작/
 │
 ├── api/                             # REST API (도메인별 라우터 분리)
 │   ├── common.py                    # 공통 유틸리티 (응답 형식, 인증 헬퍼)
-│   ├── routes.py                    # 라우터 통합 모듈 (9개 도메인 라우터를 단일 APIRouter로 통합)
+│   ├── routes.py                    # 라우터 통합 모듈 (10개 도메인 라우터를 단일 APIRouter로 통합)
 │   ├── routes_shop.py               # 쇼핑몰/상품 API
 │   ├── routes_seller.py             # 셀러 분석 API
 │   ├── routes_cs.py                 # CS/고객지원 API (X-Callback-Token 인증)
@@ -409,16 +422,19 @@ backend 리팩토링 시작/
 │   ├── routes_guardian.py           # Guardian/보안감시 API
 │   ├── routes_automation.py         # 자동화 엔진 API (이탈방지/업그레이드/FAQ/리포트, 17개 엔드포인트)
 │   ├── routes_agent.py              # 에이전트/채팅 API (SSE 스트리밍, 하이브리드 라우팅: 워커 직접/Supervisor 경유, 멀티에이전트 모드 분기)
+│   ├── routes_consulting.py         # 셀러 컨설팅 에이전트 API (SSE 스트리밍, 세션 관리, 3개 엔드포인트)
 │   └── routes_admin.py              # 관리/설정/사용자 API
 │
 ├── agent/                           # AI 에이전트 시스템
 │   ├── runner.py                    # Tool Calling 실행기 (동기/스트리밍, KEYWORD_TOOL_MAPPING)
-│   ├── tools.py                     # 31개 도구 함수 구현체 (실제 비즈니스 로직, Retention 도구 3개 포함)
+│   ├── tools.py                     # 32개 도구 함수 구현체 (실제 비즈니스 로직, Retention 도구 3개 포함)
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 8개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
 │   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
 │   ├── multi_agent_prompts.yaml     # 멀티에이전트 프롬프트 (YAML — Supervisor 판단 규칙 + 7개 워커 역할별 지침 + 데이터 품질 해석 규칙)
+│   ├── consulting_agent.py          # 셀러 컨설팅 에이전트 (4단계 StateGraph 워크플로우, rollback, 세션 관리)
+│   ├── consulting_prompts.yaml      # 컨설팅 에이전트 프롬프트 (단계별 시스템 프롬프트)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
 ├── rag/                             # RAG 시스템 (모듈 분리)
@@ -744,7 +760,7 @@ flowchart TD
 
 > **설계 출처**: Anthropic [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) - "For complex systems, rather than letting agents decide all tools, narrow the tool set by classifying the intent first" 패턴 적용
 
-**문제**: 31개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
+**문제**: 32개 도구를 한 번에 노출하면 LLM이 잘못된 도구 선택 (예: 분석 질문에 RAG 호출). 도구 수가 증가할수록 Tool Calling 정확도가 하락하는 것은 LLM의 알려진 한계.
 
 **해결**: 2단계 Router 패턴으로 도구 선택 공간을 축소. 1단계 키워드 분류(O(1), 비용 0)가 대부분의 질의를 처리하고, 분류 실패 시에만 2단계 LLM Router(gpt-5-mini)가 fallback으로 동작. 이 패턴은 프로젝트 전반(DB 보안 감시의 룰엔진+AI Agent, CS 파이프라인의 신뢰도 분기)에서 일관되게 적용된 **"빠른 규칙 우선 + AI fallback"** 설계 원칙.
 
@@ -903,7 +919,7 @@ flowchart LR
 | **GENERAL 모드** | 인사/단답은 도구 없이 직접 LLM 응답 |
 | **MAX_TOOL_ITERATIONS** | 무한 루프 방지 (최대 10회) |
 
-### 6.5 도구 함수 목록 (31개)
+### 6.5 도구 함수 목록 (32개)
 
 | # | 도구명 | 설명 | 에이전트 |
 |---|--------|------|----------|
@@ -982,7 +998,7 @@ flowchart TD
     SUB_SUP -->|"transfer_to_platform_searcher"| W7["platform_searcher<br/>RAG 지식 검색"]
 
     W1 & W2 & W3 & W4 & W5 & W6 & W7 -->|"handoff back"| SUB_SUP
-    W1 & W2 & W3 & W4 & W5 & W6 & W7 --> TOOLS["Tool Calling (31개)"]
+    W1 & W2 & W3 & W4 & W5 & W6 & W7 --> TOOLS["Tool Calling (32개)"]
     TOOLS --> SSE["SSE 스트리밍 응답"]
 ```
 
@@ -1117,7 +1133,7 @@ AGENT_DESCRIPTIONS = {
 - `CS_AGENT_TOOLS`: 5개 (CS 응답, 품질, 용어, 분류)
 - `RETENTION_AGENT_TOOLS`: 4개 (`get_at_risk_sellers`, `get_cs_statistics`, `generate_retention_message`, `execute_retention_action`)
 
-**도구 6개 카테고리 (31개):**
+**도구 6개 카테고리 (32개):**
 
 | 카테고리 | 도구 수 | 주요 도구 |
 |----------|---------|-----------|
@@ -1201,6 +1217,62 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 **스트리밍 지원:**
 - `chunk_text()`: 스트리밍 응답에서 텍스트 청크 추출
 - `_tool_context_block()`: 도구 실행 결과를 구조화된 컨텍스트 블록으로 포매팅 (사용 원칙 포함)
+
+### 6.7 셀러 컨설팅 에이전트
+
+`agent/consulting_agent.py`에서 LangGraph `StateGraph` 기반 4단계 멀티스텝 워크플로우를 구현합니다. Supervisor 패턴과 달리 **단계별 순차 진행 + Human-in-the-Loop** 구조입니다.
+
+#### 아키텍처
+
+```mermaid
+flowchart TD
+    INPUT["셀러 ID 입력"] --> DIAG["1단계: 진단<br/>(analyze_seller, predict_seller_churn)"]
+    DIAG -->|"Context Summary"| CONFIRM1{"사용자 확인"}
+    CONFIRM1 -->|"승인"| STRAT["2단계: 전략 수립<br/>(get_seller_segment, optimize_marketing)"]
+    CONFIRM1 -->|"rollback"| DIAG
+    STRAT -->|"Context Summary"| CONFIRM2{"사용자 확인"}
+    CONFIRM2 -->|"승인"| PLAN["3단계: 실행 계획<br/>(generate_retention_message)"]
+    CONFIRM2 -->|"rollback"| DIAG
+    PLAN -->|"Context Summary"| CONFIRM3{"사용자 확인"}
+    CONFIRM3 -->|"승인"| EXEC["4단계: 실행<br/>(execute_retention_action)"]
+    CONFIRM3 -->|"rollback"| STRAT
+    EXEC --> DONE["완료"]
+```
+
+#### 4단계 워크플로우
+
+| 단계 | 이름 | 사용 도구 | 설명 |
+|------|------|-----------|------|
+| 1 | **진단** | `analyze_seller`, `predict_seller_churn` | 셀러 현황 분석 + 이탈 위험도 파악 |
+| 2 | **전략 수립** | `get_seller_segment`, `optimize_marketing` | 세그먼트 기반 최적 전략 도출 |
+| 3 | **실행 계획** | `generate_retention_message` | 맞춤 리텐션 메시지 및 구체적 실행 계획 수립 |
+| 4 | **실행** | `execute_retention_action` | 자동 조치 실행 (쿠폰/업그레이드/매니저 배정/메시지) |
+
+#### 주요 특징
+
+| 특징 | 설명 |
+|------|------|
+| **Human-in-the-Loop** | 각 단계 완료 후 사용자 확인을 받아야 다음 단계 진행 |
+| **Rollback** | "다시", "돌아가", "취소" 등 키워드 감지 시 이전 단계로 복귀 |
+| **Context Summary Layer** | 각 단계의 분석 결과를 요약하여 다음 단계에 전달 — 컨텍스트 윈도우 효율화 |
+| **세션 관리** | 30분 TTL, 최대 100세션, LRU 방식 자동 정리 |
+| **SSE 스트리밍** | 기존 에이전트와 동일한 7종 SSE 이벤트 프로토콜 사용 |
+
+#### 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `agent/consulting_agent.py` | StateGraph 정의 + 4단계 노드 + 세션 관리 + rollback 로직 |
+| `agent/consulting_prompts.yaml` | 단계별 시스템 프롬프트 (진단/전략/계획/실행) |
+| `api/routes_consulting.py` | REST API 3개 엔드포인트 |
+
+#### API 엔드포인트
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/api/consulting/stream` | 컨설팅 세션 SSE 스트리밍 (셀러 ID + 단계 진행) |
+| GET | `/api/consulting/sessions` | 활성 컨설팅 세션 목록 |
+| DELETE | `/api/consulting/sessions/{id}` | 컨설팅 세션 삭제 |
 
 ---
 
@@ -1709,7 +1781,7 @@ noise ~ Uniform(-0.1, +0.1)
 - **알고리즘**: LightGBM Regressor (`n_estimators=100`, `max_depth=4`, `learning_rate=0.1`)
 - **검증**: 5-Fold Cross-Validation (R2 score)
 
-### 8.7 에이전트 도구 레지스트리 (31개 Tool)
+### 8.7 에이전트 도구 레지스트리 (32개 Tool)
 
 모든 ML 모델은 `agent/tool_schemas.py`의 `ALL_TOOLS` 리스트에 등록되어, AI 에이전트의 Tool Calling을 통해 호출됩니다. 사용자가 자연어로 질문하면 2단계 인텐트 라우터(키워드 + LLM fallback)가 적절한 도구를 선택합니다.
 
@@ -1830,7 +1902,7 @@ python ml/train_models.py
 
 ## 10. API 엔드포인트
 
-모든 API는 `/api` prefix를 사용합니다. `routes.py`가 **9개 도메인별 라우터**를 단일 `APIRouter`로 통합하며, `main.py`에서 이 라우터 하나만 include합니다.
+모든 API는 `/api` prefix를 사용합니다. `routes.py`가 **10개 도메인별 라우터**를 단일 `APIRouter`로 통합하며, `main.py`에서 이 라우터 하나만 include합니다.
 
 ### 라우터 파일 매핑
 
@@ -1844,6 +1916,7 @@ python ml/train_models.py
 | `routes_guardian.py` | Guardian/보안감시 | `/api/guardian/*` |
 | `routes_agent.py` | 에이전트/채팅 | `/api/agent/*` |
 | `routes_automation.py` | 자동화 엔진 | `/api/automation/retention/*`, `/api/automation/upgrade/*`, `/api/automation/faq/*`, `/api/automation/report/*`, `/api/automation/actions/*` |
+| `routes_consulting.py` | 셀러 컨설팅 | `/api/consulting/stream`, `/api/consulting/sessions`, `/api/consulting/sessions/{id}` |
 | `routes_admin.py` | 관리/설정/사용자 | `/api/settings/*`, `/api/users`, `/api/login` |
 
 ### API 응답 형식
@@ -2142,11 +2215,19 @@ data: {"ok": true, "final": "...", "tool_calls": [...]}
 | GET | `/api/users` | 사용자 목록 (admin 전용) |
 | POST | `/api/users` | 사용자 생성 (admin 전용, 역할: admin/manager/viewer) |
 
+### 셀러 컨설팅
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| POST | `/api/consulting/stream` | 컨설팅 세션 SSE 스트리밍 (4단계 워크플로우 진행) |
+| GET | `/api/consulting/sessions` | 활성 컨설팅 세션 목록 |
+| DELETE | `/api/consulting/sessions/{id}` | 컨설팅 세션 삭제 |
+
 ### 도구/유틸리티
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | `/api/tools` | 사용 가능한 AI 도구 목록 (31개 도구 메타데이터) |
+| GET | `/api/tools` | 사용 가능한 AI 도구 목록 (32개 도구 메타데이터) |
 
 ### Pydantic 요청 모델
 
@@ -2859,6 +2940,6 @@ Basic → Standard → Premium → Enterprise
 
 <div align="center">
 
-**Version 9.3.3** | 2026-03-09
+**Version 9.8.0** | 2026-03-16
 
 </div>

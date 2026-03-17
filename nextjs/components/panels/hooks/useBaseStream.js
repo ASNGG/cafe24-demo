@@ -190,7 +190,7 @@ export default function useBaseStream({
       }, timeoutMs);
 
       let deltaBuf = '';
-      const DELTA_FLUSH_THRESHOLD = 500; // 버퍼가 이 크기 이상이면 즉시 flush
+      const DELTA_FLUSH_THRESHOLD = 2000; // 버퍼가 이 크기 이상이면 즉시 flush
 
       const flushDelta = () => {
         if (!deltaBuf) return;

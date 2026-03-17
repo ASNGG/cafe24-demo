@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import EmptyState from '@/components/EmptyState';
 import SectionHeader from '@/components/SectionHeader';
-import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, RotateCcw, CheckCircle2, XCircle, Bot, Search, Target, ClipboardList, Rocket } from 'lucide-react';
+import { Loader2, Zap, ChevronDown, ChevronUp, Copy, FlaskConical, RefreshCcw, RotateCcw, CheckCircle2, XCircle, Bot, Search, Target, ClipboardList, Rocket, Route } from 'lucide-react';
 import useMultiAgentStream from './hooks/useMultiAgentStream';
 import ToolExplorer from '@/components/common/ToolExplorer';
 import { cafe24Btn, cafe24BtnInline, cafe24BtnSecondaryInline, cafe24BtnSecondary } from '@/components/common/buttonStyles';
@@ -65,7 +65,7 @@ const AgentBadgeBar = React.memo(function AgentBadgeBar({ agentHistory, activeAg
   );
 });
 
-function StepResultCard({ stepNum, result, agentName }) {
+const StepResultCard = React.memo(function StepResultCard({ stepNum, result, agentName }) {
   const [open, setOpen] = useState(true);
 
   return (
@@ -106,7 +106,7 @@ function StepResultCard({ stepNum, result, agentName }) {
       </AnimatePresence>
     </div>
   );
-}
+});
 
 function TypingDots() {
   return (
@@ -120,7 +120,7 @@ function TypingDots() {
 }
 
 // 에이전트 전환 인라인 표시
-function AgentTransitionMarker({ agent }) {
+const AgentTransitionMarker = React.memo(function AgentTransitionMarker({ agent }) {
   const worker = MULTI_AGENT_WORKERS[agent];
   const label = worker?.label || agent;
   return (
@@ -133,7 +133,7 @@ function AgentTransitionMarker({ agent }) {
       <div className="h-px flex-1 bg-cafe24-orange/15" />
     </div>
   );
-}
+});
 
 // 모듈 레벨 상수: ReactMarkdown components 객체 리렌더 시 재생성 방지
 const MULTI_MARKDOWN_COMPONENTS = {
@@ -181,31 +181,55 @@ const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
 });
 
 const ToolCalls = React.memo(function ToolCalls({ toolCalls }) {
+  const [open, setOpen] = useState(false);
   if (!toolCalls?.length) return null;
   return (
-    <details className="details mt-2">
-      <summary>도구 실행 결과</summary>
-      <div className="mt-2 space-y-3">
-        {toolCalls.map((tc, idx) => {
-          const ok = tc?.result?.status === 'success';
-          return (
-            <div key={idx} className="rounded-2xl border-2 border-cafe24-orange/20 bg-white/80 p-3 shadow-sm backdrop-blur">
-              <div className="flex items-center justify-between">
-                <div className="font-extrabold text-cafe24-brown">{tc.tool}</div>
-                <span className={ok ? 'badge badge-success' : 'badge badge-danger'}>
-                  {ok ? '성공' : '실패'}
-                </span>
-              </div>
-              <pre className="mt-2 overflow-auto rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown">
-                {JSON.stringify(tc.result, null, 2)}
-              </pre>
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-[10px] font-extrabold text-cafe24-brown/50 hover:text-cafe24-brown transition-colors"
+      >
+        {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        도구 실행 결과 ({toolCalls.length}개)
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 space-y-2">
+              {toolCalls.map((tc, idx) => {
+                const ok = tc?.result?.status === 'success';
+                return (
+                  <div key={idx} className="rounded-xl border border-cafe24-orange/15 bg-white/80 p-3 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        {ok ? <CheckCircle2 size={12} className="text-emerald-500" /> : <XCircle size={12} className="text-red-500" />}
+                        <span className="font-bold text-xs text-cafe24-brown">{tc.tool}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ok ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        {ok ? '성공' : '실패'}
+                      </span>
+                    </div>
+                    <pre className="mt-2 overflow-auto rounded-lg bg-cafe24-yellow/5 p-2.5 text-[10px] text-cafe24-brown/80 font-mono max-h-[200px]">
+                      {JSON.stringify(tc.result, null, 2)}
+                    </pre>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
-    </details>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 });
+
 
 function Chip({ label, onClick, disabled }) {
   return (
@@ -251,6 +275,15 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
   const chatBoxRef = useRef(null);
   const scrollRef = useRef(null);
   const prevLengthRef = useRef(0);
+  const [collapsedMsgs, setCollapsedMsgs] = useState(new Set());
+  const toggleCollapse = useCallback((idx) => {
+    setCollapsedMsgs((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }, []);
 
   const {
     messages,
@@ -365,6 +398,17 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
     prevLengthRef.current = messages?.length || 0;
   }, [messages]);
 
+  // 에이전트별 도구 호출 그룹핑
+  const toolsByAgent = useMemo(() => {
+    const map = {};
+    (toolExecutions || []).forEach((te) => {
+      const agent = te.agent || '_unknown';
+      if (!map[agent]) map[agent] = [];
+      map[agent].push(te);
+    });
+    return map;
+  }, [toolExecutions]);
+
   // 단계별 결과 항목
   const stepResultEntries = useMemo(() => {
     if (!stepResults || typeof stepResults !== 'object') return [];
@@ -387,7 +431,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
 
         <div className="card space-y-4">
           {/* 채팅/결과 영역 */}
-          <div ref={chatBoxRef} className="max-h-[55vh] md:max-h-[60vh] overflow-auto pr-1">
+          <div ref={chatBoxRef} role="log" aria-live="polite" className="max-h-[55vh] md:max-h-[60vh] overflow-auto pr-1">
             {(messages || []).map((m, idx) => {
               const isUser = m.role === 'user';
               const isPending = !!m?._pending;
@@ -441,64 +485,48 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
                             <span className="h-3 w-3 rounded-full border-2 border-cafe24-yellow border-t-cafe24-orange animate-spin" />
                             <span className="text-[10px]">streaming</span>
                           </span>
+                        ) : !isPending && m.content?.trim() ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleCollapse(idx)}
+                            className="p-1 rounded-md hover:bg-cafe24-yellow/20 text-cafe24-brown/40 hover:text-cafe24-brown transition-colors"
+                            data-tooltip={collapsedMsgs.has(idx) ? '펼치기' : '접기'}
+                          >
+                            {collapsedMsgs.has(idx) ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                          </button>
                         ) : null}
                       </div>
 
-                      {/* 에이전트 뱃지 + 도구 실행 (AI 메시지 내부) */}
-                      {!isUser && (isPending || idx === messages.length - 1) && agentHistory?.length > 0 && (
-                        <div className="mb-2 space-y-2">
-                          <AgentBadgeBar
-                            agentHistory={agentHistory}
-                            activeAgent={activeAgent}
-                            stepTimings={stepTimings}
-                          />
-                          {toolExecutions.length > 0 && (
-                            <div className="space-y-1">
-                              {toolExecutions.map((te, ti) => (
-                                <motion.div
-                                  key={ti}
-                                  initial={{ opacity: 0, y: 4 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.15 }}
-                                  className="flex items-center gap-2 rounded-lg border border-cafe24-orange/15 bg-cafe24-yellow/5 px-2.5 py-1.5 text-xs"
-                                >
-                                  {te.status === 'running' ? (
-                                    <Loader2 size={13} className="animate-spin text-cafe24-orange" />
-                                  ) : te.status === 'error' ? (
-                                    <XCircle size={13} className="text-red-500" />
-                                  ) : (
-                                    <CheckCircle2 size={13} className="text-emerald-500" />
-                                  )}
-                                  <span className="font-bold text-cafe24-brown">{te.tool}</span>
-                                  {te.args && Object.keys(te.args).length > 0 && (
-                                    <span className="text-cafe24-brown/40 text-[10px]">
-                                      ({Object.entries(te.args).map(([k, v]) => `${k}=${v}`).join(', ')})
-                                    </span>
-                                  )}
-                                  {te.result_preview && (
-                                    <span className="ml-auto text-cafe24-brown/50 truncate max-w-[180px] text-[10px]">{te.result_preview}</span>
-                                  )}
-                                </motion.div>
-                              ))}
+                      <AnimatePresence initial={false}>
+                        {!collapsedMsgs.has(idx) ? (
+                          <motion.div
+                            key="expanded"
+                            initial={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="prose prose-sm max-w-none">
+                              {!isUser && isPending && !m.content?.trim() ? (
+                                <TypingDots />
+                              ) : (
+                                <MarkdownMessage content={m.content || ''} />
+                              )}
                             </div>
-                          )}
-                          {stepProgress && (
-                            <div className="rounded-lg bg-cafe24-yellow/10 px-2.5 py-1.5 text-[10px] text-cafe24-brown/60">
-                              진행: {stepProgress.progress} — {stepProgress.detail}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="prose prose-sm max-w-none">
-                        {!isUser && isPending && !m.content?.trim() ? (
-                          <TypingDots />
+                            <ToolCalls toolCalls={m.tool_calls} />
+                          </motion.div>
                         ) : (
-                          <MarkdownMessage content={m.content || ''} />
+                          <motion.div
+                            key="collapsed"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="text-xs text-cafe24-brown/40 truncate cursor-pointer py-1"
+                            onClick={() => toggleCollapse(idx)}
+                          >
+                            {m.content?.slice(0, 80)}...
+                          </motion.div>
                         )}
-                      </div>
-
-                      <ToolCalls toolCalls={m.tool_calls} />
+                      </AnimatePresence>
 
                       {/* 호버 액션 버튼 */}
                       {!isPending && (
@@ -540,6 +568,127 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
             <div ref={scrollRef} />
           </div>
 
+          {/* 실시간 실행 현황 카드 */}
+          {agentHistory.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="rounded-2xl border-2 border-cafe24-orange/15 bg-gradient-to-r from-cafe24-yellow/5 via-white to-cafe24-orange/5 p-4 backdrop-blur"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Route size={16} className="text-cafe24-orange" />
+                <span className="text-xs font-extrabold text-cafe24-brown">실행 현황</span>
+                {pipelineStatus === 'running' && (
+                  <span className="text-[10px] text-cafe24-orange font-bold animate-pulse">진행중</span>
+                )}
+                {pipelineStatus === 'done' && (
+                  <span className="text-[10px] text-emerald-600 font-bold">완료</span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <AnimatePresence>
+                  {agentHistory.map((ah, idx) => {
+                    const worker = MULTI_AGENT_WORKERS[ah.agent];
+                    const Icon = worker?.icon || Bot;
+                    const label = worker?.label || ah.agent;
+                    const stepInfo = steps.find((s) => s.agent === ah.agent);
+                    const desc = stepInfo?.description || ah.agent;
+                    const status = ah.status;
+                    const agentTools = toolsByAgent[ah.agent] || [];
+                    return (
+                      <motion.div
+                        key={ah.agent}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.08, duration: 0.2 }}
+                        className="space-y-0"
+                      >
+                        {/* 에이전트 행 */}
+                        <div className={`flex items-center gap-3 rounded-xl px-3 py-2 text-xs transition-all duration-300 ${
+                          status === 'active'
+                            ? 'bg-cafe24-orange/10 border border-cafe24-orange/30 shadow-sm'
+                            : status === 'done'
+                            ? 'bg-emerald-50 border border-emerald-200'
+                            : 'bg-gray-50 border border-gray-200'
+                        }`}>
+                          <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0 ${
+                            status === 'done' ? 'bg-emerald-500 text-white'
+                              : status === 'active' ? 'bg-cafe24-orange text-white animate-pulse'
+                              : 'bg-gray-300 text-white'
+                          }`}>
+                            {status === 'done' ? <CheckCircle2 size={12} /> : idx + 1}
+                          </span>
+                          <Icon size={14} className={`shrink-0 ${
+                            status === 'active' ? 'text-cafe24-orange'
+                              : status === 'done' ? 'text-emerald-600'
+                              : 'text-gray-400'
+                          }`} />
+                          <span className={`font-bold shrink-0 ${
+                            status === 'active' ? 'text-cafe24-brown'
+                              : status === 'done' ? 'text-emerald-700'
+                              : 'text-gray-500'
+                          }`}>{label}</span>
+                          <span className={`truncate hidden sm:inline ${
+                            status === 'active' ? 'text-cafe24-brown/60'
+                              : status === 'done' ? 'text-emerald-600/60'
+                              : 'text-gray-400'
+                          }`}>{desc}</span>
+                          <span className="ml-auto shrink-0">
+                            {status === 'active' && <Loader2 size={12} className="animate-spin text-cafe24-orange" />}
+                            {status === 'done' && ah.elapsed_ms && (
+                              <span className="text-[10px] text-emerald-600 font-mono">{(ah.elapsed_ms / 1000).toFixed(1)}s</span>
+                            )}
+                          </span>
+                        </div>
+                        {/* 에이전트별 도구 호출 목록 */}
+                        {agentTools.length > 0 && (
+                          <div className="ml-7 border-l-2 border-cafe24-orange/10 pl-3 py-1 space-y-0.5">
+                            {agentTools.map((te, ti) => {
+                              const isRunning = te.status === 'running';
+                              const isError = te.status === 'error';
+                              return (
+                                <motion.div
+                                  key={ti}
+                                  initial={{ opacity: 0, x: -6 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: ti * 0.04, duration: 0.15 }}
+                                  className="flex items-center gap-1.5 py-1 text-[11px]"
+                                >
+                                  {isRunning ? (
+                                    <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                                      <span className="absolute inline-flex h-full w-full rounded-full bg-cafe24-orange/30 animate-ping" />
+                                      <Loader2 size={11} className="relative animate-spin text-cafe24-orange" />
+                                    </span>
+                                  ) : isError ? (
+                                    <XCircle size={11} className="text-red-500 shrink-0" />
+                                  ) : (
+                                    <CheckCircle2 size={11} className="text-emerald-500 shrink-0" />
+                                  )}
+                                  <span className={`font-bold ${isRunning ? 'text-cafe24-orange' : isError ? 'text-red-600' : 'text-cafe24-brown/70'}`}>
+                                    {te.tool}
+                                  </span>
+                                  {te.args && Object.keys(te.args).length > 0 && (
+                                    <span className="text-cafe24-brown/35 text-[10px] font-mono">
+                                      ({Object.entries(te.args).map(([k, v]) => `${k}=${v}`).join(', ')})
+                                    </span>
+                                  )}
+                                  {isRunning && (
+                                    <span className="ml-auto text-[9px] text-cafe24-orange font-bold animate-pulse">호출중</span>
+                                  )}
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
           {/* 단계별 결과 접기/펼치기 */}
           {stepResultEntries.length > 0 && (
             <div className="space-y-2">
@@ -552,7 +701,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
 
           {/* 에러 표시 */}
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+            <div role="alert" className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
               {error}
             </div>
           )}
@@ -624,13 +773,6 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
             </div>
           )}
 
-          {/* 추천 질문 칩 */}
-          <div className="flex flex-wrap gap-2">
-            {chips.map((c) => (
-              <Chip key={c.label} label={c.label} disabled={c.disabled} onClick={() => handleSend(c.label)} />
-            ))}
-          </div>
-
           {/* 입력 영역 */}
           <div className="flex flex-col md:flex-row gap-2 hover:shadow-md transition-shadow duration-300 rounded-xl p-1">
             <input
@@ -667,6 +809,13 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
             >
               중단
             </button>
+          </div>
+
+          {/* 추천 질문 칩 */}
+          <div className="flex flex-wrap gap-2">
+            {chips.map((c) => (
+              <Chip key={c.label} label={c.label} disabled={c.disabled} onClick={() => handleSend(c.label)} />
+            ))}
           </div>
         </div>
       </div>

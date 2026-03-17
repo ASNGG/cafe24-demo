@@ -15,7 +15,7 @@ from core.memory import clear_memory, append_memory
 from agent.llm import pick_api_key
 from agent.runner import run_agent
 from agent.multi_agent import run_multi_agent_stream
-from agent.consulting_agent import run_consulting_stream, _sessions as _consulting_sessions
+from agent.consulting_graph import run_consulting_graph_stream, has_active_consulting, reset_consulting_session
 import state as st
 from api.common import verify_credentials, AgentRequest, sse_pack
 
@@ -62,7 +62,12 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
             # 간단 인사 → 직접 LLM 응답 (Supervisor 불필요)
             simple_patterns = ["안녕", "고마워", "감사", "뭐해", "ㅎㅎ", "ㅋㅋ", "네", "응", "오케이", "bye", "hi", "hello", "thanks"]
-            is_simple = any(p in user_text.lower() for p in simple_patterns) and len(user_text) < 20
+            _analysis_kw = {"분석", "조회", "예측", "통계", "검색", "알려", "보여", "해줘", "셀러", "쇼핑몰", "매출", "이탈", "CS", "SEL", "GMV"}
+            is_simple = (
+                any(p in user_text.lower() for p in simple_patterns)
+                and len(user_text) < 20
+                and not any(kw in user_text for kw in _analysis_kw)
+            )
 
             if is_simple:
                 from langchain_openai import ChatOpenAI
@@ -87,25 +92,15 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                 yield sse_pack("done", {"ok": True, "final": full_response, "tool_calls": tool_calls_log})
                 return
 
-            # ── 컨설팅 모드: CONSULTING 카테고리 또는 활성 컨설팅 세션 ──
+            # ── 컨설팅 모드: CONSULTING 카테고리 또는 LangGraph 활성 세션 ──
             import re
-            _has_consulting_session = (
-                username in _consulting_sessions
-                and _consulting_sessions[username]["state"]["current_step"] != "done"
-            )
-            is_consulting = category == IntentCategory.CONSULTING or _has_consulting_session
+            is_consulting = category == IntentCategory.CONSULTING or has_active_consulting(username)
 
             if is_consulting:
-                # 셀러 ID 추출
                 seller_match = re.search(r'SEL\d{1,6}', user_text, re.IGNORECASE)
                 seller_id = seller_match.group(0) if seller_match else ""
-                # 기존 세션에서 seller_id 복구
-                if not seller_id and _has_consulting_session:
-                    seller_id = _consulting_sessions[username]["state"].get("seller_id", "")
-                # 기존 세션 ID 복구
-                sess_id = _consulting_sessions[username]["session_id"] if _has_consulting_session else None
 
-                st.logger.info("STREAM_CONSULTING_MODE seller=%s session=%s user=%s", seller_id, sess_id, username)
+                st.logger.info("STREAM_CONSULTING_GRAPH seller=%s user=%s", seller_id, username)
                 queue = asyncio.Queue()
 
                 async def sse_callback(event_type: str, data: dict):
@@ -113,12 +108,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
 
                 async def run_task():
                     try:
-                        await run_consulting_stream(
+                        await run_consulting_graph_stream(
                             seller_id=seller_id,
                             user_input=user_text,
-                            session_id=sess_id,
-                            action="message",
-                            strategy_choice=None,
                             username=username,
                             sse_callback=sse_callback,
                             api_key=api_key,
@@ -132,6 +124,9 @@ async def agent_stream(req: AgentRequest, request: Request, user: dict = Depends
                 while True:
                     item = await queue.get()
                     if item is None:
+                        break
+                    if await request.is_disconnected():
+                        task.cancel()
                         break
                     event_type, data = item
                     yield sse_pack(event_type, data)

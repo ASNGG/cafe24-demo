@@ -24,32 +24,8 @@ def get_data_path(filename: str) -> Path:
 
 
 def _optimize_dtypes(df: pd.DataFrame) -> pd.DataFrame:
-    """DataFrame dtype 최적화 — Railway 메모리 절감용
-
-    - int64 → int32 (값 범위가 int32 이내인 경우만)
-    - float64 → float32
-    - object 컬럼 중 고유값 비율 50% 이하 → category
-    """
-    for col in df.columns:
-        col_dtype = df[col].dtype
-
-        # int64 → int32 (값 범위 체크)
-        if col_dtype == np.int64:
-            col_min, col_max = df[col].min(), df[col].max()
-            if np.iinfo(np.int32).min <= col_min and col_max <= np.iinfo(np.int32).max:
-                df[col] = df[col].astype(np.int32)
-
-        # float64 → float32
-        elif col_dtype == np.float64:
-            df[col] = df[col].astype(np.float32)
-
-        # object → category (고유값 비율 50% 이하)
-        elif col_dtype == object:
-            nunique = df[col].nunique()
-            if nunique <= len(df) * 0.5:
-                df[col] = df[col].astype("category")
-
-    return df
+    """DataFrame dtype 최적화 — state._optimize_df_memory 위임"""
+    return st._optimize_df_memory(df)
 
 
 def load_data_safe(filepath: Path) -> Optional[pd.DataFrame]:

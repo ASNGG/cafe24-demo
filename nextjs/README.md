@@ -14,6 +14,16 @@
 
 ## 최신 업데이트
 
+> **v9.9.0** (2026-03-17) — 프론트엔드 인터랙티브 개선 + 백엔드 쿼리 디컴포지션
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **백엔드: 쿼리 디컴포지션** | 복합 질문("~하고 ~해줘") 자동 감지 → 경량 LLM(gpt-4o-mini)으로 서브 질문 분리, 복합 패턴 없으면 LLM 스킵(비용 절약), 같은 전문가 영역이면 분리 안 함, Supervisor에 구조화된 지시문 전달 (`_DECOMPOSE_PROMPT` + `_decompose_query()`) |
+| **실행 현황 카드 개선** | 에이전트별 도구 호출 트리 표시 (tool_start/tool_end + agent 연결) |
+| **채팅 메시지 접기/펼치기** | framer-motion 애니메이션으로 메시지 접기/펼치기 기능 추가 |
+| **ToolCalls 컴포넌트 개선** | details 요소 → 버튼 토글 + 애니메이션으로 전환 |
+| **activeAgentRef 추가** | useMultiAgentStream에 activeAgentRef 추가 (도구-에이전트 연결) |
+
 > **v9.8.0** (2026-03-16) — 셀러 컨설팅 통합
 
 | 영역 | 주요 변경 |
@@ -871,9 +881,10 @@ flowchart LR
 
 | 영역 | 내용 |
 |------|------|
-| **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 |
+| **PipelineSteps** | 단계별 진행 시각화 -- 완료(녹색 체크)/진행중(펄스 애니메이션)/대기(회색) 상태 표시 + 에이전트별 도구 호출 트리 |
 | **StepResultCard** | 단계별 결과 접기/펼치기 -- 마크다운 렌더링 (`react-markdown` + `remark-gfm`) |
-| **채팅 UI** | messages 기반 대화 인터페이스 -- 마크다운 + KaTeX 수학 렌더링 |
+| **채팅 UI** | messages 기반 대화 인터페이스 -- 마크다운 + KaTeX 수학 렌더링, 메시지 접기/펼치기 (framer-motion) |
+| **ToolCalls** | 도구 호출 결과 표시 -- 버튼 토글 + 애니메이션 (기존 details 요소 대체) |
 | **추천 칩** | 8개 추천 칩 -- 멀티 워커 연계 질문 (performance_analyst, platform_searcher 커버 추가) |
 | **사이드바** | 도구 탐색기 (`ToolExplorer` 아코디언), 파이프라인 정보 요약, LLM 설정 요약 |
 
@@ -1716,6 +1727,7 @@ sequenceDiagram
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.9.0 | 2026-03-17 | 백엔드 쿼리 디컴포지션: 복합 질문("~하고 ~해줘") 자동 감지→gpt-4o-mini 서브 질문 분리, 복합 패턴 없으면 LLM 스킵(비용 절약), 같은 전문가 영역이면 분리 안 함, Supervisor에 구조화된 지시문 전달(`_DECOMPOSE_PROMPT`+`_decompose_query()`). 프론트엔드 인터랙티브 개선: 실행 현황 카드에 에이전트별 도구 호출 트리 표시(tool_start/tool_end + agent 연결), 채팅 메시지 접기/펼치기(framer-motion 애니메이션), ToolCalls 컴포넌트 details→버튼 토글+애니메이션 전환, useMultiAgentStream에 activeAgentRef 추가(도구-에이전트 연결) |
 | 9.8.0 | 2026-03-16 | 셀러 컨설팅 AI 에이전트 탭 통합: 별도 패널 대신 MultiAgentPanel에 컨설팅 워크플로우 통합(자동 라우팅, 자유 대화 루프), 4단계 멀티스텝(진단→전략→계획→실행), Human-in-the-Loop, rollback 지원, Context Summary Layer, useConsultingStream.js, SSE 프록시(pages/api/agent/consulting/stream.js), 12탭→11탭 |
 | 9.7.0 | 2026-03-12 | 추천 질문 칩 6→8개 확장(performance_analyst, platform_searcher 워커 커버 추가), 에이전트 정보 "8종"→"7종" 워커 수정, 신규 추천 질문 2개 추가({shopId} 매출 성과 분석+코호트 리텐션, 카페24 정산 주기+수수료 정책) |
 | 9.3.0 | 2026-03-07 | Supervisor 통합: AgentPanel→MultiAgentPanel 19줄 래퍼, 인터랙티브 도구 탐색기(toolRegistry+ToolExplorer), useAgentStream 삭제, app.js agentMessages/totalQueries/sub-agent탭 정리(13→12탭), 추천 칩 멀티 워커 연계 질문 6개로 교체(모든 칩 2+ 워커 순차 호출) |
@@ -1737,6 +1749,6 @@ sequenceDiagram
 
 <div align="center">
 
-**Version 9.8.0** · Last Updated 2026-03-16
+**Version 9.9.0** · Last Updated 2026-03-17
 
 </div>

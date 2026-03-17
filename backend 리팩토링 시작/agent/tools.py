@@ -2103,7 +2103,8 @@ def tool_get_shop_performance(shop_id: str) -> dict:
             return f"₩{val:,}"
 
     total_orders = safe_int(row.get("monthly_orders", row.get("total_orders")))
-    avg_order_value = safe_int(row.get("avg_order_value")) if total_orders > 0 else 0
+    # avg_order_value: 매출/주문수에서 재계산 (데이터 정합성 보장)
+    avg_order_value = round(total_revenue / total_orders) if total_orders > 0 else 0
     refund_rate = safe_float(row.get("return_rate", row.get("refund_rate")))
     monthly_visitors = safe_int(row.get("monthly_visitors"))
     retention_rate = safe_float(row.get("customer_retention_rate"))

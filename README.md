@@ -13,15 +13,37 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--5--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
 ---
 
+## TODO
+
+- [x] 컨설팅 에이전트 LangGraph 전환 (consulting_agent.py ~800줄 → consulting_graph.py ~280줄)
+- [x] LangGraph interrupt() + MemorySaver 체크포인터 기반 단계 간 사용자 입력 대기
+- [x] Supervisor 워크플로우 규칙 강화 (복합 질문 2개+ 워커 순차 호출, 조건부 판단 범위 제한)
+- [x] 실행 현황 카드에 에이전트별 도구 호출 트리 표시
+- [x] 채팅 메시지 접기/펼치기 + ToolCalls 버튼 토글 애니메이션
+- [x] avg_order_value 데이터 정합성 수정 (DataFrame 독립 생성 → total_revenue / total_orders 재계산)
+
+---
+
 ## 최신 업데이트
 
-> **v9.8.0** (2026-03-16) — 셀러 컨설팅 에이전트 추가
+> **v9.9.0** (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 에이전트 LangGraph 전환 + Supervisor 규칙 강화 + 프론트엔드 인터랙티브 개선
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **쿼리 디컴포지션** | 복합 질문("~하고 ~해줘") 자동 감지 → 경량 LLM(gpt-4o-mini)으로 서브 질문 분리, 복합 패턴 없으면 LLM 호출 스킵(비용 절약), 같은 전문가 영역이면 분리 안 함, 분리된 서브 질문을 Supervisor에 구조화된 지시문으로 전달 (`_DECOMPOSE_PROMPT` + `_decompose_query()`) |
+| **컨설팅 에이전트 LangGraph 전환** | consulting_agent.py (~800줄, 수동 스테이트 머신) → consulting_graph.py (~280줄, LangGraph interrupt() + MemorySaver), 키워드 라우팅 제거 → 그래프 상태 기반 자동 라우팅 |
+| **Supervisor 워크플로우 규칙 강화** | 복합 질문("~하고 ~해줘") 시 2개+ 워커 순차 호출 강제, "조건부 판단" 범위를 분석→실행 흐름에만 제한 (독립 요청은 항상 호출) |
+| **프론트엔드 인터랙티브 개선** | 실행 현황 카드에 에이전트별 도구 호출 트리 표시, 채팅 메시지 접기/펼치기 (framer-motion), ToolCalls 버튼 토글 + 애니메이션 |
+| **데이터 정합성 수정** | avg_order_value: DataFrame 독립 생성 값 → total_revenue / total_orders 재계산 |
+
+<details>
+<summary><b>v9.8.0</b> (2026-03-16) — 셀러 컨설팅 에이전트 추가</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -30,6 +52,8 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **Context Summary Layer** | 단계별 요약을 다음 단계에 전달 |
 | **API 3개 추가** | `POST /api/consulting/stream`, `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
 | **프론트엔드 패널** | 셀러 컨설팅 워크플로우를 AI 에이전트 탭에 통합 (자동 라우팅 + 자유 대화) |
+
+</details>
 
 <details>
 <summary><b>v9.7.0</b> (2026-03-12) — 멀티에이전트 도구 데이터 품질 개선 + 전수 테스트 검증</summary>
@@ -165,7 +189,7 @@ v9.8.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 |------|------|
 | **LLM + ML 하이브리드** | GPT-5-mini가 32개 도구를 선택하고, 전통 ML 모델 12개가 예측 수행 |
 | **하이브리드 라우팅** | 명확한 질문: 키워드 라우터가 워커 직접 호출 (supervisor 우회, 3초 절감) · 애매한 질문: Supervisor LLM이 판단하여 워커 위임 |
-| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(7워커) 항상 활성 — 전문 워커 7개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, 워커 직접 스트리밍, 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 시 2개+ 워커 순차 호출 강제, `full_history` 모드로 워커 간 이전 결과 참조, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침 |
+| **Supervisor 멀티에이전트** | `langgraph-supervisor` 기반 Supervisor(7워커) 항상 활성 — 전문 워커 7개(churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) 위임 패턴, **쿼리 디컴포지션**(복합 질문 자동 감지 → gpt-4o-mini로 서브 질문 분리 → Supervisor에 구조화된 지시문 전달, 복합 패턴 없으면 LLM 스킵), 워커 직접 스트리밍, 분석 결과 기반 후속 판단(LOW 이탈 위험 시 retention 위임 생략), 복합 요청 시 2개+ 워커 순차 호출 강제, `full_history` 모드로 워커 간 이전 결과 참조, 공통 응답 규칙(`_WORKER_COMMON_RULES`: 5가지 분석 관점) + 워커별 역할 특화 분석 지침 |
 | **RAG 7종 기법** | FAISS Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG(GraphRAG) + K2RAG(KG+Sub-Q) + Cross-Encoder Reranking |
 | **SHAP 해석** | 셀러 이탈 원인을 피처별 기여도(SHAP value)로 설명 |
 | **실시간 스트리밍** | SSE(Server-Sent Events) 기반 토큰 단위 스트리밍 — 워커 에이전트 직접 스트리밍 (7종 이벤트: delta/tool_start/tool_end/agent_start/agent_end/done/error) |
@@ -327,7 +351,7 @@ flowchart LR
 | 기능 | 설명 | 핵심 기술 |
 |------|------|-----------|
 | **AI 에이전트** | 자연어로 데이터 분석/예측 요청 — 항상 Supervisor(7워커) 모드로 동작 + 인터랙티브 도구 탐색기 | GPT-5-mini + Tool Calling + 32개 도구 |
-| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 7개에 작업 위임 + 분석 결과 기반 후속 판단(LOW → retention 위임 생략) + 복합 요청 2개+ 워커 순차 호출 강제 + `full_history` 워커 간 결과 참조 + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 7워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) |
+| **Supervisor 멀티에이전트** | Supervisor가 전문 워커 에이전트 7개에 작업 위임 + **쿼리 디컴포지션**(복합 질문 자동 감지 → gpt-4o-mini 서브 질문 분리 → 구조화된 지시문 전달, 단일 영역이면 분리 안 함) + 분석 결과 기반 후속 판단(LOW → retention 위임 생략) + 복합 요청 2개+ 워커 순차 호출 강제 + `full_history` 워커 간 결과 참조 + 공통 응답 규칙(5가지 분석 관점) + 워커별 역할 특화 프롬프트 | langgraph-supervisor (Supervisor → 7워커: churn_analyst, retention_strategist, seller_analyst, performance_analyst, cs_quality_analyst, report_writer, platform_searcher) |
 | **RAG 7종 기법** | 7가지 RAG 기법 조합 검색 | Hybrid + RAG-Fusion + Parent-Child + Contextual + LightRAG + K2RAG + Cross-Encoder |
 | **셀러 이탈 예측** | 셀러 이탈 확률 예측 + SHAP 해석 | RandomForest + SHAP Explainer |
 | **이상거래 탐지** | 사기 거래/비정상 패턴 자동 탐지 | Isolation Forest |
@@ -337,7 +361,7 @@ flowchart LR
 | **DB 보안 감시** | DB 대량 변경 실시간 차단 + SHAP 위험 분석 + 복구 SQL 생성 | 룰엔진 + Isolation Forest + SHAP + LangChain Agent |
 | **AI 인사이트** | 대시보드 데이터 기반 동적 인사이트 자동 생성 | 실시간 데이터 분석 |
 | **셀러 종합 프로필** | 레이더 차트 + 5개 ML 모델 예측 결과 통합 | Percentile 기반 스코어링 |
-| **셀러 컨설팅** | AI 에이전트 탭 통합, 자동 라우팅(IntentCategory.CONSULTING), 4단계 멀티스텝 워크플로우 (진단→전략→계획→실행), Human-in-the-Loop, rollback 지원 | LangGraph StateGraph + Context Summary Layer |
+| **셀러 컨설팅** | AI 에이전트 탭 통합, 자동 라우팅(IntentCategory.CONSULTING), 4단계 멀티스텝 워크플로우 (진단→전략→계획→실행), Human-in-the-Loop, rollback 지원 | LangGraph interrupt() + MemorySaver 체크포인터 + Context Summary Layer |
 | **OCR** | 이미지에서 텍스트 추출 + RAG 문서 등록 | EasyOCR |
 | **RBAC** | 역할 기반 접근 제어 (관리자/분석가/사용자/운영자) | Basic Auth + 역할별 패널 제한 |
 
@@ -515,7 +539,7 @@ flowchart TD
 │   │   ├── llm.py                     # LLM 클라이언트 설정
 │   │   ├── intent.py                  # 의도 분류 (RETENTION 인텐트 포함)
 │   │   ├── multi_agent.py             # Supervisor 멀티에이전트 (langgraph-supervisor)
-│   │   ├── consulting_agent.py        # 셀러 컨설팅 에이전트 (4단계 StateGraph 워크플로우)
+│   │   ├── consulting_graph.py         # 셀러 컨설팅 에이전트 (LangGraph interrupt() + MemorySaver, ~280줄)
 │   │   └── consulting_prompts.yaml    # 컨설팅 에이전트 프롬프트
 │   ├── api/
 │   │   └── routes_consulting.py       # 컨설팅 에이전트 API (3개 엔드포인트)
@@ -669,6 +693,7 @@ cd nextjs && npx vercel --prod
 
 | 버전 | 날짜 | 주요 변경 |
 |------|------|----------|
+| 9.9.0 | 2026-03-17 | 쿼리 디컴포지션: 복합 질문("~하고 ~해줘") 자동 감지→경량 LLM(gpt-4o-mini)으로 서브 질문 분리, 복합 패턴 없으면 LLM 스킵(비용 절약), 같은 전문가 영역이면 분리 안 함, Supervisor에 구조화된 지시문 전달(`_DECOMPOSE_PROMPT`+`_decompose_query()`). 컨설팅 에이전트 LangGraph 전환: consulting_agent.py(~800줄, 수동 스테이트 머신+_sessions)→consulting_graph.py(~280줄, LangGraph interrupt()+MemorySaver 체크포인터), 키워드 라우팅 제거→그래프 상태 기반 자동 라우팅. Supervisor 워크플로우 규칙 강화: 복합 질문 2개+ 워커 순차 호출 강제, "조건부 판단" 범위를 분석→실행 흐름에만 제한(독립 요청 항상 호출). 프론트엔드 인터랙티브 개선: 실행 현황 카드에 에이전트별 도구 호출 트리 표시, 채팅 메시지 접기/펼치기(framer-motion), ToolCalls 버튼 토글+애니메이션, useMultiAgentStream에 activeAgentRef 추가. 데이터 정합성: avg_order_value를 total_revenue/total_orders 재계산으로 수정 |
 | 9.8.0 | 2026-03-16 | 셀러 컨설팅 에이전트 추가: 4단계 멀티스텝 워크플로우(진단→전략 수립→실행 계획→실행), rollback 지원, Human-in-the-Loop 각 단계 사용자 확인, Context Summary Layer 단계별 요약 전달. API 3개 추가(POST /consulting/stream, GET /sessions, DELETE /sessions/{id}). 프론트엔드 AI 에이전트 탭에 컨설팅 워크플로우 통합 (자동 라우팅, 자유 대화 루프) |
 | 9.7.0 | 2026-03-12 | 멀티에이전트 도구 데이터 품질 개선: `get_shop_performance` 컬럼 매핑 수정(monthly_revenue/monthly_orders/return_rate), `get_cs_statistics` 가중평균 전환, `get_seller_activity_report` total_events 계산 수정. LLM 범위 혼동 방지: `get_cs_statistics`·`get_cohort_analysis`에 `_llm_instruction` 추가. `get_shop_performance` data_warnings 자동 감지(주문수 0인데 전환율 >0). 워커 도구 배정 최적화(retention_strategist 중복 제거, seller_analyst에 CS 통계 추가). Supervisor 프롬프트 워커 분기 판단 규칙 3개 추가. 프론트 추천 질문 6→8개 확장(7종 워커 전체 커버). 8개 질문 전수 테스트 스크립트 및 자동 검증 시스템 구축 |
 | 9.6.0 | 2026-03-12 | GPT-5-mini 전환: Supervisor·7종 워커·Intent 라우터·프론트 기본값 전체 gpt-5-mini 통일(sessionStorage 자동 마이그레이션). 도구 데이터 품질 개선: analyze_seller avg_order_value fallback·data_warnings·플랫폼 비교 데이터, predict_seller_churn 확률 floor 0.5%·importance_note. 프롬프트 YAML 전환: multi_agent_prompts.json→.yaml, 데이터 품질 해석 규칙 추가. Railway 메모리 최적화: ML lazy loading·torch/easyocr 비활성화(~500MB 절감)·캐시 축소. 프론트: Agent/Lab 대화 보존·서버 운영 시간 표시·해석 톤 규칙 |

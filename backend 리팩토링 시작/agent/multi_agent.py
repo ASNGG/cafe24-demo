@@ -136,6 +136,58 @@ MULTI_AGENT_SUPERVISOR_PROMPT = _PROMPTS["supervisors"]["multi_agent"]
 
 
 # ============================================================
+# 쿼리 디컴포지션 — 복합 질문을 서브 질문으로 분리
+# ============================================================
+_COMPOUND_MARKERS = ["하고 ", "고 ", "면서 ", "한 다음", "그리고 ", "한후", "후에 "]
+
+_DECOMPOSE_PROMPT = """사용자 질문을 독립된 서브 질문으로 분리하세요.
+
+## 규칙
+- "~하고 ~해줘", "~분석하고 ~보여줘" 패턴은 분리
+- 같은 전문가가 처리할 수 있는 요청은 분리하지 않음
+- 단일 주제는 그대로 반환
+
+## 전문가 영역 (서로 다른 영역이면 분리)
+- 이탈 분석: 이탈 예측, 위험 셀러, 이탈 확률
+- 리텐션 전략: 메시지 생성, 쿠폰, 조치 실행
+- 셀러 분석: 종합 진단, 세그먼트, 이상거래, 부정행위
+- 성과 분석: 쇼핑몰 매출, 코호트 리텐션, 마케팅 최적화, GMV
+- CS 품질: CS 통계, 상담 분류, 자동 응답
+- 리포트: 대시보드, KPI, 전체 현황, 종합 보고서
+- 플랫폼 검색: 정책, FAQ, 수수료, 용어
+
+## 같은 전문가 → 분리하지 않음
+- "쇼핑몰 매출 분석하고 코호트 보여줘" → 둘 다 성과 분석 → ["쇼핑몰 매출 분석하고 코호트 보여줘"]
+
+## 다른 전문가 → 분리
+- "CS 통계 분석하고 대시보드 요약해줘" → CS 품질 + 리포트 → ["CS 통계 분석해줘", "대시보드 요약해줘"]
+
+반드시 JSON만 반환: {"sub_queries": ["질문1", "질문2"]}"""
+
+
+async def _decompose_query(user_text: str, api_key: str) -> list:
+    """복합 질문 자동 분리 (경량 LLM 호출)"""
+    # 빠른 체크: 복합 패턴이 없으면 스킵
+    if not any(m in user_text for m in _COMPOUND_MARKERS):
+        return [user_text]
+
+    try:
+        llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0, max_tokens=300)
+        resp = await llm.ainvoke([
+            {"role": "system", "content": _DECOMPOSE_PROMPT},
+            {"role": "user", "content": user_text},
+        ])
+        result = json.loads(resp.content)
+        sub_queries = result.get("sub_queries", [user_text])
+        if len(sub_queries) >= 2:
+            st.logger.info("QUERY_DECOMPOSED original=%s sub_queries=%s", user_text[:60], sub_queries)
+        return sub_queries if sub_queries else [user_text]
+    except Exception as e:
+        st.logger.warning("DECOMPOSE_FAILED err=%s", e)
+        return [user_text]
+
+
+# ============================================================
 # 멀티에이전트 스트림 실행 (routes_agent.py에서 호출)
 # Supervisor 패턴 — 동적 라우팅 + astream_events SSE 스트리밍
 # ============================================================
@@ -167,6 +219,14 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
     st.logger.info("MULTI_AGENT_STREAM_START user=%s input=%s", username, user_text[:80])
 
     try:
+        # ── 쿼리 디컴포지션: 복합 질문 자동 분리 ──
+        sub_queries = await _decompose_query(user_text, api_key)
+        if len(sub_queries) >= 2:
+            decomposed = "다음 요청을 각각 별도의 전문 워커에게 순차적으로 위임하세요:\n"
+            for i, sq in enumerate(sub_queries, 1):
+                decomposed += f"{i}. {sq}\n"
+            decomposed += f"\n원본 질문: {user_text}"
+            user_text = decomposed
         llm = get_llm(
             req.model, api_key, req.max_tokens, streaming=True,
             temperature=req.temperature if req.temperature is not None else 0.3,

@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,17 @@ v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.8.0** (2026-03-16) — 셀러 컨설팅 에이전트 추가
+> **v9.9.0** (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 에이전트 LangGraph 전환 + Supervisor 규칙 강화
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **쿼리 디컴포지션** | 복합 질문("~하고 ~해줘") 자동 감지 → 경량 LLM(gpt-4o-mini)으로 서브 질문 분리, 복합 패턴 없으면 LLM 호출 스킵(비용 절약), 같은 전문가 영역이면 분리 안 함, 분리된 서브 질문을 Supervisor에 구조화된 지시문으로 전달 (`_DECOMPOSE_PROMPT` + `_decompose_query()`) |
+| **컨설팅 에이전트 LangGraph 전환** | consulting_graph.py (~800줄, 수동 스테이트 머신 + _sessions 딕셔너리) → consulting_graph.py (~280줄, LangGraph interrupt() + MemorySaver 체크포인터), 키워드 기반 라우팅 제거 → 그래프 상태 기반 자동 라우팅 |
+| **Supervisor 워크플로우 규칙 강화** | 복합 질문("~하고 ~해줘") 시 2개+ 워커 순차 호출 강제, "조건부 판단" 범위를 분석→실행 흐름에만 제한 (독립 요청은 항상 호출) |
+| **데이터 정합성 수정** | avg_order_value: DataFrame 독립 생성 값 → total_revenue / total_orders 재계산 |
+
+<details>
+<summary><b>v9.8.0</b> (2026-03-16) — 셀러 컨설팅 에이전트 추가</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -26,7 +36,9 @@ v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | **Human-in-the-Loop** | 각 단계 사용자 확인 후 다음 단계 진행, Context Summary Layer로 단계별 요약 전달 |
 | **세션 관리** | 30분 TTL, 최대 100세션, 자동 정리 |
 | **API 3개 추가** | `POST /api/consulting/stream`, `GET /api/consulting/sessions`, `DELETE /api/consulting/sessions/{id}` |
-| **파일 추가** | `agent/consulting_agent.py`, `agent/consulting_prompts.yaml`, `api/routes_consulting.py` |
+| **파일 추가** | `agent/consulting_graph.py`, `agent/consulting_prompts.yaml`, `api/routes_consulting.py` |
+
+</details>
 
 <details>
 <summary><b>v9.7.0</b> (2026-03-12) — 도구 데이터 정합성 수정 + 멀티에이전트 최적화</summary>
@@ -281,7 +293,7 @@ v9.8.0 | 개발 기간: 2026.02.06 ~ 진행 중
 카페24 AI 운영 플랫폼 백엔드는 **300개 쇼핑몰, 300명 셀러, ~7,500개 상품** 규모의 이커머스 플랫폼 내부 운영을 위한 AI 기반 분석 및 자동화 시스템입니다. Anthropic의 [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) 패턴을 기반으로 설계된 2단계 라우터(키워드 0ms + LLM fallback)가 **32개 AI 도구**를 정밀 라우팅하며, **12개 ML 모델** + **7종 RAG 기법** + **10개 도메인별 라우터(115개 REST API)**로 운영 전 영역을 커버합니다.
 
 **핵심 기능:**
-- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 9개 IntentCategory로 32개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
+- **AI 에이전트**: Anthropic Building Effective Agents 패턴 기반 2단계 인텐트 라우터(키워드 분류 0ms + LLM Router fallback). 9개 IntentCategory로 32개 도구를 분류하고 `tool_choice="required"`로 PLATFORM 카테고리의 RAG 강제 호출을 구현. `langgraph-supervisor` 기반 Supervisor 멀티에이전트(Search/Analysis/CS 3개 워커 + 7개 전문 워커) + 쿼리 디컴포지션(복합 질문 자동 감지 → gpt-4o-mini 서브 질문 분리 → Supervisor 구조화 지시문 전달) + 하이브리드 라우팅(명확 intent → 워커 직접 호출, 애매 intent → Supervisor 경유)
 - **RAG 시스템 (7종 기법)**: Hybrid Search(FAISS + BM25 + RRF), RAG-Fusion(4개 변형 쿼리), Parent-Child Chunking(500자/3,000자), Anthropic [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)(검색 정확도 +20~35%), LightRAG(지식 그래프, 99% 토큰 절감), K2RAG(KG + Corpus Summarization, Longformer LED), Cross-Encoder Reranking
 - **ML 파이프라인**: 셀러 이탈 예측(RandomForest + SHAP TreeExplainer, F1 93.3%), 이상거래 탐지(IsolationForest), 셀러 세그먼트(K-Means k=5), 매출 예측(LightGBM) 등 12개 ML 모델 + P-PSO 마케팅 최적화(mealpy) + MLflow 실험 추적/모델 레지스트리
 - **합성 데이터**: `np.random.default_rng(42)` 시드 고정으로 재현 가능한 18개 CSV 자동 생성. 로그정규분포(가격/매출), 베타분포(환불률), 포아송분포(주문수) 등 도메인별 통계적 분포로 실제 이커머스 패턴을 모사 (Faker 미사용)
@@ -431,9 +443,9 @@ backend 리팩토링 시작/
 │   ├── tool_schemas.py              # @tool 데코레이터 스키마 (LLM 바인딩용)
 │   ├── router.py                    # 2단계 라우터 (키워드 분류 + LLM Router, 9개 IntentCategory)
 │   ├── intent.py                    # 인텐트 감지 (router.py와 통합된 키워드 분류, RETENTION_KEYWORDS 12개)
-│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
+│   ├── multi_agent.py               # Supervisor 멀티에이전트 (langgraph-supervisor, Search/Analysis/CS 3워커 + 7개 전문 워커) + 쿼리 디컴포지션 (_DECOMPOSE_PROMPT + _decompose_query(), 복합 질문 자동 분리) + 하이브리드 라우팅 (워커 직접/Supervisor 경유) + 워커 프롬프트 (공통 규칙 `_WORKER_COMMON_RULES` + 역할별 특화 지침)
 │   ├── multi_agent_prompts.yaml     # 멀티에이전트 프롬프트 (YAML — Supervisor 판단 규칙 + 7개 워커 역할별 지침 + 데이터 품질 해석 규칙)
-│   ├── consulting_agent.py          # 셀러 컨설팅 에이전트 (4단계 StateGraph 워크플로우, rollback, 세션 관리)
+│   ├── consulting_graph.py          # 셀러 컨설팅 에이전트 (LangGraph interrupt() + MemorySaver, ~280줄)
 │   ├── consulting_prompts.yaml      # 컨설팅 에이전트 프롬프트 (단계별 시스템 프롬프트)
 │   └── llm.py                       # LLM 호출 래퍼 (프롬프트 인젝션 방어, invoke_with_retry 지수 백오프)
 │
@@ -958,7 +970,7 @@ flowchart LR
 
 ### 6.6 멀티 에이전트 시스템 (Supervisor 패턴)
 
-`agent/multi_agent.py`에서 `langgraph-supervisor` 기반 Supervisor 멀티에이전트를 구현합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 **Supervisor가 기본 에이전트 경로**입니다.
+`agent/multi_agent.py`에서 `langgraph-supervisor` 기반 Supervisor 멀티에이전트를 구현합니다. 프론트엔드에서 항상 `multi_agent: true`로 요청하므로 **Supervisor가 기본 에이전트 경로**입니다. 복합 질문("~하고 ~해줘")은 **쿼리 디컴포지션**(`_decompose_query()`)이 경량 LLM(gpt-4o-mini)으로 서브 질문을 분리한 뒤 Supervisor에 구조화된 지시문으로 전달합니다. 복합 패턴이 없으면 LLM 호출을 스킵하고, 같은 전문가 영역의 질문은 분리하지 않습니다.
 
 #### Supervisor 그래프 구조
 
@@ -1035,9 +1047,16 @@ flowchart TD
 | **report_writer** | 플랫폼 전체 vs 개별 쇼핑몰 데이터 구분 (혼동 금지), 경영진 의사결정 수준 보고서, KPI 요약 표 선행, 변화량+변화율(%) 표기 |
 | **platform_searcher** | RAG 결과 꼼꼼히 읽기, 할루시네이션 금지, 항목 수 세기, 도구 호출 필수 |
 
+**쿼리 디컴포지션 (`_DECOMPOSE_PROMPT` + `_decompose_query()`):**
+- 복합 질문("~하고 ~해줘") 자동 감지: 정규식으로 복합 패턴 매칭, 없으면 LLM 호출 스킵 (비용 절약)
+- 경량 LLM(gpt-4o-mini)으로 서브 질문 분리: 각 서브 질문이 어떤 전문가 영역인지 판별
+- 같은 전문가 영역이면 분리 안 함: 불필요한 분리 방지
+- 분리된 서브 질문을 Supervisor에 구조화된 지시문으로 전달: 각 서브 질문별 워커 매칭 힌트 포함
+
 **Supervisor 프롬프트 (`MULTI_AGENT_SUPERVISOR_PROMPT`) 강화:**
 - 분석 결과 기반 판단: 앞선 워커(예: churn_analyst)의 분석 결과에 따라 후속 워커 실행 여부를 판단 (LOW 위험 → retention_strategist 위임 안 함, 맹목적 순차 실행 금지)
 - 복합 요청 강제: "~하고 ~해줘" 패턴 시 반드시 2개 이상 서로 다른 워커에게 순차 위임
+- 조건부 판단 범위 제한: "조건부 판단"은 분석→실행 흐름에만 적용 (독립 요청은 항상 호출)
 - 대화 맥락 유지: 이전 대화에서 언급된 쇼핑몰/셀러를 후속 질문에서도 유지
 - 형식적 응답 금지: "확인했습니다" 같은 한 줄 응답 절대 금지
 - 최소 3개 이상 인사이트 제공, 워커 반환 데이터 상세 정리
@@ -1082,6 +1101,7 @@ INTENT_AGENT_MAP = {
 | `build_supervisor_graph(llm)` | 3개 워커(search/analysis/cs) + Supervisor 그래프 빌드 | - |
 | `get_cached_supervisor(llm, model_key)` | 모델별 Supervisor 그래프 캐시 반환 | `_supervisor_cache` |
 | `get_cached_worker(llm, model_key, agent_name)` | 개별 워커 에이전트 캐시 반환 (supervisor 우회) | `_worker_cache` |
+| `_decompose_query(query)` | 복합 질문 자동 감지 → gpt-4o-mini로 서브 질문 분리 (복합 패턴 없으면 스킵, 같은 영역이면 분리 안 함) | - |
 | `build_multi_agent_supervisor(llm)` | 7종 워커 동적 라우팅 멀티에이전트 Supervisor 빌드 | - |
 | `get_cached_multi_supervisor(llm, model_key)` | 모델별 멀티에이전트 Supervisor 그래프 캐시 반환 | `_multi_supervisor_cache` |
 
@@ -1157,7 +1177,8 @@ skip_rag = category not in [IntentCategory.PLATFORM, IntentCategory.GENERAL]
 
 **전체 라우팅 데이터 흐름:**
 ```
-사용자 → router(키워드/IntentCategory 감지)
+사용자 → _decompose_query(복합 질문이면 서브 질문 분리, 아니면 스킵)
+  → router(키워드/IntentCategory 감지)
   → 명확 intent (SHOP,SELLER,CS 등): 워커 직접 호출 (get_cached_worker, supervisor 우회)
   → 애매 intent (PLATFORM,GENERAL): Supervisor 경유 (get_cached_supervisor)
   → multi_agent: true → 멀티에이전트 Supervisor (7개 전문 워커, run_multi_agent_stream)
@@ -1221,21 +1242,21 @@ LLM 호출의 안정성, 확장성, 세밀한 파라미터 제어를 담당하�
 
 ### 6.7 셀러 컨설팅 에이전트
 
-`agent/consulting_agent.py`에서 LangGraph `StateGraph` 기반 4단계 멀티스텝 워크플로우를 구현합니다. Supervisor 패턴과 달리 **단계별 순차 진행 + Human-in-the-Loop** 구조입니다.
+`agent/consulting_graph.py`에서 LangGraph `interrupt()` + `MemorySaver` 체크포인터 기반 4단계 멀티스텝 워크플로우를 구현합니다. 기존 consulting_agent.py(~800줄, 수동 스테이트 머신 + `_sessions` 딕셔너리)에서 ~280줄로 경량화되었습니다. Supervisor 패턴과 달리 **단계별 순차 진행 + Human-in-the-Loop** 구조이며, `interrupt()`로 단계 간 사용자 입력을 대기하고 `Command(resume=)`로 재개합니다.
 
 #### 아키텍처
 
 ```mermaid
 flowchart TD
     INPUT["셀러 ID 입력"] --> DIAG["1단계: 진단<br/>(analyze_seller, predict_seller_churn)"]
-    DIAG -->|"Context Summary"| CONFIRM1{"사용자 확인"}
-    CONFIRM1 -->|"승인"| STRAT["2단계: 전략 수립<br/>(get_seller_segment, optimize_marketing)"]
+    DIAG -->|"interrupt()"| CONFIRM1{"사용자 입력 대기"}
+    CONFIRM1 -->|"Command(resume=)"| STRAT["2단계: 전략 수립<br/>(get_seller_segment, optimize_marketing)"]
     CONFIRM1 -->|"rollback"| DIAG
-    STRAT -->|"Context Summary"| CONFIRM2{"사용자 확인"}
-    CONFIRM2 -->|"승인"| PLAN["3단계: 실행 계획<br/>(generate_retention_message)"]
+    STRAT -->|"interrupt()"| CONFIRM2{"사용자 입력 대기"}
+    CONFIRM2 -->|"Command(resume=)"| PLAN["3단계: 실행 계획<br/>(generate_retention_message)"]
     CONFIRM2 -->|"rollback"| DIAG
-    PLAN -->|"Context Summary"| CONFIRM3{"사용자 확인"}
-    CONFIRM3 -->|"승인"| EXEC["4단계: 실행<br/>(execute_retention_action)"]
+    PLAN -->|"interrupt()"| CONFIRM3{"사용자 입력 대기"}
+    CONFIRM3 -->|"Command(resume=)"| EXEC["4단계: 실행<br/>(execute_retention_action)"]
     CONFIRM3 -->|"rollback"| STRAT
     EXEC --> DONE["완료"]
 ```
@@ -1253,17 +1274,17 @@ flowchart TD
 
 | 특징 | 설명 |
 |------|------|
-| **Human-in-the-Loop** | 각 단계 완료 후 사용자 확인을 받아야 다음 단계 진행 |
-| **Rollback** | "다시", "돌아가", "취소" 등 키워드 감지 시 이전 단계로 복귀 |
+| **LangGraph interrupt()** | 각 단계 완료 후 `interrupt()`로 사용자 입력 대기, `Command(resume=)`로 재개 |
+| **MemorySaver 체크포인터** | LangGraph 내장 체크포인터로 세션 상태 자동 관리 (기존 수동 `_sessions` 딕셔너리 제거) |
+| **그래프 상태 기반 라우팅** | 키워드 기반 라우팅 제거 → 그래프 상태(phase)에 따라 자동으로 다음 단계 결정 |
 | **Context Summary Layer** | 각 단계의 분석 결과를 요약하여 다음 단계에 전달 — 컨텍스트 윈도우 효율화 |
-| **세션 관리** | 30분 TTL, 최대 100세션, LRU 방식 자동 정리 |
 | **SSE 스트리밍** | 기존 에이전트와 동일한 7종 SSE 이벤트 프로토콜 사용 |
 
 #### 파일 구조
 
 | 파일 | 역할 |
 |------|------|
-| `agent/consulting_agent.py` | StateGraph 정의 + 4단계 노드 + 세션 관리 + rollback 로직 |
+| `agent/consulting_graph.py` | LangGraph interrupt() + MemorySaver 기반 4단계 워크플로우 (~280줄) |
 | `agent/consulting_prompts.yaml` | 단계별 시스템 프롬프트 (진단/전략/계획/실행) |
 | `api/routes_consulting.py` | REST API 3개 엔드포인트 |
 
@@ -2941,6 +2962,6 @@ Basic → Standard → Premium → Enterprise
 
 <div align="center">
 
-**Version 9.8.0** | 2026-03-16
+**Version 9.9.0** | 2026-03-17
 
 </div>

@@ -1,7 +1,7 @@
 // hooks/useMultiAgentStream.js — 멀티에이전트 전용 SSE 스트리밍 훅
 // useBaseStream 공통 로직 기반, Supervisor 패턴: 동적 에이전트 활동 추적
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import useBaseStream from './useBaseStream';
 
@@ -21,6 +21,8 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
   // Supervisor 패턴: 현재 활성 에이전트 + 에이전트 이력
   const [activeAgent, setActiveAgent] = useState(null);
   const [agentHistory, setAgentHistory] = useState([]); // [{agent, status:'active'|'done', elapsed_ms?}]
+  // ref로 현재 활성 에이전트 추적 (onExtraEvent 콜백 클로저 내에서 사용)
+  const activeAgentRef = useRef(null);
 
   // 컨설팅 모드 상태
   const [consultingMode, setConsultingMode] = useState(false);
@@ -48,6 +50,7 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
       const { agent, step, total_steps, description } = data;
       setCurrentStep(step);
       setActiveAgent(agent);
+      activeAgentRef.current = agent;
       setSteps((prev) => [
         ...prev,
         { agent, step, total_steps, description: description || agent, status: 'running' },
@@ -79,13 +82,14 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
         prev.map((a) => a.agent === agent ? { ...a, status: 'done', elapsed_ms } : a)
       );
       setActiveAgent(null);
+      activeAgentRef.current = null;
       return true;
     }
 
     if (ev.event === 'tool_start') {
       setToolExecutions((prev) => [
         ...prev,
-        { tool: data.tool, args: data.args || {}, status: 'running', timestamp: Date.now() },
+        { tool: data.tool, args: data.args || {}, status: 'running', timestamp: Date.now(), agent: activeAgentRef.current },
       ]);
       return true;
     }
@@ -195,7 +199,10 @@ export default function useMultiAgentStream({ auth, selectedShop, settings }) {
     setConsultingAwaitingInput(null);
   }, []);
 
-  const bodyExtra = useMemo(() => ({ multi_agent: true }), []);
+  const bodyExtra = useMemo(() => ({
+    multi_agent: true,
+    ...(consultingSessionId ? { consulting_session_id: consultingSessionId } : {}),
+  }), [consultingSessionId]);
 
   const { sendMessage, stopStream } = useBaseStream({
     auth,

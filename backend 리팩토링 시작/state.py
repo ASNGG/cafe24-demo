@@ -16,6 +16,24 @@ from threading import Lock
 import pandas as pd
 
 # ============================================================
+# DataFrame 메모리 최적화
+# ============================================================
+def _optimize_df_memory(df: pd.DataFrame) -> pd.DataFrame:
+    """DataFrame 메모리 최적화 — object→category, int64→int32, float64→float32"""
+    for col in df.columns:
+        col_type = df[col].dtype
+        if col_type == 'object':
+            nunique = df[col].nunique()
+            if nunique / len(df) < 0.5:  # 유니크 비율 50% 미만이면 category
+                df[col] = df[col].astype('category')
+        elif col_type == 'int64':
+            if df[col].min() >= -2147483648 and df[col].max() <= 2147483647:
+                df[col] = df[col].astype('int32')
+        elif col_type == 'float64':
+            df[col] = df[col].astype('float32')
+    return df
+
+# ============================================================
 # 경로
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

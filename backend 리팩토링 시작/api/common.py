@@ -160,6 +160,7 @@ class AgentRequest(BaseModel):
     agent_mode: str = Field("single", alias="agentMode")
     debug: bool = Field(True, alias="debug")
     multi_agent: bool = Field(False, alias="multi_agent")
+    consulting_session_id: Optional[str] = Field(None, alias="consulting_session_id")
     class Config:
         populate_by_name = True
         allow_population_by_field_name = True

@@ -23,6 +23,7 @@ v9.9.3 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 - [x] RAG 전처리 + 청킹 전면 개선 (문서 클리닝, Breadcrumb, 키워드 태그, Q-A 병합, 테이블 보존, 중복 제거)
 - [x] Python 3.13 대응 (asyncio.get_running_loop, Dockerfile 3.13, SHAP 비활성화)
+- [ ] 멀티에이전트 라우팅 고도화 (쿼리 디컴포지션 순차 실행, 도구 호출 제한, Supervisor 워커 분기 정확도 개선)
 - [ ] 컨설팅 모드(Human-in-the-Loop) 속도 개선 + SSE 이벤트 누락 수정
 
 ---

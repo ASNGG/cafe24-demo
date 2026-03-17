@@ -334,7 +334,6 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         { label: `${shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` },
         { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘' },
         { label: 'SEL0001 컨설팅 해줘' },
-        { label: '카페24 정산 주기와 수수료 정책 알려줘' },
       ];
     },
     [selectedShop]
@@ -485,15 +484,6 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
                             <span className="h-3 w-3 rounded-full border-2 border-cafe24-yellow border-t-cafe24-orange animate-spin" />
                             <span className="text-[10px]">streaming</span>
                           </span>
-                        ) : !isPending && m.content?.trim() ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleCollapse(idx)}
-                            className="p-1 rounded-md hover:bg-cafe24-yellow/20 text-cafe24-brown/40 hover:text-cafe24-brown transition-colors"
-                            data-tooltip={collapsedMsgs.has(idx) ? '펼치기' : '접기'}
-                          >
-                            {collapsedMsgs.has(idx) ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                          </button>
                         ) : null}
                       </div>
 
@@ -527,6 +517,20 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
                           </motion.div>
                         )}
                       </AnimatePresence>
+
+                      {/* 접기/펼치기 버튼 — 메시지 하단 */}
+                      {!isUser && !isPending && m.content?.trim() && (
+                        <div className="flex justify-center mt-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleCollapse(idx)}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-cafe24-brown/40 hover:text-cafe24-brown hover:bg-cafe24-yellow/20 transition-colors"
+                          >
+                            {collapsedMsgs.has(idx) ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                            {collapsedMsgs.has(idx) ? '펼치기' : '접기'}
+                          </button>
+                        </div>
+                      )}
 
                       {/* 호버 액션 버튼 */}
                       {!isPending && (

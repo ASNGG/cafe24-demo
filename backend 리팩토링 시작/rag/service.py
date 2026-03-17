@@ -79,6 +79,7 @@ def __getattr__(name):
 # ============================================================
 FAISS = None
 OpenAIEmbeddings = None
+GoogleGenerativeAIEmbeddings = None
 Document = None
 RecursiveCharacterTextSplitter = None
 
@@ -87,6 +88,11 @@ try:
     from langchain_openai import OpenAIEmbeddings
     from langchain_core.documents import Document
     from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:
+    pass
+
+try:
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
 except ImportError:
     pass
 
@@ -129,10 +135,26 @@ def _rag_files_fingerprint(paths: List[str]) -> str:
 # Embeddings
 # ============================================================
 def _make_embeddings(api_key: str):
+    # Gemini 임베딩 우선 사용 (무료, GOOGLE_API_KEY 필요)
+    if GoogleGenerativeAIEmbeddings is not None:
+        google_key = os.environ.get("GOOGLE_API_KEY", "").strip()
+        if google_key:
+            try:
+                emb = GoogleGenerativeAIEmbeddings(
+                    model=st.RAG_EMBED_MODEL,
+                    google_api_key=google_key,
+                )
+                st.logger.info("EMBEDDINGS_PROVIDER=gemini model=%s", st.RAG_EMBED_MODEL)
+                return emb
+            except Exception as e:
+                st.logger.warning("Gemini embedding init failed: %s — fallback to OpenAI", e)
+
+    # 폴백: OpenAI 임베딩
     if OpenAIEmbeddings is None:
         return None
     k = (api_key or "").strip()
     try:
+        st.logger.info("EMBEDDINGS_PROVIDER=openai model=%s", st.RAG_EMBED_MODEL)
         return OpenAIEmbeddings(model=st.RAG_EMBED_MODEL, openai_api_key=k)
     except TypeError:
         try:
@@ -432,7 +454,32 @@ def rag_build_or_load_index(api_key: str, force_rebuild: bool = False) -> None:
         if emb is None:
             raise RuntimeError("embeddings_init_failed")
 
-        idx = FAISS.from_documents(chunks, emb)
+        # 배치 인덱싱 (Gemini 등 레이트리밋 대응)
+        is_gemini = "gemini" in st.RAG_EMBED_MODEL.lower()
+        BATCH_SIZE = 20 if is_gemini else 500
+        BATCH_DELAY = 4.0 if is_gemini else 0.5
+        idx = None
+        total_batches = (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE
+        for i in range(0, len(chunks), BATCH_SIZE):
+            batch = chunks[i:i + BATCH_SIZE]
+            batch_num = i // BATCH_SIZE + 1
+            st.logger.info("EMBED_BATCH %d/%d (%d chunks)", batch_num, total_batches, len(batch))
+            try:
+                if idx is None:
+                    idx = FAISS.from_documents(batch, emb)
+                else:
+                    idx.add_documents(batch)
+            except Exception as batch_err:
+                # 레이트리밋 시 대기 후 재시도
+                st.logger.warning("EMBED_BATCH_RETRY %d/%d err=%s — waiting 30s", batch_num, total_batches, str(batch_err)[:100])
+                time.sleep(30)
+                if idx is None:
+                    idx = FAISS.from_documents(batch, emb)
+                else:
+                    idx.add_documents(batch)
+            # 레이트리밋 방지 딜레이
+            if i + BATCH_SIZE < len(chunks):
+                time.sleep(BATCH_DELAY)
         _safe_faiss_save(idx, st.RAG_FAISS_DIR)
 
         bm25_built = _build_bm25_index(chunks)

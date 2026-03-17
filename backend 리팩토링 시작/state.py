@@ -415,7 +415,7 @@ RAG_STATE_FILE = os.path.join(RAG_FAISS_DIR, "rag_state.json")
 RAG_EMBED_MODEL = "text-embedding-3-small"
 RAG_ALLOWED_EXTS = {".txt", ".md", ".json", ".csv", ".log", ".pdf"}
 RAG_MAX_DOC_CHARS = 200000
-RAG_SNIPPET_CHARS = 1200
+RAG_SNIPPET_CHARS = 2500
 RAG_DEFAULT_TOPK = 5
 RAG_MAX_TOPK = 20
 

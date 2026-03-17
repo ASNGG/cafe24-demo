@@ -258,6 +258,19 @@ def _split_by_sections(text: str, source: str = "") -> List[Tuple[str, str]]:
     if not text:
         return [("", text)]
 
+    # 메타데이터 헤더 제거 (> source:, > category:, > code:, --- 등)
+    # 문서 앞부분의 메타데이터만 있는 섹션이 독립 청크로 인덱싱되는 문제 방지
+    _meta_pattern = re.compile(r'^(>\s*(source|category|code)\s*:.*|---\s*)$')
+    cleaned_lines = []
+    header_done = False
+    for line in text.split('\n'):
+        if not header_done and (not line.strip() or _meta_pattern.match(line.strip())):
+            continue  # 문서 앞부분 메타데이터 스킵
+        else:
+            header_done = True
+            cleaned_lines.append(line)
+    text = '\n'.join(cleaned_lines)
+
     # 번호 패턴: "1. 제목", "1.2. 제목"
     number_pattern = re.compile(r'^(\d+\.(?:\d+\.)*\s*.+)$', re.MULTILINE)
     # 마크다운 헤더: "## 제목", "### 제목" (# 1개는 문서 전체 제목이므로 제외)
@@ -392,7 +405,7 @@ def _create_parent_child_chunks(
 
         sections = _split_by_sections(content, source)
         for section_title, section_content in sections:
-            if not section_content or len(section_content.strip()) < 50:
+            if not section_content or len(section_content.strip()) < 200:
                 continue
 
             blocks = _extract_bullet_blocks(section_content)

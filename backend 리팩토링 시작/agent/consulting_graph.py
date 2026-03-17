@@ -2,14 +2,15 @@
 agent/consulting_graph.py
 LangGraph interrupt() 기반 셀러 컨설팅 4단계 워크플로우
 
-기존 consulting_agent.py (~800줄) → LangGraph 패턴 전환
 - interrupt() + Command(resume=) 으로 단계 전환
 - MemorySaver 체크포인터로 세션 자동 관리
 - astream_events로 SSE 스트리밍 통합
+- Python 3.13: asyncio.to_thread 병렬 도구 실행
 """
+import asyncio
 import json
 import yaml
-from typing import TypedDict, Optional, Dict, Any
+from typing import TypedDict
 from pathlib import Path
 
 from langgraph.graph import StateGraph, START, END
@@ -121,11 +122,14 @@ def _fmt_prompt(template: str, state: ConsultingState) -> str:
 
 # ── Step 1: 진단 ──
 async def diagnosis_node(state: ConsultingState) -> dict:
-    """셀러 진단: 3개 도구 + LLM 분석"""
+    """셀러 진단: 3개 도구 병렬 실행 + LLM 분석 (Python 3.13 asyncio.to_thread)"""
     sid = state["seller_id"]
-    analysis = tool_analyze_seller(sid)
-    churn = tool_predict_seller_churn(sid)
-    segment = tool_get_seller_segment(sid)
+    # 3개 도구 병렬 실행 — 순차(~3초) → 병렬(~1초)
+    analysis, churn, segment = await asyncio.gather(
+        asyncio.to_thread(tool_analyze_seller, sid),
+        asyncio.to_thread(tool_predict_seller_churn, sid),
+        asyncio.to_thread(tool_get_seller_segment, sid),
+    )
     tool_results = {
         "seller_analysis": analysis,
         "churn_prediction": churn,
@@ -297,7 +301,7 @@ _checkpointer = MemorySaver()
 _compiled_graph = None
 
 # 세션 카운터 (리셋 시 thread_id 변경용)
-_session_counters: Dict[str, int] = {}
+_session_counters: dict[str, int] = {}
 
 
 def _get_thread_id(username: str) -> str:

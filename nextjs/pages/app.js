@@ -75,11 +75,16 @@ const EXAMPLE_QUESTIONS = {
     '셀러 세그먼트별 통계 보여줘',              // get_segment_statistics
     'SEL0001 최근 30일 활동 리포트',           // get_seller_activity_report
   ],
-  '❓ 카페24 FAQ': [
+  '❓ 카페24 FAQ (RAG)': [
     '카페24 결제수단 설정 방법 알려줘',          // search_platform (RAG)
     '취소/교환/반품 처리 방법 알려줘',           // search_platform (RAG)
     '쿠폰 생성하고 관리하는 방법',              // search_platform_lightrag
     '디컬렉션이 뭐야?',                       // search_platform_lightrag
+    '카페24 배송비 설정과 무료배송 조건 알려줘',   // search_platform (RAG)
+    '카페24 상품등록 방법과 옵션 설정 알려줘',    // search_platform (RAG)
+    '카페24 적립금 관리와 회원 등급별 적립 정책 알려줘', // search_platform (RAG)
+    '카페24 SEO 검색엔진 최적화 설정 방법 알려줘', // search_platform (RAG)
+    '카페24 도메인 연결 방법 알려줘',            // search_platform (RAG)
   ],
 };
 

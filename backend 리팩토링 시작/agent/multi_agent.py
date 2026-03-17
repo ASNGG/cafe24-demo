@@ -19,10 +19,12 @@ from pathlib import Path
 
 try:
     from langgraph.prebuilt import create_react_agent
+    from langchain_openai import ChatOpenAI
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
     create_react_agent = None
+    ChatOpenAI = None
 
 try:
     from langgraph_supervisor import create_supervisor
@@ -136,55 +138,57 @@ MULTI_AGENT_SUPERVISOR_PROMPT = _PROMPTS["supervisors"]["multi_agent"]
 
 
 # ============================================================
-# 쿼리 디컴포지션 — 복합 질문을 서브 질문으로 분리
+# 쿼리 디컴포지션 — 복합 질문을 서브 질문으로 분리 (코드 기반)
 # ============================================================
-_COMPOUND_MARKERS = ["하고 ", "고 ", "면서 ", "한 다음", "그리고 ", "한후", "후에 "]
+import re as _re
 
-_DECOMPOSE_PROMPT = """사용자 질문을 독립된 서브 질문으로 분리하세요.
+_COMPOUND_MARKERS = ["하고 ", "고 ", "면서 ", "한 다음 ", "그리고 ", "한후 ", "후에 "]
 
-## 규칙
-- "~하고 ~해줘", "~분석하고 ~보여줘" 패턴은 분리
-- 같은 전문가가 처리할 수 있는 요청은 분리하지 않음
-- 단일 주제는 그대로 반환
-
-## 전문가 영역 (서로 다른 영역이면 분리)
-- 이탈 분석: 이탈 예측, 위험 셀러, 이탈 확률
-- 리텐션 전략: 메시지 생성, 쿠폰, 조치 실행
-- 셀러 분석: 종합 진단, 세그먼트, 이상거래, 부정행위
-- 성과 분석: 쇼핑몰 매출, 코호트 리텐션, 마케팅 최적화, GMV
-- CS 품질: CS 통계, 상담 분류, 자동 응답
-- 리포트: 대시보드, KPI, 전체 현황, 종합 보고서
-- 플랫폼 검색: 정책, FAQ, 수수료, 용어
-
-## 같은 전문가 → 분리하지 않음
-- "쇼핑몰 매출 분석하고 코호트 보여줘" → 둘 다 성과 분석 → ["쇼핑몰 매출 분석하고 코호트 보여줘"]
-
-## 다른 전문가 → 분리
-- "CS 통계 분석하고 대시보드 요약해줘" → CS 품질 + 리포트 → ["CS 통계 분석해줘", "대시보드 요약해줘"]
-
-반드시 JSON만 반환: {"sub_queries": ["질문1", "질문2"]}"""
+# 워커 영역별 키워드 (같은 영역이면 분리 안 함)
+_DOMAIN_KEYWORDS = {
+    "churn": ["이탈", "churn", "이탈 예측", "이탈 확률", "이탈 위험", "이탈 분석"],
+    "retention": ["리텐션", "retention", "리텐션 전략", "리텐션 메시지", "리텐션 실행", "전략 실행", "조치 실행", "쿠폰", "매니저 배정"],
+    "seller": ["셀러 분석", "셀러 정보", "세그먼트", "이상거래", "부정행위", "fraud"],
+    "performance": ["쇼핑몰 매출", "코호트", "마케팅 최적화", "GMV", "트렌드", "매출 분석", "성과"],
+    "cs": ["CS", "상담", "문의", "CS 통계", "CS 품질", "자동 응답"],
+    "report": ["대시보드", "요약", "KPI", "전체 현황", "리포트", "보고서", "종합"],
+    "platform": ["정책", "수수료", "가이드", "용어", "플랫폼"],
+}
 
 
-async def _decompose_query(user_text: str, api_key: str) -> list:
-    """복합 질문 자동 분리 (경량 LLM 호출)"""
+def _detect_domain(text: str) -> str | None:
+    """텍스트에서 워커 영역 감지"""
+    for domain, keywords in _DOMAIN_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            return domain
+    return None
+
+
+def _decompose_query(user_text: str) -> list:
+    """복합 질문 코드 기반 분리 (LLM 호출 없음, <1ms)"""
     # 빠른 체크: 복합 패턴이 없으면 스킵
     if not any(m in user_text for m in _COMPOUND_MARKERS):
         return [user_text]
 
-    try:
-        llm = ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0, max_tokens=300)
-        resp = await llm.ainvoke([
-            {"role": "system", "content": _DECOMPOSE_PROMPT},
-            {"role": "user", "content": user_text},
-        ])
-        result = json.loads(resp.content)
-        sub_queries = result.get("sub_queries", [user_text])
-        if len(sub_queries) >= 2:
-            st.logger.info("QUERY_DECOMPOSED original=%s sub_queries=%s", user_text[:60], sub_queries)
-        return sub_queries if sub_queries else [user_text]
-    except Exception as e:
-        st.logger.warning("DECOMPOSE_FAILED err=%s", e)
+    # 복합 패턴으로 분리 시도
+    split_pattern = r'(?:하고\s|고\s|면서\s|한\s*다음\s|그리고\s|한\s*후\s|후에\s)'
+    parts = _re.split(split_pattern, user_text)
+    parts = [p.strip() for p in parts if p.strip()]
+
+    if len(parts) < 2:
         return [user_text]
+
+    # 각 파트의 영역 감지
+    domains = [_detect_domain(p) for p in parts]
+
+    # 모두 같은 영역이면 분리하지 않음
+    unique_domains = set(d for d in domains if d is not None)
+    if len(unique_domains) <= 1:
+        return [user_text]
+
+    # 다른 영역이면 분리
+    st.logger.info("QUERY_DECOMPOSED original=%s sub_queries=%s", user_text[:60], parts)
+    return parts
 
 
 # ============================================================
@@ -219,8 +223,8 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
     st.logger.info("MULTI_AGENT_STREAM_START user=%s input=%s", username, user_text[:80])
 
     try:
-        # ── 쿼리 디컴포지션: 복합 질문 자동 분리 ──
-        sub_queries = await _decompose_query(user_text, api_key)
+        # ── 쿼리 디컴포지션: 복합 질문 코드 기반 분리 ──
+        sub_queries = _decompose_query(user_text)
         if len(sub_queries) >= 2:
             decomposed = "다음 요청을 각각 별도의 전문 워커에게 순차적으로 위임하세요:\n"
             for i, sq in enumerate(sub_queries, 1):
@@ -258,7 +262,9 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
         current_tool = None
         agents_used_set = set()
         tool_fail_counts: Dict[str, int] = {}  # 도구별 실패 횟수 추적
-        MAX_TOOL_RETRIES = 5  # 동일 도구 최대 재시도 횟수 (3→5 완화: 일시적 오류 허용)
+        tool_total_counts: Dict[str, int] = {}  # 도구별 총 호출 횟수 추적 (성공 포함)
+        MAX_TOOL_RETRIES = 5  # 동일 도구 최대 실패 횟수
+        MAX_TOOL_CALLS = 3  # 동일 도구 최대 총 호출 횟수 (성공 포함, 중복 호출 방지)
 
         # 워커 이름 집합 (handoff 이벤트 감지용)
         worker_names = set(MULTI_AGENT_WORKERS.keys())
@@ -355,10 +361,11 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                     else:
                         result_preview = str(tool_output)[:200]
 
-                    # 도구 실패 횟수 추적
+                    # 도구 호출 횟수 추적 (성공+실패)
                     is_error = (isinstance(tool_output, dict) and tool_output.get("status") == "error")
                     if is_error:
                         tool_fail_counts[end_tool_name] = tool_fail_counts.get(end_tool_name, 0) + 1
+                    tool_total_counts[end_tool_name] = tool_total_counts.get(end_tool_name, 0) + 1
 
                     tool_calls_log.append({
                         "tool": end_tool_name,
@@ -374,7 +381,14 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                     })
                     current_tool = None
 
-                    # 동일 도구 3회 실패 시 스트림 강제 종료
+                    # 동일 도구 중복 호출 방지 (성공 포함)
+                    if tool_total_counts.get(end_tool_name, 0) >= MAX_TOOL_CALLS:
+                        st.logger.warning(
+                            "TOOL_REPEAT_LIMIT tool=%s calls=%d — 중복 호출 차단",
+                            end_tool_name, tool_total_counts[end_tool_name],
+                        )
+
+                    # 동일 도구 실패 횟수 초과 시 스트림 강제 종료
                     if tool_fail_counts.get(end_tool_name, 0) >= MAX_TOOL_RETRIES:
                         st.logger.warning(
                             "TOOL_RETRY_LIMIT tool=%s fails=%d — aborting stream",

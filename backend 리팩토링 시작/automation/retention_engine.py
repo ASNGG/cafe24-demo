@@ -143,7 +143,7 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
 
     # ML 모델이 있는 경우 (lazy loading)
     st.get_model("SELLER_CHURN_MODEL")
-    st.get_model("SHAP_EXPLAINER_CHURN")
+    # st.get_model("SHAP_EXPLAINER_CHURN")  # 비활성화: Python 3.13 pickle 비호환
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
@@ -152,10 +152,10 @@ def get_at_risk_sellers(threshold: float = 0.6, limit: int = 20) -> List[Dict]:
             # 이탈 확률 예측
             proba = st.SELLER_CHURN_MODEL.predict_proba(X)[:, 1]
 
-            # SHAP 분석 (전체 배치)
+            # SHAP 분석 — 비활성화 (Python 3.13 pickle 비호환)
             shap_values_all = None
-            if st.SHAP_EXPLAINER_CHURN is not None:
-                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
+            # if st.SHAP_EXPLAINER_CHURN is not None:
+            #     shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
 
             # threshold 필터링 후 해당 행만 순회 (벡터화 필터)
             mask = proba >= threshold
@@ -275,7 +275,7 @@ def generate_retention_message(seller_id: str, api_key: str = "") -> Dict:
     risk = churn_info["risk_level"]
 
     # LOW 위험: LLM 호출 없이 즉시 "리텐션 불필요" 판단 반환
-    if risk == "LOW":
+    if risk.upper() == "LOW":
         return {
             "seller_id": seller_id,
             "message": "",
@@ -362,7 +362,7 @@ def _analyze_single_seller(row) -> Dict:
     """단일 셀러의 이탈 분석 결과를 반환합니다."""
     # lazy loading
     st.get_model("SELLER_CHURN_MODEL")
-    st.get_model("SHAP_EXPLAINER_CHURN")
+    # st.get_model("SHAP_EXPLAINER_CHURN")  # 비활성화: Python 3.13 pickle 비호환
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
@@ -375,11 +375,12 @@ def _analyze_single_seller(row) -> Dict:
             prob = float(st.SELLER_CHURN_MODEL.predict_proba(X)[0][1])
             risk_level = "high" if prob > 0.7 else "medium" if prob > 0.3 else "low"
 
+            # SHAP — 비활성화 (Python 3.13 pickle 비호환), feature_importances_ 대체
             top_factors = []
-            if st.SHAP_EXPLAINER_CHURN is not None:
-                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
-                if shap_values_all is not None:
-                    top_factors = _shap_top_factors(shap_values_all[0], feature_cols)
+            # if st.SHAP_EXPLAINER_CHURN is not None:
+            #     shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
+            #     if shap_values_all is not None:
+            #         top_factors = _shap_top_factors(shap_values_all[0], feature_cols)
 
             if not top_factors:
                 top_factors = _default_factors(row)
@@ -430,7 +431,7 @@ async def get_at_risk_sellers_stream(threshold: float = 0.6, limit: int = 20):
 
     # lazy loading
     st.get_model("SELLER_CHURN_MODEL")
-    st.get_model("SHAP_EXPLAINER_CHURN")
+    # st.get_model("SHAP_EXPLAINER_CHURN")  # 비활성화: Python 3.13 pickle 비호환
     if st.SELLER_CHURN_MODEL is not None:
         try:
             feature_cols = FEATURE_COLS_CHURN
@@ -439,10 +440,10 @@ async def get_at_risk_sellers_stream(threshold: float = 0.6, limit: int = 20):
             # 이탈 확률 예측
             proba = st.SELLER_CHURN_MODEL.predict_proba(X)[:, 1]
 
-            # SHAP 분석
+            # SHAP 분석 — 비활성화 (Python 3.13 pickle 비호환)
             shap_values_all = None
-            if st.SHAP_EXPLAINER_CHURN is not None:
-                shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
+            # if st.SHAP_EXPLAINER_CHURN is not None:
+            #     shap_values_all = _extract_shap_values(st.SHAP_EXPLAINER_CHURN, X)
 
             # threshold 필터링
             mask = proba >= threshold

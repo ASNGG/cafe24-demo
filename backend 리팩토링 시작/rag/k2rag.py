@@ -582,7 +582,7 @@ async def k2rag_search(
             )
 
             # 동기 generate_subquestion()을 스레드 풀에서 병렬 실행
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             subq_tasks = [
                 loop.run_in_executor(_LLM_EXECUTOR, generate_subquestion, chunk)
                 for chunk in kg_chunks[:5]  # 최대 5개 서브 질문
@@ -618,7 +618,7 @@ async def k2rag_search(
 
         # D-2: LLM 답변 생성 → 스레드 풀에서 병렬 실행
         if search_pairs:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             answer_tasks = [
                 loop.run_in_executor(_LLM_EXECUTOR, generate_answer, sq, sc)
                 for sq, sc in search_pairs

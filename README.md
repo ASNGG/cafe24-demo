@@ -21,14 +21,9 @@ v9.9.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## TODO
 
+- [ ] RAG 검색 품질 개선 (임베딩 모델 전환, 청킹 최적화, 스니펫 확장)
 - [ ] Python 3.13 버전업 코드 대응 및 테스트 (asyncio.to_thread 병렬화, 타입 힌트 모던화, 라이브러리 호환성 검증)
 - [ ] 컨설팅 모드(Human-in-the-Loop) 속도 개선 + SSE 이벤트 누락 수정 (SHAP 제거, tool_start/tool_end/agent_start/agent_end 이벤트 발행 추가)
-- [x] 컨설팅 에이전트 LangGraph 전환 (consulting_agent.py ~800줄 → consulting_graph.py ~280줄)
-- [x] LangGraph interrupt() + MemorySaver 체크포인터 기반 단계 간 사용자 입력 대기
-- [x] Supervisor 워크플로우 규칙 강화 (복합 질문 2개+ 워커 순차 호출, 조건부 판단 범위 제한)
-- [x] 실행 현황 카드에 에이전트별 도구 호출 트리 표시
-- [x] 채팅 메시지 접기/펼치기 + ToolCalls 버튼 토글 애니메이션
-- [x] avg_order_value 데이터 정합성 수정 (DataFrame 독립 생성 → total_revenue / total_orders 재계산)
 
 ---
 

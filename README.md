@@ -13,7 +13,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--5--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.9.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -21,15 +21,27 @@ v9.9.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 ## TODO
 
-- [ ] RAG 검색 품질 개선 (임베딩 모델 전환, 청킹 최적화, 스니펫 확장)
-- [ ] Python 3.13 버전업 코드 대응 및 테스트 (asyncio.to_thread 병렬화, 타입 힌트 모던화, 라이브러리 호환성 검증)
-- [ ] 컨설팅 모드(Human-in-the-Loop) 속도 개선 + SSE 이벤트 누락 수정 (SHAP 제거, tool_start/tool_end/agent_start/agent_end 이벤트 발행 추가)
+- [x] RAG 전처리 + 청킹 전면 개선 (문서 클리닝, Breadcrumb, 키워드 태그, Q-A 병합, 테이블 보존, 중복 제거)
+- [x] Python 3.13 대응 (asyncio.get_running_loop, Dockerfile 3.13, SHAP 비활성화)
+- [ ] 컨설팅 모드(Human-in-the-Loop) 속도 개선 + SSE 이벤트 누락 수정
 
 ---
 
 ## 최신 업데이트
 
-> **v9.9.0** (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 에이전트 LangGraph 전환 + Supervisor 규칙 강화 + 프론트엔드 인터랙티브 개선
+> **v9.9.1** (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응 + 멀티에이전트 안정화
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **RAG 전처리 강화** | 문서 클리닝 파이프라인 추가 (HTML 주석/메타데이터/보일러플레이트 제거, ㆍ→- 불릿 정규화, HTML 엔티티 디코딩) |
+| **RAG 청킹 개선** | Breadcrumb 계층 경로 자동 추출, 키워드 태그 자동 삽입, Q-A 페어 병합, 테이블 보존, 절차형 불릿 그룹핑 (1500자 이하 통합), 보일러플레이트 섹션 스킵, 동일 제목 섹션 dedup + n-gram Jaccard 중복 청크 제거 |
+| **RAG 스니펫 확장** | `RAG_SNIPPET_CHARS` 1200 → 2500 (LLM 컨텍스트 2배) |
+| **Python 3.13 대응** | `asyncio.get_event_loop()` → `get_running_loop()`, Dockerfile 3.13, SHAP pickle 비활성화 |
+| **멀티에이전트 안정화** | 동일 도구 중복 호출 방지 (프롬프트 규칙 + 호출 횟수 추적) |
+| **프론트엔드** | 채팅 접기 버튼 하단 이동, 사이드 FAQ 4→9개 확장 + (RAG) 태그 |
+
+<details>
+<summary><b>v9.9.0</b> (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 LangGraph 전환</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -38,6 +50,8 @@ v9.9.0 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **Supervisor 워크플로우 규칙 강화** | 복합 질문("~하고 ~해줘") 시 2개+ 워커 순차 호출 강제, "조건부 판단" 범위를 분석→실행 흐름에만 제한 (독립 요청은 항상 호출) |
 | **프론트엔드 인터랙티브 개선** | 실행 현황 카드에 에이전트별 도구 호출 트리 표시, 채팅 메시지 접기/펼치기 (framer-motion), ToolCalls 버튼 토글 + 애니메이션 |
 | **데이터 정합성 수정** | avg_order_value: DataFrame 독립 생성 값 → total_revenue / total_orders 재계산 |
+
+</details>
 
 <details>
 <summary><b>v9.8.0</b> (2026-03-16) — 셀러 컨설팅 에이전트 추가</summary>

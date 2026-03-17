@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.9.0 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.1 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -18,7 +18,18 @@ v9.9.0 | 개발 기간: 2026.02.06 ~ 진행 중
 
 ## 최신 업데이트
 
-> **v9.9.0** (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 에이전트 LangGraph 전환 + Supervisor 규칙 강화
+> **v9.9.1** (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **RAG 전처리** | `_deep_clean_document()` 추가 — HTML 주석, 메타데이터(`> source:` 등), 보일러플레이트(`콘텐츠 목차`, `[바로가기]`), HTML 엔티티 디코딩, `ㆍ`→`-` 불릿 정규화 |
+| **RAG 청킹** | Breadcrumb 계층 경로(`[경로: 쇼핑몰 > FAQ > 결제 설정]`), 키워드 태그(`[키워드: ...]`) 자동 삽입, Q-A 페어 병합, 테이블 보존, 절차형 불릿 1500자 이하 그룹핑, 보일러플레이트 섹션 스킵, 동일 제목 dedup + n-gram Jaccard 중복 제거 |
+| **RAG 스니펫** | `RAG_SNIPPET_CHARS` 1200 → 2500 |
+| **Python 3.13** | `asyncio.get_event_loop()` → `get_running_loop()` (k2rag.py), Dockerfile 3.11→3.13, SHAP pickle 비활성화 |
+| **멀티에이전트** | 동일 도구 중복 호출 방지 프롬프트 + `tool_total_counts` 추적 |
+
+<details>
+<summary><b>v9.9.0</b> (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 에이전트 LangGraph 전환 + Supervisor 규칙 강화</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -26,6 +37,8 @@ v9.9.0 | 개발 기간: 2026.02.06 ~ 진행 중
 | **컨설팅 에이전트 LangGraph 전환** | consulting_graph.py (~800줄, 수동 스테이트 머신 + _sessions 딕셔너리) → consulting_graph.py (~280줄, LangGraph interrupt() + MemorySaver 체크포인터), 키워드 기반 라우팅 제거 → 그래프 상태 기반 자동 라우팅 |
 | **Supervisor 워크플로우 규칙 강화** | 복합 질문("~하고 ~해줘") 시 2개+ 워커 순차 호출 강제, "조건부 판단" 범위를 분석→실행 흐름에만 제한 (독립 요청은 항상 호출) |
 | **데이터 정합성 수정** | avg_order_value: DataFrame 독립 생성 값 → total_revenue / total_orders 재계산 |
+
+</details>
 
 <details>
 <summary><b>v9.8.0</b> (2026-03-16) — 셀러 컨설팅 에이전트 추가</summary>

@@ -1831,6 +1831,56 @@ flowchart TD
 </tr>
 </tbody>
 </table></div>
+<h3 id="문서-전처리-파이프라인">문서 전처리 파이프라인 (v9.9.1)</h3>
+<p>RAG 인덱싱 전 6단계 문서 클리닝 + 시맨틱 청킹으로 검색 품질을 향상시킵니다.</p>
+<div class="table-wrapper"><table aria-label="전처리 파이프라인">
+<thead>
+<tr>
+<th style="text-align:center">#</th>
+<th>단계</th>
+<th>처리 내용</th>
+<th>효과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1</td>
+<td><strong>문서 클리닝</strong></td>
+<td>HTML 주석, 메타데이터 헤더, 보일러플레이트 제거, HTML 엔티티 디코딩, 불릿 정규화(ㆍ→-)</td>
+<td>노이즈 11% 제거</td>
+</tr>
+<tr>
+<td style="text-align:center">2</td>
+<td><strong>시맨틱 섹션 분리</strong></td>
+<td>마크다운 헤더 기반 + Q-A 페어 병합 + 테이블 보존 + 보일러플레이트 섹션 스킵</td>
+<td>FAQ 질문-답변 맥락 보존</td>
+</tr>
+<tr>
+<td style="text-align:center">3</td>
+<td><strong>Breadcrumb 경로</strong></td>
+<td>파일명에서 카테고리 계층 자동 추출 (<code>[경로: 쇼핑몰 &gt; FAQ &gt; 결제 설정]</code>)</td>
+<td>카테고리 매칭 강화</td>
+</tr>
+<tr>
+<td style="text-align:center">4</td>
+<td><strong>키워드 태그</strong></td>
+<td>빈도 기반 핵심 명사 추출 (<code>[키워드: 무통장, 계좌, 결제, ...]</code>)</td>
+<td>BM25 매칭 향상</td>
+</tr>
+<tr>
+<td style="text-align:center">5</td>
+<td><strong>절차형 그룹핑</strong></td>
+<td>1500자 이하 불릿 리스트를 하나의 청크로 통합</td>
+<td>단계별 절차 맥락 보존</td>
+</tr>
+<tr>
+<td style="text-align:center">6</td>
+<td><strong>중복 제거</strong></td>
+<td>동일 제목 섹션 dedup + n-gram Jaccard 유사도 기반 청크 dedup</td>
+<td>검색 다양성 향상</td>
+</tr>
+</tbody>
+</table></div>
 <h3 id="lightrag-지식-그래프">LightRAG (지식 그래프)</h3>
 <p>쿼리 → Local(엔티티 중심) + Global(테마 중심) → Hybrid 병합 → 결과</p>
 </section>

@@ -330,8 +330,8 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         { label: 'SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘' },
         { label: 'SEL0001 이상거래 조사하고 CS 품질 점검해줘' },
         { label: 'CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘' },
-        { label: '고위험 이탈 셀러 조회하고 세그먼트별 분포 분석해줘' },
-        { label: `${shopId} 쇼핑몰 매출 성과 분석하고 코호트 리텐션 보여줘` },
+        { label: '카페24 결제수단 설정 방법 알려줘' },
+        { label: '대시보드 전체 현황 요약해줘' },
         { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘' },
         { label: 'SEL0001 컨설팅 해줘' },
       ];
@@ -420,8 +420,8 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
   }, [stepResults, steps]);
 
   return (
-    <div className="grid grid-cols-12 gap-4">
-      <div className="col-span-12 xl:col-span-9">
+    <div className="xl:flex xl:gap-4">
+      <div className="flex-1 min-w-0">
         <SectionHeader
           title="AI 에이전트"
           subtitle="Supervisor 기반 AI 에이전트 분석"
@@ -430,7 +430,7 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
 
         <div className="card space-y-4">
           {/* 채팅/결과 영역 */}
-          <div ref={chatBoxRef} role="log" aria-live="polite" className="max-h-[55vh] md:max-h-[60vh] overflow-auto pr-1">
+          <div ref={chatBoxRef} role="log" aria-live="polite" className="max-h-[55vh] md:max-h-[65vh] overflow-auto pr-1">
             {(messages || []).map((m, idx) => {
               const isUser = m.role === 'user';
               const isPending = !!m?._pending;
@@ -824,50 +824,74 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
         </div>
       </div>
 
-      <div className="col-span-12 xl:col-span-3">
+      <div className="xl:w-[300px] xl:flex-shrink-0 mt-4 xl:mt-0">
         <div className="card">
-          <div className="card-header">빠른 분석</div>
-          <div className="text-sm text-cafe24-brown/70 mb-3">CAFE24 AI 도구 호출</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-2">
-            <button className={cafe24Btn} onClick={() => runQuick('/api/shops')} type="button">쇼핑몰 목록</button>
-            <button className={cafe24Btn} onClick={() => runQuick('/api/categories')} type="button">카테고리 목록</button>
-            <button className={cafe24Btn} onClick={() => runQuick('/api/cs/glossary')} type="button">이커머스 용어집</button>
-            <button className={cafe24Btn} onClick={() => runQuick('/api/sellers/segments/statistics')} type="button">세그먼트 통계</button>
-          </div>
-          {quickResult ? (
-            <pre className="mt-3 max-h-[45vh] overflow-auto rounded-2xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown">
-              {(() => {
-                const str = JSON.stringify(quickResult, null, 2);
-                if (str.length > 50000) return str.slice(0, 50000) + '\n\n... (결과가 너무 깁니다. 50KB 이후 생략)';
-                return str;
-              })()}
-            </pre>
-          ) : (
-            <div className="mt-3 text-xs text-cafe24-brown/60">버튼을 클릭하면 API 호출 결과를 확인할 수 있어요.</div>
-          )}
-        </div>
-
-        <div className="card mt-4">
           <div className="card-header">에이전트 정보</div>
-          <div className="text-sm text-cafe24-brown/70 space-y-2">
-            <p>
-              Supervisor 멀티에이전트 구조입니다. Supervisor가 질문을 분석하여 전문 워커에게 위임하고 결과를 종합합니다. 멀티턴 대화로 후속 질문이 가능합니다.
-            </p>
-            <div className="rounded-xl bg-cafe24-yellow/10 p-3 text-xs text-cafe24-brown space-y-1">
-              <div className="font-extrabold mb-1">전문 워커 에이전트 (7종)</div>
-              <div>이탈 분석 - ML 이탈 예측 + SHAP + 위험 셀러 조회</div>
-              <div>전략 수립 - 맞춤 리텐션 메시지 + 자동 조치 실행</div>
-              <div>셀러 분석 - 종합 진단 + 세그먼트 + 이상거래 조사</div>
-              <div>성과 분석 - 쇼핑몰 매출/코호트/마케팅 최적화</div>
-              <div>CS 품질 - CS 통계 + 자동 분류 + 품질 평가</div>
-              <div>리포트 - 대시보드 + KPI 종합 보고서</div>
-              <div>플랫폼 검색 - RAG 지식 검색 + FAQ</div>
+
+          {/* 사용 안내 */}
+          <div className="mb-3 rounded-xl bg-gradient-to-r from-cafe24-yellow/10 to-cafe24-orange/5 border border-cafe24-orange/15 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cafe24-yellow to-cafe24-orange flex items-center justify-center shadow-sm">
+                <Route size={14} className="text-white" />
+              </div>
+              <div>
+                <div className="text-xs font-extrabold text-cafe24-brown">AI 에이전트 사용법</div>
+              </div>
             </div>
-            <div className="rounded-xl bg-blue-50 p-3 text-xs text-cafe24-brown space-y-1 mt-2">
-              <div className="font-extrabold mb-1">셀러 컨설팅 (4단계 워크플로우)</div>
-              <div>"SEL0001 컨설팅 해줘" 입력 시 자동 진입</div>
-              <div>① 진단 → ② 전략 수립 → ③ 실행 계획 → ④ 실행</div>
-              <div>각 단계에서 자유 대화 가능, '다음' 입력 시 진행</div>
+            <div className="text-[11px] text-cafe24-brown/70 space-y-1.5 leading-relaxed">
+              <p>💬 왼쪽 채팅창에 <span className="font-bold text-cafe24-brown">궁금한 점을 자유롭게 입력</span>하세요.</p>
+              <p>🤖 AI가 질문을 분석해서 아래 <span className="font-bold text-cafe24-brown">전문 워커 중 적합한 에이전트</span>에게 자동으로 전달합니다.</p>
+              <p>🔄 답변 후에도 <span className="font-bold text-cafe24-brown">이어서 질문</span>할 수 있어요. 대화가 계속 이어집니다.</p>
+            </div>
+          </div>
+
+          {/* 워커 에이전트 카드 그리드 */}
+          <div className="mb-3">
+            <div className="text-[10px] font-extrabold text-cafe24-brown/50 mb-2 uppercase tracking-wider">전문 워커 에이전트</div>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(MULTI_AGENT_WORKERS).map(([key, worker]) => {
+                const Icon = worker.icon || Bot;
+                return (
+                  <motion.div
+                    key={key}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="group relative"
+                  >
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-cafe24-yellow/15 border border-cafe24-orange/15 cursor-default transition-all duration-200 hover:bg-gradient-to-r hover:from-cafe24-yellow/30 hover:to-cafe24-orange/20 hover:border-cafe24-orange/30 hover:shadow-md">
+                      <Icon size={12} className="text-cafe24-orange group-hover:text-cafe24-brown transition-colors" />
+                      <span className="text-[11px] font-bold text-cafe24-brown">{worker.label}</span>
+                    </div>
+                    {/* 호버 시 설명 팝업 */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-cafe24-brown text-white text-[11px] font-medium whitespace-nowrap opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-lg z-20">
+                      {worker.desc}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-cafe24-brown" />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 컨설팅 워크플로우 — 인라인 */}
+          <div className="group relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/50 cursor-default transition-all duration-200 hover:bg-blue-100/70 hover:border-blue-300/50 hover:shadow-md">
+            <Target size={12} className="text-blue-600" />
+            <span className="text-[11px] font-bold text-blue-700">셀러 컨설팅</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-200/50 text-blue-700 font-semibold">4단계</span>
+            {/* 호버 시 상세 팝업 */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-3 rounded-xl bg-cafe24-brown text-white opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 shadow-lg z-20">
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                {['진단', '전략', '계획', '실행'].map((step, i) => (
+                  <React.Fragment key={step}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/20">{step}</span>
+                    {i < 3 && <span className="text-white/40 text-[10px]">→</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="text-[10px] text-white/70 text-center leading-relaxed">
+                <span className="text-blue-300 font-semibold">"SEL0001 컨설팅 해줘"</span> 라고 입력하면 시작!<br />각 단계마다 자유롭게 대화하고, '다음' 입력으로 진행해요.
+              </div>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-cafe24-brown" />
             </div>
           </div>
 

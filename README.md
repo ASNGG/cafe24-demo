@@ -13,7 +13,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--5--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.9.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.3 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -28,6 +28,28 @@ v9.9.1 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 ---
 
 ## 최신 업데이트
+
+> **v9.9.3** (2026-03-17) — 프론트엔드 UX 개선 + 도구 중복 호출 차단
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **에이전트 정보 인터랙티브화** | 워커 에이전트 뱃지(호버 팝업) + 컨설팅 4단계 호버 설명 + 사용법 안내 추가 |
+| **AI 도구 탐색기 개선** | 호버 시 설명 펼침 + 매개변수/반환값/예시 질문 표시, toolRegistry에 returns·example 필드 추가 |
+| **도구 중복 호출 차단** | 동일 도구 3회 이상 호출 시 스트림 강제 종료 (break 추가, 기존 경고만 → 실제 차단) |
+| **레이아웃 개선** | 채팅+사이드 flex 레이아웃, 사이드 300px 고정, 빠른 분석 섹션 제거 |
+| **플랫폼 검색 프롬프트** | 구체적 메뉴 경로/절차 포함 지침 추가 |
+
+<details>
+<summary><b>v9.9.2</b> (2026-03-17) — RAG 청킹 전면 개선 + 인덱스 리빌드 최적화</summary>
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **RAG 전처리 강화** | 문서 클리닝 파이프라인 추가 (HTML 주석/메타데이터/보일러플레이트 제거, ㆍ→- 불릿 정규화, HTML 엔티티 디코딩) |
+| **RAG 청킹 개선** | 짧은 섹션 병합(68→2 고스킵), 불릿 서브그루핑(182→0 초소형), n-gram dedup 문서별 스코핑(O(n²)→O(Σm_i²)), FAISS 배치 임베딩(500개 단위+진행률 로그), 18,875→7,011 청크(63% 감소) |
+| **RAG 스니펫 확장** | `RAG_SNIPPET_CHARS` 1200 → 2500 (LLM 컨텍스트 2배) |
+| **Python 3.13 대응** | `asyncio.get_event_loop()` → `get_running_loop()`, Dockerfile 3.13, SHAP pickle 비활성화 |
+
+</details>
 
 > **v9.9.1** (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응 + 멀티에이전트 안정화
 

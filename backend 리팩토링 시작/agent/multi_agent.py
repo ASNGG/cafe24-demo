@@ -384,9 +384,13 @@ async def run_multi_agent_stream(req, username: str, sse_callback, category=None
                     # 동일 도구 중복 호출 방지 (성공 포함)
                     if tool_total_counts.get(end_tool_name, 0) >= MAX_TOOL_CALLS:
                         st.logger.warning(
-                            "TOOL_REPEAT_LIMIT tool=%s calls=%d — 중복 호출 차단",
+                            "TOOL_REPEAT_LIMIT tool=%s calls=%d — 중복 호출 차단, 스트림 종료",
                             end_tool_name, tool_total_counts[end_tool_name],
                         )
+                        warn_msg = f"도구 '{end_tool_name}'이(가) {MAX_TOOL_CALLS}회 이상 호출되어 중복 방지를 위해 분석을 마무리합니다."
+                        final_buf.append(warn_msg)
+                        await sse_callback("delta", {"delta": "\n\n" + warn_msg})
+                        break
 
                     # 동일 도구 실패 횟수 초과 시 스트림 강제 종료
                     if tool_fail_counts.get(end_tool_name, 0) >= MAX_TOOL_RETRIES:

@@ -10,13 +10,20 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![MLflow](https://img.shields.io/badge/MLflow-2.10+-0194E2?style=flat-square&logo=mlflow)](https://mlflow.org)
 
-v9.9.1 | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.3 | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
 ---
 
 ## 최신 업데이트
+
+> **v9.9.3** (2026-03-17) — 도구 중복 호출 차단 + 플랫폼 검색 프롬프트 강화
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **도구 중복 호출 차단** | 동일 도구 3회 이상 호출 시 스트림 강제 종료 (`break` 추가, 기존 경고만 → 실제 차단) |
+| **플랫폼 검색 프롬프트** | 구체적 메뉴 경로/절차 포함 답변 지침 추가 (`multi_agent_prompts.yaml`) |
 
 > **v9.9.1** (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응
 

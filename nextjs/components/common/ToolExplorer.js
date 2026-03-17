@@ -1,7 +1,8 @@
 // components/common/ToolExplorer.js
 // CAFE24 AI 운영 플랫폼 - 도구 탐색기 (인터랙티브 아코디언 UI)
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown, Wrench, Store, UserSearch, BrainCircuit,
@@ -44,57 +45,46 @@ const AGENT_COLOR = {
 
 const getAgentColor = (agent) => AGENT_COLOR[agent] || 'bg-gray-100 text-gray-600 border-gray-200';
 
-// 도구 카드 (개별)
+// 도구 카드 — 호버 시 아래로 설명 스르륵 펼침
 const ToolCard = React.memo(function ToolCard({ tool, accent }) {
   const colors = ACCENT_MAP[accent] || ACCENT_MAP.blue;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.15 }}
-      className="rounded-xl border border-gray-200/80 bg-white/90 p-3 backdrop-blur-sm hover:shadow-soft transition-shadow"
-    >
-      {/* 도구명 + 에이전트 뱃지 */}
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <code className="text-[11px] font-bold text-cafe24-brown break-all leading-tight">
-          {tool.name}
-        </code>
-        {tool.agents && tool.agents.length > 0 && (
-          <div className="flex flex-wrap gap-1 shrink-0">
-            {tool.agents.map((agent) => (
-              <span
-                key={agent}
-                className={`inline-block rounded-full border px-1.5 py-0.5 text-[9px] font-bold leading-none whitespace-nowrap ${getAgentColor(agent)}`}
-              >
-                {agent.replace('_agent', '')}
-              </span>
-            ))}
-          </div>
-        )}
+    <div className="group rounded-xl border border-gray-200/80 bg-white/90 px-3 py-2 cursor-default transition-all duration-200 hover:border-cafe24-orange/30 hover:shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 transition-transform duration-300 group-hover:scale-150 ${colors.dot}`} />
+        <span className="text-[11px] font-bold text-cafe24-brown">{tool.label}</span>
       </div>
 
-      {/* 한글 설명 */}
-      <p className="text-[11px] text-cafe24-brown/70 leading-snug mb-1.5">
-        {tool.description}
-      </p>
-
-      {/* 파라미터 뱃지 */}
-      {tool.params && tool.params.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {tool.params.map((p) => (
-            <span
-              key={p}
-              className={`inline-block rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${colors.badge}`}
-            >
-              {p}
-            </span>
-          ))}
+      <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out">
+        <div className="overflow-hidden">
+          <div className="pt-2 mt-1 border-t border-gray-100 space-y-2">
+            <p className="text-[11px] text-cafe24-brown/70 leading-relaxed">{tool.description}</p>
+            {tool.params && tool.params.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[9px] text-cafe24-brown/40">매개변수:</span>
+                {tool.params.map((p) => (
+                  <span key={p} className={`inline-block rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${colors.badge}`}>{p}</span>
+                ))}
+              </div>
+            )}
+            {tool.returns && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-[9px] text-cafe24-brown/40 flex-shrink-0 mt-px">→ 반환:</span>
+                <span className="text-[10px] text-emerald-700/80 leading-snug">{tool.returns}</span>
+              </div>
+            )}
+            {tool.example && (
+              <div className="rounded-lg bg-cafe24-yellow/10 px-2.5 py-1.5 flex items-start gap-1.5">
+                <span className="text-[10px] mt-px">💬</span>
+                <span className="text-[11px] text-cafe24-brown/80 font-medium leading-snug">"{tool.example}"</span>
+              </div>
+            )}
+            <code className="inline-block text-[10px] text-cafe24-brown/60 font-mono bg-gray-50 rounded px-1.5 py-0.5">{tool.name}({tool.params?.join(', ') || ''})</code>
+          </div>
         </div>
-      )}
-    </motion.div>
+      </div>
+    </div>
   );
 });
 
@@ -104,7 +94,7 @@ const CategoryAccordion = React.memo(function CategoryAccordion({ category, isOp
   const Icon = resolveIcon(category.icon);
 
   return (
-    <div className="rounded-2xl border border-gray-200/60 bg-white/60 backdrop-blur overflow-hidden">
+    <div className="rounded-2xl border border-gray-200/60 bg-white/60 backdrop-blur">
       {/* 헤더 */}
       <button
         type="button"

@@ -66,7 +66,8 @@ v9.9.4 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 </details>
 
-> **v9.9.1** (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응 + 멀티에이전트 안정화
+<details>
+<summary><b>v9.9.1</b> (2026-03-17) — RAG 전처리 + 청킹 전면 개선 + Python 3.13 대응 + 멀티에이전트 안정화</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -76,6 +77,8 @@ v9.9.4 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **Python 3.13 대응** | `asyncio.get_event_loop()` → `get_running_loop()`, Dockerfile 3.13, SHAP pickle 비활성화 |
 | **멀티에이전트 안정화** | 동일 도구 중복 호출 방지 (프롬프트 규칙 + 호출 횟수 추적) |
 | **프론트엔드** | 채팅 접기 버튼 하단 이동, 사이드 FAQ 4→9개 확장 + (RAG) 태그 |
+
+</details>
 
 <details>
 <summary><b>v9.9.0</b> (2026-03-17) — 쿼리 디컴포지션 + 컨설팅 LangGraph 전환</summary>

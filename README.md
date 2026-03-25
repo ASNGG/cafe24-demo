@@ -13,7 +13,7 @@ LLM + ML 하이브리드 아키텍처로 셀러 이탈 예측, 이상거래 탐�
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-blue?style=flat-square)](https://langchain-ai.github.io/langgraph/)
 [![OpenAI](https://img.shields.io/badge/GPT--5--mini-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com)
 
-v9.9.3 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
+v9.9.4 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (Swagger)](https://cafe24-backend-production.up.railway.app/docs) | 개발 기간: 2026.02.06 ~ 진행 중
 
 </div>
 
@@ -23,14 +23,26 @@ v9.9.3 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 
 - [x] RAG 전처리 + 청킹 전면 개선 (문서 클리닝, Breadcrumb, 키워드 태그, Q-A 병합, 테이블 보존, 중복 제거)
 - [x] Python 3.13 대응 (asyncio.get_running_loop, Dockerfile 3.13, SHAP 비활성화)
-- [ ] 멀티에이전트 라우팅 고도화 (쿼리 디컴포지션 순차 실행, 도구 호출 제한, Supervisor 워커 분기 정확도 개선)
+- [x] 멀티에이전트 라우팅 고도화 (쿼리 디컴포지션 순차 실행, 도구 호출 제한, Supervisor 워커 분기 정확도 개선)
 - [ ] 컨설팅 모드(Human-in-the-Loop) 속도 개선 + SSE 이벤트 누락 수정
 
 ---
 
 ## 최신 업데이트
 
-> **v9.9.3** (2026-03-17) — 프론트엔드 UX 개선 + 도구 중복 호출 차단
+> **v9.9.4** (2026-03-25) — 멀티에이전트 라우팅 고도화 + 도구 호출 제한 강화 + 마크다운 렌더링 개선
+
+| 영역 | 주요 변경 |
+|------|-----------|
+| **쿼리 디컴포지션 v2** | len(kw)² 가중치 점수 도메인 감지, 짧은 파트 병합, 인접 동일 도메인 병합, None 도메인 계승 |
+| **엔티티 전파** | 서브쿼리별 도메인 인식 — platform/report에는 셀러ID 미전파 (검색 노이즈 제거) |
+| **서브쿼리 순차 실행** | 디컴포지션된 각 서브쿼리를 독립 Supervisor 호출로 순차 실행 (워커 몰아주기 방지) |
+| **도구 호출 제한** | contextvars 기반 func 래핑 — 동일 도구 2회 초과 시 즉시 차단 (dict 반환, 타입 안전) |
+| **프롬프트 개선** | Supervisor 라우팅 예시 3에이전트 패턴 추가, 형식적 맺음말 금지, 최소 호출 원칙 |
+| **프론트엔드** | CommonMark 한글 bold 파싱 보정 (`fixKoreanBold`), 예시 질문 칩 최적화, Step undefined 제거 |
+
+<details>
+<summary><b>v9.9.3</b> (2026-03-17) — 프론트엔드 UX 개선 + 도구 중복 호출 차단</summary>
 
 | 영역 | 주요 변경 |
 |------|-----------|
@@ -39,6 +51,8 @@ v9.9.3 | [웹앱 (Vercel)](https://cafe24-frontend.vercel.app/) | [API 문서 (S
 | **도구 중복 호출 차단** | 동일 도구 3회 이상 호출 시 스트림 강제 종료 (break 추가, 기존 경고만 → 실제 차단) |
 | **레이아웃 개선** | 채팅+사이드 flex 레이아웃, 사이드 300px 고정, 빠른 분석 섹션 제거 |
 | **플랫폼 검색 프롬프트** | 구체적 메뉴 경로/절차 포함 지침 추가 |
+
+</details>
 
 <details>
 <summary><b>v9.9.2</b> (2026-03-17) — RAG 청킹 전면 개선 + 인덱스 리빌드 최적화</summary>

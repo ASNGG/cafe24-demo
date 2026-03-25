@@ -2310,9 +2310,10 @@ from rag.light_rag import lightrag_search_sync, get_lightrag_status
 def get_shop_info(shop_id: str) -> dict:
     """
     특정 쇼핑몰(샵)의 상세 정보를 조회합니다.
+    주의: shop_id는 'S' 접두사 (예: S0001). 셀러 ID(SEL0001)와 다릅니다. SEL→S 변환 필요.
 
     Args:
-        shop_id: 쇼핑몰 ID (예: S0001, S0042)
+        shop_id: 쇼핑몰 ID (예: S0001, S0042). 'SEL0001' 형태는 셀러 ID이므로 사용 불가.
 
     Returns:
         쇼핑몰의 이름, 카테고리, 티어, 지역, 매출 현황 등 상세 정보

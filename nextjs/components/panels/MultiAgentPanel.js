@@ -98,7 +98,7 @@ const StepResultCard = React.memo(function StepResultCard({ stepNum, result, age
           >
             <div className="px-3 pb-3">
               <div className="prose prose-sm max-w-none text-cafe24-brown text-xs">
-                <ReactMarkdown remarkPlugins={MULTI_REMARK_PLUGINS}>{result || ''}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={MULTI_REMARK_PLUGINS}>{fixKoreanBold(result)}</ReactMarkdown>
               </div>
             </div>
           </motion.div>
@@ -169,13 +169,22 @@ const MULTI_MARKDOWN_COMPONENTS = {
 
 // Supervisor 워커 agent 이름 → 한글 라벨 (MULTI_AGENT_WORKERS에서 가져옴)
 
+// CommonMark right-flanking delimiter 보정
+// **text%**에 → **text%** 에 (닫는 ** 뒤 한글이 오면 공백 삽입)
+// 원인: CommonMark 스펙상 닫는 ** 앞이 구두점이고 뒤가 비공백/비구두점이면 bold 파싱 실패
+function fixKoreanBold(text) {
+  if (!text) return '';
+  return text.replace(/(\*\*.+?\*\*)(?=[가-힣ㄱ-ㅎㅏ-ㅣ])/g, '$1 ');
+}
+
 const MarkdownMessage = React.memo(function MarkdownMessage({ content }) {
+  const fixed = useMemo(() => fixKoreanBold(content), [content]);
   return (
     <ReactMarkdown
       remarkPlugins={MULTI_REMARK_PLUGINS}
       components={MULTI_MARKDOWN_COMPONENTS}
     >
-      {content || ''}
+      {fixed}
     </ReactMarkdown>
   );
 });
@@ -326,12 +335,12 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
     () => {
       const shopId = selectedShop || 'S0001';
       return [
-        { label: 'SEL0001 이탈 위험 분석하고 리텐션 전략 실행해줘' },
-        { label: 'SEL0001 셀러 종합 진단하고 이탈 위험도 분석해줘' },
-        { label: 'SEL0001 이상거래 조사하고 CS 품질 점검해줘' },
-        { label: 'CS 품질 통계 분석하고 전체 운영 현황 대시보드 요약해줘' },
+        { label: 'SEL0001 셀러 진단하고 이탈 분석 후 리텐션 전략 실행해줘' },
+        { label: 'S0001 쇼핑몰 매출 분석하고 대시보드 요약해줘' },
+        { label: 'SEL0001 이상거래 조사하고 카페24 보안정책 검색한 뒤 셀러 종합 진단해줘' },
+        { label: 'SEL0001 이탈 위험 분석하고 카페24 이탈방지 정책 검색해줘' },
         { label: '카페24 결제수단 설정 방법 알려줘' },
-        { label: '대시보드 전체 현황 요약해줘' },
+        { label: '카페24 쇼핑몰 운영 가이드 검색해줘' },
         { label: 'SEL0001 셀러 활동 분석하고 마케팅 예산 최적화 돌려줘' },
         { label: 'SEL0001 컨설팅 해줘' },
       ];
@@ -691,16 +700,6 @@ export default function MultiAgentPanel({ auth, selectedShop, addLog, settings, 
                 </AnimatePresence>
               </div>
             </motion.div>
-          )}
-
-          {/* 단계별 결과 접기/펼치기 */}
-          {stepResultEntries.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-extrabold text-cafe24-brown/60">에이전트 결과</div>
-              {stepResultEntries.map(({ stepNum, result, agentName }) => (
-                <StepResultCard key={stepNum} stepNum={stepNum} result={result} agentName={agentName} />
-              ))}
-            </div>
           )}
 
           {/* 에러 표시 */}
